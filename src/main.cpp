@@ -9,6 +9,7 @@
 // Read comments in imgui_impl_vulkan.h.
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <imgui/examples/imgui_impl_glfw.h>
 #include <imgui/examples/imgui_impl_vulkan.h>
 #include <stdio.h>          // printf, fprintf
@@ -517,29 +518,6 @@ int main(int, char**)
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
 
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
-        {
-            static float f = 0.0f;
-            static int counter = 0;
-
-            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-            ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-            ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-            ImGui::Checkbox("Another Window", &show_another_window);
-
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-            ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-            if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-                counter++;
-            ImGui::SameLine();
-            ImGui::Text("counter = %d", counter);
-
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-            ImGui::End();
-        }
-
         // 3. Show another simple window.
         if (show_another_window)
         {
@@ -555,6 +533,8 @@ int main(int, char**)
             char input[1024] = {0};
             ImGui::Begin("Grbl");   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
             ImGui::Text("output from grbl:");
+
+            ImGui::BeginChild("ScrollingRegion", ImVec2(0, -50), false, ImGuiWindowFlags_HorizontalScrollbar);
             ImGuiListClipper clipper;
             clipper.Begin(sp_rx_lines.size());
             while (clipper.Step())
@@ -566,12 +546,20 @@ int main(int, char**)
             }
             clipper.End();
 
+
+            ImGui::SetScrollHereY(1.0f);
+            ImGui::EndChild();
+            ImGui::Separator();
             if (ImGui::InputText("SEND", input, 1024, ImGuiInputTextFlags_EnterReturnsTrue)) {
               cout << ">> " << input << endl;
               sp_rx_lines.push_back(">> " + string(input));
               sp.write(input);
               sp.write("\n");
               input[0] = 0;
+
+              // Demonstrate keeping auto focus on the input box
+              if (ImGui::IsItemHovered() || (ImGui::IsWindowFocused() && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked(0)))
+                ImGui::SetKeyboardFocusHere(-1); // Auto focus previous widget
             }
             // ImGui::
             // if (ImGui::Button("Close Me"))
@@ -579,6 +567,74 @@ int main(int, char**)
             ImGui::End();
         }
 
+        // 3. Show grbl
+        {
+          ImGui::Begin(
+            "Jog",
+            nullptr,
+            ImGuiWindowFlags_AlwaysAutoResize
+            | ImGuiWindowFlags_NoCollapse
+            | ImGuiWindowFlags_NoResize
+          );
+            ImVec2 buttonSize = { 32, 32 };
+            ImGui::Dummy(buttonSize);
+            ImGui::SameLine();
+            if (ImGui::ArrowButtonEx("##Jog:Y+", ImGuiDir_Up, buttonSize, ImGuiButtonFlags_None)) {
+              sp.write("$J=G91Y10F1000\n");
+            }
+
+            ImGui::SameLine();
+            ImGui::Dummy(buttonSize);
+            ImGui::SameLine();
+            ImGui::Dummy(buttonSize);
+            ImGui::SameLine();
+            if (ImGui::ArrowButtonEx("##Jog:Z+", ImGuiDir_Up, buttonSize, ImGuiButtonFlags_None)) {
+              sp.write("$J=G91Z10F1000\n");
+            }
+
+
+            if (ImGui::ArrowButtonEx("##Jog:X-", ImGuiDir_Left, buttonSize, ImGuiButtonFlags_None)) {
+              sp.write("$J=G91X-10F1000\n");
+            }
+
+            ImGui::SameLine();
+            ImGui::Dummy(buttonSize);
+
+            ImGui::SameLine();
+
+            if (ImGui::ArrowButtonEx("##Jog:X+", ImGuiDir_Right, buttonSize, ImGuiButtonFlags_None)) {
+              sp.write("$J=G91X+10F1000\n");
+            }
+
+            ImGui::Dummy(buttonSize);
+            ImGui::SameLine();
+            if (ImGui::ArrowButtonEx("##Jog:Y-", ImGuiDir_Down, buttonSize, ImGuiButtonFlags_None)) {
+              sp.write("$J=G91Y-10F1000\n");
+            }
+
+            ImGui::SameLine();
+            ImGui::Dummy(buttonSize);
+            ImGui::SameLine();
+            ImGui::Dummy(buttonSize);
+            ImGui::SameLine();
+
+            if (ImGui::ArrowButtonEx("##Jog:Z-", ImGuiDir_Down, buttonSize, ImGuiButtonFlags_None)) {
+              sp.write("$J=G91Z-10F10000\n");
+            }
+
+            ImGui::Dummy(buttonSize);
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0, 0.0, 0.0, 1.0));
+            if (ImGui::Button("STOP", ImVec2(ImGui::GetContentRegionAvailWidth(), 40.0))) {
+              sp.write("\x85");
+            }
+            ImGui::PopStyleColor();
+
+            // handle escape
+            if (ImGui::IsWindowFocused() && ImGui::IsKeyReleased(0x100)) {
+              sp.write("\x85");
+            }
+          ImGui::End();
+        }
 
         // Rendering
         ImGui::Render();
