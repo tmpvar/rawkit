@@ -43,11 +43,17 @@ set(IMGUI_SRC
 
 include_directories(${DEPS_DIR}/imgui ${DEPS_DIR})
 
+# DEP: serial
+add_subdirectory(${DEPS_DIR}/serial)
+include_directories(${DEPS_DIR}/serial/include)
+
 add_executable(
   rawkit
   ${SRC_DIR}/main.cpp
   ${IMGUI_SRC}
 )
+
+set_property(TARGET rawkit PROPERTY CXX_STANDARD 20)
 
 
 if(APPLE)
@@ -75,5 +81,6 @@ target_link_libraries(
   rawkit
   glfw
   shaderc
+  serial
   ${VULKAN_LIBS}
 )

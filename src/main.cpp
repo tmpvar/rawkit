@@ -18,6 +18,14 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
+#include <serial/serial.h>
+
+#include <algorithm>
+#include <iostream>
+#include <optional>
+#include <cctype>
+using namespace std;
+
 // #define IMGUI_UNLIMITED_FRAME_RATE
 #ifdef _DEBUG
 #define IMGUI_VULKAN_DEBUG_REPORT
@@ -330,8 +338,40 @@ static void glfw_resize_callback(GLFWwindow*, int w, int h)
     g_SwapChainResizeHeight = h;
 }
 
+inline std::string trim(const std::string &s)
+{
+   auto wsfront=std::find_if_not(s.begin(),s.end(),[](int c){return std::isspace(c);});
+   auto wsback=std::find_if_not(s.rbegin(),s.rend(),[](int c){return std::isspace(c);}).base();
+   return (wsback<=wsfront ? std::string() : std::string(wsfront,wsback));
+}
+
 int main(int, char**)
 {
+    auto list = serial::list_ports();
+    auto it = find_if(list.begin(), list.end(), [](const serial::PortInfo& obj) {
+      return obj.description.find("Arduino") == 0;
+    });
+
+    if (it == list.end()) {
+      printf("could not find a valid serial port\n");
+    } else {
+      cout << "found port: " << it->description << endl;
+    }
+
+    serial::Serial sp(
+      it->port,
+      115200,
+      serial::Timeout::simpleTimeout(1)
+    );
+
+    if (sp.isOpen()) {
+      cout << "serial port is open!" << endl;
+    } else {
+      cout << "serial port not open" << endl;
+    }
+
+    vector<string> sp_rx_lines;
+
     // Setup GLFW window
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -449,6 +489,16 @@ int main(int, char**)
         // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
         glfwPollEvents();
 
+
+        // Poll the serialport
+        if (sp.isOpen()) {
+          string line = trim(sp.readline());
+          if (line.length()) {
+            cout << "recv: " << line << endl;
+            sp_rx_lines.push_back("<< " + line);
+          }
+        }
+
         // Resize swap chain?
         if (g_SwapChainRebuild && g_SwapChainResizeWidth > 0 && g_SwapChainResizeHeight > 0)
         {
@@ -499,6 +549,36 @@ int main(int, char**)
                 show_another_window = false;
             ImGui::End();
         }
+
+        // 3. Show grbl
+        {
+            char input[1024] = {0};
+            ImGui::Begin("Grbl");   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+            ImGui::Text("output from grbl:");
+            ImGuiListClipper clipper;
+            clipper.Begin(sp_rx_lines.size());
+            while (clipper.Step())
+            {
+                for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++)
+                {
+                    ImGui::TextUnformatted(sp_rx_lines[line_no].c_str());
+                }
+            }
+            clipper.End();
+
+            if (ImGui::InputText("SEND", input, 1024, ImGuiInputTextFlags_EnterReturnsTrue)) {
+              cout << ">> " << input << endl;
+              sp_rx_lines.push_back(">> " + string(input));
+              sp.write(input);
+              sp.write("\n");
+              input[0] = 0;
+            }
+            // ImGui::
+            // if (ImGui::Button("Close Me"))
+            //     show_another_window = false;
+            ImGui::End();
+        }
+
 
         // Rendering
         ImGui::Render();
