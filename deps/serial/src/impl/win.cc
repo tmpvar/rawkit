@@ -236,6 +236,16 @@ Serial::SerialImpl::reconfigurePort ()
     throw invalid_argument ("invalid parity");
   }
 
+
+  // dcbSerialParams.fBinary = TRUE;
+  dcbSerialParams.fDtrControl = DTR_CONTROL_ENABLE;
+  // dcbSerialParams.fDsrSensitivity = FALSE;
+  // dcbSerialParams.fTXContinueOnXoff = FALSE;
+  // dcbSerialParams.fErrorChar = FALSE;
+  // dcbSerialParams.fNull = FALSE;
+  // dcbSerialParams.fAbortOnError = FALSE;
+  // dcbSerialParams.fOutxDsrFlow = FALSE;
+
   // setup flowcontrol
   if (flowcontrol_ == flowcontrol_none) {
     dcbSerialParams.fOutxCtsFlow = false;
