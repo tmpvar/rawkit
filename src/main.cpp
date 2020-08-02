@@ -8,10 +8,11 @@
 //   the back-end itself (imgui_impl_vulkan.cpp), but should PROBABLY NOT be used by your own engine/app code.
 // Read comments in imgui_impl_vulkan.h.
 
-#include <imgui.h>
-#include <imgui_internal.h>
-#include <imgui/examples/imgui_impl_glfw.h>
-#include <imgui/examples/imgui_impl_vulkan.h>
+#if defined(WIN32)
+    // see: https://developercommunity.visualstudio.com/content/problem/93889/error-c2872-byte-ambiguous-symbol.html
+    #define _HAS_STD_BYTE 0
+#endif
+
 #include <stdio.h>          // printf, fprintf
 #include <stdlib.h>         // abort
 #define GLFW_INCLUDE_NONE
@@ -26,6 +27,14 @@
 #include <optional>
 #include <cctype>
 using namespace std;
+
+#include <hot/hot.h>
+#include <stdio.h>
+#include "llvm/Support/InitLLVM.h"
+
+#include <hot/host/cimgui.h>
+#include <imgui/examples/imgui_impl_glfw.h>
+#include <imgui/examples/imgui_impl_vulkan.h>
 
 // #define IMGUI_UNLIMITED_FRAME_RATE
 #ifdef _DEBUG
@@ -346,24 +355,55 @@ inline std::string trim(const std::string &s)
    return (wsback<=wsfront ? std::string() : std::string(wsfront,wsback));
 }
 
-int main(int, char**)
-{
+
+llvm::ExitOnError ExitOnErr;
+int main(int argc, const char **argv) {
+    llvm::InitLLVM initialize_llvm(argc, argv);
+
+    llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+    ExitOnErr.setBanner("hot");
+    JitJob *job = JitJob::create(argc, argv);
+    if (job == nullptr) {
+        printf("failed to create jit job\n");
+        return 1;
+    }
+    job->addExport("printf", (void *)&printf);
+    job->addExport("__stdio_common_vfprintf", (void *)&__stdio_common_vfprintf);
+    job->addExport("__stdio_common_vsprintf", (void *)&__stdio_common_vsprintf);
+
+    //job->addExport("ImGui::Begin", (void *)&ImGui::Begin);
+    // job->addExport("igBegin", (void *)&igBegin);
+    // job->addExport("igText", (void *)&igText);
+    host_cimgui_init(job);
+    
     auto list = serial::list_ports();
     auto it = find_if(list.begin(), list.end(), [](const serial::PortInfo& obj) {
-      return obj.description.find("Arduino") == 0;
+      cout << "arduino: " << obj.description << " :: " << obj.hardware_id << endl;
+
+      return obj.description.find("Arduino") == 0 || obj.description.find("USB Serial Device") == 0;
     });
 
+    string port = "/dev/null";
     if (it == list.end()) {
       printf("could not find a valid serial port\n");
     } else {
       cout << "found port: " << it->description << endl;
+      port = it->port;
     }
 
-    serial::Serial sp(
-      it->port,
-      115200,
-      serial::Timeout::simpleTimeout(1)
-    );
+    
+    serial::Serial sp;
+    sp.setPort(port);
+    sp.setBaudrate(115200);
+    sp.setTimeout(serial::Timeout::simpleTimeout(1));
+    sp.open();
+    //serial::Serial sp(
+//      port,
+  //    115200,
+      //serial::Timeout::simpleTimeout(1)
+    //);
 
     if (sp.isOpen()) {
       cout << "serial port is open!" << endl;
@@ -479,7 +519,7 @@ int main(int, char**)
     bool show_demo_window = true;
     bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
+    
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
@@ -489,6 +529,8 @@ int main(int, char**)
         // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
         // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
         glfwPollEvents();
+
+        job->tick();
 
 
         // Poll the serialport
@@ -513,6 +555,8 @@ int main(int, char**)
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+
+        job->loop();
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)

@@ -4,58 +4,23 @@ project(rawkit)
 set(DEPS_DIR ${CMAKE_CURRENT_LIST_DIR}/deps)
 set(SRC_DIR ${CMAKE_CURRENT_LIST_DIR}/SRC)
 
-# DEP: glfw
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_VULKAN_STATIC ON CACHE BOOL "" FORCE)
-add_subdirectory(${DEPS_DIR}/glfw)
-
-# DEP: SPIRV-Headers
-add_subdirectory(${DEPS_DIR}/SPIRV-Headers)
-
-# DEP: SPIRV-Tools
-set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "" FORCE)
-set(SPIRV_WERROR OFF CACHE BOOL "" FORCE)
-add_subdirectory(${DEPS_DIR}/SPIRV-Tools)
-
-# DEP: glslang
-set(BUILD_EXTERNAL OFF CACHE BOOL "" FORCE)
-set(ENABLE_CTEST OFF CACHE BOOL "" FORCE)
-set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "" FORCE)
-# set(ENABLE_PCH OFF CACHE BOOL "" FORCE)
-set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "" FORCE)
-add_subdirectory(${DEPS_DIR}/glslang)
-
-# DEP: shaderc
-set(SHADERC_SKIP_TESTS ON CACHE BOOL "" FORCE)
-add_subdirectory(${DEPS_DIR}/shaderc)
-
-# DEP: imgui
-set(IMGUI_SRC
-  ${DEPS_DIR}/imgui/imgui.cpp
-  ${DEPS_DIR}/imgui/imgui_demo.cpp
-  ${DEPS_DIR}/imgui/imgui_draw.cpp
-  ${DEPS_DIR}/imgui/imgui_widgets.cpp
-  ${DEPS_DIR}/imgui/examples/imgui_impl_glfw.cpp
-  ${DEPS_DIR}/imgui/examples/imgui_impl_vulkan.cpp
+# DEP: llvm
+find_package(LLVM REQUIRED CONFIG
+  PATHS ${LLVM_SEARCH_PATHS}
+  NO_DEFAULT_PATH
+)
+find_package(Clang REQUIRED CONFIG
+  PATHS  ${LLVM_SEARCH_PATHS}
+  NO_DEFAULT_PATH
 )
 
-include_directories(${DEPS_DIR}/imgui ${DEPS_DIR})
-
-# DEP: serial
-add_subdirectory(${DEPS_DIR}/serial)
-include_directories(${DEPS_DIR}/serial/include)
-
-add_executable(
-  rawkit
-  ${SRC_DIR}/main.cpp
-  ${IMGUI_SRC}
+include_directories(
+  ${CMAKE_CURRENT_LIST_DIR}/include
+  ${LLVM_INCLUDE_DIRS}
+  include
 )
 
-set_property(TARGET rawkit PROPERTY CXX_STANDARD 20)
-
-
+# DEP: Vulkan
 if(APPLE)
     set(MOLTENVK_PATH "$ENV{VULKAN_SDK}")
     target_link_directories(rawkit PUBLIC "${MOLTENVK_PATH}/lib")
@@ -65,22 +30,155 @@ if(APPLE)
         "-framework Metal"
         "-framework QuartzCore"
     )
-
     include_directories(${MOLTENVK_PATH}/include)
-
 elseif(WIN32)
     find_package(Vulkan)
     set(VULKAN_LIBS
         ${Vulkan_LIBRARIES}
     )
     include_directories(${Vulkan_INCLUDE_DIRS})
-    message(STATUS "vulkan sdk path ${VK_SDK_PATH}")
+    message(STATUS "vulkan sdk path ${VK_SDK_PATH} ${Vulkan_INCLUDE_DIRS} ${Vulkan_LIBRARIES}")
+
+    get_cmake_property(_variableNames VARIABLES)
+    list (SORT _variableNames)
+    foreach (_variableName ${_variableNames})
+        message(STATUS "${_variableName}=${${_variableName}}")
+    endforeach()
 endif()
+
+
+# DEP: glfw
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_VULKAN_STATIC ON CACHE BOOL "" FORCE)
+add_subdirectory(${DEPS_DIR}/glfw)
+
+# DEP: SPIRV-Headers
+# set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "" FORCE)
+# set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "" FORCE)
+# add_subdirectory(${DEPS_DIR}/SPIRV-Headers)
+# add_definitions(-DSPIRV-Headers_SOURCE_DIR="${DEPS_DIR}/SPIRV-Headers")
+
+# DEP: SPIRV-Tools
+# set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "" FORCE)
+# set(SPIRV_WERROR OFF CACHE BOOL "" FORCE)
+# add_subdirectory(${DEPS_DIR}/SPIRV-Tools)
+
+# DEP: glslang
+# set(BUILD_EXTERNAL OFF CACHE BOOL "" FORCE)
+# set(ENABLE_CTEST OFF CACHE BOOL "" FORCE)
+# set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "" FORCE)
+# # set(ENABLE_PCH OFF CACHE BOOL "" FORCE)
+# set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "" FORCE)
+# add_subdirectory(${DEPS_DIR}/glslang)
+
+# DEP: shaderc
+# set(SHADERC_SKIP_TESTS ON CACHE BOOL "" FORCE)
+# add_subdirectory(${DEPS_DIR}/shaderc)
+
+# DEP: cimgui / imgui
+set(IMGUI_SRC
+  ${DEPS_DIR}/cimgui/cimgui.cpp
+  ${DEPS_DIR}/cimgui/imgui/imgui.cpp
+  ${DEPS_DIR}/cimgui/imgui/imgui_demo.cpp
+  ${DEPS_DIR}/cimgui/imgui/imgui_draw.cpp
+  ${DEPS_DIR}/cimgui/imgui/imgui_widgets.cpp
+  ${DEPS_DIR}/cimgui/imgui/examples/imgui_impl_glfw.cpp
+  ${DEPS_DIR}/cimgui/imgui/examples/imgui_impl_vulkan.cpp
+)
+
+include_directories(${DEPS_DIR}/cimgui ${DEPS_DIR}/cimgui/imgui)
+
+# DEP: serial
+add_subdirectory(${DEPS_DIR}/serial)
+include_directories(${DEPS_DIR}/serial/include)
+
+add_executable(
+  rawkit
+  ${SRC_DIR}/main.cpp
+  ${SRC_DIR}/hot/jitjob.cpp
+  ${SRC_DIR}/hot/lib.cpp
+  ${IMGUI_SRC}
+)
+
+
+if (WIN32)
+  set_property(TARGET rawkit PROPERTY CXX_STANDARD 11)
+  set(EXTRA_COMPILE_OPTIONS "/MD")
+else()
+  set_property(TARGET rawkit PROPERTY CXX_STANDARD 14)
+  set(EXTRA_COMPILE_OPTIONS "-Wl,export-dynamic")
+endif()
+
+set(LLVM_SEARCH_PATHS
+  "E:/llvm/" #tmpvar's pc
+  # general homebrew install
+  "/usr/local/opt/llvm/lib/cmake/llvm"
+  "/usr/local/opt/llvm/lib/cmake/clang"
+)
+
+
+target_compile_options(
+  rawkit
+  PRIVATE
+  -D_CRT_SECURE_NO_DEPRECATE
+  -D_CRT_SECURE_NO_WARNINGS
+  -D_CRT_NONSTDC_NO_DEPRECATE
+  -D_CRT_NONSTDC_NO_WARNINGS
+  -D_SCL_SECURE_NO_DEPRECATE
+  -D_SCL_SECURE_NO_WARNINGS
+  -DUNICODE
+  -D_UNICODE
+  -D__STDC_CONSTANT_MACROS
+  -D__STDC_FORMAT_MACROS
+  -D__STDC_LIMIT_MACROS
+  ${EXTRA_COMPILE_OPTIONS}
+)
+
+# fix an error on mac:
+#    means the weak symbol cannot be overridden at runtime.
+#    This was likely caused by different translation units
+#    being compiled with different visibility settings.
+
+function(append_if condition value)
+  if (${condition})
+    foreach(variable ${ARGN})
+      set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
+    endforeach(variable)
+  endif()
+endfunction()
+
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
+append_if(SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG "-fvisibility-inlines-hidden" CMAKE_CXX_FLAGS)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
 
 target_link_libraries(
   rawkit
   glfw
-  shaderc
+  # grab this from the vulkan sdk
+  # shaderc
   serial
   ${VULKAN_LIBS}
+
+  LLVMCore
+  LLVMExecutionEngine
+  LLVMMC
+  LLVMMCJIT
+  LLVMObject
+  LLVMOrcJIT
+  LLVMOption
+  LLVMRuntimeDyld
+  LLVMSupport
+  LLVMTarget
+
+  LLVMX86CodeGen
+
+  clangBasic
+  clangCodeGen
+  clangDriver
+  clangFrontend
+  clangSerialization
 )
