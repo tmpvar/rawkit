@@ -150,6 +150,11 @@ private:
         run->loop_fn = (mainfn)result.get().getAddress();
       }
 
+      // run static constructors
+      run->jit->runConstructors();
+      printf("ran static constructors...\n");
+
+
 
       return run;
     }

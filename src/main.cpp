@@ -8,11 +8,6 @@
 //   the back-end itself (imgui_impl_vulkan.cpp), but should PROBABLY NOT be used by your own engine/app code.
 // Read comments in imgui_impl_vulkan.h.
 
-#if defined(WIN32)
-    // see: https://developercommunity.visualstudio.com/content/problem/93889/error-c2872-byte-ambiguous-symbol.html
-    #define _HAS_STD_BYTE 0
-#endif
-
 #include <stdio.h>          // printf, fprintf
 #include <stdlib.h>         // abort
 #define GLFW_INCLUDE_NONE
@@ -26,7 +21,7 @@
 #include <iostream>
 #include <optional>
 #include <cctype>
-using namespace std;
+
 
 #include <hot/hot.h>
 #include <stdio.h>
@@ -37,6 +32,9 @@ using namespace std;
 #include <imgui/examples/imgui_impl_glfw.h>
 #include <imgui/examples/imgui_impl_vulkan.h>
 
+// this must come after including llvm because visual studio / windows sdk 
+// conflict with std::byte
+using namespace std;
 // #define IMGUI_UNLIMITED_FRAME_RATE
 #ifdef _DEBUG
 #define IMGUI_VULKAN_DEBUG_REPORT
@@ -388,12 +386,12 @@ int main(int argc, const char **argv) {
     });
 
     string port = "/dev/null";
-    if (it == list.end()) {
-      printf("could not find a valid serial port\n");
-    } else {
-      cout << "found port: " << it->description << endl;
-      port = it->port;
-    }
+    // if (it == list.end()) {
+    //   printf("could not find a valid serial port\n");
+    // } else {
+    //   cout << "found port: " << it->description << endl;
+    //   port = it->port;
+    // }
 
     
     serial::Serial sp;

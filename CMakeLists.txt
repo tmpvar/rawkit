@@ -100,6 +100,7 @@ add_executable(
   ${SRC_DIR}/main.cpp
   ${SRC_DIR}/hot/jitjob.cpp
   ${SRC_DIR}/hot/state.cpp
+  ${SRC_DIR}/rawkit/serial.cpp
   ${IMGUI_SRC}
 )
 
@@ -134,6 +135,8 @@ target_compile_options(
   -D__STDC_CONSTANT_MACROS
   -D__STDC_FORMAT_MACROS
   -D__STDC_LIMIT_MACROS
+  # see: https://developercommunity.visualstudio.com/content/problem/93889/error-c2872-byte-ambiguous-symbol.html
+  -D_HAS_STD_BYTE=0
   ${EXTRA_COMPILE_OPTIONS}
 )
 
