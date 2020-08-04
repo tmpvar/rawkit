@@ -94,6 +94,8 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
   Args.push_back("-I../deps/");
   Args.push_back("-I../deps/cimgui");
+  Args.push_back("-I../include/hot/guest");
+  Args.push_back("-DHOT_GUEST=1");
 
   job->compilation.reset(job->driver->BuildCompilation(Args));
   if (!job->compilation) {

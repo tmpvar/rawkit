@@ -5,4 +5,4 @@
 #include "llvm/Support/InitLLVM.h"
 
 
-void hot_init(const int argc, char **argv);
+// void hot_init(const int argc, char **argv);

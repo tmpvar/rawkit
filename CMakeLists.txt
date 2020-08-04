@@ -18,6 +18,7 @@ include_directories(
   ${CMAKE_CURRENT_LIST_DIR}/include
   ${LLVM_INCLUDE_DIRS}
   include
+  include/hot/guest
 )
 
 # DEP: Vulkan
@@ -98,7 +99,7 @@ add_executable(
   rawkit
   ${SRC_DIR}/main.cpp
   ${SRC_DIR}/hot/jitjob.cpp
-  ${SRC_DIR}/hot/lib.cpp
+  ${SRC_DIR}/hot/state.cpp
   ${IMGUI_SRC}
 )
 

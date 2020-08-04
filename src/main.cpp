@@ -33,6 +33,7 @@ using namespace std;
 #include "llvm/Support/InitLLVM.h"
 
 #include <hot/host/cimgui.h>
+#include <hot/host/hot.h>
 #include <imgui/examples/imgui_impl_glfw.h>
 #include <imgui/examples/imgui_impl_vulkan.h>
 
@@ -363,7 +364,7 @@ int main(int argc, const char **argv) {
     llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
-    ExitOnErr.setBanner("hot");
+    ExitOnErr.setBanner("rawkit");
     JitJob *job = JitJob::create(argc, argv);
     if (job == nullptr) {
         printf("failed to create jit job\n");
@@ -377,6 +378,7 @@ int main(int argc, const char **argv) {
     // job->addExport("igBegin", (void *)&igBegin);
     // job->addExport("igText", (void *)&igText);
     host_cimgui_init(job);
+    host_hot_init(job);
     
     auto list = serial::list_ports();
     auto it = find_if(list.begin(), list.end(), [](const serial::PortInfo& obj) {
@@ -395,10 +397,12 @@ int main(int argc, const char **argv) {
 
     
     serial::Serial sp;
-    sp.setPort(port);
-    sp.setBaudrate(115200);
-    sp.setTimeout(serial::Timeout::simpleTimeout(1));
-    sp.open();
+    if (port != "/dev/null") {
+        sp.setPort(port);
+        sp.setBaudrate(115200);
+        sp.setTimeout(serial::Timeout::simpleTimeout(1));
+        sp.open();
+    }
     //serial::Serial sp(
 //      port,
   //    115200,
