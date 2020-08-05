@@ -29,18 +29,23 @@ SerialID Serial_Open(const char *portName) {
     return d;
   }
 
-  OptionalSerial port = new serial::Serial(
-    portName,
-    115200,
-    serial::Timeout::simpleTimeout(1000)
-  );
+  try {
+    OptionalSerial port = new serial::Serial(
+      portName,
+      115200,
+      serial::Timeout::simpleTimeout(1)
+    );
 
-  SerialID index = serial_ports.size();
-  serial_ports.push_back(port);
-  return index;
+    SerialID index = serial_ports.size();
+    serial_ports.push_back(port);
+    return index;
+  } catch (serial::IOException e) {
+    return -1;
+  }
 }
 
 inline OptionalSerial Serial_Valid(SerialID id) {
+  
   if (serial_ports.size() <= id) {
     return nullptr;
   }
@@ -52,7 +57,14 @@ inline OptionalSerial Serial_Valid(SerialID id) {
   }
 
   if (!sp->isOpen()) {
-    return nullptr;
+    try {
+      sp->open();
+      if (!sp->isOpen()) {
+        return nullptr; 
+      }
+    } catch (serial::IOException e) {
+      return nullptr;
+    }
   }
 
   return sp;
@@ -64,7 +76,12 @@ size_t Serial_Available(SerialID id){
     return 0;
   }
   
-  return serial_ports[id]->available();
+  try {
+    return sp->available();
+  } catch (serial::IOException e) {
+    sp->close();
+    return 0;
+  }
 }
 
 int16_t Serial_Read(SerialID id) {
@@ -74,8 +91,13 @@ int16_t Serial_Read(SerialID id) {
   }
 
   uint8_t out = 0;
-  sp->read(&out, 1);
-  return static_cast<int16_t>(out);
+  try  {
+    sp->read(&out, 1);
+    return static_cast<int16_t>(out);
+  } catch (serial::IOException e) {
+    sp->close();
+    return -1;
+  }
 }
 
 void host_rawkit_serial_init(JitJob *job) {

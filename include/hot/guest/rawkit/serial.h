@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-typedef uint32_t SerialID;
+typedef int32_t SerialID;
 
 extern "C" {
   SerialID Serial_Open(const char *port);
@@ -11,7 +11,7 @@ extern "C" {
 }
 
 struct SerialPort {
-  uint32_t id;
+  SerialID id;
   SerialPort(const char *port);
   size_t available();
   // we use int16 here because we want the full lower 8 bits
