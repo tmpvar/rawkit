@@ -107,7 +107,7 @@ add_executable(
 
 if (WIN32)
   set_property(TARGET rawkit PROPERTY CXX_STANDARD 11)
-  set(EXTRA_COMPILE_OPTIONS "/MD")
+    set(EXTRA_COMPILE_OPTIONS "/MD")
 else()
   set_property(TARGET rawkit PROPERTY CXX_STANDARD 14)
   set(EXTRA_COMPILE_OPTIONS "-Wl,export-dynamic")
