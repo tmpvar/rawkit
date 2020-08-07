@@ -395,51 +395,83 @@ TEST_CASE("settings") {
   REQUIRE(p.handle->tokens[67].f32 == 132.0f);
 }
 
+TEST_CASE("[MSG:...]") {
+  GrblParser p;
+  int r = p.read("[MSG:'$H'|'$X' to unlock]\r\n");
+  REQUIRE(r == GRBL_TRUE);
+  REQUIRE(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_MESSAGE_MSG);
+  REQUIRE(strcmp(p.handle->tokens[0].str, "'$H'|'$X' to unlock") == 0);
+}
 
-// TEST_CASE("status report (Idle WPos $10=0)") {
+TEST_CASE("[VER:...]") {
+  GrblParser p;
+  int r = p.read("[VER:1.1h.20190830:]\r\n");
+  REQUIRE(r == GRBL_TRUE);
+  REQUIRE(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_MESSAGE_VER);
+  REQUIRE(strcmp(p.handle->tokens[0].str, "1.1h.20190830:") == 0);
+}
+
+TEST_CASE("[OPT:...]") {
+  GrblParser p;
+  int r = p.read("[OPT:V,15,128]\r\n");
+  REQUIRE(r == GRBL_TRUE);
+  REQUIRE(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_MESSAGE_OPT);
+  REQUIRE(strcmp(p.handle->tokens[0].str, "V,15,128") == 0);
+}
+
+TEST_CASE("[HLP:...]") {
+  GrblParser p;
+  int r = p.read(
+    "[HLP:$$ $# $G $I $N $x=val $Nx=line $J=line $SLP $C $X $H ~ ! ? ctrl-x]\r\n"
+  );
+  REQUIRE(r == GRBL_TRUE);
+  REQUIRE(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_MESSAGE_HLP);
+  REQUIRE(
+      strcmp(
+        p.handle->tokens[0].str,
+        "$$ $# $G $I $N $x=val $Nx=line $J=line $SLP $C $X $H ~ ! ? ctrl-x"
+      ) == 0
+  );
+}
+
+TEST_CASE("[GC:...]") {
+  GrblParser p;
+  int r = p.read("[GC:G0 G54 G17 G21 G90 G94 M5 M9 T4 F1200 S24000]\r\n");
+  REQUIRE(r == GRBL_TRUE);
+  REQUIRE(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_MESSAGE_GC);
+
+  grbl_gcode_state *s = &p.handle->tokens[0].gcode_state;
+
+  REQUIRE(s->motion_mode == G0);
+  REQUIRE(s->coordinate_system == G54);
+  REQUIRE(s->plane == G17);
+  REQUIRE(s->units == G21);
+  REQUIRE(s->distance_mode == G90);
+  REQUIRE(s->feed_rate_mode == G94);
+  REQUIRE(s->spindle_state == M5);
+  REQUIRE(s->coolant_state == M9);
+  REQUIRE(s->tool_index == 4);
+  REQUIRE(s->feed == 1200);
+  REQUIRE(s->spindle_rpm == 24000);
+}
+
+// TEST_CASE("$# response") {
 //   GrblParser p;
-
 //   int r = p.read(
-//     "<Idle"                     // machine state
-//     "|WPos:1.234,5.678,9.012"   // Working coordinate position
-//     "|Bf:15,128"                // buffer state
-//     "|Ln:99999"                 // line number
-//     "|F:500"                    // feed rate (spindle disabled in config.h)
-//     "|FS:1000, 12000"           // feed + spindle
-//     "|WCO:-100.000,0.000,0.000" // working coordinate offset
-//     "|Pn:XYZPDHRS"
-//     "|Ov:100,100,100"
-//     ">"
+//     "[G54:-100.000,0.000,0.000]\r\n"
+//     "[G55:102.000,1.000,0.999]\r\n"
+//     "[G56:70.000,10.000,0.999]\r\n"
+//     "[G57:70.000,10.000,0.999]\r\n"
+//     "[G58:70.000,1.000,33.599]\r\n"
+//     "[G59:70.000,1.000,0.999]\r\n"
+//     "[G28:0.000,0.000,0.000]\r\n"
+//     "[G30:-100.000,0.000,-20.000]\r\n"
+//     "[G92:0.000,0.000,0.000]\r\n"
+//     "[TLO:0.000]\r\n"
+//     "[PRB:0.000,0.000,0.000:0]\r\n"
+//     "ok\r\n"
 //   );
 
 //   REQUIRE(r == GRBL_TRUE);
-//   REQUIRE(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_STATUS_REPORT);
-  
-//   REQUIRE(p.handle->tokens[1].type == GRBL_TOKEN_TYPE_MACHINE_STATE);
-//   REQUIRE(p.handle->tokens[1].machine_state.value == GRBL_MACHINE_STATE_IDLE);
-//   REQUIRE(p.handle->tokens[1].machine_state.code == 0);
 
-//   REQUIRE(p.handle->tokens[2].type == GRBL_TOKEN_TYPE_WCO_POSITION);
-//   REQUIRE(p.handle->tokens[2].vec3.x == 1.234f);
-//   REQUIRE(p.handle->tokens[2].vec3.y == 5.678f);
-//   REQUIRE(p.handle->tokens[2].vec3.z == 9.012f);
 // }
-
-// TEST_CASE("status report (Door:1)") {
-//   GrblParser p;
-
-//   int r = p.read("<Door:1|MPos:1.234,5.678,9.012|FS:0,0|WCO:-100.000,0.000,0.000>\r\n");
-//   REQUIRE(r == GRBL_TRUE);
-//   REQUIRE(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_STATUS_REPORT);
-//   REQUIRE(p.handle->tokens[1].type == GRBL_TOKEN_TYPE_MACHINE_STATE);
-//   REQUIRE(p.handle->tokens[1].machine_state.value == GRBL_MACHINE_STATE_DOOR);
-//   REQUIRE(p.handle->tokens[1].machine_state.code == 1);
-
-//   REQUIRE(p.handle->tokens[2].type == GRBL_TOKEN_TYPE_MACHINE_POSITION);
-//   REQUIRE(p.handle->tokens[2].vec3.x == 1.234f);
-//   REQUIRE(p.handle->tokens[2].vec3.y == 5.678f);
-//   REQUIRE(p.handle->tokens[2].vec3.z == 9.012f);
-// }
-
-// <Idle|MPos:0.000,0.000,0.000|FS:0,0|Ov:100,100,100>
-// <Idle|MPos:0.000,0.000,0.000|FS:0,0>

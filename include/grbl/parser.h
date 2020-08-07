@@ -48,6 +48,11 @@ enum grbl_response_token_type {
   GRBL_TOKEN_TYPE_ACCESSORY_STATE,
   GRBL_TOKEN_TYPE_SETTING_KEY,
   GRBL_TOKEN_TYPE_SETTING_VALUE,
+  GRBL_TOKEN_TYPE_MESSAGE_MSG,
+  GRBL_TOKEN_TYPE_MESSAGE_HLP,
+  GRBL_TOKEN_TYPE_MESSAGE_VER,
+  GRBL_TOKEN_TYPE_MESSAGE_OPT,
+  GRBL_TOKEN_TYPE_MESSAGE_GC,
 };
 
 enum grbl_alarm_code {
@@ -161,6 +166,95 @@ enum grbl_machine_state {
   GRBL_MACHINE_STATE_COUNT
 };
 
+enum grbl_motion_mode {
+  G0,
+  G1,
+  G2,
+  G3,
+  G38_2,
+  G38_3,
+  G38_4,
+  G38_5,
+  G80,
+};
+
+enum grbl_coordinate_system {
+  G54,
+  G55,
+  G56,
+  G57,
+  G58,
+  G59,
+};
+
+enum grbl_plane_select {
+  G17,
+  G18,
+  G19,
+};
+
+enum grbl_distance_mode {
+  G90,
+  G91,
+};
+
+enum grbl_arc_ijk_distance_mode {
+  G91_1
+};
+
+enum grbl_feed_rate_mode {
+  G93,
+  G94,
+};
+
+enum grbl_units_mode {
+  G20,
+  G21,
+};
+
+enum grbl_cutter_radius_compensation {
+  G40,
+};
+
+enum grbl_tool_length_offset {
+  G43_1,
+  G49,
+};
+
+enum grbl_program_mode {
+  M0,
+  M1,
+  M2,
+  M30,
+};
+
+enum grbl_spindle_state {
+  M3,
+  M4,
+  M5,
+};
+
+enum grbl_coolant_state {
+  M7,
+  M8,
+  M9,
+};
+
+struct grbl_gcode_state {
+  grbl_motion_mode motion_mode;
+  grbl_coordinate_system coordinate_system;
+  grbl_plane_select plane;
+  grbl_units_mode units;
+  grbl_distance_mode distance_mode;
+  grbl_feed_rate_mode feed_rate_mode;
+  grbl_spindle_state spindle_state;
+  grbl_coolant_state coolant_state;
+  grbl_program_mode program_mode;
+  uint8_t tool_index;
+  uint16_t feed;
+  uint16_t spindle_rpm;
+};
+
 const char *grbl_machine_state_str[GRBL_MACHINE_STATE_COUNT] = {
   "Alarm",
   "Check",
@@ -244,6 +338,8 @@ typedef struct grbl_response_token_t {
     grbl_msg_current_pins_t pins;
     grbl_msg_overrides_t overrides;
     grbl_msg_accessory_state_t accessories;
+    char *str;
+    grbl_gcode_state gcode_state;
   };
 } grbl_response_token_t;
 
@@ -366,6 +462,20 @@ char *read_vec3(grbl_vec3_t *acc, char *buf, uint32_t *len) {
 
   // read z
   return read_float(&acc->z, buf, len);
+}
+
+char *read_str(grbl_response_token_t *token, char *buf, uint32_t *len) {
+  if (*len == 0) {
+    return NULL;
+  }
+
+  uint32_t l = (*len)-1;
+  token->str = (char *)malloc(*len);
+  memcpy(token->str, buf, *len - 1);
+  token->str[*len] = 0;
+  
+  printf("str: %s\n", token->str);
+  return buf;
 }
 
 int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
@@ -782,7 +892,167 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
 
   // handle messages
   if (buf[0] == '[') {
+    grbl_response_token_t token;
+    
+    buf = advance(buf, &len, 1);
+    if (buf == NULL) {
+      return GRBL_ERROR;
+    }
 
+    if (len > 4 && strstr(buf, "MSG:") == buf) {
+      token.type = GRBL_TOKEN_TYPE_MESSAGE_MSG;
+      buf = advance(buf, &len, 4);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      buf = read_str(&token, buf, &len);
+    }
+
+    if (len > 4 && strstr(buf, "HLP:") == buf) {
+      token.type = GRBL_TOKEN_TYPE_MESSAGE_HLP;
+      buf = advance(buf, &len, 4);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      buf = read_str(&token, buf, &len);
+    }
+
+    if (len > 4 && strstr(buf, "VER:") == buf) {
+      token.type = GRBL_TOKEN_TYPE_MESSAGE_VER;
+      buf = advance(buf, &len, 4);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      buf = read_str(&token, buf, &len);
+    }
+
+    if (len > 4 && strstr(buf, "OPT:") == buf) {
+      token.type = GRBL_TOKEN_TYPE_MESSAGE_OPT;
+      buf = advance(buf, &len, 4);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      buf = read_str(&token, buf, &len);
+    }
+
+    if (len > 3 && strstr(buf, "GC:") == buf) {
+      token.type = GRBL_TOKEN_TYPE_MESSAGE_GC;
+      buf = advance(buf, &len, 3);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      grbl_gcode_state *state = &token.gcode_state;
+
+      while(buf && buf[0] != ']' && buf[0] != 0) {
+        char c = buf[0];
+        buf = advance(buf, &len, 1);
+        if (buf == NULL) {
+          return GRBL_ERROR;
+        }
+
+        if (c == ' ') {
+          continue;
+        }
+
+        uint32_t whole = 0;
+        uint32_t frac = 0;
+        buf = read_uint32(&whole, buf, &len);
+        if (buf == NULL) {
+          return GRBL_ERROR;
+        }
+
+        if (buf[0] == '.') {
+          buf = advance(buf, &len, 1);
+          if (buf == NULL) {
+            return GRBL_ERROR;
+          }
+
+          buf = read_uint32(&frac, buf, &len);
+        }
+
+        if (c == 'G') {
+          switch (whole) {
+            case 0: state->motion_mode = G0; break;
+            case 1: state->motion_mode = G1; break;
+            case 2: state->motion_mode = G0; break;
+            case 3: state->motion_mode = G0; break;
+            case 17: state->plane = G17; break;
+            case 18: state->plane = G18; break;
+            case 19: state->plane = G19; break;
+            case 20: state->units = G20; break;
+            case 21: state->units = G21; break;
+            case 54: state->coordinate_system = G54; break;
+            case 55: state->coordinate_system = G55; break;
+            case 56: state->coordinate_system = G56; break;
+            case 57: state->coordinate_system = G57; break;
+            case 58: state->coordinate_system = G58; break;
+            case 59: state->coordinate_system = G59; break;
+            case 38:
+              switch (frac) {
+                case 2: state->motion_mode = G38_2; break;
+                case 3: state->motion_mode = G38_3; break;
+                case 4: state->motion_mode = G38_4; break;
+                case 5: state->motion_mode = G38_5; break;
+                default:
+                  printf("WARN: invalid G38.x (%u)\n", frac);
+                  return GRBL_ERROR;
+              }
+            case 80: state->motion_mode = G80; break;
+            case 90: state->distance_mode = G90; break;
+            case 91: state->distance_mode = G91; break;
+            case 93: state->feed_rate_mode = G93; break;
+            case 94: state->feed_rate_mode = G94; break;
+            default:
+              printf("WARN: invalid G state in GC: message (%u)\n", whole);
+              return GRBL_ERROR;
+          }
+          continue;
+        }
+        
+        if (c == 'M') {
+          switch (whole) {
+            case 0: state->program_mode = M0; break;
+            case 1: state->program_mode = M1; break;
+            case 2: state->program_mode = M2; break;
+            case 3: state->spindle_state = M3; break;
+            case 4: state->spindle_state = M4; break;
+            case 5: state->spindle_state = M5; break;
+            case 7: state->coolant_state = M7; break;
+            case 8: state->coolant_state = M8; break;
+            case 9: state->coolant_state = M9; break;
+            case 30: state->program_mode = M30; break;
+            default:
+              printf("WARN: invalid M state in GC: message (%u)\n", whole);
+              return GRBL_ERROR;
+          }
+          continue;
+        }
+
+        if (c == 'T') {
+          state->tool_index = whole;
+          continue;
+        }
+
+        if (c == 'S') {
+          state->spindle_rpm = whole;
+          continue;
+        }
+
+        if (c == 'F') {
+          state->feed = whole;
+          continue;
+        }
+
+        return GRBL_ERROR;
+      }
+    }
+
+    sb_push(parser->tokens, token);
   }
 
   return GRBL_FALSE;
@@ -821,8 +1091,6 @@ int grbl_parser_input(grbl_parser_t *parser, const char c) {
   parser->input[parser->loc++] = c;
   return GRBL_FALSE;
 }
-
-
 
 struct GrblParser {
   grbl_parser_t *handle = NULL;
