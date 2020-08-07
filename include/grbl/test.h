@@ -39,6 +39,13 @@ TEST_CASE("error:\\d+") {
   REQUIRE(p.handle->tokens[0].error_code == 9);
 }
 
+TEST_CASE("ALARM:\\d+") {
+  GrblParser p;
+  REQUIRE(p.read("ALARM:9\r\n") == GRBL_TRUE);
+  REQUIRE(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_ALARM);
+  REQUIRE(p.handle->tokens[0].alarm_code == GRBL_ALARM_HOMING_FAIL_NO_CONTACT);
+}
+
 TEST_CASE("welcome message") {
   GrblParser p;
 

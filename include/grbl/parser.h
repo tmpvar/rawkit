@@ -1,3 +1,22 @@
+/*
+The MIT License (MIT)
+Copyright © 2020 Elijah Insua <tmpvar@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the “Software”), to deal in the Software without restriction, including without
+limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of
+the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 #pragma once
 
 #include <stdlib.h>
@@ -13,6 +32,7 @@
 
 enum grbl_response_token_type {
   GRBL_TOKEN_TYPE_STATUS,
+  GRBL_TOKEN_TYPE_ALARM,
   GRBL_TOKEN_TYPE_WELCOME,
   GRBL_TOKEN_TYPE_VERSION,
   GRBL_TOKEN_TYPE_STATUS_REPORT,
@@ -26,6 +46,60 @@ enum grbl_response_token_type {
   GRBL_TOKEN_TYPE_INPUT_PIN_STATE,
   GRBL_TOKEN_TYPE_OVERRIDES,
   GRBL_TOKEN_TYPE_ACCESSORY_STATE,
+};
+
+enum grbl_alarm_code {
+  GRBL_ALARM_NONE = 0,
+  GRBL_ALARM_HARD_LIMIT,
+  GRBL_ALARM_SOFT_LIMIT,
+  GRBL_ALARM_ABORT_DURING_CYCLE,
+  GRBL_ALARM_PROBE_FAIL_UNEXPECTED_INITIAL_STATE,
+  GRBL_ALARM_PROBE_FAIL_NO_CONTACT,
+  GRBL_ALARM_HOMING_FAIL_RESET,
+  GRBL_ALARM_HOMING_FAIL_SAFETY_DOOR,
+  GRBL_ALARM_HOMING_FAIL_PULLOFF,
+  GRBL_ALARM_HOMING_FAIL_NO_CONTACT,
+  GRBL_ALARM_HOMING_FAIL_NO_CONTACT_DUAL_AXIS,
+};
+
+enum grbl_error_code {
+  GRBL_ERROR_NONE = 0,
+  GRBL_ERROR_EXPECTED_COMMAND_LETTER,
+  GRBL_ERROR_BAD_NUMBER_FORMAT,
+  GRBL_ERROR_INVALID_STATEMENT,
+  GRBL_ERROR_UNEXPECTED_NEGATIVE_VALUE,
+  GRBL_ERROR_HOMING_NOT_ENABLED,
+  GRBL_ERROR_MINIMUM_STEP_PULSE_TIME,
+  GRBL_ERROR_EEPROM_READ_FAIL,
+  GRBL_ERROR_NOT_IDLE,
+  GRBL_ERROR_LOCKED_OR_JOGGING,
+  GRBL_ERROR_SOFT_LIMITS_REQUIRE_HOMING,
+  GRBL_ERROR_LINE_OVERFLOW,
+  GRBL_ERROR_MAX_STEP_RATE_EXCEEDED,
+  GRBL_ERROR_CHECK_DOOR,
+  GRBL_ERROR_LINE_LENGTH_EXCEEDED,
+  GRBL_ERROR_TRAVEL_EXCEEDED,
+  GRBL_ERROR_INVALID_JOG_COMMAND,
+  GRBL_ERROR_LASER_MODE_REQUIRES_PWM_OUTPUT,
+  GRBL_ERROR_UNSUPPORTED_COMMAND,
+  GRBL_ERROR_MODAL_GROUP_VIOLATION,
+  GRBL_ERROR_UNDEFINED_FEED_RATE,
+  GRBL_ERROR_GCODE_EXPECTED_INTEGER_VALUE,
+  GRBL_ERROR_GCODE_EXPECTED_ONE_COMMAND,
+  GRBL_ERROR_GCODE_UNEXPECTED_REPEATED_GCODE_WORD,
+  GRBL_ERROR_GCODE_EXPECTED_AXIS_WORDS,
+  GRBL_ERROR_GCODE_INVALID_LINE_NUMBER,
+  GRBL_ERROR_GCODE_MISSING_REQUIRED_VALUE,
+  GRBL_ERROR_GCODE_G59_WORK_COORDINATES_NOT_SUPPORTED,
+  GRBL_ERROR_GCODE_G53_NOT_ALLOWED,
+  GRBL_ERROR_GCODE_UNEXPECTED_AXIS_WORDS,
+  GRBL_ERROR_GCODE_EXPECTED_ARC_AXIS_WORDS,
+  GRBL_ERROR_GCODE_INVALID_MOTION_COMMAND_TARGET,
+  GRBL_ERROR_GCODE_INVALID_ARC_RADIUS,
+  GRBL_ERROR_GCODE_EXPECTED_ARC_AXIS_WORDS_2,
+  GRBL_ERROR_GCODE_UNUSED_WORDS,
+  GRBL_ERROR_GCODE_TOOL_LENGTH_OFFSET_NOT_ASSIGNED,
+  GRBL_ERROR_GCODE_MAX_TOOL_NUMBER_EXCEEDED
 };
 
 typedef struct grbl_msg_version_t {
@@ -116,7 +190,8 @@ typedef struct grbl_response_token_t {
   grbl_response_token_type type;
   //grbl_response_token_value_t value;
   union {
-    uint8_t error_code;
+    grbl_error_code error_code;
+    grbl_alarm_code alarm_code;
     grbl_msg_version_t version;
     grbl_msg_machine_state_t machine_state;
     grbl_vec3_t vec3;
@@ -257,18 +332,25 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
   if (len == 2 && buf[0] == 'o' && buf[1] == 'k') {
     grbl_response_token_t token;
     token.type = GRBL_TOKEN_TYPE_STATUS;
-    token.error_code = 0;
+    token.error_code = GRBL_ERROR_NONE;
 
     sb_push(parser->tokens, token);
     return GRBL_TRUE;
   }
-  
 
   if (len > 6 && strstr(buf, "error:") == buf) {
-    uint8_t error_code = atoi(&buf[6]);
     grbl_response_token_t token;
     token.type = GRBL_TOKEN_TYPE_STATUS;
-    token.error_code = error_code;
+    token.error_code = (grbl_error_code)atoi(&buf[6]);
+    sb_push(parser->tokens, token);
+    return GRBL_TRUE;
+  }
+
+  if (len > 6 && strstr(buf, "ALARM:") == buf) {
+    buf = advance(buf, &len, 6);
+    grbl_response_token_t token;
+    token.type = GRBL_TOKEN_TYPE_ALARM;
+    read_int((int *)&token.alarm_code, buf, &len);
     sb_push(parser->tokens, token);
     return GRBL_TRUE;
   }
