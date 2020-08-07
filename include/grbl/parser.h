@@ -46,6 +46,8 @@ enum grbl_response_token_type {
   GRBL_TOKEN_TYPE_INPUT_PIN_STATE,
   GRBL_TOKEN_TYPE_OVERRIDES,
   GRBL_TOKEN_TYPE_ACCESSORY_STATE,
+  GRBL_TOKEN_TYPE_SETTING_KEY,
+  GRBL_TOKEN_TYPE_SETTING_VALUE,
 };
 
 enum grbl_alarm_code {
@@ -57,7 +59,7 @@ enum grbl_alarm_code {
   GRBL_ALARM_PROBE_FAIL_NO_CONTACT,
   GRBL_ALARM_HOMING_FAIL_RESET,
   GRBL_ALARM_HOMING_FAIL_SAFETY_DOOR,
-  GRBL_ALARM_HOMING_FAIL_PULLOFF,
+  GRBL_ALARM_HOMING_FAIL_PULL_OFF,
   GRBL_ALARM_HOMING_FAIL_NO_CONTACT,
   GRBL_ALARM_HOMING_FAIL_NO_CONTACT_DUAL_AXIS,
 };
@@ -100,6 +102,43 @@ enum grbl_error_code {
   GRBL_ERROR_GCODE_UNUSED_WORDS,
   GRBL_ERROR_GCODE_TOOL_LENGTH_OFFSET_NOT_ASSIGNED,
   GRBL_ERROR_GCODE_MAX_TOOL_NUMBER_EXCEEDED
+};
+
+enum grbl_setting_code {
+  GRBL_SETTING_STEP_PULSE_TIME = 0,                  // u32
+  GRBL_SETTING_STEP_IDLE_DELAY = 1,                  // u32
+  GRBL_SETTING_INVERT_STEP_PULSE_MASK = 2,           // u8
+  GRBL_SETTING_INVERT_STEP_DIRECTION_MASK = 3,       // u8
+  GRBL_SETTING_INVERT_STEP_ENABLE_PIN = 4,           // bool
+  GRBL_SETTING_INVERT_LIMIT_PINS = 5,                // bool
+  GRBL_SETTING_INVERT_PROBE_PIN = 6,                 // bool
+  GRBL_SETTING_STATUS_REPORT_OPTIONS_MASK = 10,      // u8
+  GRBL_SETTING_JUCTION_DEVIATION = 11,               // float
+  GRBL_SETTING_ARC_TOLERANCE = 12,                   // float
+  GRBL_SETTING_REPORT_IN_INCHES = 13,                // bool
+  GRBL_SETTING_SOFT_LIMITS_ENABLE = 20,              // bool
+  GRBL_SETTING_HARD_LIMITS_ENABLE = 21,              // bool
+  GRBL_SETTING_HOMING_CYCLE_ENABLE = 22,             // bool
+  GRBL_SETTING_INVERT_HOMING_DIRECTION_MASK = 23,    // bool
+  GRBL_SETTING_HOMING_LOCATE_FEED_RATE = 24,         // float
+  GRBL_SETTING_HOMING_SEARCH_SEEK_RATE = 25,         // float
+  GRBL_SETTING_HOMING_SWITCH_DEBOUNCE_DELAY = 26,    // u32
+  GRBL_SETTING_HOMING_SWITCH_PULL_OFF_DISTANCE = 27, // float
+  GRBL_SETTING_MAXIMUM_SPINDLE_SPEED = 30,           // u32
+  GRBL_SETTING_MINIMUM_SPINDLE_SPEED = 31,           // u32
+  GRBL_SETTING_LASER_MODE_ENABLE = 32,               // bool
+  GRBL_SETTING_X_AXIS_TRAVEL_RESOLUTION = 100,       // float
+  GRBL_SETTING_Y_AXIS_TRAVEL_RESOLUTION = 101,       // float
+  GRBL_SETTING_Z_AXIS_TRAVEL_RESOLUTION = 102,       // float
+  GRBL_SETTING_X_AXIS_MAXIMUM_RATE = 110,            // float
+  GRBL_SETTING_Y_AXIS_MAXIMUM_RATE = 111,            // float
+  GRBL_SETTING_Z_AXIS_MAXIMUM_RATE = 112,            // float
+  GRBL_SETTING_X_AXIS_ACCELERATION = 120,            // float
+  GRBL_SETTING_Y_AXIS_ACCELERATION = 121,            // float
+  GRBL_SETTING_Z_AXIS_ACCELERATION = 122,            // float
+  GRBL_SETTING_X_AXIS_MAXIMUM_TRAVEL = 130,           // u32
+  GRBL_SETTING_Y_AXIS_MAXIMUM_TRAVEL = 131,           // u32
+  GRBL_SETTING_Z_AXIS_MAXIMUM_TRAVEL = 132,           // u32
 };
 
 typedef struct grbl_msg_version_t {
@@ -197,7 +236,11 @@ typedef struct grbl_response_token_t {
     grbl_vec3_t vec3;
     grbl_buffer_state_t buffer_state;
     grbl_msg_current_feed_and_speed_t feed_and_spindle;
+    grbl_setting_code setting;
+    uint8_t u8;
     uint32_t u32;
+    int32_t i32;
+    float f32;
     grbl_msg_current_pins_t pins;
     grbl_msg_overrides_t overrides;
     grbl_msg_accessory_state_t accessories;
@@ -618,6 +661,128 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
       }
     }
     return GRBL_TRUE;
+  }
+
+  // handle settings, this generates two tokens: a key and value
+  if (buf[0] == '$') {
+    // read the key
+    grbl_setting_code key;
+    {
+      grbl_response_token_t token;
+      token.type = GRBL_TOKEN_TYPE_SETTING_KEY;
+      buf = advance(buf, &len, 1);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      buf = read_int((int*)&key, buf, &len);
+      token.setting = (grbl_setting_code)key;
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+      sb_push(parser->tokens, token);
+    }
+
+    if (buf[0] != '=') {
+      return GRBL_ERROR;
+    }
+    buf = advance(buf, &len, 1);
+    if (buf == NULL) {
+      return GRBL_ERROR;
+    }
+
+    // read the value
+    {
+      grbl_response_token_t token;
+      token.type = GRBL_TOKEN_TYPE_SETTING_VALUE;
+      
+      switch (key) {
+        // mask values
+        case GRBL_SETTING_INVERT_STEP_PULSE_MASK:
+        case GRBL_SETTING_INVERT_STEP_DIRECTION_MASK:
+        case GRBL_SETTING_STATUS_REPORT_OPTIONS_MASK:
+        case GRBL_SETTING_INVERT_HOMING_DIRECTION_MASK:
+          {
+            uint32_t v = 0;
+            buf = read_uint32(&v, buf, &len);
+            if (buf == NULL) {
+              return GRBL_ERROR;
+            }
+            token.u8 = v & 0xFF;
+          }
+        break;
+        
+        // boolean values
+        case GRBL_SETTING_INVERT_STEP_ENABLE_PIN:
+        case GRBL_SETTING_INVERT_LIMIT_PINS:
+        case GRBL_SETTING_INVERT_PROBE_PIN:
+        case GRBL_SETTING_REPORT_IN_INCHES:
+        case GRBL_SETTING_SOFT_LIMITS_ENABLE:
+        case GRBL_SETTING_HARD_LIMITS_ENABLE:
+        case GRBL_SETTING_HOMING_CYCLE_ENABLE:
+        case GRBL_SETTING_LASER_MODE_ENABLE:
+          {
+            uint32_t v = 0;
+            buf = read_uint32(&v, buf, &len);
+            if (buf == NULL) {
+              return GRBL_ERROR;
+            }
+            token.u8 = v & 0xFF;
+          }
+        break;
+
+        // u32 values
+        case GRBL_SETTING_STEP_PULSE_TIME:
+        case GRBL_SETTING_STEP_IDLE_DELAY:
+        case GRBL_SETTING_HOMING_SWITCH_DEBOUNCE_DELAY:
+        case GRBL_SETTING_MAXIMUM_SPINDLE_SPEED:
+        case GRBL_SETTING_MINIMUM_SPINDLE_SPEED:
+          {
+            buf = read_uint32(&token.u32, buf, &len);
+            if (buf == NULL) {
+              return GRBL_ERROR;
+            }
+          }
+        break;
+
+        // scalar values
+        case GRBL_SETTING_JUCTION_DEVIATION:
+        case GRBL_SETTING_ARC_TOLERANCE:
+        case GRBL_SETTING_HOMING_LOCATE_FEED_RATE:
+        case GRBL_SETTING_HOMING_SEARCH_SEEK_RATE:
+        case GRBL_SETTING_HOMING_SWITCH_PULL_OFF_DISTANCE:
+        case GRBL_SETTING_X_AXIS_TRAVEL_RESOLUTION:
+        case GRBL_SETTING_Y_AXIS_TRAVEL_RESOLUTION:
+        case GRBL_SETTING_Z_AXIS_TRAVEL_RESOLUTION:
+        case GRBL_SETTING_X_AXIS_MAXIMUM_RATE:
+        case GRBL_SETTING_Y_AXIS_MAXIMUM_RATE:
+        case GRBL_SETTING_Z_AXIS_MAXIMUM_RATE:
+        case GRBL_SETTING_X_AXIS_ACCELERATION:
+        case GRBL_SETTING_Y_AXIS_ACCELERATION:
+        case GRBL_SETTING_Z_AXIS_ACCELERATION:
+        case GRBL_SETTING_X_AXIS_MAXIMUM_TRAVEL:
+        case GRBL_SETTING_Y_AXIS_MAXIMUM_TRAVEL:
+        case GRBL_SETTING_Z_AXIS_MAXIMUM_TRAVEL:
+          {
+            buf = read_float(&token.f32, buf, &len);
+            if (buf == NULL) {
+              return GRBL_ERROR;
+            }
+          }
+        break;
+
+        default:
+          printf("WARN: invalid setting %u", (uint32_t)key);
+          return GRBL_ERROR;
+      }
+      sb_push(parser->tokens, token);
+      return GRBL_TRUE;
+    }
+  }
+
+  // handle messages
+  if (buf[0] == '[') {
+
   }
 
   return GRBL_FALSE;
