@@ -416,7 +416,9 @@ TEST_CASE("[OPT:...]") {
   int r = p.read("[OPT:V,15,128]\r\n");
   REQUIRE(r == GRBL_TRUE);
   REQUIRE(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_MESSAGE_OPT);
-  REQUIRE(strcmp(p.handle->tokens[0].str, "V,15,128") == 0);
+  REQUIRE(
+    strcmp(p.handle->tokens[0].str, "V,15,128") == 0
+  );
 }
 
 TEST_CASE("[HLP:...]") {
@@ -455,23 +457,75 @@ TEST_CASE("[GC:...]") {
   REQUIRE(s->spindle_rpm == 24000);
 }
 
-// TEST_CASE("$# response") {
-//   GrblParser p;
-//   int r = p.read(
-//     "[G54:-100.000,0.000,0.000]\r\n"
-//     "[G55:102.000,1.000,0.999]\r\n"
-//     "[G56:70.000,10.000,0.999]\r\n"
-//     "[G57:70.000,10.000,0.999]\r\n"
-//     "[G58:70.000,1.000,33.599]\r\n"
-//     "[G59:70.000,1.000,0.999]\r\n"
-//     "[G28:0.000,0.000,0.000]\r\n"
-//     "[G30:-100.000,0.000,-20.000]\r\n"
-//     "[G92:0.000,0.000,0.000]\r\n"
-//     "[TLO:0.000]\r\n"
-//     "[PRB:0.000,0.000,0.000:0]\r\n"
-//     "ok\r\n"
-//   );
+TEST_CASE("$# response") {
+  GrblParser p;
+  int r = p.read(
+    "[G54:-100.000,0.000,0.000]\r\n"
+    "[G55:102.000,1.000,0.999]\r\n"
+    "[G56:70.000,10.000,0.999]\r\n"
+    "[G57:70.000,10.000,0.999]\r\n"
+    "[G58:70.000,1.000,33.599]\r\n"
+    "[G59:70.000,1.000,0.999]\r\n"
+    "[G28:0.000,0.000,0.000]\r\n"
+    "[G30:-100.000,0.000,-20.000]\r\n"
+    "[G92:0.000,0.000,0.000]\r\n"
+    "[TLO:0.000]\r\n"
+    "[PRB:1.000,2.000,3.000:1]\r\n"
+    "ok\r\n"
+  );
+  REQUIRE(r == GRBL_TRUE);
 
-//   REQUIRE(r == GRBL_TRUE);
+  REQUIRE(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_MESSAGE_WCO_G54);
+  REQUIRE(p.handle->tokens[0].vec3.x == -100.0f);
+  REQUIRE(p.handle->tokens[0].vec3.y == 0.0f);
+  REQUIRE(p.handle->tokens[0].vec3.z == 0.0f);
 
-// }
+  REQUIRE(p.handle->tokens[1].type == GRBL_TOKEN_TYPE_MESSAGE_WCO_G55);
+  REQUIRE(p.handle->tokens[1].vec3.x == 102.0f);
+  REQUIRE(p.handle->tokens[1].vec3.y == 1.0f);
+  REQUIRE(p.handle->tokens[1].vec3.z == 0.999f);
+
+  REQUIRE(p.handle->tokens[2].type == GRBL_TOKEN_TYPE_MESSAGE_WCO_G56);
+  REQUIRE(p.handle->tokens[2].vec3.x == 70.0f);
+  REQUIRE(p.handle->tokens[2].vec3.y == 10.0f);
+  REQUIRE(p.handle->tokens[2].vec3.z == 0.999f);
+
+  REQUIRE(p.handle->tokens[3].type == GRBL_TOKEN_TYPE_MESSAGE_WCO_G57);
+  REQUIRE(p.handle->tokens[3].vec3.x == 70.0f);
+  REQUIRE(p.handle->tokens[3].vec3.y == 10.0f);
+  REQUIRE(p.handle->tokens[3].vec3.z == 0.999f);
+
+  REQUIRE(p.handle->tokens[4].type == GRBL_TOKEN_TYPE_MESSAGE_WCO_G58);
+  REQUIRE(p.handle->tokens[4].vec3.x == 70.0f);
+  REQUIRE(p.handle->tokens[4].vec3.y == 1.0f);
+  REQUIRE(p.handle->tokens[4].vec3.z == 33.599f);
+
+  REQUIRE(p.handle->tokens[5].type == GRBL_TOKEN_TYPE_MESSAGE_WCO_G59);
+  REQUIRE(p.handle->tokens[5].vec3.x == 70.0f);
+  REQUIRE(p.handle->tokens[5].vec3.y == 1.0f);
+  REQUIRE(p.handle->tokens[5].vec3.z == 0.999f);
+
+  REQUIRE(p.handle->tokens[6].type == GRBL_TOKEN_TYPE_MESSAGE_POS_G28);
+  REQUIRE(p.handle->tokens[6].vec3.x == 0.0f);
+  REQUIRE(p.handle->tokens[6].vec3.y == 0.0f);
+  REQUIRE(p.handle->tokens[6].vec3.z == 0.0f);
+
+  REQUIRE(p.handle->tokens[7].type == GRBL_TOKEN_TYPE_MESSAGE_POS_G30);
+  REQUIRE(p.handle->tokens[7].vec3.x == -100.0f);
+  REQUIRE(p.handle->tokens[7].vec3.y == 0.0f);
+  REQUIRE(p.handle->tokens[7].vec3.z == -20.0f);
+
+  REQUIRE(p.handle->tokens[8].type == GRBL_TOKEN_TYPE_MESSAGE_CSO_G92);
+  REQUIRE(p.handle->tokens[8].vec3.x == 0.0f);
+  REQUIRE(p.handle->tokens[8].vec3.y == 0.0f);
+  REQUIRE(p.handle->tokens[8].vec3.z == 0.0f);
+
+  REQUIRE(p.handle->tokens[9].type == GRBL_TOKEN_TYPE_MESSAGE_TLO);
+  REQUIRE(p.handle->tokens[9].f32 == 0.0f);
+
+  REQUIRE(p.handle->tokens[10].type == GRBL_TOKEN_TYPE_MESSAGE_PRB);
+  REQUIRE(p.handle->tokens[10].probe_state.vec3.x == 1.0f);
+  REQUIRE(p.handle->tokens[10].probe_state.vec3.y == 2.0f);
+  REQUIRE(p.handle->tokens[10].probe_state.vec3.z == 3.0f);
+  REQUIRE(p.handle->tokens[10].probe_state.success == 1);
+}

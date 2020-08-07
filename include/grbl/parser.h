@@ -53,6 +53,17 @@ enum grbl_response_token_type {
   GRBL_TOKEN_TYPE_MESSAGE_VER,
   GRBL_TOKEN_TYPE_MESSAGE_OPT,
   GRBL_TOKEN_TYPE_MESSAGE_GC,
+  GRBL_TOKEN_TYPE_MESSAGE_POS_G28,
+  GRBL_TOKEN_TYPE_MESSAGE_POS_G30,
+  GRBL_TOKEN_TYPE_MESSAGE_WCO_G54,
+  GRBL_TOKEN_TYPE_MESSAGE_WCO_G55,
+  GRBL_TOKEN_TYPE_MESSAGE_WCO_G56,
+  GRBL_TOKEN_TYPE_MESSAGE_WCO_G57,
+  GRBL_TOKEN_TYPE_MESSAGE_WCO_G58,
+  GRBL_TOKEN_TYPE_MESSAGE_WCO_G59,
+  GRBL_TOKEN_TYPE_MESSAGE_CSO_G92,
+  GRBL_TOKEN_TYPE_MESSAGE_TLO,
+  GRBL_TOKEN_TYPE_MESSAGE_PRB,
 };
 
 enum grbl_alarm_code {
@@ -281,6 +292,11 @@ typedef struct grbl_vec3_t {
   float x, y, z;
 } grbl_vec3_t;
 
+typedef struct grbl_probe_state_t {
+  grbl_vec3_t vec3;
+  uint32_t success;
+} grbl_probe_state_t;
+
 typedef struct grbl_msg_overrides_t {
   float feed, rapids, spindle;
 } grbl_msg_overrides_t;
@@ -340,6 +356,7 @@ typedef struct grbl_response_token_t {
     grbl_msg_accessory_state_t accessories;
     char *str;
     grbl_gcode_state gcode_state;
+    grbl_probe_state_t probe_state;
   };
 } grbl_response_token_t;
 
@@ -425,6 +442,10 @@ char *read_uint32(uint32_t *acc, char *buf, uint32_t *len) {
   return advance(buf, len, i);
 }
 
+bool is_digit(char c) {
+  return c >= '0' && c <= '9';
+}
+
 char *read_float(float *acc, char *buf, uint32_t *len) {
   (*acc) = 0;
   int whole = 0;
@@ -469,12 +490,10 @@ char *read_str(grbl_response_token_t *token, char *buf, uint32_t *len) {
     return NULL;
   }
 
-  uint32_t l = (*len)-1;
   token->str = (char *)malloc(*len);
   memcpy(token->str, buf, *len - 1);
-  token->str[*len] = 0;
-  
-  printf("str: %s\n", token->str);
+  token->str[(*len) - 1] = 0;
+
   return buf;
 }
 
@@ -1048,6 +1067,82 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
           continue;
         }
 
+        return GRBL_ERROR;
+      }
+    }
+
+    if (len > 4 && buf[0] == 'G') {
+      token.type = GRBL_TOKEN_TYPE_MESSAGE_MSG;
+      buf = advance(buf, &len, 1);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+      uint32_t whole = 0;
+      buf = read_uint32(&whole, buf, &len);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      switch (whole) {
+        case 28: token.type = GRBL_TOKEN_TYPE_MESSAGE_POS_G28; break;
+        case 30: token.type = GRBL_TOKEN_TYPE_MESSAGE_POS_G30; break;
+        case 54: token.type = GRBL_TOKEN_TYPE_MESSAGE_WCO_G54; break;
+        case 55: token.type = GRBL_TOKEN_TYPE_MESSAGE_WCO_G55; break;
+        case 56: token.type = GRBL_TOKEN_TYPE_MESSAGE_WCO_G56; break;
+        case 57: token.type = GRBL_TOKEN_TYPE_MESSAGE_WCO_G57; break;
+        case 58: token.type = GRBL_TOKEN_TYPE_MESSAGE_WCO_G58; break;
+        case 59: token.type = GRBL_TOKEN_TYPE_MESSAGE_WCO_G59; break;
+        case 92: token.type = GRBL_TOKEN_TYPE_MESSAGE_CSO_G92; break;
+        default:
+          printf("WARN: unknown message (G%u)\n", whole);
+          return GRBL_ERROR;
+      }
+
+      if (buf[0] != ':') {
+        return GRBL_ERROR;
+      }
+      buf = advance(buf, &len, 1);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      buf = read_vec3(&token.vec3, buf, &len);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+    }
+
+    if (len > 4 && strstr(buf, "TLO:") == buf) {
+      token.type = GRBL_TOKEN_TYPE_MESSAGE_TLO;
+      buf = advance(buf, &len, 4);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      buf = read_float(&token.f32, buf, &len);
+    }
+
+    if (len > 4 && strstr(buf, "PRB:") == buf) {
+      token.type = GRBL_TOKEN_TYPE_MESSAGE_PRB;
+      buf = advance(buf, &len, 4);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      buf = read_vec3(&token.probe_state.vec3, buf, &len);
+
+      if (buf[0] != ':') {
+        printf("WARN: expected probe status\n");
+        return GRBL_ERROR;
+      }
+
+      buf = advance(buf, &len, 1);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      buf = read_uint32(&token.probe_state.success, buf, &len);
+      if (buf == NULL) {
         return GRBL_ERROR;
       }
     }
