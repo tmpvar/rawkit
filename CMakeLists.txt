@@ -137,6 +137,10 @@ target_compile_options(
   -D__STDC_LIMIT_MACROS
   # see: https://developercommunity.visualstudio.com/content/problem/93889/error-c2872-byte-ambiguous-symbol.html
   -D_HAS_STD_BYTE=0
+
+  # TODO: install these headers so we don't have to include them
+  -DRAWKIT_CIMGUI_INCLUDE_DIR="-I${DEPS_DIR}/cimgui"
+  -DRAWKIT_GUEST_INCLUDE_DIR="-I${CMAKE_CURRENT_LIST_DIR}/include/hot/guest"
   ${EXTRA_COMPILE_OPTIONS}
 )
 

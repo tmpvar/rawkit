@@ -81,7 +81,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
     Args.push_back("-std=c++17");
   }
 
-  #if defined(_WIN32)
+#if defined(_WIN32)
     Args.push_back("-fms-extensions");
     Args.push_back("-fms-compatibility");
     Args.push_back("-fdelayed-template-parsing");
@@ -95,6 +95,8 @@ JitJob *JitJob::create(int argc, const char **argv) {
   Args.push_back("-I../deps/");
   Args.push_back("-I../deps/cimgui");
   Args.push_back("-I../include/hot/guest");
+  Args.push_back(RAWKIT_GUEST_INCLUDE_DIR);
+  Args.push_back(RAWKIT_CIMGUI_INCLUDE_DIR);
   Args.push_back("-DHOT_GUEST=1");
   Args.push_back("-DRAWKIT_GUEST=1");
 
