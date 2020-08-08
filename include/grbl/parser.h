@@ -335,6 +335,33 @@ typedef struct grbl_msg_current_pins_t {
   uint8_t cycle_start;
 } grbl_msg_current_pins_t;
 
+
+typedef struct grbl_msg_build_options_t {
+  uint8_t variable_spindle;                          // V
+  uint8_t line_numbers;                              // N
+  uint8_t mist_coolant;                              // M
+  uint8_t core_xy;                                   // C
+  uint8_t parking_motion;                            // P
+  uint8_t homing_force_origin;                       // Z
+  uint8_t homing_single_axis;                        // H
+  uint8_t two_limit_switches_on_axis;                // T
+  uint8_t allow_feed_rate_overrides_in_probe_cycles; // A
+  uint8_t use_spindle_direction_as_enable_pin;       // D
+  uint8_t spindle_off_when_speed_is_zero;            // 0
+  uint8_t software_limit_pin_debouncing;             // S
+  uint8_t parking_override_control;                  // R
+  uint8_t safety_door_input_pin;                     // +
+  uint8_t restore_all_eeprom;                        // *
+  uint8_t restore_eeprom;                            // $
+  uint8_t restore_eeprom_param_data_command;         // #
+  uint8_t build_info_write_user_string_command;      // I
+  uint8_t force_sync_upon_eeprom_write;              // E
+  uint8_t force_sync_upon_wco_offset_change;         // W
+  uint8_t homing_initialization_auto_lock;           // L
+  uint8_t dual_axis_motors;                          // 2
+  grbl_buffer_state_t buffer_state;
+} grbl_msg_build_options_t;
+
 typedef struct grbl_response_token_t {
   grbl_response_token_type type;
   //grbl_response_token_value_t value;
@@ -357,6 +384,7 @@ typedef struct grbl_response_token_t {
     char *str;
     grbl_gcode_state gcode_state;
     grbl_probe_state_t probe_state;
+    grbl_msg_build_options_t build_options;
   };
 } grbl_response_token_t;
 
@@ -955,7 +983,74 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
         return GRBL_ERROR;
       }
 
-      buf = read_str(&token, buf, &len);
+      memset(&token.build_options, 0, sizeof(grbl_msg_build_options_t));
+      // read the build options
+      while(buf[0] != ',') {
+        char c = buf[0];
+
+        switch (c) {
+          case 'V': token.build_options.variable_spindle = 1; break;
+          case 'N': token.build_options.line_numbers = 1; break;
+          case 'M': token.build_options.mist_coolant = 1; break;
+          case 'C': token.build_options.core_xy = 1; break;
+          case 'P': token.build_options.parking_motion = 1; break;
+          case 'Z': token.build_options.homing_force_origin = 1; break;
+          case 'H': token.build_options.homing_single_axis = 1; break;
+          case 'T': token.build_options.two_limit_switches_on_axis = 1; break;
+          case 'A': token.build_options.allow_feed_rate_overrides_in_probe_cycles = 1; break;
+          case 'D': token.build_options.use_spindle_direction_as_enable_pin = 1; break;
+          case '0': token.build_options.spindle_off_when_speed_is_zero = 1; break;
+          case 'S': token.build_options.software_limit_pin_debouncing = 1; break;
+          case 'R': token.build_options.parking_override_control = 1; break;
+          case '+': token.build_options.safety_door_input_pin = 1; break;
+          case '*': token.build_options.restore_all_eeprom = 1; break;
+          case '$': token.build_options.restore_eeprom = 1; break;
+          case '#': token.build_options.restore_eeprom_param_data_command = 1; break;
+          case 'I': token.build_options.build_info_write_user_string_command = 1; break;
+          case 'E': token.build_options.force_sync_upon_eeprom_write = 1; break;
+          case 'W': token.build_options.force_sync_upon_wco_offset_change = 1; break;
+          case 'L': token.build_options.homing_initialization_auto_lock = 1; break;
+          case '2': token.build_options.dual_axis_motors = 1; break;
+          default:
+            printf("WARN: unknown build option (%c)", c);
+            return GRBL_ERROR;
+        }
+        buf = advance(buf, &len, 1);
+        if (buf == NULL) {
+          return GRBL_ERROR;
+        }
+      }
+
+      // read past the :
+      buf = advance(buf, &len, 1);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+      
+      buf = read_uint32(&token.build_options.buffer_state.available_blocks, buf, &len);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      // read past the ,
+      if (buf[0] != ',') {
+        printf("WARN: expected , between available_blocks and available_bytes\n", buf);
+        return GRBL_ERROR;
+      }
+      buf = advance(buf, &len, 1);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      buf = read_uint32(&token.build_options.buffer_state.available_bytes, buf, &len);
+      if (buf == NULL) {
+        return GRBL_ERROR;
+      }
+
+      if (buf[0] != ']') {
+        printf("WARN: build option includes unparsed data (%s)\n", buf);
+        return GRBL_ERROR;
+      }
     }
 
     if (len > 3 && strstr(buf, "GC:") == buf) {

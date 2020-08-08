@@ -416,9 +416,32 @@ TEST_CASE("[OPT:...]") {
   int r = p.read("[OPT:V,15,128]\r\n");
   REQUIRE(r == GRBL_TRUE);
   REQUIRE(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_MESSAGE_OPT);
-  REQUIRE(
-    strcmp(p.handle->tokens[0].str, "V,15,128") == 0
-  );
+  grbl_msg_build_options_t *opts = &p.handle->tokens[0].build_options;
+  
+  REQUIRE(opts->variable_spindle == 1);
+  REQUIRE(opts->line_numbers == 0);
+  REQUIRE(opts->mist_coolant == 0);
+  REQUIRE(opts->core_xy == 0);
+  REQUIRE(opts->parking_motion == 0);
+  REQUIRE(opts->homing_force_origin == 0);
+  REQUIRE(opts->homing_single_axis == 0);
+  REQUIRE(opts->two_limit_switches_on_axis == 0);
+  REQUIRE(opts->allow_feed_rate_overrides_in_probe_cycles == 0);
+  REQUIRE(opts->use_spindle_direction_as_enable_pin == 0);
+  REQUIRE(opts->spindle_off_when_speed_is_zero == 0);
+  REQUIRE(opts->software_limit_pin_debouncing == 0);
+  REQUIRE(opts->parking_override_control == 0);
+  REQUIRE(opts->safety_door_input_pin == 0);
+  REQUIRE(opts->restore_all_eeprom == 0);
+  REQUIRE(opts->restore_eeprom == 0);
+  REQUIRE(opts->restore_eeprom_param_data_command == 0);
+  REQUIRE(opts->build_info_write_user_string_command == 0);
+  REQUIRE(opts->force_sync_upon_eeprom_write == 0);
+  REQUIRE(opts->force_sync_upon_wco_offset_change == 0);
+  REQUIRE(opts->homing_initialization_auto_lock == 0);
+  REQUIRE(opts->dual_axis_motors == 0);
+  REQUIRE(opts->buffer_state.available_blocks == 15);
+  REQUIRE(opts->buffer_state.available_bytes == 128);
 }
 
 TEST_CASE("[HLP:...]") {
