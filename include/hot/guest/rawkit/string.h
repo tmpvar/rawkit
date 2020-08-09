@@ -17,4 +17,8 @@ struct String {
     char p[2] = {c, 0};
     this->handle = gb_append_cstring(this->handle, p);
   }
+
+  size_t size() {
+    return gb_string_length(this->handle);
+  }
 };

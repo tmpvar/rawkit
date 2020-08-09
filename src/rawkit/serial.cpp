@@ -100,9 +100,23 @@ int16_t Serial_Read(SerialID id) {
   }
 }
 
+void Serial_Write(SerialID id, const uint8_t *buf, size_t len) {
+  OptionalSerial sp = Serial_Valid(id);
+  if (sp == nullptr) {
+    return;
+  }
+
+  try  {
+    sp->write(buf, len);
+  } catch (serial::IOException e) {
+    sp->close();
+  }
+}
+
 void host_rawkit_serial_init(JitJob *job) {
   job->addExport("Serial_Open", Serial_Open);
   job->addExport("Serial_Available", Serial_Available);
   job->addExport("Serial_Read", Serial_Read);
+  job->addExport("Serial_Write", Serial_Write);
 }
 

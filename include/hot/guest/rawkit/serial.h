@@ -1,13 +1,14 @@
 #pragma once
 
 #include <stdint.h>
-
+#include <string.h>
 typedef int32_t SerialID;
 
 extern "C" {
   SerialID Serial_Open(const char *port);
   size_t Serial_Available(SerialID id);
   int16_t Serial_Read(SerialID id);
+  void Serial_Write(SerialID id, const uint8_t *buf, size_t len);
 }
 
 struct SerialPort {
@@ -18,8 +19,15 @@ struct SerialPort {
   // but also want to be able to signal an error using -1
   int16_t read();
   // size_t write(uint8_t byte);
-  // size_t write(string str);
-  // size_t write(uint8_t buf, size_t len);
+  void write(const char *str) {
+    Serial_Write(this->id, (const uint8_t *)str, strlen(str));
+  }
+
+  void write(const uint8_t *buf, size_t len) {
+    Serial_Write(this->id, buf, len);
+  }
+
+  
 };
 #include <stdio.h>
 SerialPort::SerialPort(const char *port) {
@@ -33,3 +41,4 @@ size_t SerialPort::available() {
 int16_t SerialPort::read() {
   return Serial_Read(this->id);
 }
+
