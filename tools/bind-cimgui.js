@@ -18,9 +18,17 @@ const outLines = lines.map(line => {
 }).filter(Boolean)
 
 
-const out = `
+const outHeader = `
 #pragma once
+#include <hot/jitjob.h>
 
+void host_cimgui_init(JitJob *job);
+
+`
+
+const outSource = `
+#include <hot/host/cimgui.h>
+#define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include <cimgui.h>
 
 void host_cimgui_init(JitJob *job) {
@@ -31,5 +39,10 @@ void host_cimgui_init(JitJob *job) {
 
 fs.writeFileSync(
     path.join(__dirname, '..', 'include', 'hot', 'host', 'cimgui.h'),
-    out
+    outHeader
+);
+
+fs.writeFileSync(
+    path.join(__dirname, '..', 'src', 'hot', 'cimgui.cpp'),
+    outSource
 );

@@ -100,6 +100,7 @@ add_executable(
   ${SRC_DIR}/main.cpp
   ${SRC_DIR}/hot/jitjob.cpp
   ${SRC_DIR}/hot/state.cpp
+  ${SRC_DIR}/hot/cimgui.cpp
   ${SRC_DIR}/rawkit/serial.cpp
   ${IMGUI_SRC}
 )

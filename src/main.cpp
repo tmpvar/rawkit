@@ -372,9 +372,6 @@ int main(int argc, const char **argv) {
     job->addExport("__stdio_common_vfprintf", (void *)&__stdio_common_vfprintf);
     job->addExport("__stdio_common_vsprintf", (void *)&__stdio_common_vsprintf);
 
-    //job->addExport("ImGui::Begin", (void *)&ImGui::Begin);
-    // job->addExport("igBegin", (void *)&igBegin);
-    // job->addExport("igText", (void *)&igText);
     host_cimgui_init(job);
     host_hot_init(job);
     
@@ -386,14 +383,6 @@ int main(int argc, const char **argv) {
     });
 
     string port = "/dev/null";
-    // if (it == list.end()) {
-    //   printf("could not find a valid serial port\n");
-    // } else {
-    //   cout << "found port: " << it->description << endl;
-    //   port = it->port;
-    // }
-
-    
     serial::Serial sp;
     if (port != "/dev/null") {
         sp.setPort(port);
@@ -401,11 +390,6 @@ int main(int argc, const char **argv) {
         sp.setTimeout(serial::Timeout::simpleTimeout(1));
         sp.open();
     }
-    //serial::Serial sp(
-//      port,
-  //    115200,
-      //serial::Timeout::simpleTimeout(1)
-    //);
 
     if (sp.isOpen()) {
       cout << "serial port is open!" << endl;
@@ -573,115 +557,7 @@ int main(int argc, const char **argv) {
                 show_another_window = false;
             ImGui::End();
         }
-
-        // 3. Show grbl
-        {
-            char input[1024] = {0};
-            ImGui::Begin("Grbl");   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-            ImGui::Text("output from grbl:");
-
-            ImGui::BeginChild("ScrollingRegion", ImVec2(0, -50), false, ImGuiWindowFlags_HorizontalScrollbar);
-            ImGuiListClipper clipper;
-            clipper.Begin(sp_rx_lines.size());
-            while (clipper.Step())
-            {
-                for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++)
-                {
-                    ImGui::TextUnformatted(sp_rx_lines[line_no].c_str());
-                }
-            }
-            clipper.End();
-
-
-            ImGui::SetScrollHereY(1.0f);
-            ImGui::EndChild();
-            ImGui::Separator();
-            if (ImGui::InputText("SEND", input, 1024, ImGuiInputTextFlags_EnterReturnsTrue)) {
-              cout << ">> " << input << endl;
-              sp_rx_lines.push_back(">> " + string(input));
-              sp.write(input);
-              sp.write("\n");
-              input[0] = 0;
-
-              // Demonstrate keeping auto focus on the input box
-              if (ImGui::IsItemHovered() || (ImGui::IsWindowFocused() && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked(0)))
-                ImGui::SetKeyboardFocusHere(-1); // Auto focus previous widget
-            }
-            // ImGui::
-            // if (ImGui::Button("Close Me"))
-            //     show_another_window = false;
-            ImGui::End();
-        }
-
-        // 3. Show grbl
-        {
-          ImGui::Begin(
-            "Jog",
-            nullptr,
-            ImGuiWindowFlags_AlwaysAutoResize
-            | ImGuiWindowFlags_NoCollapse
-            | ImGuiWindowFlags_NoResize
-          );
-            ImVec2 buttonSize = { 32, 32 };
-            ImGui::Dummy(buttonSize);
-            ImGui::SameLine();
-            if (ImGui::ArrowButtonEx("##Jog:Y+", ImGuiDir_Up, buttonSize, ImGuiButtonFlags_None)) {
-              sp.write("$J=G91Y10F1000\n");
-            }
-
-            ImGui::SameLine();
-            ImGui::Dummy(buttonSize);
-            ImGui::SameLine();
-            ImGui::Dummy(buttonSize);
-            ImGui::SameLine();
-            if (ImGui::ArrowButtonEx("##Jog:Z+", ImGuiDir_Up, buttonSize, ImGuiButtonFlags_None)) {
-              sp.write("$J=G91Z10F1000\n");
-            }
-
-
-            if (ImGui::ArrowButtonEx("##Jog:X-", ImGuiDir_Left, buttonSize, ImGuiButtonFlags_None)) {
-              sp.write("$J=G91X-10F1000\n");
-            }
-
-            ImGui::SameLine();
-            ImGui::Dummy(buttonSize);
-
-            ImGui::SameLine();
-
-            if (ImGui::ArrowButtonEx("##Jog:X+", ImGuiDir_Right, buttonSize, ImGuiButtonFlags_None)) {
-              sp.write("$J=G91X+10F1000\n");
-            }
-
-            ImGui::Dummy(buttonSize);
-            ImGui::SameLine();
-            if (ImGui::ArrowButtonEx("##Jog:Y-", ImGuiDir_Down, buttonSize, ImGuiButtonFlags_None)) {
-              sp.write("$J=G91Y-10F1000\n");
-            }
-
-            ImGui::SameLine();
-            ImGui::Dummy(buttonSize);
-            ImGui::SameLine();
-            ImGui::Dummy(buttonSize);
-            ImGui::SameLine();
-
-            if (ImGui::ArrowButtonEx("##Jog:Z-", ImGuiDir_Down, buttonSize, ImGuiButtonFlags_None)) {
-              sp.write("$J=G91Z-10F10000\n");
-            }
-
-            ImGui::Dummy(buttonSize);
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0, 0.0, 0.0, 1.0));
-            if (ImGui::Button("STOP", ImVec2(ImGui::GetContentRegionAvailWidth(), 40.0))) {
-              sp.write("\x85");
-            }
-            ImGui::PopStyleColor();
-
-            // handle escape
-            if (ImGui::IsWindowFocused() && ImGui::IsKeyReleased(0x100)) {
-              sp.write("\x85");
-            }
-          ImGui::End();
-        }
-
+        
         // Rendering
         ImGui::Render();
         ImDrawData* draw_data = ImGui::GetDrawData();

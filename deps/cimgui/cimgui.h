@@ -3,10 +3,12 @@
 //with imgui_internal.h api
 #ifndef CIMGUI_INCLUDED
 #define CIMGUI_INCLUDED
-#include "imgui/imgui.h"
-#include "imgui/imgui_internal.h"
 #include <stdio.h>
 #include <stdint.h>
+#ifndef CIMGUI_DEFINE_ENUMS_AND_STRUCTS
+    #include <imgui.h>
+    #include <imgui_internal.h>
+#endif
 #if defined _WIN32 || defined __CYGWIN__
     #ifdef CIMGUI_NO_EXPORT
         #define API

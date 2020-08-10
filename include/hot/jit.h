@@ -123,7 +123,6 @@ private:
 
       run->jit->addIRModule(std::move(M));
 
-
       {
         auto result = mangledSetup.length()
         ? run->jit->lookupLinkerMangled(mangledSetup)
