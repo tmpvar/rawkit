@@ -10,35 +10,60 @@
 
 #include <vector>
 
-struct Lines {
-  gbString *handle = nullptr;
-  size_t capacity = 1;
-  size_t index = 0;
+struct GrblMachine {
+  SerialPort sp;
+  StringList *log;
+  String *line;
 
-  Lines() {}
+  GrblMachine() {
+    this->sp.open("COM3");
 
-  size_t length() {
-    return index;
+    this->line = (String *)hotState( 1, sizeof(String), nullptr);
+    this->log = (StringList *)hotState(3, sizeof(StringList), nullptr);
+
+    while (this->sp.available()) {
+      char c = this->sp.read();
+
+      if (c == '\r') {
+        continue;
+      }
+
+      if (c == '\n') {
+        if (this->line->length() == 0) {
+          continue;
+        }
+
+        if (this->line->length() == 1 && this->line->handle[0] == '\n') {
+          continue;
+        }
+        
+        this->log->push(String("<< ").append_string(this->line));
+        this->line->clear();
+        continue;
+      }
+
+      this->line->append_char(c);
+    }
   }
 
-  // void push_copy(gbString *src) {
-  //   if (index + 1 < capacity) {
-  //     printf("resize lines from %zu to %zu\n", capacity, capacity * 2);
-  //     this->capacity *= 2;
-  //     this->handle = (gbString *)realloc(
-  //       this->handle, 
-  //       this->capacity * sizeof(gbString)
-  //     );
-  //   }
+  void write(const char *str) {
+    if (strlen(str) == 1 && str[0] == '\n') {
+      return;
+    }
 
-  //   this->handle[this->index++] = gb_duplicate_string(src);
-  //   // this->handle = (String *)stbds_arrput((String *)this->handle, line);
-  // }
+    String tx;
+    tx.append_c_str(">> ");
+    tx.append_c_str(str);
+
+    this->log->push(&tx);
+    this->sp.write(str);
+  }
+
 };
 
 void setup() {}
 
-void panel_jog(SerialPort *sp) {
+void panel_jog(GrblMachine *grbl) {
   igBegin(
     "Jog",
     nullptr,
@@ -52,7 +77,7 @@ void panel_jog(SerialPort *sp) {
   igSameLine(0.0, 0.0);
   if (igArrowButtonEx("##Jog:Y+", ImGuiDir_Up, buttonSize,
                            ImGuiButtonFlags_None)) {
-    sp->write("$J=G91Y10F1000\n");
+    grbl->write("$J=G91Y10F1000");
   }
 
   igSameLine(0.0, 0.0);
@@ -62,12 +87,12 @@ void panel_jog(SerialPort *sp) {
   igSameLine(0.0, 0.0);
   if (igArrowButtonEx("##Jog:Z+", ImGuiDir_Up, buttonSize,
                            ImGuiButtonFlags_None)) {
-    sp->write("$J=G91Z10F1000\n");
+    grbl->write("$J=G91Z10F1000\n");
   }
 
   if (igArrowButtonEx("##Jog:X-", ImGuiDir_Left, buttonSize,
                            ImGuiButtonFlags_None)) {
-    sp->write("$J=G91X-10F1000\n");
+    grbl->write("$J=G91X-10F1000\n");
   }
 
   igSameLine(0.0, 0.0);
@@ -77,14 +102,14 @@ void panel_jog(SerialPort *sp) {
 
   if (igArrowButtonEx("##Jog:X+", ImGuiDir_Right, buttonSize,
                            ImGuiButtonFlags_None)) {
-    sp->write("$J=G91X+10F1000\n");
+    grbl->write("$J=G91X+10F1000\n");
   }
 
   igDummy(buttonSize);
   igSameLine(0.0, 0.0);
   if (igArrowButtonEx("##Jog:Y-", ImGuiDir_Down, buttonSize,
                            ImGuiButtonFlags_None)) {
-    sp->write("$J=G91Y-10F1000\n");
+    grbl->write("$J=G91Y-10F1000\n");
   }
 
   igSameLine(0.0, 0.0);
@@ -95,7 +120,7 @@ void panel_jog(SerialPort *sp) {
 
   if (igArrowButtonEx("##Jog:Z-", ImGuiDir_Down, buttonSize,
                            ImGuiButtonFlags_None)) {
-    sp->write("$J=G91Z-10F10000\n");
+    grbl->write("$J=G91Z-10F10000\n");
   }
 
   igDummy(buttonSize);
@@ -104,18 +129,18 @@ void panel_jog(SerialPort *sp) {
   igGetContentRegionAvail(&stopButtonSize);
   stopButtonSize.y = 40.0;
   if (igButton("STOP", stopButtonSize)) {
-    sp->write("\x85");
+    grbl->write("\x85");
   }
   igPopStyleColor(1);
 
   // handle escape
   if (igIsWindowFocused(0) && igIsKeyReleased(0x100)) {
-    sp->write("\x85");
+    grbl->write("\x85");
   }
   igEnd();
 }
 
-void panel_terminal(SerialPort *sp, StringList *lines) {
+void panel_terminal(GrblMachine *grbl) {
   char input[1024] = {0};
   igBegin("Grbl Terminal", 0, 0); 
   igText("output from grbl:");
@@ -128,18 +153,25 @@ void panel_terminal(SerialPort *sp, StringList *lines) {
     ImGuiWindowFlags_HorizontalScrollbar
   );
 
+  static int last_line_count = 0;
   ImGuiListClipper clipper;
-  ImGuiListClipper_Begin(&clipper, lines->length(), 20.0);
+  ImGuiListClipper_Begin(&clipper, grbl->log->length(), 14.0);
   String *line = nullptr;
   while (ImGuiListClipper_Step(&clipper)) {
     for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++) {
-      line = lines->item(line_no);
+      line = grbl->log->item(line_no);
       igTextUnformatted(line->c_str(), NULL);
     }
   }
   ImGuiListClipper_End(&clipper);
 
-  igSetScrollHereY(1.0f);
+  // TODO: this behavior can be improved by only auto-scrolling when
+  //       the user hasn't scrolled away from the bottom
+  if (last_line_count != grbl->log->length()) {
+    igSetScrollHereY(1.0f);
+    last_line_count = grbl->log->length();
+  }
+
   igEndChild();
   igSeparator();
   bool textSubmitted = igInputText(
@@ -152,15 +184,15 @@ void panel_terminal(SerialPort *sp, StringList *lines) {
   );
 
   if (textSubmitted) {
-    printf(">> %s\n", input);
-    // sp_rx_lines.push_back(">> " + string(input));
-    sp->write(input);
-    sp->write("\n");
+    String tx;
+    tx.set_c_str(input);
+    tx.append_c_str("\n");
+
+    grbl->write(tx.handle);
     input[0] = 0;
 
-    // Demonstrate keeping auto focus on the input box
-    if (
-      igIsItemHovered(0) ||
+    // keep the input box focused
+    if (igIsItemHovered(0) ||
       (igIsWindowFocused(0) && !igIsAnyItemActive() && !igIsMouseClicked(0, false))
     ) {
       igSetKeyboardFocusHere(-1); // Auto focus previous widget
@@ -169,7 +201,6 @@ void panel_terminal(SerialPort *sp, StringList *lines) {
   igEnd();
 }
 
-
 struct Line {
   gbString handle = NULL;
 };
@@ -177,88 +208,9 @@ struct Line {
 const Line defaultLine = {0};
 
 void loop() {
-  SerialPort sp("COM3");
-  igBegin("hot", 0, 0);
+  // this implicitly ticks the underlying serialport
+  GrblMachine grbl;
 
-  igText("sp: %u, %u", sp.id, sp.available());
-  String *rx = (String *)hotState(
-    /* id            */ 1,
-    /* size          */ sizeof(String),
-    /* initial value */ nullptr
-  );
-
-  Line *line = (Line *)hotState(
-      /* id            */ 2,
-      /* size          */ sizeof(Line),
-      /* initial value */ (void *)&defaultLine);
-
-  // Lines *lines = (Lines *)hotState(
-  //     /* id            */ 3,
-  //     /* size          */ sizeof(Lines),
-  //     /* initial value */ nullptr);
-
-  StringList *lines = (StringList *)hotState(
-      /* id            */ 3,
-      /* size          */ sizeof(Lines),
-      /* initial value */ nullptr);
-
-  if (sp.available()) {
-    printf("recv: ");
-    while (sp.available()) {
-      char c = sp.read();
-      if (c == '\r') {
-        continue;
-      }
-
-      if (c == '\n') {
-        if (rx->length() == 0) {
-          continue;
-        }
-
-        lines->push(rx);
-        printf("LINE: %s\n", rx->handle);
-        rx->clear();
-        continue;
-      }
-
-      // const char add[2] = {c, 0};
-      //line->handle = gb_append_cstring(line->handle, add);
-      rx->append_char(c);
-      // 
-      // if (c == '\n') {
-
-      //   const char str[2] = { c, 0 };
-      //   printf("line: %p, line->handle: %p\n", line, line->handle);
-      //   if (line->handle == NULL) {
-      //     printf("make handle a string\n");
-      //     line->handle = gb_make_string(str);
-      //   } else {
-      //     printf("append value to string\n");
-      //     line->handle = gb_append_cstring(line->handle, str);
-      //   }
-      //   printf("here\n");
-      //   // String s(rx);
-      //   // printf("after\n");
-        
-      //   //lines->push_copy(rx->handle);//stbds_arrpush(lines, &s);
-      //   // rx->clear();
-      // }
-      // printf("%c", c);
-      // rx->append(c);
-    }
-    printf("\n");
-  }
-
-
-  uint32_t *ticker = (uint32_t *) hotState(
-  /* id            */  2,
-  /* size          */  sizeof(uint32_t),
-  /* initial value */  0
-  );
-  
-  igText("it's hot in here: %i sp: %u", (*ticker)++);
-  igText("recv buffer\n%s", rx->handle);
-
-  panel_jog(&sp);
-  panel_terminal(&sp, lines);
+  panel_jog(&grbl);
+  panel_terminal(&grbl);
 }

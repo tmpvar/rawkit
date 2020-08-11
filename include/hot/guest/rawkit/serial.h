@@ -14,6 +14,10 @@ extern "C" {
 struct SerialPort {
   SerialID id;
   SerialPort(const char *port);
+  SerialPort() {}
+  void open(const char *port) {
+    this->id = Serial_Open(port);
+  }
   size_t available();
   // we use int16 here because we want the full lower 8 bits
   // but also want to be able to signal an error using -1
@@ -26,10 +30,8 @@ struct SerialPort {
   void write(const uint8_t *buf, size_t len) {
     Serial_Write(this->id, buf, len);
   }
-
-  
 };
-#include <stdio.h>
+
 SerialPort::SerialPort(const char *port) {
   this->id = Serial_Open(port);
 }
