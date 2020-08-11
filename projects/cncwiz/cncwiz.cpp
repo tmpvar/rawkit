@@ -201,12 +201,6 @@ void panel_terminal(GrblMachine *grbl) {
   igEnd();
 }
 
-struct Line {
-  gbString handle = NULL;
-};
-
-const Line defaultLine = {0};
-
 void loop() {
   // this implicitly ticks the underlying serialport
   GrblMachine grbl;
