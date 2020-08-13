@@ -5,17 +5,36 @@
 #include <rawkit/hot/state.h>
 #include <rawkit/serial.h>
 #include <rawkit/string.h>
+#include <rawkit/grbl/parser.h>
+
+#define GRBL_MACHINE_HOT_STATE_OFFSET 0xFF000000
 
 struct GrblMachine {
   SerialPort sp;
   StringList *log;
   String *line;
+  GrblParser *rx_parser;
 
   GrblMachine() {
     this->sp.open("COM3");
 
-    this->line = (String *)hotState( 1, sizeof(String), nullptr);
-    this->log = (StringList *)hotState(3, sizeof(StringList), nullptr);
+    this->line = (String *)hotState(
+      GRBL_MACHINE_HOT_STATE_OFFSET,
+      sizeof(String),
+      nullptr
+    );
+    this->log = (StringList *)hotState(
+      GRBL_MACHINE_HOT_STATE_OFFSET + 1,
+      sizeof(StringList),
+      nullptr
+    );
+
+    this->rx_parser = (GrblParser *)hotState(
+      GRBL_MACHINE_HOT_STATE_OFFSET + 2,
+      sizeof(GrblParser),
+      nullptr
+    );
+
 
     while (this->sp.available()) {
       char c = this->sp.read();
@@ -23,6 +42,8 @@ struct GrblMachine {
       if (c == '\r') {
         continue;
       }
+
+      this->rx_parser->read(c);
 
       if (c == '\n') {
         if (this->line->length() == 0) {

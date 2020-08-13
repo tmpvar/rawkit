@@ -204,12 +204,13 @@ enable_testing()
 add_test(NAME run-tests COMMAND rawkit-test)
 
 
+file(GLOB RAWKIT_GRBL_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/rawkit/grbl/*.h")
+list(FILTER RAWKIT_GRBL_GUEST_INCLUDE_FILES EXCLUDE REGEX ".*test.*")
 install(
-    DIRECTORY
-        ${CMAKE_CURRENT_LIST_DIR}/include/grbl
-    DESTINATION include/rawkit
+    FILES
+        ${RAWKIT_GRBL_GUEST_INCLUDE_FILES}
+    DESTINATION include/rawkit/grbl
 )
-
 
 file(GLOB HOT_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/hot/*.h")
 install(
@@ -237,6 +238,7 @@ install(
 install(
     FILES
       ${DEPS_DIR}/cimgui/cimgui.h
+      ${CMAKE_CURRENT_LIST_DIR}/include/stb_sb.h
     DESTINATION include/
 )
 

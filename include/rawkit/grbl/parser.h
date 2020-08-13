@@ -424,7 +424,7 @@ char *read_int(int *acc, char *buf, uint32_t *len) {
     buf = advance(buf, len, 1);
   }
   const uint32_t l = (*len);
-  for (uint32_t i = 0; buf[0] != 0, i < l; i++) {
+  for (uint32_t i = 0; buf[0] != 0 && i < l; i++) {
     char c = buf[0];
     if (c < '0' || c > '9') {
       break;
@@ -443,7 +443,7 @@ char *read_int(int *acc, char *buf, uint32_t *len) {
 char *read_uint16(uint16_t *acc, char *buf, uint32_t *len) {
   *acc = 0;
   uint32_t i = 0;
-  for (i;  buf[i] != 0, i<(*len); i++) {
+  for (i=0;  buf[i] != 0 && i<(*len); i++) {
     char c = buf[i];
     if (c < '0' || c > '9') {
       break;
@@ -458,7 +458,7 @@ char *read_uint16(uint16_t *acc, char *buf, uint32_t *len) {
 char *read_uint32(uint32_t *acc, char *buf, uint32_t *len) {
   *acc = 0;
   uint32_t i = 0;
-  for (i;  buf[i] != 0, i<(*len); i++) {
+  for (i = 0;  buf[i] != 0 && i<(*len); i++) {
     char c = buf[i];
     if (c < '0' || c > '9') {
       break;
@@ -488,8 +488,12 @@ char *read_float(float *acc, char *buf, uint32_t *len) {
 
   char *new_buf = read_int(&frac, buf, len);
   size_t frac_len = new_buf - buf;
+  float places = 1.0f;
+  for (size_t i = 0; i<frac_len; i++) {
+    places *= 10.0f;
+  }
 
-  (*acc) = (float)whole + (float)frac / pow(10, frac_len);
+  (*acc) = (float)whole + (float)frac / places;
 
   return new_buf;
 }
@@ -1034,7 +1038,7 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
 
       // read past the ,
       if (buf[0] != ',') {
-        printf("WARN: expected , between available_blocks and available_bytes\n", buf);
+        printf("WARN: expected , between available_blocks and available_bytes\n");
         return GRBL_ERROR;
       }
       buf = advance(buf, &len, 1);
@@ -1262,6 +1266,7 @@ int grbl_parser_input(grbl_parser_t *parser, const char c) {
     : GRBL_PARSER_BUFFER_LEN;
 
     int ret = GRBL_FALSE;
+    parser->input[len] = 0;
     if (parser->loc > 0) {
       ret = grbl_parser_tokenize_current_line(parser);
     }
@@ -1284,13 +1289,16 @@ int grbl_parser_input(grbl_parser_t *parser, const char c) {
 
 struct GrblParser {
   grbl_parser_t *handle = NULL;
-  GrblParser() {
-    this->handle = grbl_parser_create();
-  }
   ~GrblParser() {
-    grbl_parser_destroy(this->handle);
+    if (this->handle != NULL) {
+      grbl_parser_destroy(this->handle);
+    }
   }
+
   int read(const char c) {
+    if (this->handle == NULL) {
+      this->handle = grbl_parser_create();
+    }
     return grbl_parser_input(this->handle, c);
   }
 
