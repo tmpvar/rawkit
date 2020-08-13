@@ -1,14 +1,10 @@
 #define CIMGUI_NO_EXPORT
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include <cimgui.h>
-#include <hot/state.h>
+
+#include <rawkit/hot/state.h>
 #include <rawkit/serial.h>
-
 #include <rawkit/string.h>
-
-#include <stb_ds.h>
-
-#include <vector>
 
 struct GrblMachine {
   SerialPort sp;
@@ -33,7 +29,7 @@ struct GrblMachine {
           continue;
         }
 
-        if (this->line->length() == 1 && this->line->handle[0] == '\n') {
+        if (this->line->length() == 1 && this->line->c_str()[0] == '\n') {
           continue;
         }
         
@@ -74,42 +70,42 @@ void panel_jog(GrblMachine *grbl) {
 
   ImVec2 buttonSize = {32, 32};
   igDummy(buttonSize);
-  igSameLine(0.0, 0.0);
+  igSameLine(0.0, 1.0);
   if (igArrowButtonEx("##Jog:Y+", ImGuiDir_Up, buttonSize,
                            ImGuiButtonFlags_None)) {
-    grbl->write("$J=G91Y10F1000");
+    grbl->write("$J=G91Y+10F10000\n");
   }
 
-  igSameLine(0.0, 0.0);
+  igSameLine(0.0, 5.0);
   igDummy(buttonSize);
-  igSameLine(0.0, 0.0);
+  igSameLine(0.0, 5.0);
   igDummy(buttonSize);
-  igSameLine(0.0, 0.0);
+  igSameLine(0.0, 1.0);
   if (igArrowButtonEx("##Jog:Z+", ImGuiDir_Up, buttonSize,
                            ImGuiButtonFlags_None)) {
-    grbl->write("$J=G91Z10F1000\n");
+    grbl->write("$J=G91Z+10F10000\n");
   }
 
   if (igArrowButtonEx("##Jog:X-", ImGuiDir_Left, buttonSize,
                            ImGuiButtonFlags_None)) {
-    grbl->write("$J=G91X-10F1000\n");
+    grbl->write("$J=G91X-10F10000\n");
   }
 
-  igSameLine(0.0, 0.0);
+  igSameLine(0.0, 2.0);
   igDummy(buttonSize);
 
   igSameLine(0.0, 0.0);
 
   if (igArrowButtonEx("##Jog:X+", ImGuiDir_Right, buttonSize,
                            ImGuiButtonFlags_None)) {
-    grbl->write("$J=G91X+10F1000\n");
+    grbl->write("$J=G91X+10F10000\n");
   }
 
   igDummy(buttonSize);
   igSameLine(0.0, 0.0);
   if (igArrowButtonEx("##Jog:Y-", ImGuiDir_Down, buttonSize,
                            ImGuiButtonFlags_None)) {
-    grbl->write("$J=G91Y-10F1000\n");
+    grbl->write("$J=G91Y-10F10000\n");
   }
 
   igSameLine(0.0, 0.0);
@@ -120,7 +116,7 @@ void panel_jog(GrblMachine *grbl) {
 
   if (igArrowButtonEx("##Jog:Z-", ImGuiDir_Down, buttonSize,
                            ImGuiButtonFlags_None)) {
-    grbl->write("$J=G91Z-10F10000\n");
+    grbl->write("$J=G91Z-10F100000\n");
   }
 
   igDummy(buttonSize);
@@ -155,7 +151,7 @@ void panel_terminal(GrblMachine *grbl) {
 
   static int last_line_count = 0;
   ImGuiListClipper clipper;
-  ImGuiListClipper_Begin(&clipper, grbl->log->length(), 14.0);
+  ImGuiListClipper_Begin(&clipper, grbl->log->length(), 16.0);
   String *line = nullptr;
   while (ImGuiListClipper_Step(&clipper)) {
     for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++) {

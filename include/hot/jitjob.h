@@ -4,7 +4,6 @@
 
 #include <ghc/filesystem.hpp>
 
-
 // This function isn't referenced outside its translation unit, but it
 // can't use the "static" keyword because its address is used for
 // GetMainExecutable (since some platforms don't support taking the
@@ -14,11 +13,14 @@ std::string GetExecutablePath(const char *Argv0, void *MainAddr);
 
 class JitJob {
   private:
-    JitJob() {}
+    JitJob();
 
     std::string triple_str;
     std::string path;
     std::string guest_include;
+    std::string system_include;
+
+    ghc::filesystem::path exe_path;
     void *main_addr;
     clang::driver::Driver *driver;
 

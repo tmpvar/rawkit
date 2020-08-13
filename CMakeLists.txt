@@ -93,7 +93,10 @@ include_directories(${DEPS_DIR}/cimgui ${DEPS_DIR}/cimgui/imgui)
 
 # DEP: serial
 add_subdirectory(${DEPS_DIR}/serial)
-include_directories(${DEPS_DIR}/serial/include)
+include_directories(
+  ${DEPS_DIR}/serial/include
+  ${DEPS_DIR}/whereami/src
+)
 
 add_executable(
   rawkit
@@ -102,6 +105,7 @@ add_executable(
   ${SRC_DIR}/hot/state.cpp
   ${SRC_DIR}/hot/cimgui.cpp
   ${SRC_DIR}/rawkit/serial.cpp
+  ${DEPS_DIR}/whereami/src/whereami.c
   ${IMGUI_SRC}
 )
 
@@ -198,3 +202,48 @@ target_link_libraries(
 add_executable(rawkit-test ${CMAKE_CURRENT_LIST_DIR}/test/test.cpp)
 enable_testing()
 add_test(NAME run-tests COMMAND rawkit-test)
+
+
+install(
+    DIRECTORY
+        ${CMAKE_CURRENT_LIST_DIR}/include/grbl
+    DESTINATION include/rawkit
+)
+
+
+file(GLOB HOT_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/hot/*.h")
+install(
+    FILES
+      ${HOT_GUEST_INCLUDE_FILES}
+    DESTINATION include/rawkit/hot
+)
+
+file(GLOB RAWKIT_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/rawkit/*.h")
+install(
+    FILES
+      ${RAWKIT_GUEST_INCLUDE_FILES}
+    DESTINATION include/rawkit
+)
+
+
+file(GLOB SHARED_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/*.h")
+install(
+    FILES
+      ${SHARED_GUEST_INCLUDE_FILES}
+    DESTINATION include/
+)
+
+
+install(
+    FILES
+      ${DEPS_DIR}/cimgui/cimgui.h
+    DESTINATION include/
+)
+
+
+install(
+    TARGETS
+        rawkit
+    RUNTIME DESTINATION
+        bin
+)

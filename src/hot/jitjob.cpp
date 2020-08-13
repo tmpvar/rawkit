@@ -3,6 +3,7 @@
 // https://kevinaboos.wordpress.com/2013/07/29/clang-tutorial-part-iii-plugin-example/ 
 // https://gist.github.com/dhbaird/918a92405657220aed166f636e732f6d
 #include <clang/AST/Mangle.h>
+#include <whereami.h>
 
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
@@ -41,6 +42,25 @@ static ArgStringList FilterArgs(const ArgStringList& input) {
   }
 
   return args;
+}
+
+JitJob::JitJob() {
+  char *path = NULL;
+  int dirname_length = 0;
+  int length = wai_getExecutablePath(NULL, 0, &dirname_length);
+  if (length > 0) {
+    path = (char *)malloc(length + 1);
+    if (!path) {
+      abort();
+    }
+
+    wai_getExecutablePath(path, length, &dirname_length);
+    path[dirname_length] = '\0';
+    this->exe_path.assign(path);
+    free(path);
+
+    this->system_include.assign("-I" + (this->exe_path.parent_path() / "include").string());
+  }
 }
 
 
@@ -92,11 +112,15 @@ JitJob *JitJob::create(int argc, const char **argv) {
   Args.push_back(job->guest_include.c_str());
   Args.push_back("-I/usr/local/opt/llvm/Toolchains/LLVM10.0.0.xctoolchain/usr/lib/clang/10.0.0/include");
 
+  Args.push_back(job->system_include.c_str());
+
+  /* TODO: only use these when debugging.. maybe
   Args.push_back("-I../deps/");
   Args.push_back("-I../deps/cimgui");
   Args.push_back("-I../include/hot/guest");
   Args.push_back(RAWKIT_GUEST_INCLUDE_DIR);
   Args.push_back(RAWKIT_CIMGUI_INCLUDE_DIR);
+  */
   Args.push_back("-DHOT_GUEST=1");
   Args.push_back("-DRAWKIT_GUEST=1");
 
