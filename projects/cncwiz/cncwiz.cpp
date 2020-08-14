@@ -2,6 +2,7 @@
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include <cimgui.h>
 
+#include <rawkit/rawkit.h>
 #include <rawkit/hot/state.h>
 #include <rawkit/serial.h>
 #include <rawkit/string.h>
@@ -9,11 +10,41 @@
 
 #define GRBL_MACHINE_HOT_STATE_OFFSET 0xFF000000
 
+typedef grbl_vec3_t vec3;
+
+void vec3_copy(vec3 *dst, const vec3 *src) {
+  dst->x = src->x;
+  dst->y = src->y;
+  dst->z = src->z;
+}
+
+struct GrblState {
+  uint64_t token_index = 0;
+  double last_fetch = -100.0;
+
+  grbl_machine_state last_state;
+  grbl_machine_state state;
+  
+  vec3 machine_position;
+  vec3 wcs_G54;
+  vec3 wcs_G55;
+  vec3 wcs_G56;
+  vec3 wcs_G57;
+  vec3 wcs_G58;
+  vec3 wcs_G59;
+  vec3 pos_G28;
+  vec3 pos_G30;
+  float TLO;
+  vec3 PRB;
+  vec3 cso_G92;
+};
+
 struct GrblMachine {
   SerialPort sp;
   StringList *log;
   String *line;
   GrblParser *rx_parser;
+  GrblState *state;
 
   GrblMachine() {
     this->sp.open("COM3");
@@ -35,7 +66,33 @@ struct GrblMachine {
       nullptr
     );
 
+    this->state = (GrblState *)hotState(
+      GRBL_MACHINE_HOT_STATE_OFFSET + 3,
+      sizeof(GrblState),
+      nullptr
+    );
 
+    double now = rawkit_now();
+    double last_fetch = this->state->last_fetch;
+    double pollingRate = .2;
+
+    if (last_fetch == 0.0) {
+      this->sp.write("$#\n");
+    }
+
+    if (last_fetch == 0.0 || now - last_fetch > pollingRate) {
+      this->sp.write("?");
+      this->state->last_fetch = now + 1000;
+    }
+
+    if (this->state->state != GRBL_MACHINE_STATE_ALARM) {
+      if (this->state->last_state != this->state->state) {
+        this->sp.write("$#\n");
+        this->state->last_state = this->state->state;
+      }
+    }
+
+    // tokenize the output from grbl
     while (this->sp.available()) {
       char c = this->sp.read();
 
@@ -49,7 +106,7 @@ struct GrblMachine {
         if (this->line->length() == 0) {
           continue;
         }
-
+    
         if (this->line->length() == 1 && this->line->c_str()[0] == '\n') {
           continue;
         }
@@ -60,6 +117,90 @@ struct GrblMachine {
       }
 
       this->line->append_char(c);
+    }
+
+
+    uint64_t token_count = this->rx_parser->token_count();
+    if (token_count > this->state->token_index) {
+
+      for (; this->state->token_index < token_count; this->state->token_index++) {
+        const grbl_response_token_t *token = this->rx_parser->token(this->state->token_index);
+        switch (token->type) {
+          case   GRBL_TOKEN_TYPE_MACHINE_STATE:
+            
+            this->state->state = token->machine_state.value;
+            break;
+
+          case GRBL_TOKEN_TYPE_MACHINE_POSITION:
+            vec3_copy(
+              &this->state->machine_position,
+              &token->vec3
+            );
+            this->state->last_fetch = now;
+            break;
+
+          case GRBL_TOKEN_TYPE_MESSAGE_POS_G28:
+            vec3_copy(
+              &this->state->pos_G28,
+              &token->vec3
+            );
+            break;
+          case GRBL_TOKEN_TYPE_MESSAGE_POS_G30:
+            vec3_copy(
+              &this->state->pos_G30,
+              &token->vec3
+            );
+            break;
+          case GRBL_TOKEN_TYPE_MESSAGE_WCO_G54:
+            vec3_copy(
+              &this->state->wcs_G54,
+              &token->vec3
+            );
+            break;
+          case GRBL_TOKEN_TYPE_MESSAGE_WCO_G55:
+            vec3_copy(
+              &this->state->wcs_G55,
+              &token->vec3
+            );
+            break;
+          case GRBL_TOKEN_TYPE_MESSAGE_WCO_G56:
+            vec3_copy(
+              &this->state->wcs_G56,
+              &token->vec3
+            );
+            break;
+          case GRBL_TOKEN_TYPE_MESSAGE_WCO_G57:
+            vec3_copy(
+              &this->state->wcs_G57,
+              &token->vec3
+            );
+            break;
+          case GRBL_TOKEN_TYPE_MESSAGE_WCO_G58:
+            vec3_copy(
+              &this->state->wcs_G58,
+              &token->vec3
+            );
+            break;
+          case GRBL_TOKEN_TYPE_MESSAGE_WCO_G59:
+            vec3_copy(
+              &this->state->wcs_G59,
+              &token->vec3
+            );
+            break;
+          case GRBL_TOKEN_TYPE_MESSAGE_CSO_G92:
+            vec3_copy(
+              &this->state->cso_G92,
+              &token->vec3
+            );
+            break;
+          case GRBL_TOKEN_TYPE_MESSAGE_TLO:
+            this->state->TLO = token->f32;
+            break;
+
+          default:
+            continue;
+        }
+      }
     }
   }
 
@@ -78,7 +219,16 @@ struct GrblMachine {
 
 };
 
-void setup() {}
+// void imgui_theme_init() {
+
+//   ImGuiStyle *style =  igGetStyle();
+  
+
+// }
+
+void setup() {
+
+}
 
 void panel_jog(GrblMachine *grbl) {
   igBegin(
@@ -218,10 +368,51 @@ void panel_terminal(GrblMachine *grbl) {
   igEnd();
 }
 
+void panel_status(GrblMachine *grbl) {
+  igBegin("Status", 0, 0);
+
+  const GrblState *state = grbl->state;
+  igText("STATE: %s", grbl_machine_state_str[state->state]);
+
+  igText("");
+  igText("MACHINE ABSOLUTE POSITION");
+  igText("ABS (%f, %f, %f)",
+    state->machine_position.x,
+    state->machine_position.y,
+    state->machine_position.z
+  );
+
+  igText("");
+  igText("WORK COORDINATE SYSTEMS");
+
+  igText("1 G54 (%f, %f, %f)", state->wcs_G54.x, state->wcs_G54.y, state->wcs_G54.z);
+  igText("2 G55 (%f, %f, %f)", state->wcs_G55.x, state->wcs_G55.y, state->wcs_G55.z);
+  igText("3 G56 (%f, %f, %f)", state->wcs_G56.x, state->wcs_G56.y, state->wcs_G56.z);
+  igText("4 G57 (%f, %f, %f)", state->wcs_G57.x, state->wcs_G57.y, state->wcs_G57.z);
+  igText("5 G58 (%f, %f, %f)", state->wcs_G58.x, state->wcs_G58.y, state->wcs_G58.z);
+  igText("6 G59 (%f, %f, %f)", state->wcs_G59.x, state->wcs_G59.y, state->wcs_G59.z);
+
+  igText("");
+  igText("Predefined Positions");
+  igText("G28 (%f, %f, %f)", state->pos_G28.x, state->pos_G28.y, state->pos_G28.z);
+  igText("G30 (%f, %f, %f)", state->pos_G30.x, state->pos_G30.y, state->pos_G30.z);
+
+  igText("");
+  igText("TOOL OFFSET");
+  igText("TLO (%f)", state->TLO);
+
+  igText("");
+  igText("LAST PROBE POSITION");
+  igText("PRB (%f, %f, %f)", state->PRB.x, state->PRB.y, state->PRB.z);
+
+  igEnd();
+}
+
 void loop() {
   // this implicitly ticks the underlying serialport
   GrblMachine grbl;
 
   panel_jog(&grbl);
   panel_terminal(&grbl);
+  panel_status(&grbl);
 }

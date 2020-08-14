@@ -219,10 +219,9 @@ install(
     DESTINATION include/rawkit/hot
 )
 
-file(GLOB RAWKIT_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/rawkit/*.h")
 install(
-    FILES
-      ${RAWKIT_GUEST_INCLUDE_FILES}
+    DIRECTORY
+      ${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/rawkit/
     DESTINATION include/rawkit
 )
 
@@ -234,14 +233,12 @@ install(
     DESTINATION include/
 )
 
-
 install(
     FILES
       ${DEPS_DIR}/cimgui/cimgui.h
       ${CMAKE_CURRENT_LIST_DIR}/include/stb_sb.h
     DESTINATION include/
 )
-
 
 install(
     TARGETS

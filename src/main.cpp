@@ -404,6 +404,9 @@ int main(int argc, const char **argv) {
     if (!glfwInit())
         return 1;
 
+
+    
+
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     GLFWwindow* window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+Vulkan example", NULL, NULL);
 

@@ -532,7 +532,9 @@ char *read_str(grbl_response_token_t *token, char *buf, uint32_t *len) {
 int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
   uint32_t len = parser->loc;
   char *buf = parser->input;
+  #ifdef GRBL_PARSER_DEBUG
   printf("buf(%u): %s\n", len, buf);
+  #endif
   if (len == 2 && buf[0] == 'o' && buf[1] == 'k') {
     grbl_response_token_t token;
     token.type = GRBL_TOKEN_TYPE_STATUS;
@@ -1287,6 +1289,10 @@ int grbl_parser_input(grbl_parser_t *parser, const char c) {
   return GRBL_FALSE;
 }
 
+uint64_t grbl_parser_token_count(const grbl_parser_t *parser) {
+  return stb_sb_count(parser->tokens);
+}
+
 struct GrblParser {
   grbl_parser_t *handle = NULL;
   ~GrblParser() {
@@ -1312,5 +1318,19 @@ struct GrblParser {
     return GRBL_TRUE;
   }
 
+  uint64_t token_count() {
+    if (this->handle == NULL) {
+      return 0;
+    }
+    return grbl_parser_token_count(this->handle);
+  }
+
+  const grbl_response_token_t *token(uint64_t idx) {
+    if (this->token_count() <= idx) {
+      return NULL;
+    }
+
+    return &this->handle->tokens[idx];
+  }
 };
 
