@@ -155,32 +155,12 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
     return GCODE_RESULT_ERROR;
   }
 
+  if (pair.letter == 'G' || pair.letter == 'M') {
+    line->type = (gcode_line_type)word;
+    line->code = pair.value;
+  }
+
   stb_sb_push(line->pairs, pair);
-
-  // extract the enumeration value of the letter in the pair
-  switch (pair.letter) {
-    case 'G':
-      if (line->type != GCODE_LINE_TYPE_EOF) {
-        printf("ERROR: multiple overlapping command words were specified.\n");
-        return GCODE_RESULT_ERROR;
-      }
-      line->type = GCODE_LINE_TYPE_G;
-      break;
-    case 'M':
-      if (line->type != GCODE_LINE_TYPE_EOF) {
-        printf("ERROR: multiple overlapping command words were specified.\n");
-        return GCODE_RESULT_ERROR;
-      }
-
-      line->type = GCODE_LINE_TYPE_M;
-      break;
-  }
-
-  // ensure the line is no longer marked as EOF
-  if (line->type == GCODE_LINE_TYPE_EOF) {
-
-  }
-
   return GCODE_RESULT_TRUE;
 }
 
@@ -231,7 +211,7 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, char c) {
     c -= 32;
   }
 
-  // collect digits up to the next letter
+  // collect a letter
   if (parser->pending_loc == 0) {
     // handle comments
     // TODO: it is assumed that a comment spans the entire line..
@@ -250,24 +230,24 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, char c) {
       printf("ERROR: expect first char to be a letter\n");
       return GCODE_RESULT_ERROR;
     }
+
     parser->pending_buf[parser->pending_loc++] = c;
     return GCODE_RESULT_TRUE;
   }
 
   if (c >= 'A' && c <= 'Z') {
     if (gcode_parser_line_add_pending_pair(parser) != GCODE_RESULT_TRUE) {
-      printf("ERROR: adding a pending pair failed\n");
+      return GCODE_RESULT_ERROR;
+    }
+
+    if (parser->pending_loc == 1) {
+      printf("ERROR: two letters found in sequence\n");
       return GCODE_RESULT_ERROR;
     }
 
     // reset the pending buffer and add the current letter
     parser->pending_buf[0] = c;
     parser->pending_loc = 1;
-  }
-
-  if (!gcode_is_numeric(c)) {
-    printf("ERROR: expect characters after first to be numeric\n");
-    return GCODE_RESULT_ERROR;
   }
 
   parser->pending_buf[parser->pending_loc++] = c;

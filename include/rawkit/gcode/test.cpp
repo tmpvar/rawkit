@@ -70,6 +70,15 @@ UTEST(gcode, block_delete) {
 
 UTEST(gcode, duplicate_words) {
   GCODEParser p;
-  ok(p.push("G1 X1X2\n") == GCODE_RESULT_ERROR);
+  ok(p.push("X1x2\n") == GCODE_RESULT_ERROR);
   ok(stb_sb_count(p.handle->lines) == 1);
+}
+
+UTEST(gcode, non_and_duplicate_words) {
+  GCODEParser p;
+  ok(p.push("g10X1Y5X2\n") == GCODE_RESULT_ERROR);
+  ok(stb_sb_count(p.handle->lines) == 1);
+  ok(p.line(0)->type == GCODE_LINE_TYPE_G);
+  ok(p.line(0)->code == 10);
+  ok(stb_sb_count(p.line(0)->pairs) == 1);
 }
