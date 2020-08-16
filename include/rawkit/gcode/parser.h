@@ -2,7 +2,10 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 #include <stb_sb.h>
+
 /*
 List of Supported G-Codes in Grbl v1.1:
   - Non-Modal Commands: G4, G10L2, G10L20, G28, G30, G28.1, G30.1, G53, G92, G92.1
@@ -25,7 +28,9 @@ List of Supported G-Codes in Grbl v1.1:
 
 #define GCODE_PARSER_BUFFER_LEN 1024
 
-#define printf printf
+#if !defined(gcode_debug)
+  #define gcode_debug (void)(...)
+#endif
 
 enum gcode_parse_result {
   GCODE_RESULT_ERROR = -1,
@@ -33,13 +38,42 @@ enum gcode_parse_result {
   GCODE_RESULT_TRUE = 1
 };
 
+enum gcode_word {
+  GCODE_WORD_NONE = -1,
+  GCODE_WORD_G = 0,
+  GCODE_WORD_M,
+  GCODE_WORD_F,
+  GCODE_WORD_I,
+  GCODE_WORD_J,
+  GCODE_WORD_K,
+  GCODE_WORD_L,
+  GCODE_WORD_N,
+  GCODE_WORD_P,
+  GCODE_WORD_R,
+  GCODE_WORD_S,
+  GCODE_WORD_T,
+  GCODE_WORD_X,
+  GCODE_WORD_Y,
+  GCODE_WORD_Z,
+  GCODE_WORD_COUNT,
+};
+
+const char gcode_word_map[16] = {
+  'G','M','F','I','J','K','L','N','P','R','S','T','X','Y','Z'
+};
+
 enum gcode_line_type {
   GCODE_LINE_TYPE_EOF = -1,
-  GCODE_LINE_TYPE_NONE = 0,
-  GCODE_LINE_TYPE_G,
-  GCODE_LINE_TYPE_M,
+  GCODE_LINE_TYPE_G = GCODE_WORD_G,
+  GCODE_LINE_TYPE_M = GCODE_WORD_M,
   GCODE_LINE_TYPE_COMMENT,
   GCODE_LINE_TYPE_REMOVE_BLOCK,
+};
+
+enum gcode_axis_words {
+  GCODE_AXIS_WORD_X = GCODE_WORD_X,
+  GCODE_AXIS_WORD_Y = GCODE_WORD_Y,
+  GCODE_AXIS_WORD_Z = GCODE_WORD_Z
 };
 
 typedef struct gcode_word_pair_t {
@@ -47,10 +81,14 @@ typedef struct gcode_word_pair_t {
   float value;
 } gcode_line_token_t;
 
+// TODO: add a bitmask and sub-struct / array of floats for adding fields
+
 typedef struct gcode_line_t {
-  uint64_t start_loc = 0;
-  uint64_t end_loc = 0;
+  uint64_t start_loc;
+  uint64_t end_loc;
+  uint32_t words;
   gcode_line_type type;
+  float code;
   gcode_word_pair_t *pairs;
 } gcode_line_t;
 
@@ -94,12 +132,32 @@ inline bool gcode_is_numeric(const char c) {
 gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
   gcode_word_pair_t pair;
   pair.letter = parser->pending_buf[0];
+
+  gcode_word word = GCODE_WORD_NONE;
+  for (int i=0; i<GCODE_WORD_COUNT; i++) {
+    if (gcode_word_map[i] == pair.letter) {
+      word = (gcode_word)i;
+      break;
+    }
+  }
+
+  if (word < 0 || word >= GCODE_WORD_COUNT) {
+    return GCODE_RESULT_ERROR;
+  }
+
   parser->pending_buf[parser->pending_loc] = 0;
   pair.value = atof(parser->pending_buf + 1);
   gcode_line_t *line = &stb_sb_last(parser->lines);
-  printf("PUSH pair (%c, %f) :: %s\n", pair.letter, pair.value, parser->pending_buf + 1);
+
+  uint32_t mask = 1<<(int)word;
+  if (line->words & mask) {
+    printf("ERROR: duplicate word '%c' found\n", pair.letter);
+    return GCODE_RESULT_ERROR;
+  }
+
   stb_sb_push(line->pairs, pair);
 
+  // extract the enumeration value of the letter in the pair
   switch (pair.letter) {
     case 'G':
       if (line->type != GCODE_LINE_TYPE_EOF) {
@@ -137,8 +195,7 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, char c) {
   }
 
   gcode_line_t *current_line = &parser->lines[stb_sb_count(parser->lines) - 1];
-    
-  printf("gcode_parser_input(.., %c)\n", c);
+
   if (is_whitespace(c)) {
     if (c == '\n') {
       current_line->end_loc = parser->total_loc - 1;

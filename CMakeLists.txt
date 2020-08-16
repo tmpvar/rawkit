@@ -199,7 +199,12 @@ target_link_libraries(
   clangSerialization
 )
 
-add_executable(rawkit-test ${CMAKE_CURRENT_LIST_DIR}/test/test.cpp)
+add_executable(rawkit-test
+  ${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/include/rawkit/grbl/test.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/include/rawkit/gcode/test.cpp
+)
+
 enable_testing()
 add_test(NAME run-tests COMMAND rawkit-test)
 

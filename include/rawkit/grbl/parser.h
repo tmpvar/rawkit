@@ -19,7 +19,10 @@ SOFTWARE.
 
 #pragma once
 
+#include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 #include <stb_sb.h>
 
 #ifndef GRBL_PARSER_BUFFER_LEN
@@ -1257,7 +1260,7 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
 // returns true on newline because at that point we should have a valid
 // parser->response
 int grbl_parser_input(grbl_parser_t *parser, const char c) {
-  // ignore
+  // ignore 
   if (c == '\r') {
     return GRBL_FALSE;
   }

@@ -18,9 +18,18 @@ void vec3_copy(vec3 *dst, const vec3 *src) {
   dst->z = src->z;
 }
 
+struct GrblCommandPair {
+
+};
+
 struct GrblState {
   uint64_t token_index = 0;
   double last_fetch = -100.0;
+
+  // track pairs of requests and responses in a queue. This can be used
+  // for blocking operations like $h, probing, etc.. and can also inform
+  // when we need to send $# to update WCS and similar (e.g., after a user updates
+  // the working coordinates via G10)
 
   grbl_machine_state last_state;
   grbl_machine_state state;
@@ -54,6 +63,7 @@ struct GrblMachine {
       sizeof(String),
       nullptr
     );
+
     this->log = (StringList *)hotState(
       GRBL_MACHINE_HOT_STATE_OFFSET + 1,
       sizeof(StringList),
@@ -74,7 +84,7 @@ struct GrblMachine {
 
     double now = rawkit_now();
     double last_fetch = this->state->last_fetch;
-    double pollingRate = .2;
+    double pollingRate = .02;
 
     if (last_fetch == 0.0) {
       this->sp.write("$#\n");
@@ -82,7 +92,7 @@ struct GrblMachine {
 
     if (last_fetch == 0.0 || now - last_fetch > pollingRate) {
       this->sp.write("?");
-      this->state->last_fetch = now + 1000;
+      this->state->last_fetch = now;
     }
 
     if (this->state->state != GRBL_MACHINE_STATE_ALARM) {
@@ -196,6 +206,13 @@ struct GrblMachine {
           case GRBL_TOKEN_TYPE_MESSAGE_TLO:
             this->state->TLO = token->f32;
             break;
+          case GRBL_TOKEN_TYPE_MESSAGE_PRB:
+            vec3_copy(
+              &this->state->PRB,
+              &token->vec3
+            );
+            break;
+          
 
           default:
             continue;
