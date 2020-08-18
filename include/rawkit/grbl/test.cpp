@@ -1,10 +1,10 @@
-#include <utest/utest.h>
+#include <doctest/doctest.h>
 #define eq ASSERT_EQ
-#define ok EXPECT_TRUE
+#define ok CHECK
 
 #include "parser.h"
 
-UTEST(grbl, basic_parser_tests) {
+TEST_CASE("grbl, basic_parser_tests") {
   GrblParser p;
   // empty lines are ignored
   ok(p.read('\n') == GRBL_FALSE);
@@ -27,7 +27,7 @@ UTEST(grbl, basic_parser_tests) {
   ok(p.handle->tokens[0].error_code == 0);
 }
 
-UTEST(grbl, error_code) {
+TEST_CASE("grbl, error_code") {
   GrblParser p;
 
   ok(p.read('e') == GRBL_FALSE);
@@ -43,14 +43,14 @@ UTEST(grbl, error_code) {
   ok(p.handle->tokens[0].error_code == 9);
 }
 
-UTEST(grbl, alarm_code) {
+TEST_CASE("grbl, alarm_code") {
   GrblParser p;
   ok(p.read("ALARM:9\r\n") == GRBL_TRUE);
   ok(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_ALARM);
   ok(p.handle->tokens[0].alarm_code == GRBL_ALARM_HOMING_FAIL_NO_CONTACT);
 }
 
-UTEST(grbl, welcome_message) {
+TEST_CASE("grbl, welcome_message") {
   GrblParser p;
 
   ok(p.read('G') == GRBL_FALSE);
@@ -71,7 +71,7 @@ UTEST(grbl, welcome_message) {
   ok(p.handle->tokens[1].version.letter == 'g');
 }
 
-UTEST(grbl, status_report_idle) {
+TEST_CASE("grbl, status_report_idle") {
   GrblParser p;
 
   int r = p.read(
@@ -153,7 +153,7 @@ UTEST(grbl, status_report_idle) {
   ok(p.handle->tokens[12].accessories.mist_coolant == 0);
 }
 
-UTEST(grbl, settings) {
+TEST_CASE("grbl, settings") {
   GrblParser p;
   int r = p.read(
     "$0=10\r\n"
@@ -399,7 +399,7 @@ UTEST(grbl, settings) {
   ok(p.handle->tokens[67].f32 == 132.0f);
 }
 
-UTEST(grbl, message_MSG) {
+TEST_CASE("grbl, message_MSG") {
   GrblParser p;
   int r = p.read("[MSG:'$H'|'$X' to unlock]\r\n");
   ok(r == GRBL_TRUE);
@@ -407,7 +407,7 @@ UTEST(grbl, message_MSG) {
   ok(strcmp(p.handle->tokens[0].str, "'$H'|'$X' to unlock") == 0);
 }
 
-UTEST(grbl, message_VER) {
+TEST_CASE("grbl, message_VER") {
   GrblParser p;
   int r = p.read("[VER:1.1h.20190830:]\r\n");
   ok(r == GRBL_TRUE);
@@ -415,7 +415,7 @@ UTEST(grbl, message_VER) {
   ok(strcmp(p.handle->tokens[0].str, "1.1h.20190830:") == 0);
 }
 
-UTEST(grbl, message_OPT) {
+TEST_CASE("grbl, message_OPT") {
   GrblParser p;
   int r = p.read("[OPT:V,15,128]\r\n");
   ok(r == GRBL_TRUE);
@@ -448,7 +448,7 @@ UTEST(grbl, message_OPT) {
   ok(opts->buffer_state.available_bytes == 128);
 }
 
-UTEST(grbl, message_HLP) {
+TEST_CASE("grbl, message_HLP") {
   GrblParser p;
   int r = p.read(
     "[HLP:$$ $# $G $I $N $x=val $Nx=line $J=line $SLP $C $X $H ~ ! ? ctrl-x]\r\n"
@@ -463,7 +463,7 @@ UTEST(grbl, message_HLP) {
   );
 }
 
-UTEST(grbl, message_GC) {
+TEST_CASE("grbl, message_GC") {
   GrblParser p;
   int r = p.read("[GC:G0 G54 G17 G21 G90 G94 M5 M9 T4 F1200 S24000]\r\n");
   ok(r == GRBL_TRUE);
@@ -484,7 +484,7 @@ UTEST(grbl, message_GC) {
   ok(s->spindle_rpm == 24000);
 }
 
-UTEST(grbl, gcode_parameters) {
+TEST_CASE("grbl, gcode_parameters") {
   GrblParser p;
   int r = p.read(
     "[G54:-100.000,0.000,0.000]\r\n"

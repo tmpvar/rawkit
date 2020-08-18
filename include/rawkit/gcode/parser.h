@@ -1,3 +1,22 @@
+/*
+The MIT License (MIT)
+Copyright © 2020 Elijah Insua <tmpvar@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the “Software”), to deal in the Software without restriction, including without
+limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of
+the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 #pragma once
 
 #include <stdint.h>
@@ -29,7 +48,7 @@ List of Supported G-Codes in Grbl v1.1:
 #define GCODE_PARSER_BUFFER_LEN 1024
 
 #if !defined(gcode_debug)
-  #define gcode_debug (void)(...)
+  #define gcode_debug(x) do {} while(0)
 #endif
 
 enum gcode_parse_result {
@@ -68,6 +87,57 @@ enum gcode_line_type {
   GCODE_LINE_TYPE_M = GCODE_WORD_M,
   GCODE_LINE_TYPE_COMMENT,
   GCODE_LINE_TYPE_REMOVE_BLOCK,
+
+  // GRBL specific commands
+  GCODE_LINE_TYPE_COMMAND_SOFT_RESET = 0x18,
+  GCODE_LINE_TYPE_COMMAND_DOLLAR = '$',
+  GCODE_LINE_TYPE_COMMAND_STATUS_REPORT = '?',
+  GCODE_LINE_TYPE_COMMAND_CYCLE_START = '~',
+  GCODE_LINE_TYPE_COMMAND_FEED_HOLD = '!',
+  GCODE_LINE_TYPE_COMMAND_SAFETY_DOOR = 0x84,
+  GCODE_LINE_TYPE_COMMAND_JOG_CANCEL = 0x85,
+
+  // feed overrides
+  GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_SET_100_PERCENT = 0x90,    
+  GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_INCREASE_10_PERCENT = 0x91,
+  GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_DECREASE_10_PERCENT = 0x92,
+  GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_INCREASE_1_PERCENT = 0x93, 
+  GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_DECREASE_1_PERCENT = 0x94, 
+
+  // rapid (seek) overrides
+  GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_100_PERCENT = 0x95,    
+  GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_50_PERCENT = 0x96,    
+  GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_25_PERCENT = 0x97,    
+  
+  // feed overrides
+  GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_SET_100_PERCENT = 0x99,    
+  GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_INCREASE_10_PERCENT = 0x9A,
+  GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_DECREASE_10_PERCENT = 0x9B,
+  GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_INCREASE_1_PERCENT = 0x9C, 
+  GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_DECREASE_1_PERCENT = 0x9D, 
+
+  GCODE_LINE_TYPE_COMMAND_TOGGLE_SPINDLE_STOP = 0x9E,
+  GCODE_LINE_TYPE_COMMAND_TOGGLE_FLOOD_COOLANT = 0xA0, 
+  GCODE_LINE_TYPE_COMMAND_TOGGLE_MIST_COOLANT = 0xA1, 
+
+  GCODE_LINE_TYPE_COMMAND_SET_SETTING = 0xF00000, // $\d = \d
+  GCODE_LINE_TYPE_COMMAND_GET_SETTINGS,           // $$
+  GCODE_LINE_TYPE_COMMAND_GET_GCODE_PARAMETERS,   // $$
+  GCODE_LINE_TYPE_COMMAND_GET_PARSER_STATE,       // $%
+  GCODE_LINE_TYPE_COMMAND_GET_BUILD_INFO,         // $I
+
+  GCODE_LINE_TYPE_COMMAND_GET_STARTUP_BLOCKS,   // $N
+  GCODE_LINE_TYPE_COMMAND_SET_STARTUP_BLOCK,   // $Nx=...
+  GCODE_LINE_TYPE_COMMAND_SET_GCODE_CHECK_MODE, // $C
+  GCODE_LINE_TYPE_COMMAND_UNLOCK,               // $X
+  GCODE_LINE_TYPE_COMMAND_HOME,                 // $h
+  GCODE_LINE_TYPE_COMMAND_JOG,                  // $J=<gcode>
+
+  GCODE_LINE_TYPE_COMMAND_CLEAR_EEPROM_SETTINGS, // $RST=$
+  GCODE_LINE_TYPE_COMMAND_CLEAR_EEPROM_COORDS, // $RST=#
+  GCODE_LINE_TYPE_COMMAND_CLEAR_EEPROM_ALL, // $RST=*
+
+  GCODE_LINE_TYPE_COMMAND_SLEEP, // $SLP
 };
 
 enum gcode_axis_words {
@@ -80,8 +150,6 @@ typedef struct gcode_word_pair_t {
   char letter;
   float value;
 } gcode_line_token_t;
-
-// TODO: add a bitmask and sub-struct / array of floats for adding fields
 
 typedef struct gcode_line_t {
   uint64_t start_loc;
@@ -117,18 +185,108 @@ gcode_parse_result gcode_parser_new_line(gcode_parser_t *parser) {
   line.type = GCODE_LINE_TYPE_EOF;
   line.pairs = NULL;
   line.start_loc = parser->total_loc;
-  line.end_loc = -1;
+  line.end_loc = 0;
+  line.words = 0;
+  line.code = 0.0;
   stb_sb_push(parser->lines, line);
   return GCODE_RESULT_TRUE;
 }
 
-inline bool gcode_is_numeric(const char c) {
-  if ((c >= '0' && c <= '9') || c == '-' || c == '+' || c == '.') {
+inline bool gcode_is_digit(const char c) {
+  if (c >= '0' && c <= '9') {
     return true;
   }
   return false;
 }
 
+inline bool gcode_is_numeric(const char c) {
+  if (gcode_is_digit(c) || c == '-' || c == '+' || c == '.') {
+    return true;
+  }
+  return false;
+}
+
+gcode_parse_result gcode_parser_line_process_command_dollar(gcode_parser_t *parser) {
+  gcode_line_t *current_line = &parser->lines[stb_sb_count(parser->lines) - 1];
+  const char *buf = parser->pending_buf;
+  
+  parser->pending_buf[parser->pending_loc] = 0;
+  if (gcode_is_digit(buf[1])) {
+    const char *equal = strstr(buf, "=");
+    const int8_t l = (equal - buf) - 1;
+
+    if (equal == NULL) {
+      gcode_debug("ERROR: setting set command did not include an =\n");
+      return GCODE_RESULT_ERROR;
+    }
+
+    if (l > 3) {
+      gcode_debug("ERROR: setting set command numeric code > 999\n");
+      return GCODE_RESULT_ERROR;
+    }
+
+    char str[4] = {0, 0, 0, 0};
+    memcpy(&str, buf+1, l);
+    int v = atoi(str);
+    current_line->code = v;
+    current_line->type = GCODE_LINE_TYPE_COMMAND_SET_SETTING;
+    return GCODE_RESULT_TRUE;
+  }
+
+  switch (buf[1]) {
+    case '$':
+      current_line->type = GCODE_LINE_TYPE_COMMAND_GET_SETTINGS;
+      return GCODE_RESULT_TRUE;
+
+    case '#':
+      current_line->type = GCODE_LINE_TYPE_COMMAND_GET_GCODE_PARAMETERS;
+      return GCODE_RESULT_TRUE;
+
+    case 'G':
+      current_line->type = GCODE_LINE_TYPE_COMMAND_GET_PARSER_STATE;
+      return GCODE_RESULT_TRUE;
+
+    case 'I':
+      current_line->type = GCODE_LINE_TYPE_COMMAND_GET_BUILD_INFO;
+      return GCODE_RESULT_TRUE;
+
+    case 'N':
+      {
+        if (parser->pending_loc < 3) {
+          current_line->type = GCODE_LINE_TYPE_COMMAND_GET_STARTUP_BLOCKS;
+          return GCODE_RESULT_TRUE;
+        }
+
+        if (!gcode_is_digit(buf[2])) {
+          gcode_debug("ERROR: setting startup block $N<d>=... expected digit\n");
+          return GCODE_RESULT_ERROR;
+        }
+
+        const char *equal = strstr(buf, "=");
+        int l = (equal - buf) - 1;
+        if (equal == NULL || l < 0) {
+          gcode_debug("ERROR: setting startup block $N<d>=... expected =\n");
+          return GCODE_RESULT_ERROR;
+        }
+
+        if (l>4) {
+          gcode_debug("ERROR: setting startup block $N<d>=... d > 9\n");
+          return GCODE_RESULT_ERROR;
+        }
+
+        current_line->type = GCODE_LINE_TYPE_COMMAND_SET_STARTUP_BLOCK;
+        // grbl only supports 2 startup blocks so we avoid doing atoi and the
+        // associated hoop jumps here.
+        current_line->code = (buf[2] - '0');
+        return GCODE_RESULT_TRUE;
+      }
+
+    default:
+      gcode_debug("ERROR: unknown command $" << buf[1] << "\n");
+      return GCODE_RESULT_ERROR;
+  }
+}
+  
 gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
   gcode_word_pair_t pair;
   pair.letter = parser->pending_buf[0];
@@ -142,6 +300,7 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
   }
 
   if (word < 0 || word >= GCODE_WORD_COUNT) {
+    gcode_debug("ERROR: invalid gcode word '" << pair.letter << "'\n");
     return GCODE_RESULT_ERROR;
   }
 
@@ -151,59 +310,85 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
 
   uint32_t mask = 1<<(int)word;
   if (line->words & mask) {
-    printf("ERROR: duplicate word '%c' found\n", pair.letter);
+    gcode_debug("ERROR: duplicate word '" << pair.letter << "' found\n");
     return GCODE_RESULT_ERROR;
   }
+
+  line->words |= mask;
 
   if (pair.letter == 'G' || pair.letter == 'M') {
     line->type = (gcode_line_type)word;
     line->code = pair.value;
   }
 
+  gcode_debug("Add pair " << pair.letter << "," << pair.value << "\n");
   stb_sb_push(line->pairs, pair);
+  return GCODE_RESULT_TRUE;
+}
+
+gcode_parse_result gcode_parser_add_pending_char(gcode_parser_t *parser, char c) {
+  if (parser == NULL) {
+    gcode_debug("ERROR: could not add pending char to null parser\n");
+    return GCODE_RESULT_ERROR;
+  }
+  parser->pending_buf[parser->pending_loc++] = c;
   return GCODE_RESULT_TRUE;
 }
 
 gcode_parse_result gcode_parser_input(gcode_parser_t *parser, char c) {
   parser->total_loc++;
-
   if (parser->lines == NULL) {
     if (gcode_parser_new_line(parser) != GCODE_RESULT_TRUE) {
-      printf("ERROR: gcode_parser_new_line failed\n");
+      gcode_debug("ERROR: gcode_parser_new_line failed\n");
       return GCODE_RESULT_ERROR;
     }
   }
 
   gcode_line_t *current_line = &parser->lines[stb_sb_count(parser->lines) - 1];
+  if (c == '\n' && parser->pending_loc != 0) {
+    current_line->end_loc = parser->total_loc - 1;
+
+    switch (current_line->type) {
+      // handle comments `(` and remove blocks `/` by doing nothing
+      case GCODE_LINE_TYPE_COMMENT:
+      case GCODE_LINE_TYPE_REMOVE_BLOCK:
+        break;
+
+      // handle $ commands
+      case GCODE_LINE_TYPE_COMMAND_DOLLAR:
+        if (gcode_parser_line_process_command_dollar(parser) != GCODE_RESULT_TRUE) {
+          gcode_debug("ERROR: failed to parse $ line %s\n", parser->pending_buf);
+          return GCODE_RESULT_ERROR;
+        }
+        break;
+
+      // normal gcode lines
+      default: 
+        if (gcode_parser_line_add_pending_pair(parser) != GCODE_RESULT_TRUE) {
+          gcode_debug("ERROR: failed to add a pending pair\n");
+          return GCODE_RESULT_ERROR;
+        }
+    }
+
+    parser->pending_loc = 0;
+    return gcode_parser_new_line(parser);
+  }
 
   if (is_whitespace(c)) {
-    if (c == '\n') {
-      current_line->end_loc = parser->total_loc - 1;
-      bool skip_pairs = (
-        current_line->type == GCODE_LINE_TYPE_COMMENT ||
-        current_line->type == GCODE_LINE_TYPE_REMOVE_BLOCK
-      );
-
-      if (!skip_pairs && gcode_parser_line_add_pending_pair(parser) != GCODE_RESULT_TRUE) {
-        printf("ERROR: failed to add a pending pair\n");
-        return GCODE_RESULT_ERROR;
-      }
-      return gcode_parser_new_line(parser);
-    }
     return GCODE_RESULT_TRUE;
   }
 
   if (parser->pending_loc >= GCODE_PARSER_BUFFER_LEN - 1) {
-    printf("ERROR: overran pending buffer\n");
+    gcode_debug("ERROR: overran pending buffer\n");
     return GCODE_RESULT_ERROR;
   }
-  
-  if (current_line->type == GCODE_LINE_TYPE_COMMENT) {
-    return GCODE_RESULT_TRUE;
-  }
 
-  if (current_line->type == GCODE_LINE_TYPE_REMOVE_BLOCK) {
-    return GCODE_RESULT_TRUE;
+  if (
+    current_line->type == GCODE_LINE_TYPE_REMOVE_BLOCK ||
+    current_line->type == GCODE_LINE_TYPE_COMMENT ||
+    current_line->type == GCODE_LINE_TYPE_COMMAND_DOLLAR
+  ) {
+    return gcode_parser_add_pending_char(parser, c);
   }
 
   // upper case all letters
@@ -224,30 +409,104 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, char c) {
       current_line->type = GCODE_LINE_TYPE_REMOVE_BLOCK;
       return GCODE_RESULT_TRUE;
     }
-
-    // expect this to be a letter
-    if (c < 'A' && c > 'Z') {
-      printf("ERROR: expect first char to be a letter\n");
-      return GCODE_RESULT_ERROR;
+    
+    switch (c) {
+      case '$':
+        current_line->type = GCODE_LINE_TYPE_COMMAND_DOLLAR;
+        break;
+      case 0x18: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_SOFT_RESET;
+        return gcode_parser_new_line(parser);
+      case '?': 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_STATUS_REPORT;
+        return gcode_parser_new_line(parser);
+      case '~': 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_CYCLE_START;
+        return gcode_parser_new_line(parser);
+      case '!': 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_FEED_HOLD;
+        return gcode_parser_new_line(parser);
+      case 0x84: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_SAFETY_DOOR;
+        return gcode_parser_new_line(parser);
+      case 0x85: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_JOG_CANCEL;
+        return gcode_parser_new_line(parser);
+      case 0x90: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_SET_100_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x91: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_INCREASE_10_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x92: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_DECREASE_10_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x93: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_INCREASE_1_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x94: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_DECREASE_1_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x95: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_100_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x96: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_50_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x97: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_25_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x99: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_SET_100_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x9A: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_INCREASE_10_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x9B: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_DECREASE_10_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x9C: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_INCREASE_1_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x9D: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_DECREASE_1_PERCENT;
+        return gcode_parser_new_line(parser);
+      case 0x9E: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_TOGGLE_SPINDLE_STOP;
+        return gcode_parser_new_line(parser);
+      case 0xA0: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_TOGGLE_FLOOD_COOLANT;
+        return gcode_parser_new_line(parser);
+      case 0xA1: 
+        current_line->type = GCODE_LINE_TYPE_COMMAND_TOGGLE_MIST_COOLANT;
+        return gcode_parser_new_line(parser);
+      default:
+        // expect this to be a letter
+        if (c < 'A' && c > 'Z') {
+          gcode_debug("ERROR: expect first char to be a letter\n");
+          return GCODE_RESULT_ERROR;
+        }
     }
 
     parser->pending_buf[parser->pending_loc++] = c;
     return GCODE_RESULT_TRUE;
   }
 
+  // handle normal gcode word pairs
   if (c >= 'A' && c <= 'Z') {
     if (gcode_parser_line_add_pending_pair(parser) != GCODE_RESULT_TRUE) {
+      gcode_debug("ERROR: failed to add pending pair\n");
       return GCODE_RESULT_ERROR;
     }
 
     if (parser->pending_loc == 1) {
-      printf("ERROR: two letters found in sequence\n");
+      gcode_debug("ERROR: two letters found in sequence\n");
       return GCODE_RESULT_ERROR;
     }
 
     // reset the pending buffer and add the current letter
-    parser->pending_buf[0] = c;
-    parser->pending_loc = 1;
+    //parser->pending_buf[0] = c;
+    parser->pending_loc = 0;
   }
 
   parser->pending_buf[parser->pending_loc++] = c;

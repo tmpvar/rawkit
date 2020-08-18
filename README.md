@@ -16,3 +16,11 @@ cd build
 cmake .. -G "Visual Studio 16 2019" -A x64 -T host=x64 -DCMAKE_INSTALL_PREFIX=install -DLLVM_DIR:PATH=E:/llvm/lib/cmake/llvm -DClang_DIR:PATH=E:/llvm/lib/cmake/clang
 cmake --build . --config RelWithDebInfo --target install
 ```
+
+## run tests
+
+__windows__
+```
+cd build
+watchexec -r -w .. "cmake --build . --config RelWithDebInfo && RelWithDebInfo\rawkit-test.exe"
+```
