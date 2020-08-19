@@ -102,7 +102,7 @@ struct GrblMachine {
       }
 
       if (last_fetch == 0.0 || now - last_fetch > pollingRate) {
-        // this->write("?");
+        this->write("?");
         this->state->last_fetch = now + 10.0f;
       }
 
