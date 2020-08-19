@@ -335,7 +335,7 @@ gcode_parse_result gcode_parser_add_pending_char(gcode_parser_t *parser, char c)
   return GCODE_RESULT_TRUE;
 }
 
-gcode_parse_result gcode_parser_input(gcode_parser_t *parser, char c) {
+gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
   parser->total_loc++;
   if (parser->lines == NULL) {
     if (gcode_parser_new_line(parser) != GCODE_RESULT_TRUE) {
@@ -357,7 +357,7 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, char c) {
       // handle $ commands
       case GCODE_LINE_TYPE_COMMAND_DOLLAR:
         if (gcode_parser_line_process_command_dollar(parser) != GCODE_RESULT_TRUE) {
-          gcode_debug("ERROR: failed to parse $ line %s\n", parser->pending_buf);
+          gcode_debug("ERROR: failed to parse $ line " << parser->pending_buf << "\n");
           return GCODE_RESULT_ERROR;
         }
         break;
@@ -547,5 +547,20 @@ class GCODEParser {
       }
 
       return &this->handle->lines[number];
+    }
+
+    gcode_line_t *last_line() {
+      if (this->handle == NULL || this->handle->lines == NULL) {
+        return NULL;
+      }
+      
+      return &stb_sb_last(this->handle->lines);
+    }
+
+    uint64_t line_count() {
+      if (this->handle == NULL) {
+        return 0;
+      }
+      return stb_sb_count(this->handle->lines);
     }
 };
