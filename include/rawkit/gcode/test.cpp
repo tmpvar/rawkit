@@ -75,16 +75,18 @@ TEST_CASE("[gcode] block_delete") {
 TEST_CASE("[gcode] duplicate_words") {
   GCODEParser p;
   ok(p.push("X1x2\n") == GCODE_RESULT_ERROR);
-  ok(p.line_count() == 1);
+  ok(p.line_count() == 2);
+  ok(p.last_line()->type == GCODE_LINE_TYPE_EOF);
 }
 
 TEST_CASE("[gcode] non_and_duplicate_words") {
   GCODEParser p;
   ok(p.push("g10X1Y5X2\n") == GCODE_RESULT_ERROR);
-  ok(p.line_count() == 1);
+  ok(p.line_count() == 2);
   ok(p.line(0)->type == GCODE_LINE_TYPE_G);
   ok(p.line(0)->code == 10);
   ok(stb_sb_count(p.line(0)->pairs) == 3);
+  ok(p.line(1)->type == GCODE_LINE_TYPE_EOF);
 }
 
 TEST_CASE("[gcode] setting set") {
@@ -153,8 +155,9 @@ TEST_CASE("[gcode] home") {
 TEST_CASE("[gcode] home (invalid)") {
   GCODEParser p;
   ok(p.push("$hn\n") == GCODE_RESULT_ERROR);
-  ok(p.line_count() == 1);
+  ok(p.line_count() == 2);
   ok(p.handle->pending_loc == 0);
+  ok(p.line(1)->type == GCODE_LINE_TYPE_EOF);
 }
 
 TEST_CASE("[gcode] jog") {
@@ -169,9 +172,10 @@ TEST_CASE("[gcode] jog") {
 TEST_CASE("[gcode] jog (no command)") {
   GCODEParser p;
   ok(p.push("$j=\n") == GCODE_RESULT_ERROR);
-  ok(p.line_count() == 1);
+  ok(p.line_count() == 2);
   ok(p.handle->pending_loc == 0);
   ok(p.line(0)->type == GCODE_LINE_TYPE_COMMAND_JOG);
+  ok(p.line(1)->type == GCODE_LINE_TYPE_EOF);
 }
 
 TEST_CASE("[gcode] set startup blocks $N") {

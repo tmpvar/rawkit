@@ -26,9 +26,9 @@ struct GrblCommandPair {
 };
 
 struct GrblState {
-  uint64_t token_index = 0;
-  double last_fetch = -100.0;
-
+  uint64_t token_index;
+  double last_fetch;
+  bool welcome;
   // track pairs of requests and responses in a queue. This can be used
   // for blocking operations like $h, probing, etc.. and can also inform
   // when we need to send $# to update WCS and similar (e.g., after a user updates
@@ -94,24 +94,25 @@ struct GrblMachine {
 
     double now = rawkit_now();
     double last_fetch = this->state->last_fetch;
-    double pollingRate = .02;
+    double pollingRate = .2;
 
-    if (last_fetch == 0.0) {
-      this->sp.write("$#\n");
-    }
+    if (this->state->welcome) {
+      if (last_fetch == 0.0) {
+        this->write("$#\n");
+      }
 
-    if (last_fetch == 0.0 || now - last_fetch > pollingRate) {
-      this->sp.write("?");
-      this->state->last_fetch = now;
-    }
+      if (last_fetch == 0.0 || now - last_fetch > pollingRate) {
+        // this->write("?");
+        this->state->last_fetch = now + 10.0f;
+      }
 
-    if (this->state->state != GRBL_MACHINE_STATE_ALARM) {
-      if (this->state->last_state != this->state->state) {
-        this->sp.write("$#\n");
-        this->state->last_state = this->state->state;
+      if (this->state->state != GRBL_MACHINE_STATE_ALARM) {
+        if (this->state->last_state != this->state->state) {
+          this->write("$#\n");
+          this->state->last_state = this->state->state;
+        }
       }
     }
-
     // tokenize the output from grbl
     while (this->sp.available()) {
       char c = this->sp.read();
@@ -146,8 +147,12 @@ struct GrblMachine {
       for (; this->state->token_index < token_count; this->state->token_index++) {
         const grbl_response_token_t *token = this->rx_parser->token(this->state->token_index);
         switch (token->type) {
+          case   GRBL_TOKEN_TYPE_WELCOME:
+            this->state->last_fetch = 0.0;
+            this->state->welcome = true;
+            break;
+
           case   GRBL_TOKEN_TYPE_MACHINE_STATE:
-            
             this->state->state = token->machine_state.value;
             break;
 
@@ -223,6 +228,10 @@ struct GrblMachine {
             );
             break;
           
+          case GRBL_TOKEN_TYPE_STATUS_REPORT:
+            // reset the '?' ticker
+            this->state->last_fetch = now;
+            break;
 
           default:
             continue;
