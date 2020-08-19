@@ -48,7 +48,7 @@ List of Supported G-Codes in Grbl v1.1:
 #define GCODE_PARSER_BUFFER_LEN 1024
 
 #if !defined(gcode_debug)
-  #define gcode_debug(x) do {} while(0)
+  #define gcode_debug printf
 #endif
 
 enum gcode_parse_result {
@@ -189,6 +189,8 @@ gcode_parse_result gcode_parser_new_line(gcode_parser_t *parser) {
   line.words = 0;
   line.code = 0.0;
   stb_sb_push(parser->lines, line);
+
+  parser->pending_loc = 0;
   return GCODE_RESULT_TRUE;
 }
 
@@ -236,18 +238,45 @@ gcode_parse_result gcode_parser_line_process_command_dollar(gcode_parser_t *pars
   switch (buf[1]) {
     case '$':
       current_line->type = GCODE_LINE_TYPE_COMMAND_GET_SETTINGS;
+      if (parser->pending_loc > 2) {
+        return GCODE_RESULT_ERROR;
+      }
       return GCODE_RESULT_TRUE;
 
     case '#':
       current_line->type = GCODE_LINE_TYPE_COMMAND_GET_GCODE_PARAMETERS;
+      if (parser->pending_loc > 2) {
+        return GCODE_RESULT_ERROR;
+      }
       return GCODE_RESULT_TRUE;
 
     case 'G':
       current_line->type = GCODE_LINE_TYPE_COMMAND_GET_PARSER_STATE;
+      if (parser->pending_loc > 2) {
+        return GCODE_RESULT_ERROR;
+      }
+      return GCODE_RESULT_TRUE;
+
+    case 'H':
+      current_line->type = GCODE_LINE_TYPE_COMMAND_HOME;
+      if (parser->pending_loc > 2) {
+        return GCODE_RESULT_ERROR;
+      }
       return GCODE_RESULT_TRUE;
 
     case 'I':
       current_line->type = GCODE_LINE_TYPE_COMMAND_GET_BUILD_INFO;
+      if (parser->pending_loc > 2) {
+        return GCODE_RESULT_ERROR;
+      }
+      return GCODE_RESULT_TRUE;
+
+    case 'J':
+      current_line->type = GCODE_LINE_TYPE_COMMAND_JOG;
+      if (parser->pending_loc < 4) {
+        return GCODE_RESULT_ERROR;
+      }
+      
       return GCODE_RESULT_TRUE;
 
     case 'N':
@@ -282,7 +311,7 @@ gcode_parse_result gcode_parser_line_process_command_dollar(gcode_parser_t *pars
       }
 
     default:
-      gcode_debug("ERROR: unknown command $" << buf[1] << "\n");
+      gcode_debug("ERROR: unknown command $ (%c)\n", buf[1]);
       return GCODE_RESULT_ERROR;
   }
 }
@@ -300,7 +329,7 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
   }
 
   if (word < 0 || word >= GCODE_WORD_COUNT) {
-    gcode_debug("ERROR: invalid gcode word '" << pair.letter << "'\n");
+    gcode_debug("ERROR: invalid gcode word '%c'\n", pair.letter);
     return GCODE_RESULT_ERROR;
   }
 
@@ -310,7 +339,7 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
 
   uint32_t mask = 1<<(int)word;
   if (line->words & mask) {
-    gcode_debug("ERROR: duplicate word '" << pair.letter << "' found\n");
+    gcode_debug("ERROR: duplicate word '%c' found\n", pair.letter);
     return GCODE_RESULT_ERROR;
   }
 
@@ -321,7 +350,6 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
     line->code = pair.value;
   }
 
-  gcode_debug("Add pair " << pair.letter << "," << pair.value << "\n");
   stb_sb_push(line->pairs, pair);
   return GCODE_RESULT_TRUE;
 }
@@ -329,6 +357,7 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
 gcode_parse_result gcode_parser_add_pending_char(gcode_parser_t *parser, char c) {
   if (parser == NULL) {
     gcode_debug("ERROR: could not add pending char to null parser\n");
+    parser->pending_loc = 0;
     return GCODE_RESULT_ERROR;
   }
   parser->pending_buf[parser->pending_loc++] = c;
@@ -340,6 +369,7 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
   if (parser->lines == NULL) {
     if (gcode_parser_new_line(parser) != GCODE_RESULT_TRUE) {
       gcode_debug("ERROR: gcode_parser_new_line failed\n");
+      parser->pending_loc = 0;
       return GCODE_RESULT_ERROR;
     }
   }
@@ -357,7 +387,8 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
       // handle $ commands
       case GCODE_LINE_TYPE_COMMAND_DOLLAR:
         if (gcode_parser_line_process_command_dollar(parser) != GCODE_RESULT_TRUE) {
-          gcode_debug("ERROR: failed to parse $ line " << parser->pending_buf << "\n");
+          gcode_debug("ERROR: failed to parse $ line '%s'\n", parser->pending_buf);
+          parser->pending_loc = 0;
           return GCODE_RESULT_ERROR;
         }
         break;
@@ -366,6 +397,7 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
       default: 
         if (gcode_parser_line_add_pending_pair(parser) != GCODE_RESULT_TRUE) {
           gcode_debug("ERROR: failed to add a pending pair\n");
+          parser->pending_loc = 0;
           return GCODE_RESULT_ERROR;
         }
     }
@@ -380,13 +412,13 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
 
   if (parser->pending_loc >= GCODE_PARSER_BUFFER_LEN - 1) {
     gcode_debug("ERROR: overran pending buffer\n");
+    parser->pending_loc = 0;
     return GCODE_RESULT_ERROR;
   }
 
   if (
     current_line->type == GCODE_LINE_TYPE_REMOVE_BLOCK ||
-    current_line->type == GCODE_LINE_TYPE_COMMENT ||
-    current_line->type == GCODE_LINE_TYPE_COMMAND_DOLLAR
+    current_line->type == GCODE_LINE_TYPE_COMMENT
   ) {
     return gcode_parser_add_pending_char(parser, c);
   }
@@ -394,6 +426,10 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
   // upper case all letters
   if (c >= 'a' && c <= 'z') {
     c -= 32;
+  }
+
+  if (current_line->type == GCODE_LINE_TYPE_COMMAND_DOLLAR) {
+    return gcode_parser_add_pending_char(parser, c);
   }
 
   // collect a letter
@@ -484,6 +520,7 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
         // expect this to be a letter
         if (c < 'A' && c > 'Z') {
           gcode_debug("ERROR: expect first char to be a letter\n");
+          parser->pending_loc = 0;
           return GCODE_RESULT_ERROR;
         }
     }
@@ -496,11 +533,13 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
   if (c >= 'A' && c <= 'Z') {
     if (gcode_parser_line_add_pending_pair(parser) != GCODE_RESULT_TRUE) {
       gcode_debug("ERROR: failed to add pending pair\n");
+      parser->pending_loc = 0;
       return GCODE_RESULT_ERROR;
     }
 
     if (parser->pending_loc == 1) {
       gcode_debug("ERROR: two letters found in sequence\n");
+      parser->pending_loc = 0;
       return GCODE_RESULT_ERROR;
     }
 
@@ -517,9 +556,7 @@ class GCODEParser {
   public:
     gcode_parser_t *handle = nullptr;
     GCODEParser() {
-      this->handle = (gcode_parser_t *)malloc(sizeof(gcode_parser_t));
-      memset(this->handle, 0, sizeof(gcode_parser_t));
-      this->handle->total_loc = -1;
+      this->init();
     }
     ~GCODEParser() {
       if (this->handle != nullptr) {
@@ -527,11 +564,21 @@ class GCODEParser {
       }
     }
 
-    gcode_parse_result push(char c) {
+    void init() {
+      if (this->handle == NULL) {
+        this->handle = (gcode_parser_t *)malloc(sizeof(gcode_parser_t));
+        memset(this->handle, 0, sizeof(gcode_parser_t));
+        this->handle->total_loc = -1;
+      }
+    }
+
+    gcode_parse_result push(const char c) {
+      init();
       return gcode_parser_input(this->handle, c);
     }
 
-    gcode_parse_result push(char *str) {
+    gcode_parse_result push(const char *str) {
+      init();
       for (size_t i = 0; i<strlen(str); i++) {
         gcode_parse_result r = gcode_parser_input(this->handle, str[i]);
         if (r != GCODE_RESULT_TRUE) {
@@ -542,8 +589,12 @@ class GCODEParser {
     }
 
     gcode_line_t *line(const uint64_t number) {
+      if (this->handle == NULL) {
+        return NULL;
+      }
+      
       if (stb_sb_count(this->handle->lines) <= number) {
-        return nullptr;
+        return NULL;
       }
 
       return &this->handle->lines[number];

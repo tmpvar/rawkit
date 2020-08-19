@@ -7,6 +7,7 @@
 #include <rawkit/serial.h>
 #include <rawkit/string.h>
 #include <rawkit/grbl/parser.h>
+#include <rawkit/gcode/parser.h>
 
 #define GRBL_MACHINE_HOT_STATE_OFFSET 0xFF000000
 
@@ -19,7 +20,9 @@ void vec3_copy(vec3 *dst, const vec3 *src) {
 }
 
 struct GrblCommandPair {
-
+  gcode_line_t input;
+  uint64_t token_start;
+  uint64_t token_end;
 };
 
 struct GrblState {
@@ -53,6 +56,7 @@ struct GrblMachine {
   StringList *log;
   String *line;
   GrblParser *rx_parser;
+  GCODEParser *tx_parser;
   GrblState *state;
 
   GrblMachine() {
@@ -76,8 +80,14 @@ struct GrblMachine {
       nullptr
     );
 
-    this->state = (GrblState *)hotState(
+    this->tx_parser = (GCODEParser *)hotState(
       GRBL_MACHINE_HOT_STATE_OFFSET + 3,
+      sizeof(GCODEParser),
+      nullptr
+    );
+
+    this->state = (GrblState *)hotState(
+      GRBL_MACHINE_HOT_STATE_OFFSET + 4,
       sizeof(GrblState),
       nullptr
     );
@@ -91,7 +101,7 @@ struct GrblMachine {
     }
 
     if (last_fetch == 0.0 || now - last_fetch > pollingRate) {
-      this->sp.write("?");
+      // this->sp.write("?");
       this->state->last_fetch = now;
     }
 
@@ -229,6 +239,11 @@ struct GrblMachine {
     String tx;
     tx.append_c_str(">> ");
     tx.append_c_str(str);
+    if (this->tx_parser->push(str) == GCODE_RESULT_ERROR) {
+      tx.append_c_str("  ERROR: invalid gcode");
+      this->log->push(&tx);
+      return;
+    }
 
     this->log->push(&tx);
     this->sp.write(str);
@@ -339,7 +354,7 @@ void panel_terminal(GrblMachine *grbl) {
 
   static int last_line_count = 0;
   ImGuiListClipper clipper;
-  ImGuiListClipper_Begin(&clipper, grbl->log->length(), 16.0);
+  ImGuiListClipper_Begin(&clipper, grbl->log->length(), 18.0);
   String *line = nullptr;
   while (ImGuiListClipper_Step(&clipper)) {
     for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++) {

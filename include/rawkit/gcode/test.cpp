@@ -1,7 +1,10 @@
 #include <doctest/doctest.h>
 
 #define ok CHECK
-#define gcode_debug INFO
+char debug_buf[4096] = "\0";
+#define gcode_debug(_f, ...) \
+  do { sprintf((debug_buf), _f, __VA_ARGS__); INFO(debug_buf); } while(false)
+
 #include "parser.h"
 
 TEST_CASE("[gcode] letter letter fails") {
@@ -139,18 +142,37 @@ TEST_CASE("[gcode] get startup blocks $N") {
   ok(p.line(1)->type == GCODE_LINE_TYPE_EOF);
 }
 
-TEST_CASE("[gcode] set startup blocks $N") {
+TEST_CASE("[gcode] home") {
   GCODEParser p;
-  ok(p.push("$N1=$h\n") == GCODE_RESULT_TRUE);
-  ok(p.push("$N2=G1X0F1000\n") == GCODE_RESULT_TRUE);
-  ok(p.line_count() == 3);
-  ok(p.line(0)->type == GCODE_LINE_TYPE_COMMAND_SET_STARTUP_BLOCK);
-  ok(p.line(0)->code == 1);
-  ok(p.line(1)->type == GCODE_LINE_TYPE_COMMAND_SET_STARTUP_BLOCK);
-  ok(p.line(1)->code == 2);
-  ok(p.line(2)->type == GCODE_LINE_TYPE_EOF);
+  ok(p.push("$h\n") == GCODE_RESULT_TRUE);
+  ok(p.line_count() == 2);
+  ok(p.line(0)->type == GCODE_LINE_TYPE_COMMAND_HOME);
+  ok(p.line(1)->type == GCODE_LINE_TYPE_EOF);
 }
 
+TEST_CASE("[gcode] home (invalid)") {
+  GCODEParser p;
+  ok(p.push("$hn\n") == GCODE_RESULT_ERROR);
+  ok(p.line_count() == 1);
+  ok(p.handle->pending_loc == 0);
+}
+
+TEST_CASE("[gcode] jog") {
+  GCODEParser p;
+  ok(p.push("$j=G91X1\n") == GCODE_RESULT_TRUE);
+  ok(p.line_count() == 2);
+  ok(p.handle->pending_loc == 0);
+  ok(p.line(0)->type == GCODE_LINE_TYPE_COMMAND_JOG);
+  ok(p.line(1)->type == GCODE_LINE_TYPE_EOF);
+}
+
+TEST_CASE("[gcode] jog (no command)") {
+  GCODEParser p;
+  ok(p.push("$j=\n") == GCODE_RESULT_ERROR);
+  ok(p.line_count() == 1);
+  ok(p.handle->pending_loc == 0);
+  ok(p.line(0)->type == GCODE_LINE_TYPE_COMMAND_JOG);
+}
 
 TEST_CASE("[gcode] set startup blocks $N") {
   GCODEParser p;

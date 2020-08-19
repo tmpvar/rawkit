@@ -217,6 +217,14 @@ install(
     DESTINATION include/rawkit/grbl
 )
 
+file(GLOB RAWKIT_GRBL_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/rawkit/gcode/*.h")
+list(FILTER RAWKIT_GRBL_GUEST_INCLUDE_FILES EXCLUDE REGEX ".*test.*")
+install(
+    FILES
+        ${RAWKIT_GRBL_GUEST_INCLUDE_FILES}
+    DESTINATION include/rawkit/gcode
+)
+
 file(GLOB HOT_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/hot/*.h")
 install(
     FILES
