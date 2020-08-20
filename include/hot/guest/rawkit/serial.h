@@ -7,6 +7,7 @@ typedef int32_t SerialID;
 extern "C" {
   SerialID Serial_Open(const char *port);
   size_t Serial_Available(SerialID id);
+  bool Serial_Valid(SerialID id);
   int16_t Serial_Read(SerialID id);
   void Serial_Write(SerialID id, const uint8_t *buf, size_t len);
 }
@@ -18,6 +19,10 @@ struct SerialPort {
   void open(const char *port) {
     this->id = Serial_Open(port);
   }
+  bool valid() {
+    return Serial_Valid(this->id);
+  }
+
   size_t available();
   // we use int16 here because we want the full lower 8 bits
   // but also want to be able to signal an error using -1

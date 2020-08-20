@@ -44,7 +44,7 @@ SerialID Serial_Open(const char *portName) {
   }
 }
 
-inline OptionalSerial Serial_Valid(SerialID id) {
+inline OptionalSerial GetSerialPortById(SerialID id) {
   
   if (serial_ports.size() <= id) {
     return nullptr;
@@ -71,7 +71,7 @@ inline OptionalSerial Serial_Valid(SerialID id) {
 }
 
 size_t Serial_Available(SerialID id){
-  OptionalSerial sp = Serial_Valid(id);
+  OptionalSerial sp = GetSerialPortById(id);
   if (sp == nullptr) {
     return 0;
   }
@@ -84,8 +84,16 @@ size_t Serial_Available(SerialID id){
   }
 }
 
+bool Serial_Valid(SerialID id){
+  OptionalSerial sp = GetSerialPortById(id);
+  if (sp == nullptr) {
+    return false;
+  }
+  return true;
+}
+
 int16_t Serial_Read(SerialID id) {
-  OptionalSerial sp = Serial_Valid(id);
+  OptionalSerial sp = GetSerialPortById(id);
   if (sp == nullptr) {
     return -1;
   }
@@ -101,7 +109,7 @@ int16_t Serial_Read(SerialID id) {
 }
 
 void Serial_Write(SerialID id, const uint8_t *buf, size_t len) {
-  OptionalSerial sp = Serial_Valid(id);
+  OptionalSerial sp = GetSerialPortById(id);
   if (sp == nullptr) {
     return;
   }
@@ -113,8 +121,10 @@ void Serial_Write(SerialID id, const uint8_t *buf, size_t len) {
   }
 }
 
+
 void host_rawkit_serial_init(JitJob *job) {
   job->addExport("Serial_Open", Serial_Open);
+  job->addExport("Serial_Valid", Serial_Valid);
   job->addExport("Serial_Available", Serial_Available);
   job->addExport("Serial_Read", Serial_Read);
   job->addExport("Serial_Write", Serial_Write);
