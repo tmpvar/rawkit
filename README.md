@@ -17,10 +17,20 @@ cmake .. -G "Visual Studio 16 2019" -A x64 -T host=x64 -DCMAKE_INSTALL_PREFIX=in
 cmake --build . --config RelWithDebInfo --target install
 ```
 
+## running
+
+__windows__
+
+```
+cd build
+watchexec -i projects -r -w .. "cmake --build . --config RelWithDebInfo --target install && install\bin\rawkit.exe ../projects/cncwiz/cncwiz.cpp"
+```
+
 ## run tests
 
 __windows__
 ```
 cd build
+
 watchexec -r -w .. "cmake --build . --config RelWithDebInfo && RelWithDebInfo\rawkit-test.exe"
 ```
