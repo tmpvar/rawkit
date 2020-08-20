@@ -313,6 +313,11 @@ struct GrblMachine {
     this->move_to(from, feed);
 
     // now we have the result...
+
+    // move back to where we started
+    this->write("G1");
+    this->move_to(from, seek);
+
   }
 
 };
@@ -398,12 +403,12 @@ void panel_jog(GrblMachine *grbl) {
 
   if (igButton("PROBE", stopButtonSize)) {
     grbl->write("G1Z0F7000\n");
-    grbl->write("G1X-193Y-20F7000\n");
+    grbl->write("G1X-196Y-20F7000\n");
     grbl->probe(
       (vec3){-196.0f, -20.0f, 0.0f},
       (vec3){-196.0f, -20.0f, -100.0f},
       400.0f,
-      100.0f
+      10.0f
     );
   }
 
