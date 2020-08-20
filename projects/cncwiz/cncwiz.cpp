@@ -25,10 +25,23 @@ struct GrblCommandPair {
   uint64_t token_end;
 };
 
+struct GrblMachine;
+
+typedef void (*AsyncProcessFn)(GrblMachine *grbl);
+
+typedef struct AsyncProcess_t {
+  uint32_t current_sequence_index;
+  AsyncProcessFn *sequence;
+} AsyncProcess;
+
 struct GrblState {
   uint64_t token_index;
   double last_fetch;
-  bool welcome;
+  bool initialized;
+
+
+  uint64_t _index;
+
   // track pairs of requests and responses in a queue. This can be used
   // for blocking operations like $h, probing, etc.. and can also inform
   // when we need to send $# to update WCS and similar (e.g., after a user updates
@@ -49,6 +62,8 @@ struct GrblState {
   float TLO;
   vec3 PRB;
   vec3 cso_G92;
+
+  AsyncProcess *process_queue;
 };
 
 struct GrblMachine {
@@ -96,13 +111,13 @@ struct GrblMachine {
     double last_fetch = this->state->last_fetch;
     double pollingRate = .2;
 
-    if (this->state->welcome) {
+    if (this->state->initialized) {
       if (last_fetch == 0.0) {
         this->write("$#\n");
       }
 
       if (last_fetch == 0.0 || now - last_fetch > pollingRate) {
-        this->write("?");
+        this->write("?\n");
         this->state->last_fetch = now + 10.0f;
       }
 
@@ -113,6 +128,11 @@ struct GrblMachine {
         }
       }
     }
+
+    if (!this->sp.valid()) {
+      this->state->initialized = false;
+    }
+
     // tokenize the output from grbl
     while (this->sp.available()) {
       char c = this->sp.read();
@@ -149,7 +169,7 @@ struct GrblMachine {
         switch (token->type) {
           case   GRBL_TOKEN_TYPE_WELCOME:
             this->state->last_fetch = 0.0;
-            this->state->welcome = true;
+            this->state->initialized = true;
             break;
 
           case   GRBL_TOKEN_TYPE_MACHINE_STATE:
@@ -241,13 +261,10 @@ struct GrblMachine {
   }
 
   void write(const char *str) {
-    if (strlen(str) == 1 && str[0] == '\n') {
-      return;
-    }
-
     String tx;
     tx.append_c_str(">> ");
     tx.append_c_str(str);
+    printf("WRITE: '%s'\n", str);
     if (this->tx_parser->push(str) == GCODE_RESULT_ERROR) {
       tx.append_c_str("  ERROR: invalid gcode");
       this->log->push(&tx);
@@ -258,14 +275,47 @@ struct GrblMachine {
     this->sp.write(str);
   }
 
+  void write(const float f) {
+    char buffer [100];
+    int cx;
+
+    snprintf(buffer, 100, "%f", f);
+    this->write((const char *)buffer);
+  }
+
+  void move_to(const vec3 pos, const float speed) {
+    this->write("X");
+    this->write(pos.x);
+    this->write("Y");
+    this->write(pos.y);
+    this->write("Z");
+    this->write(pos.z);
+    this->write("F");
+    this->write(speed);
+    this->write("\n");
+  }
+
+  void probe(const vec3 from, const vec3 to, const float seek, const float feed) {
+    AsyncProcess process;
+
+    // TODO: move these operations into a
+
+    // move into position
+    this->write("G1");
+    this->move_to(from, seek);
+
+    // probe towards the target
+    this->write("G38.2");
+    this->move_to(to, seek);   
+
+    // probe away from the target
+    this->write("G38.4");
+    this->move_to(from, feed);
+
+    // now we have the result...
+  }
+
 };
-
-// void imgui_theme_init() {
-
-//   ImGuiStyle *style =  igGetStyle();
-  
-
-// }
 
 void setup() {
 
@@ -345,14 +395,24 @@ void panel_jog(GrblMachine *grbl) {
   if (igIsWindowFocused(0) && igIsKeyReleased(0x100)) {
     grbl->write("\x85");
   }
+
+  if (igButton("PROBE", stopButtonSize)) {
+    grbl->write("G1Z0F7000\n");
+    grbl->write("G1X-193Y-20F7000\n");
+    grbl->probe(
+      (vec3){-196.0f, -20.0f, 0.0f},
+      (vec3){-196.0f, -20.0f, -100.0f},
+      400.0f,
+      100.0f
+    );
+  }
+
   igEnd();
 }
 
 void panel_terminal(GrblMachine *grbl) {
   char input[1024] = {0};
   igBegin("Grbl Terminal", 0, 0); 
-  igText("output from grbl:");
- 
   ImVec2 scrollingRegionSize = {0, -50};
   igBeginChildStr(
     "ScrollingRegion",
@@ -383,7 +443,7 @@ void panel_terminal(GrblMachine *grbl) {
   igEndChild();
   igSeparator();
   bool textSubmitted = igInputText(
-    "SEND",
+    "##SEND",
     input,
     1024,
     ImGuiInputTextFlags_EnterReturnsTrue,

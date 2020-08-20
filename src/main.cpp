@@ -371,6 +371,7 @@ int main(int argc, const char **argv) {
     job->addExport("printf", (void *)&printf);
     job->addExport("__stdio_common_vfprintf", (void *)&__stdio_common_vfprintf);
     job->addExport("__stdio_common_vsprintf", (void *)&__stdio_common_vsprintf);
+    job->addExport("__stdio_common_vsprintf_s", (void *)&__stdio_common_vsprintf_s);
 
     host_cimgui_init(job);
     host_hot_init(job);
