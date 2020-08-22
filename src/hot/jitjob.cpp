@@ -3,12 +3,16 @@
 // https://kevinaboos.wordpress.com/2013/07/29/clang-tutorial-part-iii-plugin-example/ 
 // https://gist.github.com/dhbaird/918a92405657220aed166f636e732f6d
 #include <clang/AST/Mangle.h>
+#include <clang/Frontend/FrontendActions.h>
+#include <clang/Lex/Preprocessor.h>
+// #include <clang/AST/RecursiveASTVisitor.h>
 #include <whereami.h>
 
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
-// #include <filesystem>
-// namespace fs = std::filesystem;
+
+#include <vector>
+
 using namespace clang;
 using namespace clang::driver;
 using namespace llvm::opt;
@@ -61,6 +65,8 @@ JitJob::JitJob() {
 
     this->system_include.assign("-I" + (this->exe_path.parent_path() / "include").string());
   }
+
+  this->dirty = true;
 }
 
 
@@ -71,9 +77,13 @@ JitJob *JitJob::create(int argc, const char **argv) {
   job->triple_str.assign(llvm::sys::getProcessTriple());
   job->main_addr = (void*)(intptr_t)GetExecutablePath;
   job->path = GetExecutablePath(job->exe_arg.c_str(), job->main_addr);
+  
+  job->guest_include_dir = fs::canonical(
+    fs::path(job->path).remove_filename() / ".." / "include"
+  );
+
   job->guest_include.assign(
-    std::string("-I") +
-    (fs::path(job->path).remove_filename() / "include").string()
+    std::string("-I") + job->guest_include_dir.string()
   );
 
   llvm::Triple triple(job->triple_str);
@@ -156,12 +166,40 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
   // program source
   fs::path file(argv[1]);
-  job->program_source = fs::current_path() / file;
+  // TODO: allow a directory to be specified as the "program" and look for common filenames
+  //       sort of like node w/ index.js
+  job->program_source = fs::canonical(fs::current_path() / file);
+  job->program_dir = fs::canonical(job->program_source.remove_filename());
+  cout << "running program: " << job->program_source.string() << endl;
 
   return job;
 }
 
+
+// Adapted from llvm/clang/unittests/Tooling/DependencyScannerTest.cpp
+class IncludeCollector : public DependencyFileGenerator {
+  vector<string> &includes;
+  public:
+  IncludeCollector(DependencyOutputOptions &Opts, vector<string> &includes)
+    : DependencyFileGenerator(Opts)
+    , includes(includes)
+  {
+
+  }
+
+  void finishedMainFile(DiagnosticsEngine &Diags) override {
+    auto new_deps = this->getDependencies();
+    this->includes.insert(
+      this->includes.end(),
+      new_deps.begin(),
+      new_deps.end()
+    );
+  }
+};
+
+
 bool JitJob::rebuild() {
+  this->dirty = false;
   std::unique_ptr<CompilerInvocation> invocation(new CompilerInvocation);
   CompilerInvocation::CreateFromArgs(
     *invocation,
@@ -204,11 +242,38 @@ bool JitJob::rebuild() {
     compiler_instance.getHeaderSearchOpts().ResourceDir = res_path;
   }
 
+  vector<string> includes;
+  compiler_instance.addDependencyCollector(std::make_shared<IncludeCollector>(
+    compiler_instance.getInvocation().getDependencyOutputOpts(),
+    includes
+  ));
+
+
   // Create and execute the frontend to generate an LLVM bitcode module.
   auto action = new EmitLLVMOnlyAction();
   if (!compiler_instance.ExecuteAction(*action)) {
     printf("failed to execute action\n");
     return false;
+  }
+
+  this->watched_files.clear();
+  for (auto &include : includes) {
+    auto abs_path = fs::canonical(include);
+    auto rel = fs::relative(abs_path, this->guest_include_dir);
+
+
+    // Filter down the results to files that exist outside of the rawkit install dir
+    if (rel.begin()->string() == "..") {
+      cout 
+        << "program_dir: " << this->guest_include_dir.string() << endl 
+        << "abs: " << abs_path.string() << endl 
+        << "rel: " << rel.string() << endl;
+
+      JitJobFileEntry entry;
+      entry.file = abs_path;
+      entry.mtime = fs::last_write_time(entry.file);
+      this->watched_files.push_back(entry);
+    }
   }
 
   //ASTContext& ast_context = compiler_instance.getASTContext();
@@ -239,20 +304,24 @@ void JitJob::addExport(const char *name, llvm::JITTargetAddress addr) {
   });
 }
 
-
 void JitJob::tick() {
-  try {
-    fs::file_time_type mtime = fs::last_write_time(this->program_source);
-    if (mtime != this->program_source_mtime) {
-      this->program_source_mtime = mtime;
-      if (this->rebuild()) {
-        this->setup();
+  if (!this->dirty) {
+    for (auto &entry: this->watched_files) {
+      try {
+        fs::file_time_type mtime = fs::last_write_time(entry.file);
+        if (mtime != entry.mtime) {
+          this->dirty = true;
+          break;
+        }
+      } catch (fs::filesystem_error e) {
       }
     }
-  } catch (fs::filesystem_error e) {
-    // Handle the case where the file has been removed temporarily while saving
-    return;
   }
+
+  if (this->dirty && this->rebuild()) {
+    this->setup();
+  }
+
 }
 
 void JitJob::setup() {
@@ -266,6 +335,3 @@ void JitJob::loop() {
     this->active_runnable->loop();
   }
 }
-
-
-

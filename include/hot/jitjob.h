@@ -11,6 +11,11 @@
 // without being given the address of a function in the main executable).
 std::string GetExecutablePath(const char *Argv0, void *MainAddr);
 
+struct JitJobFileEntry {
+  ghc::filesystem::path file;
+  ghc::filesystem::file_time_type mtime;
+};
+
 class JitJob {
   private:
     JitJob();
@@ -38,7 +43,11 @@ class JitJob {
     llvm::orc::JITSymbolBag symbols;
 
     ghc::filesystem::path program_source;
-    ghc::filesystem::file_time_type program_source_mtime;
+    ghc::filesystem::path program_dir;
+    ghc::filesystem::path guest_include_dir;
+
+    std::vector<JitJobFileEntry> watched_files;
+    bool dirty;
   public:
 
     static JitJob *create(int argc, const char **argv);
