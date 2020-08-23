@@ -7,8 +7,11 @@
 #include <rawkit/string.h>
 
 #include "grbl/machine.h"
+#include "panels/probe.h"
 
-void setup() {}
+void setup() {
+  printf("loaded\n");
+}
 
 void panel_jog(GrblMachine *grbl) {
   igBegin(
@@ -83,17 +86,6 @@ void panel_jog(GrblMachine *grbl) {
   // handle escape
   if (igIsWindowFocused(0) && igIsKeyReleased(0x100)) {
     grbl->write("\x85");
-  }
-
-  if (igButton("PROBE", stopButtonSize)) {
-    grbl->write("G1Z0F7000\n");
-    grbl->write("G1X-196Y-20F7000\n");
-    grbl->probe(
-      (vec3){-196.0f, -20.0f, 0.0f},
-      (vec3){-196.0f, -20.0f, -100.0f},
-      400.0f,
-      10.0f
-    );
   }
 
   igEnd();
@@ -198,11 +190,33 @@ void panel_status(GrblMachine *grbl) {
   igEnd();
 }
 
+void panel_random(GrblMachine *grbl) {
+  igBegin("random", 0, 0);
+  ImVec2 buttonSize = {0.0, 0.0};
+  igGetContentRegionAvail(&buttonSize);
+  buttonSize.y = 40.0;
+  if (igButton("home", buttonSize)) {
+    grbl->home();
+  }
+  if (igButton("reset", buttonSize)) {
+    grbl->soft_reset();
+  }
+
+  igText("");
+  igText("machine actions (%zu/%zu)", grbl->state->action_complete, grbl->state->action_pending);
+
+  igEnd();
+}
+
 void loop() {
   // this implicitly ticks the underlying serialport
   GrblMachine grbl;
+  
+  // grab bag of functionality until it all finds a home
+  panel_random(&grbl);
 
   panel_jog(&grbl);
   panel_terminal(&grbl);
   panel_status(&grbl);
+  panel_probe(&grbl);
 }
