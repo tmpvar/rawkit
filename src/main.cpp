@@ -355,10 +355,6 @@ inline std::string trim(const std::string &s)
    return (wsback<=wsfront ? std::string() : std::string(wsfront,wsback));
 }
 
-typedef errno_t (*rawkit_wcstombs_s)(size_t *, char *, size_t, const wchar_t *, size_t);
-typedef errno_t (*rawkit_mbstowcs_s)(size_t *, wchar_t *, size_t, const char *, size_t);
-
-
 llvm::ExitOnError ExitOnErr;
 int main(int argc, const char **argv) {
     llvm::InitLLVM initialize_llvm(argc, argv);
@@ -385,8 +381,6 @@ int main(int argc, const char **argv) {
         job->addExport("GetFullPathNameW", (void *)&GetFullPathNameW);
         job->addExport("GetLastError", (void *)&GetLastError);
 
-        job->addExport("wcstombs_s", (void *)&((rawkit_wcstombs_s)wcstombs_s));
-        job->addExport("mbstowcs_s", (void *)&((rawkit_mbstowcs_s)mbstowcs_s));
         job->addExport("_set_errno", (void *)&_set_errno);
         job->addExport("setlocale", (void *)&setlocale);
         job->addExport("_errno", (void *)&_errno);

@@ -1,6 +1,12 @@
 #include <hot/jitjob.h>
 #include <stdlib.h>
 
+typedef double (*rawkit_abs)(double val);
+
+typedef errno_t (*rawkit_wcstombs_s)(size_t *, char *, size_t, const wchar_t *, size_t);
+typedef errno_t (*rawkit_mbstowcs_s)(size_t *, wchar_t *, size_t, const char *, size_t);
+
+
 void host_init_stdlib(JitJob *job)
 {
   job->addExport("malloc", (void *)&malloc);
@@ -31,5 +37,11 @@ void host_init_stdlib(JitJob *job)
   job->addExport("strtoul", (void *)&strtoul);
   job->addExport("system", (void *)&system);
   job->addExport("wcstombs", (void *)&wcstombs);
+
+  #ifdef _WIN32
+    job->addExport("wcstombs_s", (void *)&((rawkit_wcstombs_s)wcstombs_s));
+    job->addExport("mbstowcs_s", (void *)&((rawkit_mbstowcs_s)mbstowcs_s));
+  #endif
+
   job->addExport("wctomb", (void *)&wctomb);
 }

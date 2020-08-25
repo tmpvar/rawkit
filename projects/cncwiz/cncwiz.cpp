@@ -11,21 +11,44 @@
 
 #include <dirent.h>
 
-void setup() {
-  char *a = (char *)malloc(100);
-  printf("SETUP\n");
-  struct dirent *ent;
+String program_file;
+StringList program;
 
-  // //   /* Open directory stream */
-  DIR *dir = opendir ("E:\\cnc\\gcode");
-  printf("AFTER OPEN\n");
+void setup() {
+  struct dirent *ent;
+  const char *path = "E:\\cnc\\gcode\\";
+  DIR *dir = opendir (path);
   if (dir != NULL) {
-    printf("loaded dir\n");
     while ((ent = readdir (dir)) != NULL) {
       switch (ent->d_type) {
       case DT_REG:
         if (ent->d_name[0] == '.') {
           break;
+        }
+
+        program_file.set_c_str(path);
+        program_file.append_c_str(ent->d_name);
+
+        {
+          FILE *f = fopen(program_file.handle, "r");
+          if (!f) {
+            printf("can't open %s\n", program_file.handle);
+            return;
+          }
+
+          char c = 0;
+          String line;
+
+          while (!feof(f) && fread(&c, sizeof(char), 1, f)) {
+            if (c != '\n') {
+              line.append_char(c);
+              continue;
+            }
+
+            program.push(&line);
+            line.clear();
+          }
+          fclose(f);
         }
 
         printf ("%s\n", ent->d_name);
@@ -52,14 +75,26 @@ void setup() {
 }
 
 void panel_program(GrblMachine *grbl) {
-  igBegin(
-    "Jog",
-    nullptr,
-    ImGuiWindowFlags_AlwaysAutoResize
-    | ImGuiWindowFlags_NoCollapse
-    | ImGuiWindowFlags_NoResize
+  igBegin("Program", nullptr, ImGuiWindowFlags_None);
+
+  ImVec2 scrollingRegionSize = {0, -50};
+  igBeginChildStr(
+    "ScrollingRegion",
+    scrollingRegionSize,
+    false,
+    ImGuiWindowFlags_HorizontalScrollbar
   );
 
+  ImGuiListClipper clipper;
+  ImGuiListClipper_Begin(&clipper, program.length(), 18.0);
+  String *line = nullptr;
+  while (ImGuiListClipper_Step(&clipper)) {
+    for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++) {
+      line = program.item(line_no);
+      igTextUnformatted(line->c_str(), NULL);
+    }
+  }
+  ImGuiListClipper_End(&clipper);
   igEnd();
 }
 
@@ -78,8 +113,7 @@ void panel_jog(GrblMachine *grbl) {
   ImVec2 buttonSize = {32, 32};
   igDummy(buttonSize);
   igSameLine(0.0, 1.0);
-  if (igArrowButtonEx("##Jog:Y+", ImGuiDir_Up, buttonSize,
-                           ImGuiButtonFlags_None)) {
+  if (igArrowButtonEx("##Jog:Y+", ImGuiDir_Up, buttonSize, ImGuiButtonFlags_None)) {
     grbl->jog({0.0f, jogDistance, 0.0}, jogSpeed);
   }
 
@@ -269,4 +303,5 @@ void loop() {
   panel_terminal(&grbl);
   panel_status(&grbl);
   panel_probe(&grbl);
+  panel_program(&grbl);
 }
