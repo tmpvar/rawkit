@@ -1,6 +1,6 @@
 #include <hot/jitjob.h>
 
-// https://kevinaboos.wordpress.com/2013/07/29/clang-tutorial-part-iii-plugin-example/ 
+// https://kevinaboos.wordpress.com/2013/07/29/clang-tutorial-part-iii-plugin-example/
 // https://gist.github.com/dhbaird/918a92405657220aed166f636e732f6d
 #include <clang/AST/Mangle.h>
 #include <clang/Frontend/FrontendActions.h>
@@ -77,7 +77,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
   job->triple_str.assign(llvm::sys::getProcessTriple());
   job->main_addr = (void*)(intptr_t)GetExecutablePath;
   job->path = GetExecutablePath(job->exe_arg.c_str(), job->main_addr);
-  
+
   job->guest_include_dir = fs::canonical(
     fs::path(job->path).remove_filename() / ".." / "include"
   );
@@ -257,6 +257,7 @@ bool JitJob::rebuild() {
   }
 
   this->watched_files.clear();
+  cout << "watching: " << endl;
   for (auto &include : includes) {
     auto abs_path = fs::canonical(include);
     auto rel = fs::relative(abs_path, this->guest_include_dir);
@@ -264,10 +265,7 @@ bool JitJob::rebuild() {
 
     // Filter down the results to files that exist outside of the rawkit install dir
     if (rel.begin()->string() == "..") {
-      cout 
-        << "program_dir: " << this->guest_include_dir.string() << endl 
-        << "abs: " << abs_path.string() << endl 
-        << "rel: " << rel.string() << endl;
+      cout << "  " << abs_path.string() << endl;
 
       JitJobFileEntry entry;
       entry.file = abs_path;

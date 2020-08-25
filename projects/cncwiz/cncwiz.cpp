@@ -10,7 +10,6 @@
 #include "panels/probe.h"
 
 void setup() {
-  printf("loaded\n");
 }
 
 void panel_jog(GrblMachine *grbl) {
@@ -22,12 +21,15 @@ void panel_jog(GrblMachine *grbl) {
     | ImGuiWindowFlags_NoResize
   );
 
+  float jogSpeed = 10000.0f;
+  float jogDistance = 10.0f;
+
   ImVec2 buttonSize = {32, 32};
   igDummy(buttonSize);
   igSameLine(0.0, 1.0);
   if (igArrowButtonEx("##Jog:Y+", ImGuiDir_Up, buttonSize,
                            ImGuiButtonFlags_None)) {
-    grbl->write("$J=G91Y+10F10000\n");
+    grbl->jog({0.0f, jogDistance, 0.0}, jogSpeed);
   }
 
   igSameLine(0.0, 5.0);
@@ -35,14 +37,12 @@ void panel_jog(GrblMachine *grbl) {
   igSameLine(0.0, 5.0);
   igDummy(buttonSize);
   igSameLine(0.0, 1.0);
-  if (igArrowButtonEx("##Jog:Z+", ImGuiDir_Up, buttonSize,
-                           ImGuiButtonFlags_None)) {
-    grbl->write("$J=G91Z+10F10000\n");
+  if (igArrowButtonEx("##Jog:Z+", ImGuiDir_Up, buttonSize, ImGuiButtonFlags_None)) {
+    grbl->jog({0.0f, 0.0f, jogDistance}, jogSpeed);
   }
 
-  if (igArrowButtonEx("##Jog:X-", ImGuiDir_Left, buttonSize,
-                           ImGuiButtonFlags_None)) {
-    grbl->write("$J=G91X-10F10000\n");
+  if (igArrowButtonEx("##Jog:X-", ImGuiDir_Left, buttonSize, ImGuiButtonFlags_None)) {
+    grbl->jog({-jogDistance, 0.0f, 0.0f}, jogSpeed);
   }
 
   igSameLine(0.0, 2.0);
@@ -50,16 +50,14 @@ void panel_jog(GrblMachine *grbl) {
 
   igSameLine(0.0, 0.0);
 
-  if (igArrowButtonEx("##Jog:X+", ImGuiDir_Right, buttonSize,
-                           ImGuiButtonFlags_None)) {
-    grbl->write("$J=G91X+10F10000\n");
+  if (igArrowButtonEx("##Jog:X+", ImGuiDir_Right, buttonSize, ImGuiButtonFlags_None)) {
+    grbl->jog({jogDistance, 0.0f, 0.0f}, jogSpeed);
   }
 
   igDummy(buttonSize);
   igSameLine(0.0, 0.0);
-  if (igArrowButtonEx("##Jog:Y-", ImGuiDir_Down, buttonSize,
-                           ImGuiButtonFlags_None)) {
-    grbl->write("$J=G91Y-10F10000\n");
+  if (igArrowButtonEx("##Jog:Y-", ImGuiDir_Down, buttonSize, ImGuiButtonFlags_None)) {
+    grbl->jog({0.0f, -jogDistance, 0.0f}, jogSpeed);
   }
 
   igSameLine(0.0, 0.0);
@@ -68,9 +66,8 @@ void panel_jog(GrblMachine *grbl) {
   igDummy(buttonSize);
   igSameLine(0.0, 0.0);
 
-  if (igArrowButtonEx("##Jog:Z-", ImGuiDir_Down, buttonSize,
-                           ImGuiButtonFlags_None)) {
-    grbl->write("$J=G91Z-10F100000\n");
+  if (igArrowButtonEx("##Jog:Z-", ImGuiDir_Down, buttonSize, ImGuiButtonFlags_None)) {
+    grbl->jog({0.0f, 0.0f, -jogDistance}, jogSpeed);
   }
 
   igDummy(buttonSize);
@@ -93,7 +90,7 @@ void panel_jog(GrblMachine *grbl) {
 
 void panel_terminal(GrblMachine *grbl) {
   char input[1024] = {0};
-  igBegin("Grbl Terminal", 0, 0); 
+  igBegin("Grbl Terminal", 0, 0);
   ImVec2 scrollingRegionSize = {0, -50};
   igBeginChildStr(
     "ScrollingRegion",
@@ -135,9 +132,8 @@ void panel_terminal(GrblMachine *grbl) {
   if (textSubmitted) {
     String tx;
     tx.set_c_str(input);
-    tx.append_c_str("\n");
 
-    grbl->write(tx.handle);
+    grbl->user_input(input);
     input[0] = 0;
 
     // keep the input box focused
@@ -201,6 +197,9 @@ void panel_random(GrblMachine *grbl) {
   if (igButton("reset", buttonSize)) {
     grbl->soft_reset();
   }
+  if (igButton("unlock", buttonSize)) {
+    grbl->unlock();
+  }
 
   igText("");
   igText("machine actions (%zu/%zu)", grbl->state->action_complete, grbl->state->action_pending);
@@ -211,7 +210,7 @@ void panel_random(GrblMachine *grbl) {
 void loop() {
   // this implicitly ticks the underlying serialport
   GrblMachine grbl;
-  
+
   // grab bag of functionality until it all finds a home
   panel_random(&grbl);
 

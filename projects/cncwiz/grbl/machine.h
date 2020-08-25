@@ -16,13 +16,28 @@ void vec3_copy(vec3 *dst, const vec3 *src) {
 }
 
 enum grbl_probing_status {
-  PROBING_ERROR = -1,
   PROBING_NONE,
   PROBING_MOVE_TO_START,
   PROBING_PROBE_FAST_TO_END,
+  PROBING_PROBE_FAST_TO_START,
+  PROBING_PROBE_SLOW_TO_END,
   PROBING_PROBE_SLOW_TO_START,
   PROBING_MOVE_BACK_TO_START,
-  PROBING_COMPLETE
+  PROBING_COMPLETE,
+  PROBING_ERROR,
+  PROBING_STATUS_COUNT
+};
+
+const char *grbl_probing_status_names[PROBING_STATUS_COUNT] = {
+  "NONE",
+  "MOVE_TO_START",
+  "PROBE_FAST_TO_END",
+  "PROBE_FAST_TO_START",
+  "PROBE_SLOW_TO_END",
+  "PROBE_SLOW_TO_START",
+  "MOVE_BACK_TO_START",
+  "COMPLETE",
+  "ERROR"
 };
 
 typedef int64_t grbl_action_id;
@@ -68,6 +83,7 @@ struct GrblState {
   grbl_action_id action_pending;
   grbl_action_id action_complete;
 
+  String tx_line;
 };
 
 #define GRBL_ACTION_INVALID -1
@@ -115,7 +131,9 @@ struct GrblMachine {
 
     double now = rawkit_now();
     double last_fetch = this->state->last_fetch;
-    double pollingRate = .2;
+    double pollingRate = this->state->state == GRBL_MACHINE_STATE_JOG
+      ? .001
+      : .2;
 
     if (this->state->initialized) {
       if (last_fetch == 0.0) {
@@ -124,7 +142,7 @@ struct GrblMachine {
       }
 
       if (last_fetch == 0.0 || now - last_fetch > pollingRate) {
-        this->write("?");
+        this->status();
         this->state->last_fetch = now + 10.0f;
       }
 
@@ -153,12 +171,15 @@ struct GrblMachine {
         if (this->line->length() == 0) {
           continue;
         }
-    
+
         if (this->line->length() == 1 && this->line->c_str()[0] == '\n') {
           continue;
         }
-        
-        this->log->push(String("<< ").append_string(this->line));
+
+        // TODO: add a UI button for filtering out status responses
+        if (this->line->handle[0] != '<') {
+          this->log->push(String("<< ").append_string(this->line));
+        }
         this->line->clear();
         continue;
       }
@@ -173,6 +194,10 @@ struct GrblMachine {
       for (; this->state->token_index < token_count; this->state->token_index++) {
         const grbl_response_token_t *token = this->rx_parser->token(this->state->token_index);
         switch (token->type) {
+          case GRBL_TOKEN_TYPE_ALARM:
+            this->state->initialized = false;
+            this->state->state = GRBL_MACHINE_STATE_ALARM;
+            break;
           case GRBL_TOKEN_TYPE_STATUS:
             this->state->action_complete++;
             break;
@@ -257,7 +282,7 @@ struct GrblMachine {
               &token->vec3
             );
             break;
-          
+
           case GRBL_TOKEN_TYPE_STATUS_REPORT:
             // reset the '?' ticker
             this->state->last_fetch = now;
@@ -270,17 +295,26 @@ struct GrblMachine {
     }
   }
 
+  void status() {
+    // bypass the logging mechanisms
+    // TODO: these messages should be collected for debugging purposes,
+    //       but the ui should provide a way to filter them out.
+    this->sp.write("?");
+  }
+
   void write(const char *str) {
-    String tx;
-    tx.append_c_str(str);
-    if (this->tx_parser->push(str) == GCODE_RESULT_ERROR) {
-      tx.append_c_str("  ERROR: invalid gcode");
-      this->log->push(&tx);
-      return;
+    const size_t l = strlen(str);
+    for (size_t i=0; i<l; i++) {
+      this->state->tx_line.append_char(str[i]);
+      if (str[i] != '\n') {
+        continue;
+      }
+      printf("line: %s", this->state->tx_line.handle);
+      this->sp.write(this->state->tx_line.handle);
+      this->log->push(&this->state->tx_line);
+      this->state->tx_line.clear();
     }
 
-    this->log->push(&tx);
-    this->sp.write(str);
   }
 
   void write(const float f) {
@@ -289,6 +323,12 @@ struct GrblMachine {
 
     snprintf(buffer, 100, "%f", f);
     this->write((const char *)buffer);
+  }
+
+  void user_input(const char *str) {
+    this->state->action_pending += 1;
+    this->write(str);
+    this->write("\n");
   }
 
   grbl_action_id end_action() {
@@ -317,20 +357,40 @@ struct GrblMachine {
 
   grbl_action_id home() {
     this->write("$h");
+    this->state->state = GRBL_MACHINE_STATE_HOME;
     return this->end_action();
   }
 
+  void write_command(const uint8_t c) {
+    this->sp.write(&c, 1);
+  }
+
   void soft_reset() {
-    this->write("\x18");
+    this->write_command(0x18);
     this->state->action_complete = 0;
     this->state->action_pending = 0;
     this->state->probing.status = PROBING_NONE;
   }
 
+  void jog(const vec3 dir, const float speed) {
+    if (
+      this->state->state == GRBL_MACHINE_STATE_IDLE ||
+      this->state->state == GRBL_MACHINE_STATE_JOG
+    ) {
+      this->write("$J=G91");
+      this->move_to(dir, speed);
+      this->state->state = GRBL_MACHINE_STATE_JOG;
+    }
+  }
+
+  void unlock() {
+    this->user_input("$X");
+  }
+
   bool probe_in_progress() {
     return (
   		this->state->probing.status > PROBING_NONE &&
-	  	this->state->probing.status < PROBING_COMPLETE
+	  	this->state->probing.status <= PROBING_COMPLETE
 	  );
   }
 
@@ -349,7 +409,7 @@ struct GrblMachine {
   }
 
   bool probe() {
-    if (this == NULL || this->state == NULL || !this->probe_in_progress()) {
+    if (this->state == NULL || !this->probe_in_progress()) {
       return false ;
     }
 
@@ -365,12 +425,12 @@ struct GrblMachine {
       case PROBING_COMPLETE:
         this->state->probing.status = PROBING_NONE;
         return true;
-      
+
       case PROBING_NONE:
         // TODO: arriving here should probably show a warning as the caller
         //       of this function is responsible for calling probe_in_progress()
         break;
-  
+
     case PROBING_MOVE_TO_START:
         this->state->probing.status = PROBING_PROBE_FAST_TO_END;
         this->write("G38.2"); // move until contact
@@ -381,11 +441,29 @@ struct GrblMachine {
         break;
 
       case PROBING_PROBE_FAST_TO_END:
+        this->state->probing.status = PROBING_PROBE_FAST_TO_START;
+        this->write("G38.4"); // move until contact is cleared
+        this->state->probing.action_id = this->move_to(
+          this->state->probing.from,
+          this->state->probing.seek
+        );
+        break;
+
+      case PROBING_PROBE_FAST_TO_START:
+        this->state->probing.status = PROBING_PROBE_SLOW_TO_END;
+        this->write("G38.2"); // move until contact is cleared
+        this->state->probing.action_id = this->move_to(
+          this->state->probing.to,
+          this->state->probing.feed
+        );
+        break;
+
+      case PROBING_PROBE_SLOW_TO_END:
         this->state->probing.status = PROBING_PROBE_SLOW_TO_START;
         this->write("G38.4"); // move until contact is cleared
         this->state->probing.action_id = this->move_to(
           this->state->probing.from,
-          this->state->probing.feed
+          this->state->probing.feed * 0.1f
         );
         break;
 
@@ -406,6 +484,11 @@ struct GrblMachine {
           &this->state->PRB
         );
         break;
+
+      default:
+        this->state->probing.status = PROBING_ERROR;
+        printf("ERROR: probing FSM went out of bounds\n");
+        return true;
     }
 
     return false;

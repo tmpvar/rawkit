@@ -103,6 +103,7 @@ int16_t Serial_Read(SerialID id) {
     sp->read(&out, 1);
     return static_cast<int16_t>(out);
   } catch (serial::IOException e) {
+    printf("closing serialport because read failed\n");
     sp->close();
     return -1;
   }
@@ -117,7 +118,8 @@ void Serial_Write(SerialID id, const uint8_t *buf, size_t len) {
   try  {
     sp->write(buf, len);
   } catch (serial::IOException e) {
-    sp->close();
+    printf("closing serialport because write failed (len=%zu) (%s)\n", len, (char *)buf);
+    //sp->close();
   }
 }
 
