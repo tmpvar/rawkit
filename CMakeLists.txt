@@ -250,6 +250,7 @@ install(
     FILES
       ${DEPS_DIR}/cimgui/cimgui.h
       ${CMAKE_CURRENT_LIST_DIR}/include/stb_sb.h
+      ${CMAKE_CURRENT_LIST_DIR}/include/dirent.h
     DESTINATION include/
 )
 

@@ -9,7 +9,58 @@
 #include "grbl/machine.h"
 #include "panels/probe.h"
 
+#include <dirent.h>
+
 void setup() {
+  char *a = (char *)malloc(100);
+  printf("SETUP\n");
+  struct dirent *ent;
+
+  // //   /* Open directory stream */
+  DIR *dir = opendir ("E:\\cnc\\gcode");
+  printf("AFTER OPEN\n");
+  if (dir != NULL) {
+    printf("loaded dir\n");
+    while ((ent = readdir (dir)) != NULL) {
+      switch (ent->d_type) {
+      case DT_REG:
+        if (ent->d_name[0] == '.') {
+          break;
+        }
+
+        printf ("%s\n", ent->d_name);
+        break;
+
+      case DT_DIR:
+        printf ("%s/\n", ent->d_name);
+        break;
+
+      case DT_LNK:
+        printf ("%s@\n", ent->d_name);
+        break;
+
+      default:
+        printf ("%s*\n", ent->d_name);
+      }
+    }
+
+    closedir (dir);
+  } else {
+    printf("could not load dir\n");
+  }
+
+}
+
+void panel_program(GrblMachine *grbl) {
+  igBegin(
+    "Jog",
+    nullptr,
+    ImGuiWindowFlags_AlwaysAutoResize
+    | ImGuiWindowFlags_NoCollapse
+    | ImGuiWindowFlags_NoResize
+  );
+
+  igEnd();
 }
 
 void panel_jog(GrblMachine *grbl) {

@@ -8,7 +8,7 @@
 //   the back-end itself (imgui_impl_vulkan.cpp), but should PROBABLY NOT be used by your own engine/app code.
 // Read comments in imgui_impl_vulkan.h.
 
-#include <stdio.h>          // printf, fprintf
+#include <stdio.h>          // printf, fprintf, wcstombs_s
 #include <stdlib.h>         // abort
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
@@ -25,6 +25,7 @@
 
 #include <hot/hot.h>
 #include <stdio.h>
+#include <locale.h>
 #include "llvm/Support/InitLLVM.h"
 
 #include <hot/host/cimgui.h>
@@ -32,7 +33,7 @@
 #include <imgui/examples/imgui_impl_glfw.h>
 #include <imgui/examples/imgui_impl_vulkan.h>
 
-// this must come after including llvm because visual studio / windows sdk 
+// this must come after including llvm because visual studio / windows sdk
 // conflict with std::byte
 using namespace std;
 // #define IMGUI_UNLIMITED_FRAME_RATE
@@ -354,6 +355,9 @@ inline std::string trim(const std::string &s)
    return (wsback<=wsfront ? std::string() : std::string(wsfront,wsback));
 }
 
+typedef errno_t (*rawkit_wcstombs_s)(size_t *, char *, size_t, const wchar_t *, size_t);
+typedef errno_t (*rawkit_mbstowcs_s)(size_t *, wchar_t *, size_t, const char *, size_t);
+
 
 llvm::ExitOnError ExitOnErr;
 int main(int argc, const char **argv) {
@@ -373,9 +377,23 @@ int main(int argc, const char **argv) {
     job->addExport("__stdio_common_vsprintf", (void *)&__stdio_common_vsprintf);
     job->addExport("__stdio_common_vsprintf_s", (void *)&__stdio_common_vsprintf_s);
 
+    #if defined(_WIN32)
+        // add guest support for dirent.h
+        job->addExport("FindClose", (void *)&FindClose);
+        job->addExport("FindFirstFileExW", (void *)&FindFirstFileExW);
+        job->addExport("FindNextFileW", (void *)&FindNextFileW);
+        job->addExport("GetFullPathNameW", (void *)&GetFullPathNameW);
+        job->addExport("GetLastError", (void *)&GetLastError);
+
+        job->addExport("wcstombs_s", (void *)&((rawkit_wcstombs_s)wcstombs_s));
+        job->addExport("mbstowcs_s", (void *)&((rawkit_mbstowcs_s)mbstowcs_s));
+        job->addExport("_set_errno", (void *)&_set_errno);
+        job->addExport("setlocale", (void *)&setlocale);
+        job->addExport("_errno", (void *)&_errno);
+    #endif
     host_cimgui_init(job);
     host_hot_init(job);
-    
+
     auto list = serial::list_ports();
     auto it = find_if(list.begin(), list.end(), [](const serial::PortInfo& obj) {
       cout << "arduino: " << obj.description << " :: " << obj.hardware_id << endl;
@@ -406,7 +424,7 @@ int main(int argc, const char **argv) {
         return 1;
 
 
-    
+
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     GLFWwindow* window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+Vulkan example", NULL, NULL);
@@ -509,7 +527,7 @@ int main(int argc, const char **argv) {
     bool show_demo_window = true;
     bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    
+
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
@@ -561,7 +579,7 @@ int main(int argc, const char **argv) {
                 show_another_window = false;
             ImGui::End();
         }
-        
+
         // Rendering
         ImGui::Render();
         ImDrawData* draw_data = ImGui::GetDrawData();

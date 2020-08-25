@@ -112,8 +112,8 @@ JitJob *JitJob::create(int argc, const char **argv) {
   }
 
 #if defined(_WIN32)
-    Args.push_back("-fms-extensions");
-    Args.push_back("-fms-compatibility");
+    // Args.push_back("-fms-extensions");
+    // Args.push_back("-fms-compatibility");
     Args.push_back("-fdelayed-template-parsing");
     Args.push_back("-fms-compatibility-version=19.00");
   #endif
