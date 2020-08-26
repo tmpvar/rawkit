@@ -309,12 +309,11 @@ struct GrblMachine {
       if (str[i] != '\n') {
         continue;
       }
-      printf("line: %s", this->state->tx_line.handle);
+      // printf("line: %s", this->state->tx_line.handle);
       this->sp.write(this->state->tx_line.handle);
       this->log->push(&this->state->tx_line);
       this->state->tx_line.clear();
     }
-
   }
 
   void write(const float f) {
@@ -370,6 +369,16 @@ struct GrblMachine {
     this->state->action_complete = 0;
     this->state->action_pending = 0;
     this->state->probing.status = PROBING_NONE;
+  }
+
+  void feed_hold() {
+    this->write("!");
+    this->end_action();
+  }
+
+  void cycle_start() {
+    this->write("~");
+    this->end_action();
   }
 
   void jog(const vec3 dir, const float speed) {
