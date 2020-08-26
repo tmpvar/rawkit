@@ -33,7 +33,9 @@ SerialID Serial_Open(const char *portName) {
     OptionalSerial port = new serial::Serial(
       portName,
       115200,
-      serial::Timeout::simpleTimeout(1)
+      // TODO: was seeing a error:121 on windows randomly, so this value might need to be tuned.
+      // node-serialport had a similar problem: https://github.com/serialport/node-serialport/issues/781
+      serial::Timeout::simpleTimeout(0)
     );
 
     SerialID index = serial_ports.size();
@@ -45,13 +47,13 @@ SerialID Serial_Open(const char *portName) {
 }
 
 inline OptionalSerial GetSerialPortById(SerialID id) {
-  
+
   if (serial_ports.size() <= id) {
     return nullptr;
   }
-  
+
   OptionalSerial sp = serial_ports[id];
-  
+
   if (sp == nullptr) {
     return nullptr;
   }
@@ -60,7 +62,7 @@ inline OptionalSerial GetSerialPortById(SerialID id) {
     try {
       sp->open();
       if (!sp->isOpen()) {
-        return nullptr; 
+        return nullptr;
       }
     } catch (serial::IOException e) {
       return nullptr;
@@ -75,7 +77,7 @@ size_t Serial_Available(SerialID id){
   if (sp == nullptr) {
     return 0;
   }
-  
+
   try {
     return sp->available();
   } catch (serial::IOException e) {
@@ -119,6 +121,7 @@ void Serial_Write(SerialID id, const uint8_t *buf, size_t len) {
     sp->write(buf, len);
   } catch (serial::IOException e) {
     printf("closing serialport because write failed (len=%zu) (%s)\n", len, (char *)buf);
+    printf("error (%i): %s\n\n", e.getErrorNumber(), e.what());
     //sp->close();
   }
 }
