@@ -9,6 +9,7 @@ void host_init_stdio(JitJob *job) {
   job->addExport("fflush", (void *)&fflush);
   job->addExport("fgetpos", (void *)&fgetpos);
   job->addExport("fopen", (void *)&fopen);
+  job->addExport("fopen_s", (void *)&fopen_s);
   job->addExport("fread", (void *)&fread);
   job->addExport("freopen", (void *)&freopen);
   job->addExport("fseek", (void *)&fseek);

@@ -19,6 +19,10 @@ typedef struct String {
     return ret;
   }
 
+  void destroy() {
+    gb_free_string(this->handle);
+  }
+
   String *append_char(char c) {
     if (this->handle == nullptr) {
       this->handle = gb_make_string("");
@@ -113,5 +117,27 @@ typedef struct StringList {
       return nullptr;
     }
     return this->handle[line];
+  }
+
+  void clear() {
+    if (this->handle == nullptr) {
+      return;
+    }
+
+    for (size_t i = 0; i<this->count; i++) {
+      if (this->handle[i] != nullptr) {
+        this->handle[i]->destroy();
+      }
+    }
+    this->count = 0;
+  }
+
+  void destroy() {
+    if (this->handle == nullptr) {
+      return;
+    }
+    this->clear();
+    free(this->handle);
+    this->handle = nullptr;
   }
 } StringList;

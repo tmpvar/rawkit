@@ -89,7 +89,10 @@ set(IMGUI_SRC
   ${DEPS_DIR}/cimgui/imgui/examples/imgui_impl_vulkan.cpp
 )
 
-include_directories(${DEPS_DIR}/cimgui ${DEPS_DIR}/cimgui/imgui)
+include_directories(
+  ${DEPS_DIR}/cimgui
+  ${DEPS_DIR}/cimgui/imgui
+)
 
 # DEP: serial
 add_subdirectory(${DEPS_DIR}/serial)
@@ -97,6 +100,12 @@ include_directories(
   ${DEPS_DIR}/serial/include
   ${DEPS_DIR}/whereami/src
 )
+
+# DEP: tinyfiledialogs
+include_directories(
+  ${DEPS_DIR}/tinyfiledialogs
+)
+
 
 add_executable(
   rawkit
@@ -106,6 +115,7 @@ add_executable(
   ${SRC_DIR}/hot/cimgui.cpp
   ${SRC_DIR}/rawkit/serial.cpp
   ${DEPS_DIR}/whereami/src/whereami.c
+  ${DEPS_DIR}/tinyfiledialogs/tinyfiledialogs.c
   ${IMGUI_SRC}
 )
 
@@ -251,6 +261,7 @@ install(
       ${DEPS_DIR}/cimgui/cimgui.h
       ${CMAKE_CURRENT_LIST_DIR}/include/stb_sb.h
       ${CMAKE_CURRENT_LIST_DIR}/include/dirent.h
+      ${DEPS_DIR}/tinyfiledialogs/tinyfiledialogs.h
     DESTINATION include/
 )
 
