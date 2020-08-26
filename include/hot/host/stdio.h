@@ -22,6 +22,11 @@ void host_init_stdio(JitJob *job) {
   job->addExport("setvbuf", (void *)&setvbuf);
   job->addExport("tmpfile", (void *)&tmpfile);
   job->addExport("tmpnam", (void *)&tmpnam);
+
+  job->addExport("__stdio_common_vfprintf", (void *)&__stdio_common_vfprintf);
+  job->addExport("__stdio_common_vsprintf", (void *)&__stdio_common_vsprintf);
+  job->addExport("__stdio_common_vsprintf_s", (void *)&__stdio_common_vsprintf_s);
+
   job->addExport("fprintf", (void *)&fprintf);
   job->addExport("printf", (void *)&printf);
   job->addExport("sprintf", (void *)&sprintf);

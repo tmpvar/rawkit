@@ -95,6 +95,21 @@ void panel_program(GrblMachine *grbl) {
     }
   }
   ImGuiListClipper_End(&clipper);
+
+  igEndChild();
+  ImVec2 buttonSize = {75, 20};
+  ImVec2 spacerSize = {10, 0};
+  igButton("run", buttonSize);
+  igSameLine(0.0, 1.0);
+  igDummy(spacerSize);
+  igSameLine(0.0, 1.0);
+  igButton("pause", buttonSize);
+  igSameLine(0.0, 1.0);
+  igDummy(spacerSize);
+  igSameLine(0.0, 1.0);
+  igButton("abort", buttonSize);
+  igSameLine(0.0, 1.0);
+
   igEnd();
 }
 

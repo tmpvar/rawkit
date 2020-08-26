@@ -368,10 +368,6 @@ int main(int argc, const char **argv) {
         printf("failed to create jit job\n");
         return 1;
     }
-    job->addExport("printf", (void *)&printf);
-    job->addExport("__stdio_common_vfprintf", (void *)&__stdio_common_vfprintf);
-    job->addExport("__stdio_common_vsprintf", (void *)&__stdio_common_vsprintf);
-    job->addExport("__stdio_common_vsprintf_s", (void *)&__stdio_common_vsprintf_s);
 
     #if defined(_WIN32)
         // add guest support for dirent.h
