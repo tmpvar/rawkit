@@ -320,7 +320,7 @@ struct GrblMachine {
     char buffer [100];
     int cx;
 
-    snprintf(buffer, 100, "%f", f);
+    snprintf(buffer, 100, "%.3f", f);
     this->write((const char *)buffer);
   }
 
@@ -349,6 +349,27 @@ struct GrblMachine {
     this->write(pos.y);
     this->write("Z");
     this->write(pos.z);
+    this->write("F");
+    this->write(speed);
+    return this->end_action();
+  }
+
+  grbl_action_id move_line(const vec3 from, const vec3 to, const float speed) {
+    if (to.x != from.x) {
+      this->write("X");
+      this->write(to.x);
+    }
+
+    if (to.y != from.y) {
+      this->write("Y");
+      this->write(to.y);
+    }
+
+    if (to.z != from.z) {
+      this->write("Z");
+      this->write(to.z);
+    }
+
     this->write("F");
     this->write(speed);
     return this->end_action();
@@ -411,6 +432,7 @@ struct GrblMachine {
     this->state->probing.rapid = rapid;
 
     this->state->probing.status = PROBING_MOVE_TO_START;
+    this->write("G53");
     this->state->probing.action_id = this->move_to(
       from,
       rapid
@@ -443,7 +465,8 @@ struct GrblMachine {
     case PROBING_MOVE_TO_START:
         this->state->probing.status = PROBING_PROBE_FAST_TO_END;
         this->write("G38.2"); // move until contact
-        this->state->probing.action_id = this->move_to(
+        this->state->probing.action_id = this->move_line(
+          this->state->probing.from,
           this->state->probing.to,
           this->state->probing.seek
         );
@@ -452,7 +475,8 @@ struct GrblMachine {
       case PROBING_PROBE_FAST_TO_END:
         this->state->probing.status = PROBING_PROBE_FAST_TO_START;
         this->write("G38.4"); // move until contact is cleared
-        this->state->probing.action_id = this->move_to(
+        this->state->probing.action_id = this->move_line(
+          this->state->probing.to,
           this->state->probing.from,
           this->state->probing.seek
         );
@@ -461,7 +485,8 @@ struct GrblMachine {
       case PROBING_PROBE_FAST_TO_START:
         this->state->probing.status = PROBING_PROBE_SLOW_TO_END;
         this->write("G38.2"); // move until contact is cleared
-        this->state->probing.action_id = this->move_to(
+        this->state->probing.action_id = this->move_line(
+          this->state->probing.from,
           this->state->probing.to,
           this->state->probing.feed
         );
@@ -470,7 +495,8 @@ struct GrblMachine {
       case PROBING_PROBE_SLOW_TO_END:
         this->state->probing.status = PROBING_PROBE_SLOW_TO_START;
         this->write("G38.4"); // move until contact is cleared
-        this->state->probing.action_id = this->move_to(
+        this->state->probing.action_id = this->move_line(
+          this->state->probing.to,
           this->state->probing.from,
           this->state->probing.feed * 0.1f
         );
@@ -478,7 +504,7 @@ struct GrblMachine {
 
       case PROBING_PROBE_SLOW_TO_START:
         this->state->probing.status = PROBING_MOVE_BACK_TO_START;
-        this->write("G1"); // coordinated move (aka feed)
+        this->write("G53G1"); // coordinated move (aka feed)
         this->state->probing.action_id = this->move_to(
           this->state->probing.from,
           this->state->probing.rapid
