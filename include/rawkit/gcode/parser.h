@@ -806,6 +806,8 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
       }
 
       // TODO: error if coordinated motion without feed rate
+      // TODO: feed rate is also persistent between commands so
+      //       there probably needs to be global parserstate for this.
     }
 
     return gcode_parser_new_line(parser);
