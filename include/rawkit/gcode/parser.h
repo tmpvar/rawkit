@@ -98,27 +98,27 @@ enum gcode_line_type {
   GCODE_LINE_TYPE_COMMAND_JOG_CANCEL = 0x85,
 
   // feed overrides
-  GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_SET_100_PERCENT = 0x90,    
+  GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_SET_100_PERCENT = 0x90,
   GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_INCREASE_10_PERCENT = 0x91,
   GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_DECREASE_10_PERCENT = 0x92,
-  GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_INCREASE_1_PERCENT = 0x93, 
-  GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_DECREASE_1_PERCENT = 0x94, 
+  GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_INCREASE_1_PERCENT = 0x93,
+  GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_DECREASE_1_PERCENT = 0x94,
 
   // rapid (seek) overrides
-  GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_100_PERCENT = 0x95,    
-  GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_50_PERCENT = 0x96,    
-  GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_25_PERCENT = 0x97,    
-  
+  GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_100_PERCENT = 0x95,
+  GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_50_PERCENT = 0x96,
+  GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_25_PERCENT = 0x97,
+
   // feed overrides
-  GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_SET_100_PERCENT = 0x99,    
+  GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_SET_100_PERCENT = 0x99,
   GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_INCREASE_10_PERCENT = 0x9A,
   GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_DECREASE_10_PERCENT = 0x9B,
-  GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_INCREASE_1_PERCENT = 0x9C, 
-  GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_DECREASE_1_PERCENT = 0x9D, 
+  GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_INCREASE_1_PERCENT = 0x9C,
+  GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_DECREASE_1_PERCENT = 0x9D,
 
   GCODE_LINE_TYPE_COMMAND_TOGGLE_SPINDLE_STOP = 0x9E,
-  GCODE_LINE_TYPE_COMMAND_TOGGLE_FLOOD_COOLANT = 0xA0, 
-  GCODE_LINE_TYPE_COMMAND_TOGGLE_MIST_COOLANT = 0xA1, 
+  GCODE_LINE_TYPE_COMMAND_TOGGLE_FLOOD_COOLANT = 0xA0,
+  GCODE_LINE_TYPE_COMMAND_TOGGLE_MIST_COOLANT = 0xA1,
 
   GCODE_LINE_TYPE_COMMAND_SET_SETTING = 0xF00000, // $\d = \d
   GCODE_LINE_TYPE_COMMAND_GET_SETTINGS,           // $$
@@ -151,6 +151,118 @@ typedef struct gcode_word_pair_t {
   float value;
 } gcode_line_token_t;
 
+/*
+List of Supported G-Codes in Grbl v1.1:
+  - Control Modes: G61
+  - Valid Non-Command Words: F, I, J, K, L, N, P, R, S, T, X, Y, Z
+*/
+
+enum gcode_non_modal_command {
+  GCODE_NON_MODAL_COMMAND_NONE,
+  GCODE_NON_MODAL_COMMAND_G4,
+  GCODE_NON_MODAL_COMMAND_G10L2,
+  GCODE_NON_MODAL_COMMAND_G10L20,
+  GCODE_NON_MODAL_COMMAND_G28,
+  GCODE_NON_MODAL_COMMAND_G30,
+  GCODE_NON_MODAL_COMMAND_G28_1,
+  GCODE_NON_MODAL_COMMAND_G30_1,
+  GCODE_NON_MODAL_COMMAND_G53,
+  GCODE_NON_MODAL_COMMAND_G92,
+  GCODE_NON_MODAL_COMMAND_G92_1,
+};
+
+enum gcode_control_mode {
+  GCODE_CONTROl_MODES_NONE,
+  GCODE_CONTROl_MODES_G61,
+};
+
+enum gcode_motion_mode {
+  GCODE_MOTION_MODE_NONE,
+  GCODE_MOTION_MODE_G0,
+  GCODE_MOTION_MODE_G1,
+  GCODE_MOTION_MODE_G2,
+  GCODE_MOTION_MODE_G3,
+  GCODE_MOTION_MODE_G38_2,
+  GCODE_MOTION_MODE_G38_3,
+  GCODE_MOTION_MODE_G38_4,
+  GCODE_MOTION_MODE_G38_5,
+  GCODE_MOTION_MODE_G80,
+};
+
+enum gcode_wcs_select {
+  GCODE_WCS_SELECT_NONE,
+  GCODE_WCS_SELECT_G54,
+  GCODE_WCS_SELECT_G55,
+  GCODE_WCS_SELECT_G56,
+  GCODE_WCS_SELECT_G57,
+  GCODE_WCS_SELECT_G58,
+  GCODE_WCS_SELECT_G59,
+};
+
+enum gcode_plane_select {
+  GCODE_PLANE_SELECT_NONE,
+  GCODE_PLANE_SELECT_G17,
+  GCODE_PLANE_SELECT_G18,
+  GCODE_PLANE_SELECT_G19,
+};
+
+enum gcode_distance_mode {
+  GCODE_DISTANCE_MODE_NONE,
+  GCODE_DISTANCE_MODE_G90,
+  GCODE_DISTANCE_MODE_G91,
+};
+
+enum gcode_arc_ijk_distance_mode {
+  GCODE_ARC_IJK_DISTANCE_MODE_NONE,
+  GCODE_ARC_IJK_DISTANCE_MODE_G91_1
+};
+
+enum gcode_feed_rate_mode {
+  GCODE_FEED_RATE_MODE_NONE,
+  GCODE_FEED_RATE_MODE_G93,
+  GCODE_FEED_RATE_MODE_G94,
+};
+
+enum gcode_units_mode {
+  GCODE_UNITS_MODE_NONE,
+  GCODE_UNITS_MODE_G20,
+  GCODE_UNITS_MODE_G21,
+};
+
+enum gcode_cutter_radius_compensation {
+  GCODE_CUTTER_RADIUS_COMPENSATION_MODE_NONE,
+  GCODE_CUTTER_RADIUS_COMPENSATION_MODE_G40,
+};
+
+enum gcode_tool_length_offset {
+  GCODE_TOOL_LENGTH_OFFSET_NONE,
+  GCODE_TOOL_LENGTH_OFFSET_G43_1,
+  GCODE_TOOL_LENGTH_OFFSET_G49,
+};
+
+enum gcode_program_mode {
+  GCODE_PROGRAM_MODE_NONE,
+  GCODE_PROGRAM_MODE_M0,
+  GCODE_PROGRAM_MODE_M1,
+  GCODE_PROGRAM_MODE_M2,
+  GCODE_PROGRAM_MODE_M30,
+};
+
+enum gcode_spindle_state {
+  GCODE_SPINDLE_STATE_NONE,
+  GCODE_SPINDLE_STATE_M3,
+  GCODE_SPINDLE_STATE_M4,
+  GCODE_SPINDLE_STATE_M5,
+};
+
+enum gcode_coolant_state {
+  GCODE_COOLANT_STATE_NONE,
+  GCODE_COOLANT_STATE_M7,
+  GCODE_COOLANT_STATE_M8,
+  GCODE_COOLANT_STATE_M9,
+};
+
+
 typedef struct gcode_line_t {
   uint64_t start_loc;
   uint64_t end_loc;
@@ -158,6 +270,22 @@ typedef struct gcode_line_t {
   gcode_line_type type;
   float code;
   gcode_word_pair_t *pairs;
+
+  // state for semantic validation of a line
+  gcode_non_modal_command non_modal_command;
+  gcode_control_mode control_mode;
+  gcode_program_mode program_mode;
+  gcode_motion_mode motion_mode;
+  gcode_wcs_select wcs_select;
+  gcode_plane_select plane_select;
+  gcode_distance_mode distance_mode;
+  gcode_arc_ijk_distance_mode arc_ijk_distance_mode;
+  gcode_feed_rate_mode feed_rate_mode;
+  gcode_units_mode units_mode;
+  gcode_cutter_radius_compensation cutter_radius_compensation;
+  gcode_tool_length_offset tool_length_offset;
+  gcode_spindle_state spindle_state;
+  gcode_coolant_state coolant_state;
 } gcode_line_t;
 
 typedef struct gcode_parser_t {
@@ -188,6 +316,7 @@ inline gcode_parse_result gcode_parser_reset(gcode_parser_t *parser, gcode_parse
 
 gcode_parse_result gcode_parser_new_line(gcode_parser_t *parser) {
   gcode_line_t line;
+  memset(&line, 0, sizeof(gcode_line_t));
   line.type = GCODE_LINE_TYPE_EOF;
   line.pairs = NULL;
   line.start_loc = parser->total_loc;
@@ -216,7 +345,7 @@ inline bool gcode_is_numeric(const char c) {
 gcode_parse_result gcode_parser_line_process_command_dollar(gcode_parser_t *parser) {
   gcode_line_t *current_line = &parser->lines[stb_sb_count(parser->lines) - 1];
   const char *buf = parser->pending_buf;
-  
+
   parser->pending_buf[parser->pending_loc] = 0;
   if (gcode_is_digit(buf[1])) {
     const char *equal = strstr(buf, "=");
@@ -287,7 +416,7 @@ gcode_parse_result gcode_parser_line_process_command_dollar(gcode_parser_t *pars
         gcode_debug("ERROR: failed to parse $J, extra characters ('%s')\n", parser->pending_buf);
         return gcode_parser_reset(parser, GCODE_RESULT_ERROR);
       }
-      
+
       return GCODE_RESULT_TRUE;
 
     case 'N':
@@ -326,7 +455,7 @@ gcode_parse_result gcode_parser_line_process_command_dollar(gcode_parser_t *pars
       return gcode_parser_reset(parser, GCODE_RESULT_ERROR);
   }
 }
-  
+
 gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
   gcode_word_pair_t pair;
   pair.letter = parser->pending_buf[0];
@@ -348,17 +477,273 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
   pair.value = atof(parser->pending_buf + 1);
   gcode_line_t *line = &stb_sb_last(parser->lines);
 
-  uint32_t mask = 1<<(int)word;
-  if (line->words & mask) {
-    gcode_debug("ERROR: duplicate word '%c' found\n", pair.letter);
-    return gcode_parser_reset(parser, GCODE_RESULT_ERROR);
-  }
+  if (pair.letter == 'G') {
+    switch ((int)pair.value) {
 
-  line->words |= mask;
+      // Motion Modes
+      case 0:
+        if (line->motion_mode != GCODE_MOTION_MODE_NONE) {
+          gcode_debug("ERROR: motion mode already specified (G0).\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->motion_mode = GCODE_MOTION_MODE_G0;
+        break;
+      case 1:
+        if (line->motion_mode != GCODE_MOTION_MODE_NONE) {
+          gcode_debug("ERROR: motion mode already specified (G1).\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->motion_mode = GCODE_MOTION_MODE_G1;
+        break;
+      case 2:
+        if (line->motion_mode != GCODE_MOTION_MODE_NONE) {
+          gcode_debug("ERROR: motion mode already specified (G2).\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->motion_mode = GCODE_MOTION_MODE_G2;
+        break;
+      case 3:
+        if (line->motion_mode != GCODE_MOTION_MODE_NONE) {
+          gcode_debug("ERROR: motion mode already specified (G3).\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->motion_mode = GCODE_MOTION_MODE_G3;
+        break;
+      case 38:
+        if (line->motion_mode != GCODE_MOTION_MODE_NONE) {
+          gcode_debug("ERROR: motion mode already specified (G38).\n");
+          return GCODE_RESULT_ERROR;
+        }
 
-  if (pair.letter == 'G' || pair.letter == 'M') {
+        if (pair.value == 38.2) {
+          line->motion_mode = GCODE_MOTION_MODE_G38_2;
+        } else if (pair.value == 38.3) {
+          line->motion_mode = GCODE_MOTION_MODE_G38_3;
+        } else if (pair.value == 38.4) {
+          line->motion_mode = GCODE_MOTION_MODE_G38_4;
+        } else if (pair.value == 38.5) {
+          line->motion_mode = GCODE_MOTION_MODE_G38_5;
+        }
+        break;
+      case 80:
+        if (line->motion_mode != GCODE_MOTION_MODE_NONE) {
+          gcode_debug("ERROR: motion mode already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->motion_mode = GCODE_MOTION_MODE_G80;
+        break;
+
+      // Plane Select Modes
+      case 17:
+        if (line->plane_select != GCODE_PLANE_SELECT_NONE) {
+          gcode_debug("ERROR: plane select already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->plane_select = GCODE_PLANE_SELECT_G17;
+        break;
+      case 18:
+        if (line->plane_select != GCODE_PLANE_SELECT_NONE) {
+          gcode_debug("ERROR: plane select already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->plane_select = GCODE_PLANE_SELECT_G18;
+        break;
+      case 19:
+        if (line->plane_select != GCODE_PLANE_SELECT_NONE) {
+          gcode_debug("ERROR: plane select already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->plane_select = GCODE_PLANE_SELECT_G19;
+        break;
+
+      // Unit Modes
+      case 20:
+        if (line->units_mode != GCODE_UNITS_MODE_NONE) {
+          gcode_debug("ERROR: unit mode already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->units_mode = GCODE_UNITS_MODE_G20;
+        break;
+      case 21:
+        if (line->units_mode != GCODE_UNITS_MODE_NONE) {
+          gcode_debug("ERROR: unit mode already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->units_mode = GCODE_UNITS_MODE_G21;
+        break;
+
+      // WCS Modes
+      case 54:
+        if (line->wcs_select != GCODE_WCS_SELECT_NONE) {
+          gcode_debug("ERROR: wcs already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->wcs_select = GCODE_WCS_SELECT_G54;
+        break;
+      case 55:
+        if (line->wcs_select != GCODE_WCS_SELECT_NONE) {
+          gcode_debug("ERROR: wcs already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->wcs_select = GCODE_WCS_SELECT_G55;
+        break;
+      case 56:
+        if (line->wcs_select != GCODE_WCS_SELECT_NONE) {
+          gcode_debug("ERROR: wcs already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->wcs_select = GCODE_WCS_SELECT_G56;
+        break;
+      case 57:
+        if (line->wcs_select != GCODE_WCS_SELECT_NONE) {
+          gcode_debug("ERROR: wcs already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->wcs_select = GCODE_WCS_SELECT_G57;
+        break;
+      case 58:
+        if (line->wcs_select != GCODE_WCS_SELECT_NONE) {
+          gcode_debug("ERROR: wcs already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->wcs_select = GCODE_WCS_SELECT_G58;
+        break;
+      case 59:
+        if (line->wcs_select != GCODE_WCS_SELECT_NONE) {
+          gcode_debug("ERROR: wcs already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->wcs_select = GCODE_WCS_SELECT_G59;
+        break;
+
+
+      // Distance Modes
+      case 90:
+        if (line->distance_mode != GCODE_DISTANCE_MODE_NONE) {
+          gcode_debug("ERROR: distance mode already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->distance_mode = GCODE_DISTANCE_MODE_G90;
+        break;
+      case 91:
+        if (line->distance_mode != GCODE_DISTANCE_MODE_NONE) {
+          gcode_debug("ERROR: distance mode already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->distance_mode = GCODE_DISTANCE_MODE_G91;
+        break;
+
+      // Feed Rate Modes
+      case 93:
+        if (line->feed_rate_mode != GCODE_FEED_RATE_MODE_NONE) {
+          gcode_debug("ERROR: feed rate mode already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->feed_rate_mode = GCODE_FEED_RATE_MODE_G93;
+        break;
+      case 94:
+        if (line->feed_rate_mode != GCODE_FEED_RATE_MODE_NONE) {
+          gcode_debug("ERROR: feed rate mode already specified.\n");
+          return GCODE_RESULT_ERROR;
+        }
+        line->feed_rate_mode = GCODE_FEED_RATE_MODE_G94;
+        break;
+    }
+
     line->type = (gcode_line_type)word;
     line->code = pair.value;
+
+  } else if (pair.letter == 'M') {
+
+    switch ((int)pair.value) {
+      // Program Modes
+      case 0:
+        if (line->program_mode != GCODE_PROGRAM_MODE_NONE) {
+          gcode_debug("ERROR: program mode already specified");
+          return GCODE_RESULT_ERROR;
+        }
+        line->program_mode = GCODE_PROGRAM_MODE_M0;
+        break;
+      case 1:
+        if (line->program_mode != GCODE_PROGRAM_MODE_NONE) {
+          gcode_debug("ERROR: program mode already specified");
+          return GCODE_RESULT_ERROR;
+        }
+        line->program_mode = GCODE_PROGRAM_MODE_M1;
+        break;
+      case 2:
+        if (line->program_mode != GCODE_PROGRAM_MODE_NONE) {
+          gcode_debug("ERROR: program mode already specified");
+          return GCODE_RESULT_ERROR;
+        }
+        line->program_mode = GCODE_PROGRAM_MODE_M2;
+        break;
+      case 30:
+        if (line->program_mode != GCODE_PROGRAM_MODE_NONE) {
+          gcode_debug("ERROR: program mode already specified");
+          return GCODE_RESULT_ERROR;
+        }
+        line->program_mode = GCODE_PROGRAM_MODE_M30;
+        break;
+
+      // Coolant Control
+      case 7:
+        if (line->coolant_state != GCODE_COOLANT_STATE_NONE) {
+          gcode_debug("ERROR: coolant state already specified (M7)");
+          return GCODE_RESULT_ERROR;
+        }
+        line->coolant_state = GCODE_COOLANT_STATE_M7;
+        break;
+      case 8:
+        if (line->coolant_state != GCODE_COOLANT_STATE_NONE) {
+          gcode_debug("ERROR: coolant state already specified (M8)");
+          return GCODE_RESULT_ERROR;
+        }
+        line->coolant_state = GCODE_COOLANT_STATE_M8;
+        break;
+      case 9:
+        if (line->coolant_state != GCODE_COOLANT_STATE_NONE) {
+          gcode_debug("ERROR: coolant state already specified (M9)");
+          return GCODE_RESULT_ERROR;
+        }
+        line->coolant_state = GCODE_COOLANT_STATE_M9;
+        break;
+
+      // Spindle Control
+      case 3:
+        if (line->spindle_state != GCODE_SPINDLE_STATE_NONE) {
+          gcode_debug("ERROR: spindle state already specified");
+          return GCODE_RESULT_ERROR;
+        }
+        line->spindle_state = GCODE_SPINDLE_STATE_M3;
+        break;
+      case 4:
+        if (line->spindle_state != GCODE_SPINDLE_STATE_NONE) {
+          gcode_debug("ERROR: spindle state already specified");
+          return GCODE_RESULT_ERROR;
+        }
+        line->spindle_state = GCODE_SPINDLE_STATE_M4;
+        break;
+      case 5:
+        if (line->spindle_state != GCODE_SPINDLE_STATE_NONE) {
+          gcode_debug("ERROR: spindle state already specified");
+          return GCODE_RESULT_ERROR;
+        }
+        line->spindle_state = GCODE_SPINDLE_STATE_M5;
+        break;
+    }
+
+    line->type = (gcode_line_type)word;
+    line->code = pair.value;
+
+  } else {
+    uint32_t mask = 1<<(int)word;
+    if (line->words & mask) {
+      gcode_debug("ERROR: duplicate word '%c' found\n", pair.letter);
+      return gcode_parser_reset(parser, GCODE_RESULT_ERROR);
+    }
+
+    line->words |= mask;
   }
 
   stb_sb_push(line->pairs, pair);
@@ -406,14 +791,23 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
         break;
 
       // normal gcode lines
-      default: 
+      default:
         if (gcode_parser_line_add_pending_pair(parser) != GCODE_RESULT_TRUE) {
           gcode_debug("ERROR: failed to add a pending pair\n");
           gcode_parser_new_line(parser);
           return GCODE_RESULT_ERROR;
         }
     }
-    
+
+    if (current_line->motion_mode != GCODE_MOTION_MODE_NONE) {
+      if (!current_line->words) {
+        gcode_debug("ERROR: motion mode specified without axis word");
+        return GCODE_RESULT_ERROR;
+      }
+
+      // TODO: error if coordinated motion without feed rate
+    }
+
     return gcode_parser_new_line(parser);
   }
 
@@ -455,75 +849,75 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
       current_line->type = GCODE_LINE_TYPE_REMOVE_BLOCK;
       return GCODE_RESULT_TRUE;
     }
-    
+
     switch (c) {
       case '$':
         current_line->type = GCODE_LINE_TYPE_COMMAND_DOLLAR;
         break;
-      case 0x18: 
+      case 0x18:
         current_line->type = GCODE_LINE_TYPE_COMMAND_SOFT_RESET;
         return gcode_parser_new_line(parser);
-      case '?': 
+      case '?':
         current_line->type = GCODE_LINE_TYPE_COMMAND_STATUS_REPORT;
         return gcode_parser_new_line(parser);
-      case '~': 
+      case '~':
         current_line->type = GCODE_LINE_TYPE_COMMAND_CYCLE_START;
         return gcode_parser_new_line(parser);
-      case '!': 
+      case '!':
         current_line->type = GCODE_LINE_TYPE_COMMAND_FEED_HOLD;
         return gcode_parser_new_line(parser);
-      case 0x84: 
+      case 0x84:
         current_line->type = GCODE_LINE_TYPE_COMMAND_SAFETY_DOOR;
         return gcode_parser_new_line(parser);
-      case 0x85: 
+      case 0x85:
         current_line->type = GCODE_LINE_TYPE_COMMAND_JOG_CANCEL;
         return gcode_parser_new_line(parser);
-      case 0x90: 
+      case 0x90:
         current_line->type = GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_SET_100_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x91: 
+      case 0x91:
         current_line->type = GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_INCREASE_10_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x92: 
+      case 0x92:
         current_line->type = GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_DECREASE_10_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x93: 
+      case 0x93:
         current_line->type = GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_INCREASE_1_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x94: 
+      case 0x94:
         current_line->type = GCODE_LINE_TYPE_COMMAND_FEED_OVERRIDE_DECREASE_1_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x95: 
+      case 0x95:
         current_line->type = GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_100_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x96: 
+      case 0x96:
         current_line->type = GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_50_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x97: 
+      case 0x97:
         current_line->type = GCODE_LINE_TYPE_COMMAND_SEEK_OVERRIDE_SET_25_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x99: 
+      case 0x99:
         current_line->type = GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_SET_100_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x9A: 
+      case 0x9A:
         current_line->type = GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_INCREASE_10_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x9B: 
+      case 0x9B:
         current_line->type = GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_DECREASE_10_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x9C: 
+      case 0x9C:
         current_line->type = GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_INCREASE_1_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x9D: 
+      case 0x9D:
         current_line->type = GCODE_LINE_TYPE_COMMAND_SPINDLE_OVERRIDE_DECREASE_1_PERCENT;
         return gcode_parser_new_line(parser);
-      case 0x9E: 
+      case 0x9E:
         current_line->type = GCODE_LINE_TYPE_COMMAND_TOGGLE_SPINDLE_STOP;
         return gcode_parser_new_line(parser);
-      case 0xA0: 
+      case 0xA0:
         current_line->type = GCODE_LINE_TYPE_COMMAND_TOGGLE_FLOOD_COOLANT;
         return gcode_parser_new_line(parser);
-      case 0xA1: 
+      case 0xA1:
         current_line->type = GCODE_LINE_TYPE_COMMAND_TOGGLE_MIST_COOLANT;
         return gcode_parser_new_line(parser);
       default:
@@ -596,7 +990,7 @@ class GCODEParser {
       if (this->handle == NULL) {
         return NULL;
       }
-      
+
       if (stb_sb_count(this->handle->lines) <= number) {
         return NULL;
       }
@@ -608,7 +1002,7 @@ class GCODEParser {
       if (this->handle == NULL || this->handle->lines == NULL) {
         return NULL;
       }
-      
+
       return &stb_sb_last(this->handle->lines);
     }
 

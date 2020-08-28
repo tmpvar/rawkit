@@ -3,7 +3,7 @@
 #define ok CHECK
 char debug_buf[4096] = "\0";
 #define gcode_debug(_f, ...) \
-  do { sprintf((debug_buf), _f, __VA_ARGS__); INFO(debug_buf); } while(false)
+  do { sprintf((debug_buf), _f, __VA_ARGS__); MESSAGE(debug_buf); } while(false)
 
 #include "parser.h"
 
@@ -18,15 +18,21 @@ TEST_CASE("[gcode] tokenize G1") {
   GCODEParser p;
   ok(p.push('G') == GCODE_RESULT_TRUE);
   ok(p.push('1') == GCODE_RESULT_TRUE);
+  ok(p.push('X') == GCODE_RESULT_TRUE);
+  ok(p.push('0') == GCODE_RESULT_TRUE);
   ok(p.push('\n') == GCODE_RESULT_TRUE);
   ok(p.line_count() == 2);
   ok(p.line(0)->pairs != nullptr);
-  
-  ok(stb_sb_count(p.line(0)->pairs) == 1);
+
+  ok(stb_sb_count(p.line(0)->pairs) == 2);
   ok(p.line(0)->type == GCODE_LINE_TYPE_G);
+  ok(p.line(0)->motion_mode == GCODE_MOTION_MODE_G1);
   ok(p.line(0)->pairs[0].letter == 'G');
   ok(p.line(0)->pairs[0].value == 1);
-  
+  ok(p.line(0)->pairs[1].letter == 'X');
+  ok(p.line(0)->pairs[1].value == 0);
+
+
   ok(stb_sb_count(p.line(1)->pairs) == 0);
 }
 
@@ -37,12 +43,12 @@ TEST_CASE("[gcode] tokenize M4") {
   ok(p.push('\n') == GCODE_RESULT_TRUE);
   ok(p.line_count() == 2);
   ok(p.line(0)->pairs != nullptr);
-  
+
   ok(stb_sb_count(p.line(0)->pairs) == 1);
   ok(p.line(0)->type == GCODE_LINE_TYPE_M);
   ok(p.line(0)->pairs[0].letter == 'M');
   ok(p.line(0)->pairs[0].value == 4);
-  
+
   ok(stb_sb_count(p.line(1)->pairs) == 0);
 }
 
@@ -54,7 +60,7 @@ TEST_CASE("[gcode] comment full line") {
   ok(p.line(0)->type == GCODE_LINE_TYPE_COMMENT);
   ok(p.line(0)->start_loc == 0);
   ok(p.line(0)->end_loc == 15);
-  
+
   ok(stb_sb_count(p.line(0)->pairs) == 0);
   ok(stb_sb_count(p.line(1)->pairs) == 0);
 }
@@ -67,7 +73,7 @@ TEST_CASE("[gcode] block_delete") {
   ok(p.line(0)->type == GCODE_LINE_TYPE_REMOVE_BLOCK);
   ok(p.line(0)->start_loc == 0);
   ok(p.line(0)->end_loc == 12);
-  
+
   ok(stb_sb_count(p.line(0)->pairs) == 0);
   ok(stb_sb_count(p.line(1)->pairs) == 0);
 }
@@ -279,4 +285,73 @@ TEST_CASE("[grbl,gcode] commands") {
   ok(p.push(0xA1) == GCODE_RESULT_TRUE);
   ok(p.line(21)->type == GCODE_LINE_TYPE_COMMAND_TOGGLE_MIST_COOLANT);
   ok(p.line_count() == 23);
+}
+
+TEST_CASE("[gcode] duplicate modal groups") {
+  // motion modes
+  {
+    GCODEParser p;
+    ok(p.push("G0G2\n") == GCODE_RESULT_ERROR);
+  }
+
+  // distance modes
+  {
+    GCODEParser p;
+    ok(p.push("G91G90\n") == GCODE_RESULT_ERROR);
+  }
+
+  // feed rate modes
+  {
+    GCODEParser p;
+    ok(p.push("G93G94\n") == GCODE_RESULT_ERROR);
+  }
+
+  // unit rate modes
+  {
+    GCODEParser p;
+    ok(p.push("G20G21\n") == GCODE_RESULT_ERROR);
+  }
+
+  // wcs
+  {
+    GCODEParser p;
+    ok(p.push("G54G54\n") == GCODE_RESULT_ERROR);
+    ok(p.push("G59G54\n") == GCODE_RESULT_ERROR);
+    ok(p.push("G58G55\n") == GCODE_RESULT_ERROR);
+    ok(p.push("G57G56\n") == GCODE_RESULT_ERROR);
+  }
+
+  // program flow
+  {
+    GCODEParser p;
+    ok(p.push("M0\n") == GCODE_RESULT_TRUE);
+    ok(p.push("M0M1\n") == GCODE_RESULT_ERROR);
+    ok(p.push("M1M2\n") == GCODE_RESULT_ERROR);
+    ok(p.push("M2M30\n") == GCODE_RESULT_ERROR);
+  }
+
+  // coolant control
+  {
+    GCODEParser p;
+    ok(p.push("M7") == GCODE_RESULT_TRUE);
+    ok(p.push("M7M8") == GCODE_RESULT_ERROR);
+    ok(p.push("M9M8") == GCODE_RESULT_ERROR);
+    ok(p.push("M9M7") == GCODE_RESULT_ERROR);
+  }
+
+  // spindle control
+  {
+    GCODEParser p;
+    ok(p.push("M3") == GCODE_RESULT_TRUE);
+    ok(p.push("M4M3") == GCODE_RESULT_ERROR);
+    ok(p.push("M5M3") == GCODE_RESULT_ERROR);
+    ok(p.push("M4M5") == GCODE_RESULT_ERROR);
+  }
+}
+
+TEST_CASE("[gcode] non-overlapping G codes") {
+  {
+    GCODEParser p;
+    ok(p.push("M1 M7 M4 G91 G54 G20 G1 X0.0\n") == GCODE_RESULT_TRUE);
+  }
 }
