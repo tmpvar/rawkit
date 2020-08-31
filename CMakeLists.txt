@@ -209,31 +209,9 @@ target_link_libraries(
   clangSerialization
 )
 
-add_executable(rawkit-test
-  ${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/include/rawkit/grbl/test.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/include/rawkit/gcode/test.cpp
-)
 
-enable_testing()
-add_test(NAME run-tests COMMAND rawkit-test)
+add_subdirectory(lib)
 
-
-file(GLOB RAWKIT_GRBL_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/rawkit/grbl/*.h")
-list(FILTER RAWKIT_GRBL_GUEST_INCLUDE_FILES EXCLUDE REGEX ".*test.*")
-install(
-    FILES
-        ${RAWKIT_GRBL_GUEST_INCLUDE_FILES}
-    DESTINATION include/rawkit/grbl
-)
-
-file(GLOB RAWKIT_GRBL_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/rawkit/gcode/*.h")
-list(FILTER RAWKIT_GRBL_GUEST_INCLUDE_FILES EXCLUDE REGEX ".*test.*")
-install(
-    FILES
-        ${RAWKIT_GRBL_GUEST_INCLUDE_FILES}
-    DESTINATION include/rawkit/gcode
-)
 
 file(GLOB HOT_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/hot/*.h")
 install(

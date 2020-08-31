@@ -2,7 +2,7 @@
 #define eq ASSERT_EQ
 #define ok CHECK
 
-#include "parser.h"
+#include "include/rawkit/grbl/parser.h"
 
 TEST_CASE("grbl, basic_parser_tests") {
   GrblParser p;
@@ -91,7 +91,7 @@ TEST_CASE("grbl, status_report_idle") {
   );
   ok(r == GRBL_TRUE);
   ok(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_STATUS_REPORT);
-  
+
   ok(p.handle->tokens[1].type == GRBL_TOKEN_TYPE_MACHINE_STATE);
   ok(p.handle->tokens[1].machine_state.value == GRBL_MACHINE_STATE_IDLE);
   ok(p.handle->tokens[1].machine_state.code == 0);
@@ -211,7 +211,7 @@ TEST_CASE("grbl, settings") {
   ok(p.handle->tokens[4].setting == GRBL_SETTING_INVERT_STEP_PULSE_MASK);
   ok(p.handle->tokens[5].type == GRBL_TOKEN_TYPE_SETTING_VALUE);
   ok(p.handle->tokens[5].u8 == 2);
-  
+
   // $3 invert step direction mask
   ok(p.handle->tokens[6].type == GRBL_TOKEN_TYPE_SETTING_KEY);
   ok(p.handle->tokens[6].setting == GRBL_SETTING_INVERT_STEP_DIRECTION_MASK);
@@ -254,7 +254,7 @@ TEST_CASE("grbl, settings") {
   ok(p.handle->tokens[19].type == GRBL_TOKEN_TYPE_SETTING_VALUE);
   ok(p.handle->tokens[19].f32 == 0.002f);
 
-  // $13 report in inches 
+  // $13 report in inches
   ok(p.handle->tokens[20].type == GRBL_TOKEN_TYPE_SETTING_KEY);
   ok(p.handle->tokens[20].setting == GRBL_SETTING_REPORT_IN_INCHES);
   ok(p.handle->tokens[21].type == GRBL_TOKEN_TYPE_SETTING_VALUE);
@@ -421,7 +421,7 @@ TEST_CASE("grbl, message_OPT") {
   ok(r == GRBL_TRUE);
   ok(p.handle->tokens[0].type == GRBL_TOKEN_TYPE_MESSAGE_OPT);
   grbl_msg_build_options_t *opts = &p.handle->tokens[0].build_options;
-  
+
   ok(opts->variable_spindle == 1);
   ok(opts->line_numbers == 0);
   ok(opts->mist_coolant == 0);

@@ -3,9 +3,9 @@
 #define ok CHECK
 char debug_buf[4096] = "\0";
 #define gcode_debug(_f, ...) \
-  do { sprintf((debug_buf), _f, __VA_ARGS__); INFO(debug_buf); } while(false)
+  do { sprintf((debug_buf),_f,##__VA_ARGS__); INFO(debug_buf); } while(false)
 
-#include "parser.h"
+#include "include/rawkit/gcode/parser.h"
 
 TEST_CASE("[gcode] letter letter fails") {
   GCODEParser p;

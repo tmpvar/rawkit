@@ -1,0 +1,15 @@
+language: cpp
+dist: focal
+compiler:
+- gcc
+os:
+- linux
+before_install:
+- pip install --user cpp-coveralls
+script:
+- mkdir build
+- cmake -Slib -Bbuild
+- pushd build && cmake --build . && make test
+after_success:
+- coveralls -r .. -i "lib/" -b $(pwd) --gcov-options '\-lp' --exclude-pattern "CMake.*" --exclude-pattern '.*test.*' --exclude include -E "CMakeFiles" -E build/CMakeFiles -E 'test.*.cpp' --exclude lib/test --exclude src --exclude projects --verbose
+#- coveralls -r lib --gcov $(which llvm-cov) --gcov-options '\-lp'
