@@ -3,7 +3,7 @@
 #define ok CHECK
 char debug_buf[4096] = "\0";
 #define gcode_debug(_f, ...) \
-  do { sprintf((debug_buf), _f, __VA_ARGS__); MESSAGE(debug_buf); } while(false)
+  do { sprintf((debug_buf), _f, __VA_ARGS__); INFO(debug_buf); } while(false)
 
 #include "parser.h"
 
@@ -26,7 +26,7 @@ TEST_CASE("[gcode] tokenize G1") {
 
   ok(stb_sb_count(p.line(0)->pairs) == 2);
   ok(p.line(0)->type == GCODE_LINE_TYPE_G);
-  ok(p.line(0)->motion_mode == GCODE_MOTION_MODE_G1);
+  ok(p.line(0)->parser_state.motion_mode == GCODE_MOTION_MODE_G1);
   ok(p.line(0)->pairs[0].letter == 'G');
   ok(p.line(0)->pairs[0].value == 1);
   ok(p.line(0)->pairs[1].letter == 'X');
@@ -48,7 +48,7 @@ TEST_CASE("[gcode] tokenize M4") {
   ok(p.line(0)->type == GCODE_LINE_TYPE_M);
   ok(p.line(0)->pairs[0].letter == 'M');
   ok(p.line(0)->pairs[0].value == 4);
-
+  ok(p.line(1));
   ok(stb_sb_count(p.line(1)->pairs) == 0);
 }
 
@@ -350,8 +350,13 @@ TEST_CASE("[gcode] duplicate modal groups") {
 }
 
 TEST_CASE("[gcode] non-overlapping G codes") {
+  // test a bunch of modal cases
   {
     GCODEParser p;
-    ok(p.push("M1 M7 M4 G91 G54 G20 G1 X0.0\n") == GCODE_RESULT_TRUE);
+    printf("default parser state:\n  %s\n", gcode_parser_state_debug(p.handle->parser_state));
+    ok(p.push("M4S5000\n") == GCODE_RESULT_TRUE);
+    printf("spindle on @ 5000rpm:\n  %s\n", gcode_parser_state_debug(p.handle->parser_state));
+    ok(p.push("F1234\n") == GCODE_RESULT_TRUE);
+    printf("feed rate @ 1234mm/m:\n  %s\n", gcode_parser_state_debug(p.handle->parser_state));
   }
 }

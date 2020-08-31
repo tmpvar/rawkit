@@ -263,15 +263,7 @@ enum gcode_coolant_state {
 };
 
 
-typedef struct gcode_line_t {
-  uint64_t start_loc;
-  uint64_t end_loc;
-  uint32_t words;
-  gcode_line_type type;
-  float code;
-  gcode_word_pair_t *pairs;
-
-  // state for semantic validation of a line
+struct gcode_parser_state_t {
   gcode_non_modal_command non_modal_command;
   gcode_control_mode control_mode;
   gcode_program_mode program_mode;
@@ -286,13 +278,232 @@ typedef struct gcode_line_t {
   gcode_tool_length_offset tool_length_offset;
   gcode_spindle_state spindle_state;
   gcode_coolant_state coolant_state;
+  float feed_rate;
+  int32_t spindle_speed;
+  int16_t tool;
+};
+
+typedef struct gcode_line_t {
+  uint64_t start_loc;
+  uint64_t end_loc;
+  uint32_t words;
+  gcode_line_type type;
+  float code;
+  gcode_word_pair_t* pairs;
+
+  gcode_parser_state_t parser_state;
 } gcode_line_t;
+
+#define GCODE_DEBUG_STRING_LEN 2048
+char gcode_debug_string[GCODE_DEBUG_STRING_LEN] = {0};
+
+char *gcode_parser_state_debug(const gcode_parser_state_t parser_state) {
+
+  char motion_mode[5] = {0};
+  switch (parser_state.motion_mode) {
+    case GCODE_MOTION_MODE_G0:    strcpy(motion_mode, "G0"); break;
+    case GCODE_MOTION_MODE_G1:    strcpy(motion_mode, "G1"); break;
+    case GCODE_MOTION_MODE_G2:    strcpy(motion_mode, "G2"); break;
+    case GCODE_MOTION_MODE_G3:    strcpy(motion_mode, "G3"); break;
+    case GCODE_MOTION_MODE_G38_2: strcpy(motion_mode, "G38.2"); break;
+    case GCODE_MOTION_MODE_G38_3: strcpy(motion_mode, "G38.3"); break;
+    case GCODE_MOTION_MODE_G38_4: strcpy(motion_mode, "G38.4"); break;
+    case GCODE_MOTION_MODE_G38_5: strcpy(motion_mode, "G38.5"); break;
+    case GCODE_MOTION_MODE_G80:   strcpy(motion_mode, "G80"); break;
+  }
+
+  char wcs_select[4] = {0};
+  switch (parser_state.wcs_select) {
+    case GCODE_WCS_SELECT_G54: strcpy(wcs_select, "G54"); break;
+    case GCODE_WCS_SELECT_G55: strcpy(wcs_select, "G55"); break;
+    case GCODE_WCS_SELECT_G56: strcpy(wcs_select, "G56"); break;
+    case GCODE_WCS_SELECT_G57: strcpy(wcs_select, "G57"); break;
+    case GCODE_WCS_SELECT_G58: strcpy(wcs_select, "G58"); break;
+    case GCODE_WCS_SELECT_G59: strcpy(wcs_select, "G59"); break;
+  }
+
+  char plane_select[4] = {0};
+  switch (parser_state.plane_select) {
+    case GCODE_PLANE_SELECT_G17: strcpy(plane_select, "G17"); break;
+    case GCODE_PLANE_SELECT_G18: strcpy(plane_select, "G18"); break;
+    case GCODE_PLANE_SELECT_G19: strcpy(plane_select, "G19"); break;
+  }
+
+  char units_mode[4] = {0};
+  switch (parser_state.units_mode) {
+    case GCODE_UNITS_MODE_G20: strcpy(units_mode, "G20"); break;
+    case GCODE_UNITS_MODE_G21: strcpy(units_mode, "G21"); break;
+  }
+
+  char distance_mode[4] = {0};
+  switch (parser_state.distance_mode) {
+    case GCODE_DISTANCE_MODE_G90: strcpy(distance_mode, "G90"); break;
+    case GCODE_DISTANCE_MODE_G91: strcpy(distance_mode, "G91"); break;
+  }
+
+  char feed_rate_mode[4] = {0};
+  switch (parser_state.feed_rate_mode) {
+    case GCODE_FEED_RATE_MODE_G93: strcpy(feed_rate_mode, "G93"); break;
+    case GCODE_FEED_RATE_MODE_G94: strcpy(feed_rate_mode, "G94"); break;
+  }
+
+  char spindle_state[4] = {0};
+  switch (parser_state.spindle_state) {
+    case GCODE_SPINDLE_STATE_M3: strcpy(spindle_state, "M3"); break;
+    case GCODE_SPINDLE_STATE_M4: strcpy(spindle_state, "M4"); break;
+    case GCODE_SPINDLE_STATE_M5: strcpy(spindle_state, "M5"); break;
+  }
+
+  char coolant_state[4] = {0};
+  switch (parser_state.coolant_state) {
+    case GCODE_COOLANT_STATE_M7: strcpy(coolant_state, "M7"); break;
+    case GCODE_COOLANT_STATE_M8: strcpy(coolant_state, "M8"); break;
+    case GCODE_COOLANT_STATE_M9: strcpy(coolant_state, "M9"); break;
+  }
+
+
+  sprintf(
+    gcode_debug_string,
+    // "[GC:G0 G54 G17 G21 G90 G94 M5 M9 T0 F0 S0]",
+    "[GC:%s %s %s %s %s %s %s %s T%u F%0.3f S%u]",
+    // non_modal_command,
+    motion_mode,
+    wcs_select,
+    plane_select,
+    units_mode,
+    distance_mode,
+    feed_rate_mode,
+    spindle_state,
+    coolant_state,
+    parser_state.tool,
+    parser_state.feed_rate,
+    parser_state.spindle_speed
+
+    // control_mode,
+    // program_mode,
+    // arc_ijk_distance_mode,
+    // cutter_radius_compensation,
+  );
+
+  return gcode_debug_string;
+}
+
+// Rectify the state between two parser states. This is generally performed at the end
+// of a line to pull in modal changes from the line to the main parser state. Also, in
+// order to access state as of a line, the main parser's state is memcpy'd back to the
+// line's parser state. Meaning, we can access the complete parser state as it was at
+// any line - this is important for resuming jobs that have been aborted.
+void gcode_parser_state_merge(gcode_parser_state_t *main_state, gcode_line_t *line) {
+  gcode_parser_state_t *line_state = &line->parser_state;
+  if (main_state == NULL || line_state == NULL) {
+    gcode_debug("gcode_parser_state_merge was passed a null pointer");
+    return;
+  }
+
+  if (line_state->non_modal_command != GCODE_NON_MODAL_COMMAND_NONE) {
+    main_state->non_modal_command = line_state->non_modal_command;
+  }
+
+  if (line_state->control_mode != GCODE_CONTROl_MODES_NONE) {
+    main_state->control_mode = line_state->control_mode;
+  }
+
+  if (line_state->program_mode != GCODE_PROGRAM_MODE_NONE) {
+    main_state->program_mode = line_state->program_mode;
+  }
+
+  if (line_state->motion_mode != GCODE_MOTION_MODE_NONE) {
+    main_state->motion_mode = line_state->motion_mode;
+  } else if (main_state->motion_mode == GCODE_MOTION_MODE_NONE) {
+    main_state->motion_mode = GCODE_MOTION_MODE_G0;
+/*    if (
+      (line->words & GCODE_AXIS_WORD_X) ||
+      (line->words & GCODE_AXIS_WORD_Y) ||
+      (line->words & GCODE_AXIS_WORD_Z)
+    ) {
+      line->
+    }*/
+  }
+
+  if (line_state->wcs_select != GCODE_WCS_SELECT_NONE) {
+    main_state->wcs_select = line_state->wcs_select;
+  } else if (main_state->wcs_select == GCODE_WCS_SELECT_NONE) {
+    main_state->wcs_select = GCODE_WCS_SELECT_G54;
+  }
+
+  if (line_state->plane_select != GCODE_PLANE_SELECT_NONE) {
+    main_state->plane_select = line_state->plane_select;
+  } else if (main_state->plane_select == GCODE_PLANE_SELECT_NONE) {
+    main_state->plane_select = GCODE_PLANE_SELECT_G17;
+  }
+
+  if (line_state->distance_mode != GCODE_DISTANCE_MODE_NONE) {
+    main_state->distance_mode = line_state->distance_mode;
+  } else if (main_state->distance_mode == GCODE_DISTANCE_MODE_NONE) {
+    main_state->distance_mode = GCODE_DISTANCE_MODE_G90;
+  }
+
+  if (line_state->arc_ijk_distance_mode != GCODE_ARC_IJK_DISTANCE_MODE_NONE) {
+    main_state->arc_ijk_distance_mode = line_state->arc_ijk_distance_mode;
+  }
+
+  if (line_state->feed_rate_mode != GCODE_FEED_RATE_MODE_NONE) {
+    main_state->feed_rate_mode = line_state->feed_rate_mode;
+  } else if (main_state->feed_rate_mode == GCODE_FEED_RATE_MODE_NONE) {
+    main_state->feed_rate_mode = GCODE_FEED_RATE_MODE_G93;
+  }
+
+  if (line_state->units_mode != GCODE_UNITS_MODE_NONE) {
+    main_state->units_mode = line_state->units_mode;
+  } else if (main_state->units_mode == GCODE_UNITS_MODE_NONE) {
+    main_state->units_mode = GCODE_UNITS_MODE_G21;
+  }
+
+  if (line_state->cutter_radius_compensation != GCODE_CUTTER_RADIUS_COMPENSATION_MODE_NONE) {
+    main_state->cutter_radius_compensation = line_state->cutter_radius_compensation;
+  }
+
+  if (line_state->tool_length_offset != GCODE_TOOL_LENGTH_OFFSET_NONE) {
+    main_state->tool_length_offset = line_state->tool_length_offset;
+  }
+
+  if (line_state->spindle_state != GCODE_SPINDLE_STATE_NONE) {
+    main_state->spindle_state = line_state->spindle_state;
+  } else if (main_state->spindle_state == GCODE_SPINDLE_STATE_NONE) {
+    main_state->spindle_state = GCODE_SPINDLE_STATE_M5;
+  }
+
+  if (line_state->coolant_state != GCODE_COOLANT_STATE_NONE) {
+    main_state->coolant_state = line_state->coolant_state;
+  } else if (main_state->coolant_state == GCODE_COOLANT_STATE_NONE) {
+    main_state->coolant_state = GCODE_COOLANT_STATE_M9;
+  }
+
+  if (line->words & (1<<GCODE_WORD_F)) {
+    main_state->feed_rate = line_state->feed_rate;
+  }
+
+  if (line->words & (1<<GCODE_WORD_S)) {
+    main_state->spindle_speed = line_state->spindle_speed;
+  }
+
+  if (line_state->tool > -1) {
+    main_state->tool = line_state->tool;
+  }
+
+  gcode_debug("main parser state: %s\n", gcode_parser_state_debug(*main_state));
+  gcode_debug("line parser state: %s\n", gcode_parser_state_debug(*line_state));
+
+  memcpy(line_state, main_state, sizeof(gcode_parser_state_t));
+  gcode_debug("line parser state: %s\n", gcode_parser_state_debug(*line_state));
+}
 
 typedef struct gcode_parser_t {
   gcode_line_t *lines = NULL;
   char pending_buf[GCODE_PARSER_BUFFER_LEN] = {0};
   uint16_t pending_loc = 0;
   int64_t total_loc = 0;
+  gcode_parser_state_t parser_state;
 } gcode_parser_t;
 
 
@@ -324,6 +535,17 @@ gcode_parse_result gcode_parser_new_line(gcode_parser_t *parser) {
   line.words = 0;
   line.code = 0.0;
   stb_sb_push(parser->lines, line);
+
+
+  memcpy(
+    &line.parser_state,
+    &parser->parser_state,
+    sizeof(gcode_parser_state_t)
+  );
+
+  line.parser_state.feed_rate = -1.0f;
+  line.parser_state.tool = -1;
+  line.parser_state.spindle_speed = -1;
 
   return gcode_parser_reset(parser, GCODE_RESULT_TRUE);
 }
@@ -482,171 +704,194 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
 
       // Motion Modes
       case 0:
-        if (line->motion_mode != GCODE_MOTION_MODE_NONE) {
+        if (line->parser_state.motion_mode != GCODE_MOTION_MODE_NONE) {
           gcode_debug("ERROR: motion mode already specified (G0).\n");
           return GCODE_RESULT_ERROR;
         }
-        line->motion_mode = GCODE_MOTION_MODE_G0;
+        line->parser_state.motion_mode = GCODE_MOTION_MODE_G0;
+        parser->parser_state.motion_mode = GCODE_MOTION_MODE_G0;
         break;
       case 1:
-        if (line->motion_mode != GCODE_MOTION_MODE_NONE) {
+        if (line->parser_state.motion_mode != GCODE_MOTION_MODE_NONE) {
           gcode_debug("ERROR: motion mode already specified (G1).\n");
           return GCODE_RESULT_ERROR;
         }
-        line->motion_mode = GCODE_MOTION_MODE_G1;
+        line->parser_state.motion_mode = GCODE_MOTION_MODE_G1;
+        parser->parser_state.motion_mode = GCODE_MOTION_MODE_G1;
         break;
       case 2:
-        if (line->motion_mode != GCODE_MOTION_MODE_NONE) {
+        if (line->parser_state.motion_mode != GCODE_MOTION_MODE_NONE) {
           gcode_debug("ERROR: motion mode already specified (G2).\n");
           return GCODE_RESULT_ERROR;
         }
-        line->motion_mode = GCODE_MOTION_MODE_G2;
+        line->parser_state.motion_mode = GCODE_MOTION_MODE_G2;
+        parser->parser_state.motion_mode = GCODE_MOTION_MODE_G2;
         break;
       case 3:
-        if (line->motion_mode != GCODE_MOTION_MODE_NONE) {
+        if (line->parser_state.motion_mode != GCODE_MOTION_MODE_NONE) {
           gcode_debug("ERROR: motion mode already specified (G3).\n");
           return GCODE_RESULT_ERROR;
         }
-        line->motion_mode = GCODE_MOTION_MODE_G3;
+        line->parser_state.motion_mode = GCODE_MOTION_MODE_G3;
+        parser->parser_state.motion_mode = GCODE_MOTION_MODE_G3;
         break;
       case 38:
-        if (line->motion_mode != GCODE_MOTION_MODE_NONE) {
+        if (line->parser_state.motion_mode != GCODE_MOTION_MODE_NONE) {
           gcode_debug("ERROR: motion mode already specified (G38).\n");
           return GCODE_RESULT_ERROR;
         }
 
         if (pair.value == 38.2) {
-          line->motion_mode = GCODE_MOTION_MODE_G38_2;
+          line->parser_state.motion_mode = GCODE_MOTION_MODE_G38_2;
+          parser->parser_state.motion_mode = GCODE_MOTION_MODE_G38_2;
         } else if (pair.value == 38.3) {
-          line->motion_mode = GCODE_MOTION_MODE_G38_3;
+          line->parser_state.motion_mode = GCODE_MOTION_MODE_G38_3;
+          parser->parser_state.motion_mode = GCODE_MOTION_MODE_G38_3;
         } else if (pair.value == 38.4) {
-          line->motion_mode = GCODE_MOTION_MODE_G38_4;
+          line->parser_state.motion_mode = GCODE_MOTION_MODE_G38_4;
+          parser->parser_state.motion_mode = GCODE_MOTION_MODE_G38_4;
         } else if (pair.value == 38.5) {
-          line->motion_mode = GCODE_MOTION_MODE_G38_5;
+          line->parser_state.motion_mode = GCODE_MOTION_MODE_G38_5;
+          parser->parser_state.motion_mode = GCODE_MOTION_MODE_G38_5;
         }
         break;
       case 80:
-        if (line->motion_mode != GCODE_MOTION_MODE_NONE) {
+        if (line->parser_state.motion_mode != GCODE_MOTION_MODE_NONE) {
           gcode_debug("ERROR: motion mode already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->motion_mode = GCODE_MOTION_MODE_G80;
+        line->parser_state.motion_mode = GCODE_MOTION_MODE_G80;
+        parser->parser_state.motion_mode = GCODE_MOTION_MODE_G80;
         break;
 
       // Plane Select Modes
       case 17:
-        if (line->plane_select != GCODE_PLANE_SELECT_NONE) {
+        if (line->parser_state.plane_select != GCODE_PLANE_SELECT_NONE) {
           gcode_debug("ERROR: plane select already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->plane_select = GCODE_PLANE_SELECT_G17;
+        line->parser_state.plane_select = GCODE_PLANE_SELECT_G17;
+        parser->parser_state.plane_select = GCODE_PLANE_SELECT_G17;
         break;
       case 18:
-        if (line->plane_select != GCODE_PLANE_SELECT_NONE) {
+        if (line->parser_state.plane_select != GCODE_PLANE_SELECT_NONE) {
           gcode_debug("ERROR: plane select already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->plane_select = GCODE_PLANE_SELECT_G18;
+        line->parser_state.plane_select = GCODE_PLANE_SELECT_G18;
+        parser->parser_state.plane_select = GCODE_PLANE_SELECT_G18;
         break;
       case 19:
-        if (line->plane_select != GCODE_PLANE_SELECT_NONE) {
+        if (line->parser_state.plane_select != GCODE_PLANE_SELECT_NONE) {
           gcode_debug("ERROR: plane select already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->plane_select = GCODE_PLANE_SELECT_G19;
+        line->parser_state.plane_select = GCODE_PLANE_SELECT_G19;
+        parser->parser_state.plane_select = GCODE_PLANE_SELECT_G19;
         break;
 
       // Unit Modes
       case 20:
-        if (line->units_mode != GCODE_UNITS_MODE_NONE) {
+        if (line->parser_state.units_mode != GCODE_UNITS_MODE_NONE) {
           gcode_debug("ERROR: unit mode already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->units_mode = GCODE_UNITS_MODE_G20;
+        line->parser_state.units_mode = GCODE_UNITS_MODE_G20;
+        parser->parser_state.units_mode = GCODE_UNITS_MODE_G20;
         break;
       case 21:
-        if (line->units_mode != GCODE_UNITS_MODE_NONE) {
+        if (line->parser_state.units_mode != GCODE_UNITS_MODE_NONE) {
           gcode_debug("ERROR: unit mode already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->units_mode = GCODE_UNITS_MODE_G21;
+        line->parser_state.units_mode = GCODE_UNITS_MODE_G21;
+        parser->parser_state.units_mode = GCODE_UNITS_MODE_G21;
         break;
 
       // WCS Modes
       case 54:
-        if (line->wcs_select != GCODE_WCS_SELECT_NONE) {
+        if (line->parser_state.wcs_select != GCODE_WCS_SELECT_NONE) {
           gcode_debug("ERROR: wcs already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->wcs_select = GCODE_WCS_SELECT_G54;
+        line->parser_state.wcs_select = GCODE_WCS_SELECT_G54;
+        parser->parser_state.wcs_select = GCODE_WCS_SELECT_G54;
         break;
       case 55:
-        if (line->wcs_select != GCODE_WCS_SELECT_NONE) {
+        if (line->parser_state.wcs_select != GCODE_WCS_SELECT_NONE) {
           gcode_debug("ERROR: wcs already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->wcs_select = GCODE_WCS_SELECT_G55;
+        line->parser_state.wcs_select = GCODE_WCS_SELECT_G55;
+        parser->parser_state.wcs_select = GCODE_WCS_SELECT_G55;
         break;
       case 56:
-        if (line->wcs_select != GCODE_WCS_SELECT_NONE) {
+        if (line->parser_state.wcs_select != GCODE_WCS_SELECT_NONE) {
           gcode_debug("ERROR: wcs already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->wcs_select = GCODE_WCS_SELECT_G56;
+        line->parser_state.wcs_select = GCODE_WCS_SELECT_G56;
+        parser->parser_state.wcs_select = GCODE_WCS_SELECT_G56;
         break;
       case 57:
-        if (line->wcs_select != GCODE_WCS_SELECT_NONE) {
+        if (line->parser_state.wcs_select != GCODE_WCS_SELECT_NONE) {
           gcode_debug("ERROR: wcs already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->wcs_select = GCODE_WCS_SELECT_G57;
+        line->parser_state.wcs_select = GCODE_WCS_SELECT_G57;
+        parser->parser_state.wcs_select = GCODE_WCS_SELECT_G57;
         break;
       case 58:
-        if (line->wcs_select != GCODE_WCS_SELECT_NONE) {
+        if (line->parser_state.wcs_select != GCODE_WCS_SELECT_NONE) {
           gcode_debug("ERROR: wcs already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->wcs_select = GCODE_WCS_SELECT_G58;
+        line->parser_state.wcs_select = GCODE_WCS_SELECT_G58;
+        parser->parser_state.wcs_select = GCODE_WCS_SELECT_G58;
         break;
       case 59:
-        if (line->wcs_select != GCODE_WCS_SELECT_NONE) {
+        if (line->parser_state.wcs_select != GCODE_WCS_SELECT_NONE) {
           gcode_debug("ERROR: wcs already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->wcs_select = GCODE_WCS_SELECT_G59;
+        line->parser_state.wcs_select = GCODE_WCS_SELECT_G59;
+        parser->parser_state.wcs_select = GCODE_WCS_SELECT_G59;
         break;
-
 
       // Distance Modes
       case 90:
-        if (line->distance_mode != GCODE_DISTANCE_MODE_NONE) {
+        if (line->parser_state.distance_mode != GCODE_DISTANCE_MODE_NONE) {
           gcode_debug("ERROR: distance mode already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->distance_mode = GCODE_DISTANCE_MODE_G90;
+        line->parser_state.distance_mode = GCODE_DISTANCE_MODE_G90;
+        parser->parser_state.distance_mode = GCODE_DISTANCE_MODE_G90;
         break;
       case 91:
-        if (line->distance_mode != GCODE_DISTANCE_MODE_NONE) {
+        if (line->parser_state.distance_mode != GCODE_DISTANCE_MODE_NONE) {
           gcode_debug("ERROR: distance mode already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->distance_mode = GCODE_DISTANCE_MODE_G91;
+        line->parser_state.distance_mode = GCODE_DISTANCE_MODE_G91;
+        parser->parser_state.distance_mode = GCODE_DISTANCE_MODE_G91;
         break;
 
       // Feed Rate Modes
       case 93:
-        if (line->feed_rate_mode != GCODE_FEED_RATE_MODE_NONE) {
+        if (line->parser_state.feed_rate_mode != GCODE_FEED_RATE_MODE_NONE) {
           gcode_debug("ERROR: feed rate mode already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->feed_rate_mode = GCODE_FEED_RATE_MODE_G93;
+        line->parser_state.feed_rate_mode = GCODE_FEED_RATE_MODE_G93;
+        parser->parser_state.feed_rate_mode = GCODE_FEED_RATE_MODE_G93;
         break;
       case 94:
-        if (line->feed_rate_mode != GCODE_FEED_RATE_MODE_NONE) {
+        if (line->parser_state.feed_rate_mode != GCODE_FEED_RATE_MODE_NONE) {
           gcode_debug("ERROR: feed rate mode already specified.\n");
           return GCODE_RESULT_ERROR;
         }
-        line->feed_rate_mode = GCODE_FEED_RATE_MODE_G94;
+        line->parser_state.feed_rate_mode = GCODE_FEED_RATE_MODE_G94;
+        parser->parser_state.feed_rate_mode = GCODE_FEED_RATE_MODE_G94;
         break;
     }
 
@@ -658,89 +903,107 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
     switch ((int)pair.value) {
       // Program Modes
       case 0:
-        if (line->program_mode != GCODE_PROGRAM_MODE_NONE) {
+        if (line->parser_state.program_mode != GCODE_PROGRAM_MODE_NONE) {
           gcode_debug("ERROR: program mode already specified");
           return GCODE_RESULT_ERROR;
         }
-        line->program_mode = GCODE_PROGRAM_MODE_M0;
+        line->parser_state.program_mode = GCODE_PROGRAM_MODE_M0;
+        parser->parser_state.program_mode = GCODE_PROGRAM_MODE_M0;
         break;
       case 1:
-        if (line->program_mode != GCODE_PROGRAM_MODE_NONE) {
+        if (line->parser_state.program_mode != GCODE_PROGRAM_MODE_NONE) {
           gcode_debug("ERROR: program mode already specified");
           return GCODE_RESULT_ERROR;
         }
-        line->program_mode = GCODE_PROGRAM_MODE_M1;
+        line->parser_state.program_mode = GCODE_PROGRAM_MODE_M1;
+        parser->parser_state.program_mode = GCODE_PROGRAM_MODE_M1;
         break;
       case 2:
-        if (line->program_mode != GCODE_PROGRAM_MODE_NONE) {
+        if (line->parser_state.program_mode != GCODE_PROGRAM_MODE_NONE) {
           gcode_debug("ERROR: program mode already specified");
           return GCODE_RESULT_ERROR;
         }
-        line->program_mode = GCODE_PROGRAM_MODE_M2;
+        line->parser_state.program_mode = GCODE_PROGRAM_MODE_M2;
+        parser->parser_state.program_mode = GCODE_PROGRAM_MODE_M2;
         break;
       case 30:
-        if (line->program_mode != GCODE_PROGRAM_MODE_NONE) {
+        if (line->parser_state.program_mode != GCODE_PROGRAM_MODE_NONE) {
           gcode_debug("ERROR: program mode already specified");
           return GCODE_RESULT_ERROR;
         }
-        line->program_mode = GCODE_PROGRAM_MODE_M30;
+        line->parser_state.program_mode = GCODE_PROGRAM_MODE_M30;
+        parser->parser_state.program_mode = GCODE_PROGRAM_MODE_M30;
         break;
 
       // Coolant Control
       case 7:
-        if (line->coolant_state != GCODE_COOLANT_STATE_NONE) {
+        if (line->parser_state.coolant_state != GCODE_COOLANT_STATE_NONE) {
           gcode_debug("ERROR: coolant state already specified (M7)");
           return GCODE_RESULT_ERROR;
         }
-        line->coolant_state = GCODE_COOLANT_STATE_M7;
+        line->parser_state.coolant_state = GCODE_COOLANT_STATE_M7;
+        parser->parser_state.coolant_state = GCODE_COOLANT_STATE_M7;
         break;
       case 8:
-        if (line->coolant_state != GCODE_COOLANT_STATE_NONE) {
+        if (line->parser_state.coolant_state != GCODE_COOLANT_STATE_NONE) {
           gcode_debug("ERROR: coolant state already specified (M8)");
           return GCODE_RESULT_ERROR;
         }
-        line->coolant_state = GCODE_COOLANT_STATE_M8;
+        line->parser_state.coolant_state = GCODE_COOLANT_STATE_M8;
+        parser->parser_state.coolant_state = GCODE_COOLANT_STATE_M8;
         break;
       case 9:
-        if (line->coolant_state != GCODE_COOLANT_STATE_NONE) {
+        if (line->parser_state.coolant_state != GCODE_COOLANT_STATE_NONE) {
           gcode_debug("ERROR: coolant state already specified (M9)");
           return GCODE_RESULT_ERROR;
         }
-        line->coolant_state = GCODE_COOLANT_STATE_M9;
+        line->parser_state.coolant_state = GCODE_COOLANT_STATE_M9;
+        parser->parser_state.coolant_state = GCODE_COOLANT_STATE_M9;
         break;
 
       // Spindle Control
       case 3:
-        if (line->spindle_state != GCODE_SPINDLE_STATE_NONE) {
+        if (line->parser_state.spindle_state != GCODE_SPINDLE_STATE_NONE) {
           gcode_debug("ERROR: spindle state already specified");
           return GCODE_RESULT_ERROR;
         }
-        line->spindle_state = GCODE_SPINDLE_STATE_M3;
+        line->parser_state.spindle_state = GCODE_SPINDLE_STATE_M3;
+        parser->parser_state.spindle_state = GCODE_SPINDLE_STATE_M3;
         break;
       case 4:
-        if (line->spindle_state != GCODE_SPINDLE_STATE_NONE) {
+        if (line->parser_state.spindle_state != GCODE_SPINDLE_STATE_NONE) {
           gcode_debug("ERROR: spindle state already specified");
           return GCODE_RESULT_ERROR;
         }
-        line->spindle_state = GCODE_SPINDLE_STATE_M4;
+        line->parser_state.spindle_state = GCODE_SPINDLE_STATE_M4;
+        parser->parser_state.spindle_state = GCODE_SPINDLE_STATE_M4;
         break;
       case 5:
-        if (line->spindle_state != GCODE_SPINDLE_STATE_NONE) {
+        if (line->parser_state.spindle_state != GCODE_SPINDLE_STATE_NONE) {
           gcode_debug("ERROR: spindle state already specified");
           return GCODE_RESULT_ERROR;
         }
-        line->spindle_state = GCODE_SPINDLE_STATE_M5;
+        line->parser_state.spindle_state = GCODE_SPINDLE_STATE_M5;
+        parser->parser_state.spindle_state = GCODE_SPINDLE_STATE_M5;
         break;
     }
 
     line->type = (gcode_line_type)word;
     line->code = pair.value;
-
   } else {
     uint32_t mask = 1<<(int)word;
     if (line->words & mask) {
       gcode_debug("ERROR: duplicate word '%c' found\n", pair.letter);
       return gcode_parser_reset(parser, GCODE_RESULT_ERROR);
+    }
+
+    switch (pair.letter) {
+      case 'S':
+        line->parser_state.spindle_speed = (int32_t)pair.value;
+        break;
+      case 'F':
+        line->parser_state.feed_rate = pair.value;
+        break;
     }
 
     line->words |= mask;
@@ -799,7 +1062,7 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
         }
     }
 
-    if (current_line->motion_mode != GCODE_MOTION_MODE_NONE) {
+    if (current_line->parser_state.motion_mode != GCODE_MOTION_MODE_NONE) {
       if (!current_line->words) {
         gcode_debug("ERROR: motion mode specified without axis word");
         return GCODE_RESULT_ERROR;
@@ -809,6 +1072,8 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
       // TODO: feed rate is also persistent between commands so
       //       there probably needs to be global parserstate for this.
     }
+
+    gcode_parser_state_merge(&parser->parser_state, current_line);
 
     return gcode_parser_new_line(parser);
   }
@@ -969,6 +1234,18 @@ class GCODEParser {
         this->handle = (gcode_parser_t *)malloc(sizeof(gcode_parser_t));
         memset(this->handle, 0, sizeof(gcode_parser_t));
         this->handle->total_loc = -1;
+
+        // setup the default parser state
+        {
+          this->handle->parser_state.motion_mode = GCODE_MOTION_MODE_G0;
+          this->handle->parser_state.wcs_select = GCODE_WCS_SELECT_G54;
+          this->handle->parser_state.plane_select = GCODE_PLANE_SELECT_G17;
+          this->handle->parser_state.distance_mode = GCODE_DISTANCE_MODE_G90;
+          this->handle->parser_state.feed_rate_mode = GCODE_FEED_RATE_MODE_G93;
+          this->handle->parser_state.units_mode = GCODE_UNITS_MODE_G21;
+          this->handle->parser_state.spindle_state = GCODE_SPINDLE_STATE_M5;
+          this->handle->parser_state.coolant_state = GCODE_COOLANT_STATE_M9;
+        }
       }
     }
 
