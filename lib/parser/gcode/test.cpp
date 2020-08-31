@@ -353,10 +353,10 @@ TEST_CASE("[gcode] non-overlapping G codes") {
   // test a bunch of modal cases
   {
     GCODEParser p;
-    printf("default parser state:\n  %s\n", gcode_parser_state_debug(p.handle->parser_state));
+    printf("default parser state:\n  %s\n", gcode_parser_state_debug(&p.handle->parser_state));
     ok(p.push("M4S5000\n") == GCODE_RESULT_TRUE);
-    printf("spindle on @ 5000rpm:\n  %s\n", gcode_parser_state_debug(p.handle->parser_state));
+    printf("spindle on @ 5000rpm:\n  %s\n", gcode_parser_state_debug(&p.handle->parser_state));
     ok(p.push("F1234\n") == GCODE_RESULT_TRUE);
-    printf("feed rate @ 1234mm/m:\n  %s\n", gcode_parser_state_debug(p.handle->parser_state));
+    printf("feed rate @ 1234mm/m:\n  %s\n", gcode_parser_state_debug(&p.handle->parser_state));
   }
 }

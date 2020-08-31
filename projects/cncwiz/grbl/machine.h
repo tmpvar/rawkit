@@ -310,6 +310,7 @@ struct GrblMachine {
         continue;
       }
       // printf("line: %s", this->state->tx_line.handle);
+      this->tx_parser->push(this->state->tx_line.handle);
       this->sp.write(this->state->tx_line.handle);
       this->log->push(&this->state->tx_line);
       this->state->tx_line.clear();
@@ -529,4 +530,11 @@ struct GrblMachine {
     return false;
   }
 
+  const char *tx_parser_state_debug() {
+    if (this->tx_parser == nullptr) {
+      return nullptr;
+    }
+
+    return this->tx_parser->state_debug();
+  }
 };

@@ -111,11 +111,17 @@ JitJob *JitJob::create(int argc, const char **argv) {
     Args.push_back("-std=c++17");
   }
 
-#if defined(_WIN32)
+  #if defined(_WIN32)
     // Args.push_back("-fms-extensions");
     // Args.push_back("-fms-compatibility");
     Args.push_back("-fdelayed-template-parsing");
     Args.push_back("-fms-compatibility-version=19.00");
+    Args.push_back("-D_CRT_SECURE_NO_DEPRECATE");
+    Args.push_back("-D_CRT_SECURE_NO_WARNINGS");
+    Args.push_back("-D_CRT_NONSTDC_NO_DEPRECATE");
+    Args.push_back("-D_CRT_NONSTDC_NO_WARNINGS");
+    Args.push_back("-D_SCL_SECURE_NO_DEPRECATE");
+    Args.push_back("-D_SCL_SECURE_NO_WARNINGS");
   #endif
 
   Args.push_back("-fsyntax-only");

@@ -23,7 +23,7 @@ __windows__
 
 ```
 cd build
-watchexec -i projects -r -w .. "cmake --build . --config RelWithDebInfo --target install && install\bin\rawkit.exe ../projects/cncwiz/cncwiz.cpp"
+watchexec -i projects -i lib -r -w .. "cmake --build . --config RelWithDebInfo --target install && install\bin\rawkit.exe ../projects/cncwiz/cncwiz.cpp"
 ```
 
 ## run tests

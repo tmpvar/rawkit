@@ -297,10 +297,10 @@ typedef struct gcode_line_t {
 #define GCODE_DEBUG_STRING_LEN 2048
 char gcode_debug_string[GCODE_DEBUG_STRING_LEN] = {0};
 
-char *gcode_parser_state_debug(const gcode_parser_state_t parser_state) {
+char *gcode_parser_state_debug(const gcode_parser_state_t *parser_state) {
 
   char motion_mode[6] = {0};
-  switch (parser_state.motion_mode) {
+  switch (parser_state->motion_mode) {
     case GCODE_MOTION_MODE_G0:    strncpy(motion_mode, "G0", 2); break;
     case GCODE_MOTION_MODE_G1:    strncpy(motion_mode, "G1", 2); break;
     case GCODE_MOTION_MODE_G2:    strncpy(motion_mode, "G2", 2); break;
@@ -315,7 +315,7 @@ char *gcode_parser_state_debug(const gcode_parser_state_t parser_state) {
   }
 
   char wcs_select[4] = {0};
-  switch (parser_state.wcs_select) {
+  switch (parser_state->wcs_select) {
     case GCODE_WCS_SELECT_G54: strcpy(wcs_select, "G54"); break;
     case GCODE_WCS_SELECT_G55: strcpy(wcs_select, "G55"); break;
     case GCODE_WCS_SELECT_G56: strcpy(wcs_select, "G56"); break;
@@ -327,7 +327,7 @@ char *gcode_parser_state_debug(const gcode_parser_state_t parser_state) {
   }
 
   char plane_select[4] = {0};
-  switch (parser_state.plane_select) {
+  switch (parser_state->plane_select) {
     case GCODE_PLANE_SELECT_G17: strcpy(plane_select, "G17"); break;
     case GCODE_PLANE_SELECT_G18: strcpy(plane_select, "G18"); break;
     case GCODE_PLANE_SELECT_G19: strcpy(plane_select, "G19"); break;
@@ -336,7 +336,7 @@ char *gcode_parser_state_debug(const gcode_parser_state_t parser_state) {
   }
 
   char units_mode[4] = {0};
-  switch (parser_state.units_mode) {
+  switch (parser_state->units_mode) {
     case GCODE_UNITS_MODE_G20: strcpy(units_mode, "G20"); break;
     case GCODE_UNITS_MODE_G21: strcpy(units_mode, "G21"); break;
     default:
@@ -344,7 +344,7 @@ char *gcode_parser_state_debug(const gcode_parser_state_t parser_state) {
   }
 
   char distance_mode[4] = {0};
-  switch (parser_state.distance_mode) {
+  switch (parser_state->distance_mode) {
     case GCODE_DISTANCE_MODE_G90: strcpy(distance_mode, "G90"); break;
     case GCODE_DISTANCE_MODE_G91: strcpy(distance_mode, "G91"); break;
     default:
@@ -352,7 +352,7 @@ char *gcode_parser_state_debug(const gcode_parser_state_t parser_state) {
   }
 
   char feed_rate_mode[4] = {0};
-  switch (parser_state.feed_rate_mode) {
+  switch (parser_state->feed_rate_mode) {
     case GCODE_FEED_RATE_MODE_G93: strcpy(feed_rate_mode, "G93"); break;
     case GCODE_FEED_RATE_MODE_G94: strcpy(feed_rate_mode, "G94"); break;
     default:
@@ -360,7 +360,7 @@ char *gcode_parser_state_debug(const gcode_parser_state_t parser_state) {
   }
 
   char spindle_state[4] = {0};
-  switch (parser_state.spindle_state) {
+  switch (parser_state->spindle_state) {
     case GCODE_SPINDLE_STATE_M3: strcpy(spindle_state, "M3"); break;
     case GCODE_SPINDLE_STATE_M4: strcpy(spindle_state, "M4"); break;
     case GCODE_SPINDLE_STATE_M5: strcpy(spindle_state, "M5"); break;
@@ -369,7 +369,7 @@ char *gcode_parser_state_debug(const gcode_parser_state_t parser_state) {
   }
 
   char coolant_state[4] = {0};
-  switch (parser_state.coolant_state) {
+  switch (parser_state->coolant_state) {
     case GCODE_COOLANT_STATE_M7: strcpy(coolant_state, "M7"); break;
     case GCODE_COOLANT_STATE_M8: strcpy(coolant_state, "M8"); break;
     case GCODE_COOLANT_STATE_M9: strcpy(coolant_state, "M9"); break;
@@ -390,9 +390,9 @@ char *gcode_parser_state_debug(const gcode_parser_state_t parser_state) {
     feed_rate_mode,
     spindle_state,
     coolant_state,
-    parser_state.tool,
-    parser_state.feed_rate,
-    parser_state.spindle_speed
+    parser_state->tool,
+    parser_state->feed_rate,
+    parser_state->spindle_speed
 
     // control_mode,
     // program_mode,
@@ -506,11 +506,7 @@ void gcode_parser_state_merge(gcode_parser_state_t *main_state, gcode_line_t *li
     main_state->tool = line_state->tool;
   }
 
-  gcode_debug("main parser state: %s\n", gcode_parser_state_debug(*main_state));
-  gcode_debug("line parser state: %s\n", gcode_parser_state_debug(*line_state));
-
   memcpy(line_state, main_state, sizeof(gcode_parser_state_t));
-  gcode_debug("line parser state: %s\n", gcode_parser_state_debug(*line_state));
 }
 
 typedef struct gcode_parser_t {
@@ -1305,5 +1301,13 @@ class GCODEParser {
         return 0;
       }
       return stb_sb_count(this->handle->lines);
+    }
+
+    const char *state_debug() {
+      if (this->handle == NULL) {
+        return NULL;
+      }
+
+      return gcode_parser_state_debug(&this->handle->parser_state);
     }
 };

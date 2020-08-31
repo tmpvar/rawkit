@@ -69,7 +69,7 @@ void panel_program(GrblMachine *grbl) {
 
   igBegin("Program", nullptr, ImGuiWindowFlags_None);
 
-  ImVec2 scrollingRegionSize = {0, -50};
+  ImVec2 scrollingRegionSize = {0, -90};
   igBeginChildStr(
     "ScrollingRegion",
     scrollingRegionSize,
@@ -160,6 +160,7 @@ void panel_program(GrblMachine *grbl) {
     printf("LOADED: %s\n", result);
   }
 
+  // display current status
   {
     String status("");
 
@@ -202,5 +203,9 @@ void panel_program(GrblMachine *grbl) {
     status.destroy();
   }
 
+  // print out the parser state
+  {
+    igText("%s", grbl->tx_parser_state_debug());
+  }
   igEnd();
 }
