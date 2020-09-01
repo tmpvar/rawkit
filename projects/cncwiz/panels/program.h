@@ -8,6 +8,9 @@
 
 #include <tinyfiledialogs.h>
 
+#include <roaring/roaring.h>
+
+
 #define RAWKIT_PROGRAM_STATE_OFFSET 0xFF100000
 
 enum cncwiz_program_status {
@@ -27,6 +30,7 @@ struct cncwiz_program_state {
   GCODEParser parser;
   uint64_t current_line;
   grbl_action_id pending_action;
+  roaring_bitmap_t *keyframes;
 };
 
 // const char *path = "E:\\cnc\\gcode\\";
@@ -67,12 +71,32 @@ void panel_program(GrblMachine *grbl) {
           continue;
         }
 
-        if (state->parser.push(line->handle) != GCODE_RESULT_TRUE) {
-          printf("FAILED TO PARSE '%s'\n", line->handle);
-        }
+        state->parser.push(line->handle);
         state->parser.push('\n');
-      }
 
+        // locate keyframes (aka lines that are G1 Z-<f>)
+        {
+          const gcode_line_t *last_line = state->parser.line(-1);
+          if (last_line == NULL) {
+            continue;
+          }
+
+          if (last_line->words == (1<<GCODE_AXIS_WORD_Z)) {
+            gcode_word_pair_t* pairs = last_line->pairs;
+            const size_t pair_count = stb_sb_count(pairs);
+            for (size_t pair_idx = 0; pair_idx < pair_count; pair_idx++) {
+              gcode_word_pair_t *pair = &pairs[pair_idx];
+              if (pair->letter == 'Z') {//} && pair->value  0.0f) {
+                roaring_bitmap_add(
+                  state->keyframes,
+                  i
+                );
+                break;
+              }
+            }
+          }
+        }
+      }
     }
   } else if (state->status & PROGRAM_STATE_RUNNING) {
     if (grbl->is_action_complete(state->pending_action)) {
@@ -103,7 +127,11 @@ void panel_program(GrblMachine *grbl) {
 
       igText("%i", line_no); igSameLine(0, 20.0f);
 
-      if (line_no == last_hovered_line) {
+      if (state->keyframes && roaring_bitmap_contains(state->keyframes, line_no)) {
+        igTextColored({1.0f, 1.0f, 0.0f, 1.0f}, line->c_str());
+
+
+      } else if (line_no == last_hovered_line) {
         igTextColored({1.0f, 0.0f, 1.0f, 1.0f}, line->c_str());
       } else if (state->current_line == line_no) {
         igTextColored({0.0f, 1.0f, 0.0f, 1.0f}, line->c_str());
@@ -189,6 +217,12 @@ void panel_program(GrblMachine *grbl) {
       state->pending_action = -1;
       state->current_line = 0;
       state->parser.reset();
+
+      if (state->keyframes != NULL) {
+        roaring_bitmap_clear(state->keyframes);
+      } else {
+        state->keyframes = roaring_bitmap_create();
+      }
     }
 
     printf("LOADED: %s\n", result);

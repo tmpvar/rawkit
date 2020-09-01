@@ -1289,12 +1289,21 @@ class GCODEParser {
       return GCODE_RESULT_TRUE;
     }
 
-    gcode_line_t *line(const uint64_t number) {
+    gcode_line_t *line(int64_t number) {
       if (this->handle == NULL) {
         return NULL;
       }
 
-      if (stb_sb_count(this->handle->lines) <= number) {
+      int64_t l = stb_sb_count(this->handle->lines);
+      if (l == 0) {
+        return NULL;
+      }
+
+      if (number < 0) {
+        number += (l-1);
+      }
+
+      if (number < 0 || number > l) {
         return NULL;
       }
 
