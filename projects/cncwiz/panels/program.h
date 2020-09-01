@@ -24,11 +24,10 @@ struct cncwiz_program_state {
   cncwiz_program_status status;
   String program_file;
   StringList program;
+  GCODEParser parser;
   uint64_t current_line;
   grbl_action_id pending_action;
 };
-
-
 
 // const char *path = "E:\\cnc\\gcode\\";
 #define CNCWIZ_PROGRAM_FILE_FILTER_COUNT 2
@@ -58,8 +57,22 @@ void panel_program(GrblMachine *grbl) {
   if (state->status & PROGRAM_STATE_LOADING) {
     state->program.destroy();
     state->program = readfile_lines(state->program_file.handle);
-    if (state->program.length()) {
+    const size_t len = state->program.length();
+    if (len) {
       state->status = PROGRAM_STATE_LOADED;
+
+      for (size_t i = 0; i<len; i++) {
+        const String *line = state->program.item(i);
+        if (line == NULL) {
+          continue;
+        }
+
+        if (state->parser.push(line->handle) != GCODE_RESULT_TRUE) {
+          printf("FAILED TO PARSE '%s'\n", line->handle);
+        }
+        state->parser.push('\n');
+      }
+
     }
   } else if (state->status & PROGRAM_STATE_RUNNING) {
     if (grbl->is_action_complete(state->pending_action)) {
@@ -78,23 +91,42 @@ void panel_program(GrblMachine *grbl) {
   );
 
   const float line_height = 18.0;
-
+  static int hovered_line = -1;
   ImGuiListClipper clipper;
   ImGuiListClipper_Begin(&clipper, state->program.length(), line_height);
   String *line = nullptr;
+  int last_hovered_line = hovered_line;
+  hovered_line = -1;
   while (ImGuiListClipper_Step(&clipper)) {
     for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++) {
       line = state->program.item(line_no);
-      if (state->current_line == line_no) {
+
+      igText("%i", line_no); igSameLine(0, 20.0f);
+
+      if (line_no == last_hovered_line) {
+        igTextColored({1.0f, 0.0f, 1.0f, 1.0f}, line->c_str());
+      } else if (state->current_line == line_no) {
         igTextColored({0.0f, 1.0f, 0.0f, 1.0f}, line->c_str());
       } else {
         igTextUnformatted(line->c_str(), NULL);
+      }
+      if (igIsItemHovered(0)) {
+        hovered_line = line_no;
+        const char *tooltip_text = state->parser.line_state_debug(line_no);
+        if (tooltip_text != NULL) {
+          igBeginTooltip();
+          igPushTextWrapPos(igGetFontSize() * 35.0f);
+          igText("line: %i", line_no);
+          igTextUnformatted(tooltip_text, NULL);
+          igPopTextWrapPos();
+          igEndTooltip();
+        }
       }
     }
   }
   ImGuiListClipper_End(&clipper);
 
-  igSetScrollYFloat(state->current_line * line_height - line_height * 20.0f);
+  igSetScrollYFloat(state->current_line * line_height - line_height * 10.0f);
 
   igEndChild();
   ImVec2 buttonSize = {75, 20};
@@ -128,6 +160,7 @@ void panel_program(GrblMachine *grbl) {
   if (igButton("abort", buttonSize)) {
     state->current_line = 0;
     state->pending_action = 0;
+    state->parser.reset();
     if (state->status & PROGRAM_STATE_LOADED) {
       state->status = PROGRAM_STATE_LOADED;
     }
@@ -155,6 +188,7 @@ void panel_program(GrblMachine *grbl) {
       state->program_file.set_c_str(result);
       state->pending_action = -1;
       state->current_line = 0;
+      state->parser.reset();
     }
 
     printf("LOADED: %s\n", result);
@@ -207,5 +241,6 @@ void panel_program(GrblMachine *grbl) {
   {
     igText("%s", grbl->tx_parser_state_debug());
   }
+
   igEnd();
 }

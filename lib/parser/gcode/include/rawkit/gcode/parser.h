@@ -87,6 +87,7 @@ enum gcode_line_type {
   GCODE_LINE_TYPE_M = GCODE_WORD_M,
   GCODE_LINE_TYPE_COMMENT,
   GCODE_LINE_TYPE_REMOVE_BLOCK,
+  GCODE_LINE_TYPE_EMPTY,
 
   // GRBL specific commands
   GCODE_LINE_TYPE_COMMAND_SOFT_RESET = 0x18,
@@ -502,7 +503,7 @@ void gcode_parser_state_merge(gcode_parser_state_t *main_state, gcode_line_t *li
     main_state->spindle_speed = line_state->spindle_speed;
   }
 
-  if (line_state->tool > -1) {
+  if (line->words & (1<<GCODE_WORD_T)) {
     main_state->tool = line_state->tool;
   }
 
@@ -1015,6 +1016,9 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
       case 'F':
         line->parser_state.feed_rate = pair.value;
         break;
+      case 'T':
+        line->parser_state.tool = (int16_t)pair.value;
+        break;
     }
 
     line->words |= mask;
@@ -1045,7 +1049,7 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
   gcode_line_t *current_line = &parser->lines[stb_sb_count(parser->lines) - 1];
   if (c == '\n') {
     if  (parser->pending_loc == 0) {
-      return GCODE_RESULT_TRUE;
+      current_line->type = GCODE_LINE_TYPE_EMPTY;
     }
 
     current_line->end_loc = parser->total_loc - 1;
@@ -1054,6 +1058,7 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
       // handle comments `(` and remove blocks `/` by doing nothing
       case GCODE_LINE_TYPE_COMMENT:
       case GCODE_LINE_TYPE_REMOVE_BLOCK:
+      case GCODE_LINE_TYPE_EMPTY:
         break;
 
       // handle $ commands
@@ -1240,6 +1245,14 @@ class GCODEParser {
       }
     }
 
+    void reset() {
+      if (this->handle != NULL) {
+        free(this->handle);
+        this->handle = NULL;
+      }
+      init();
+    }
+
     void init() {
       if (this->handle == NULL) {
         this->handle = (gcode_parser_t *)malloc(sizeof(gcode_parser_t));
@@ -1309,5 +1322,18 @@ class GCODEParser {
       }
 
       return gcode_parser_state_debug(&this->handle->parser_state);
+    }
+
+    const char *line_state_debug(int64_t line_number) {
+      if (this->handle == NULL) {
+        return NULL;
+      }
+
+      gcode_line_t *selected = this->line(line_number);
+      if (selected == NULL) {
+        return NULL;
+      }
+
+      return gcode_parser_state_debug(&selected->parser_state);
     }
 };

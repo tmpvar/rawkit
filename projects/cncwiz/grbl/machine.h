@@ -537,4 +537,12 @@ struct GrblMachine {
 
     return this->tx_parser->state_debug();
   }
+
+  const char *tx_line_parser_state_debug(uint64_t line_number) {
+    if (this->tx_parser == nullptr) {
+      return nullptr;
+    }
+
+    return this->tx_parser->line_state_debug(line_number);
+  }
 };

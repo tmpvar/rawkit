@@ -354,6 +354,10 @@ TEST_CASE("[gcode] non-overlapping G codes") {
   {
     GCODEParser p;
     printf("default parser state:\n  %s\n", gcode_parser_state_debug(&p.handle->parser_state));
+
+    ok(p.push("T5\n") == GCODE_RESULT_TRUE);
+    printf("tool 5:\n  %s\n", gcode_parser_state_debug(&p.handle->parser_state));
+
     ok(p.push("M4S5000\n") == GCODE_RESULT_TRUE);
     printf("spindle on @ 5000rpm:\n  %s\n", gcode_parser_state_debug(&p.handle->parser_state));
     ok(p.push("F1234\n") == GCODE_RESULT_TRUE);

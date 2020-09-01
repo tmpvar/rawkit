@@ -32,5 +32,5 @@ __windows__
 ```
 cd build
 
-watchexec -r -w .. "cmake --build . --config RelWithDebInfo && RelWithDebInfo\rawkit-test.exe"
+watchexec -r -w .. "cmake --build . --config RelWithDebInfo && lib\RelWithDebInfo\test-rawkit-libs.exe"
 ```
