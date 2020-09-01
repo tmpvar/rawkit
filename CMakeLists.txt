@@ -106,6 +106,14 @@ include_directories(
   ${DEPS_DIR}/tinyfiledialogs
 )
 
+# DEP: croaring
+set(CROARING_SRC
+  ${DEPS_DIR}/croaring/roaring/roaring.c
+)
+
+include_directories(
+  ${DEPS_DIR}/croaring
+)
 
 add_executable(
   rawkit
@@ -117,6 +125,7 @@ add_executable(
   ${DEPS_DIR}/whereami/src/whereami.c
   ${DEPS_DIR}/tinyfiledialogs/tinyfiledialogs.c
   ${IMGUI_SRC}
+  ${CROARING_SRC}
 )
 
 
@@ -236,6 +245,13 @@ install(
       ${DEPS_DIR}/tinyfiledialogs/tinyfiledialogs.h
     DESTINATION include/
 )
+
+install(
+    FILES
+      ${DEPS_DIR}/croaring/roaring/roaring.h
+    DESTINATION include/roaring
+)
+
 
 install(
     TARGETS

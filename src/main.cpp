@@ -10,6 +10,7 @@
 
 #include <stdio.h>          // printf, fprintf, wcstombs_s
 #include <stdlib.h>         // abort
+
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -28,7 +29,6 @@
 #include <locale.h>
 #include "llvm/Support/InitLLVM.h"
 
-#include <hot/host/cimgui.h>
 #include <hot/host/hot.h>
 #include <imgui/examples/imgui_impl_glfw.h>
 #include <imgui/examples/imgui_impl_vulkan.h>
@@ -56,6 +56,11 @@ static int                      g_MinImageCount = 2;
 static bool                     g_SwapChainRebuild = false;
 static int                      g_SwapChainResizeWidth = 0;
 static int                      g_SwapChainResizeHeight = 0;
+
+
+void rawkit_wassert(wchar_t const* m, wchar_t const* f, unsigned l) {
+  printf("ASSERT: %s (%s:%u)\n", m, f, l);
+}
 
 static void check_vk_result(VkResult err)
 {
@@ -380,8 +385,9 @@ int main(int argc, const char **argv) {
         job->addExport("_set_errno", (void *)&_set_errno);
         job->addExport("setlocale", (void *)&setlocale);
         job->addExport("_errno", (void *)&_errno);
+        job->addExport("_wassert", rawkit_wassert);
     #endif
-    host_cimgui_init(job);
+
     host_hot_init(job);
 
     auto list = serial::list_ports();
