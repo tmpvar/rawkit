@@ -28,7 +28,7 @@ struct cncwiz_program_state {
   String program_file;
   StringList program;
   GCODEParser parser;
-  uint64_t current_line;
+  int64_t current_line;
   grbl_action_id pending_action;
   roaring_bitmap_t *keyframes;
 };
@@ -81,7 +81,13 @@ void panel_program(GrblMachine *grbl) {
             continue;
           }
 
-          if (last_line->words == (1<<GCODE_AXIS_WORD_Z)) {
+          bool z_only = (
+            last_line->words & (1<<GCODE_AXIS_WORD_Z) &&
+            !(last_line->words & (1<<GCODE_AXIS_WORD_Y)) &&
+            !(last_line->words & (1<<GCODE_AXIS_WORD_X))
+          );
+
+          if (z_only) {
             gcode_word_pair_t* pairs = last_line->pairs;
             const size_t pair_count = stb_sb_count(pairs);
             for (size_t pair_idx = 0; pair_idx < pair_count; pair_idx++) {
@@ -102,6 +108,41 @@ void panel_program(GrblMachine *grbl) {
     if (grbl->is_action_complete(state->pending_action)) {
       panel_program_next_line(grbl, state);
     }
+  }
+
+  ImVec2 buttonSize = {75, 20};
+  ImVec2 spacerSize = {10, 0};
+
+  bool is_unconditionally_paused = false;
+  if (state->current_line - 1 > 0) {
+    gcode_line_t *l = state->parser.line(state->current_line-1);
+    if (l) {
+      if (
+        l->type == GCODE_LINE_TYPE_M &&
+        (l->code == 0.0f || l->code == 0.0f) &&
+        grbl->state->state == GRBL_MACHINE_STATE_HOLD
+      ) {
+        is_unconditionally_paused = true;
+      }
+    }
+  }
+
+  if (is_unconditionally_paused) {
+    igOpenPopup("Unconditionally Paused", 0);
+  }
+
+  if (igBeginPopupModal("Unconditionally Paused", &is_unconditionally_paused, ImGuiWindowFlags_AlwaysAutoResize)) {
+    igPushTextWrapPos(igGetFontSize() * 30.0f);
+      igTextUnformatted(
+        "The gcode program you are running has paused.\n\n"
+        "This typically occurs around tool changes and such.\n\n"
+        "Please inspect the program and press resume when you are ready to continue"
+      , NULL);
+    igPopTextWrapPos();
+    if (igButton("Resume", buttonSize)) {
+      grbl->cycle_start();
+    }
+    igEndPopup();
   }
 
   igBegin("Program", nullptr, ImGuiWindowFlags_None);
@@ -129,12 +170,10 @@ void panel_program(GrblMachine *grbl) {
 
       if (state->keyframes && roaring_bitmap_contains(state->keyframes, line_no)) {
         igTextColored({1.0f, 1.0f, 0.0f, 1.0f}, line->c_str());
-
-
       } else if (line_no == last_hovered_line) {
         igTextColored({1.0f, 0.0f, 1.0f, 1.0f}, line->c_str());
-      } else if (state->current_line == line_no) {
-        igTextColored({0.0f, 1.0f, 0.0f, 1.0f}, line->c_str());
+      } else if (state->current_line - 1 == line_no) {
+        igTextColored({0.5f, 0.5f, 1.0f, 1.0f}, line->c_str());
       } else {
         igTextUnformatted(line->c_str(), NULL);
       }
@@ -157,8 +196,7 @@ void panel_program(GrblMachine *grbl) {
   igSetScrollYFloat(state->current_line * line_height - line_height * 10.0f);
 
   igEndChild();
-  ImVec2 buttonSize = {75, 20};
-  ImVec2 spacerSize = {10, 0};
+
 
   if (!(state->status & PROGRAM_STATE_RUNNING)) {
     if (igButton("run", buttonSize)) {
@@ -188,7 +226,9 @@ void panel_program(GrblMachine *grbl) {
   if (igButton("abort", buttonSize)) {
     state->current_line = 0;
     state->pending_action = 0;
-    state->parser.reset();
+    // TODO: can we use state->parser instead of having two parsers?
+    grbl->tx_parser->reset();
+    grbl->soft_reset();
     if (state->status & PROGRAM_STATE_LOADED) {
       state->status = PROGRAM_STATE_LOADED;
     }
@@ -262,10 +302,11 @@ void panel_program(GrblMachine *grbl) {
 
 
     igText(
-      "status: ( %s) line: %zu action: %zu / %zu",
+      "status: ( %s) line: %zu action: %zu vs grbl (%zu / %zu)",
       status.handle,
       state->current_line,
       state->pending_action,
+      grbl->state->action_complete,
       grbl->state->action_pending
     );
     status.destroy();

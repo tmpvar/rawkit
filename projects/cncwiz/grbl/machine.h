@@ -343,6 +343,25 @@ struct GrblMachine {
     return this->state->action_complete >= id;
   }
 
+  bool is_line_unconditional_pause(int64_t line_no) {
+    if (this->tx_parser == nullptr) {
+      printf("tx_parser == nullptr\n");
+      return false;
+    }
+
+    gcode_line_t *line = this->tx_parser->line(line_no);
+    if (line == nullptr) {
+      return false;
+    }
+
+    if (stb_sb_count(line->pairs) == 1) {
+      float val = line->pairs[line_no].value;
+      return (val == 0.0f || val == 1.0f);
+    }
+
+    return false;
+  }
+
   grbl_action_id move_to(const vec3 pos, const float speed) {
     this->write("X");
     this->write(pos.x);
