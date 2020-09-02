@@ -131,7 +131,7 @@ void panel_program(GrblMachine *grbl) {
     igOpenPopup("Unconditionally Paused", 0);
   }
 
-  if (igBeginPopupModal("Unconditionally Paused", &is_unconditionally_paused, ImGuiWindowFlags_AlwaysAutoResize)) {
+  if (igBeginPopupModal("Unconditionally Paused", &is_unconditionally_paused, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar)) {
     igPushTextWrapPos(igGetFontSize() * 30.0f);
       igTextUnformatted(
         "The gcode program you are running has paused.\n\n"
