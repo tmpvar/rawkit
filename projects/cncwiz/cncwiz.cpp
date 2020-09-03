@@ -200,6 +200,12 @@ void panel_random(GrblMachine *grbl) {
   if (igButton("unlock", buttonSize)) {
     grbl->unlock();
   }
+  if (igButton("cycle start", buttonSize)) {
+    grbl->cycle_start();
+  }
+  if (igButton("feed hold", buttonSize)) {
+    grbl->feed_hold();
+  }
 
   igText("");
   igText("machine actions (%zu/%zu)", grbl->state->action_complete, grbl->state->action_pending);

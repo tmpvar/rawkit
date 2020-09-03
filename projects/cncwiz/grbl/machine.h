@@ -15,6 +15,15 @@ void vec3_copy(vec3 *dst, const vec3 *src) {
   dst->z = src->z;
 }
 
+
+bool vec3_eq(const vec3 *a, const vec3 *b) {
+  return (
+    a->x == b->x &&
+    a->y == b->y &&
+    a->z == b->z
+  );
+}
+
 enum grbl_probing_status {
   PROBING_NONE,
   PROBING_MOVE_TO_START,
@@ -131,7 +140,13 @@ struct GrblMachine {
 
     double now = rawkit_now();
     double last_fetch = this->state->last_fetch;
-    double pollingRate = this->state->state == GRBL_MACHINE_STATE_JOG
+    double pollingRate = (
+      this->state->state == GRBL_MACHINE_STATE_JOG ||
+      // reduce the amount of time we need to wait during
+      // a job abort, which uses feed hold to dequeue the
+      // current motion.
+      this->state->state == GRBL_MACHINE_STATE_HOLD
+    )
       ? .001
       : .2;
 
@@ -200,6 +215,11 @@ struct GrblMachine {
             break;
           case GRBL_TOKEN_TYPE_STATUS:
             this->state->action_complete++;
+            // TODO: sending commands while unconditionally paused sometimes
+            // causes the complete count to be larger than the pending count
+            if (this->state->action_complete > this->state->action_pending) {
+              this->state->action_complete = this->state->action_pending;
+            }
             break;
 
           case   GRBL_TOKEN_TYPE_WELCOME:
@@ -332,8 +352,8 @@ struct GrblMachine {
   }
 
   grbl_action_id end_action() {
+    this->write("\n");
     if (this->state->initialized) {
-      this->write("\n");
       this->state->action_pending += 1;
     }
     return this->state->action_pending;
@@ -341,25 +361,6 @@ struct GrblMachine {
 
   bool is_action_complete(grbl_action_id id) {
     return this->state->action_complete >= id;
-  }
-
-  bool is_line_unconditional_pause(int64_t line_no) {
-    if (this->tx_parser == nullptr) {
-      printf("tx_parser == nullptr\n");
-      return false;
-    }
-
-    gcode_line_t *line = this->tx_parser->line(line_no);
-    if (line == nullptr) {
-      return false;
-    }
-
-    if (stb_sb_count(line->pairs) == 1) {
-      float val = line->pairs[line_no].value;
-      return (val == 0.0f || val == 1.0f);
-    }
-
-    return false;
   }
 
   grbl_action_id move_to(const vec3 pos, const float speed) {

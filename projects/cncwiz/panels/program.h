@@ -31,6 +31,9 @@ struct cncwiz_program_state {
   int64_t current_line;
   grbl_action_id pending_action;
   roaring_bitmap_t *keyframes;
+
+  vec3 last_machine_position;
+  uint8_t aborting;
 };
 
 // const char *path = "E:\\cnc\\gcode\\";
@@ -119,7 +122,7 @@ void panel_program(GrblMachine *grbl) {
     if (l) {
       if (
         l->type == GCODE_LINE_TYPE_M &&
-        (l->code == 0.0f || l->code == 0.0f) &&
+        (l->code == 0.0f || l->code == 1.0f) &&
         grbl->state->state == GRBL_MACHINE_STATE_HOLD
       ) {
         is_unconditionally_paused = true;
@@ -127,7 +130,7 @@ void panel_program(GrblMachine *grbl) {
     }
   }
 
-  if (is_unconditionally_paused) {
+  if (!state->aborting && is_unconditionally_paused) {
     igOpenPopup("Unconditionally Paused", 0);
   }
 
@@ -220,18 +223,45 @@ void panel_program(GrblMachine *grbl) {
     }
   }
 
+  if (state->aborting) {
+    const vec3 current = grbl->state->machine_position;
+
+    if (grbl->state->state == GRBL_MACHINE_STATE_HOLD) {
+      if (vec3_eq(&state->last_machine_position, &current)) {
+        // ensure the coords are stable for 5 frames
+        if ((state->aborting++) > 5) {
+          state->current_line = 0;
+          state->pending_action = -1;
+          // // TODO: can we use state->parser instead of having two parsers?
+          grbl->tx_parser->reset();
+          state->aborting = 0;
+          grbl->soft_reset();
+
+          if (state->status & PROGRAM_STATE_LOADED) {
+            state->status = PROGRAM_STATE_LOADED;
+          }
+        }
+      } else {
+        state->aborting = 1;
+        vec3_copy(&state->last_machine_position, &current);
+      }
+    }
+  }
+
   igSameLine(0.0, 1.0);
   igDummy(spacerSize);
   igSameLine(0.0, 1.0);
   if (igButton("abort", buttonSize)) {
-    state->current_line = 0;
-    state->pending_action = 0;
-    // TODO: can we use state->parser instead of having two parsers?
-    grbl->tx_parser->reset();
-    grbl->soft_reset();
-    if (state->status & PROGRAM_STATE_LOADED) {
-      state->status = PROGRAM_STATE_LOADED;
-    }
+    // abort procedure
+    // - feed hold
+    // - wait for two ? queries to return the same MPos
+    // - soft reset
+    grbl->feed_hold();
+    state->aborting = 1;
+    vec3_copy(
+      &state->last_machine_position,
+      &grbl->state->machine_position
+    );
   }
   igSameLine(0.0, 1.0);
 
@@ -302,9 +332,9 @@ void panel_program(GrblMachine *grbl) {
 
 
     igText(
-      "status: ( %s) line: %zu action: %zu vs grbl (%zu / %zu)",
+      "status: ( %s) line: %i action: %i vs grbl (%zu / %zu)",
       status.handle,
-      state->current_line,
+      state->current_line - 1,
       state->pending_action,
       grbl->state->action_complete,
       grbl->state->action_pending
