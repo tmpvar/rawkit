@@ -322,6 +322,14 @@ struct GrblMachine {
     this->sp.write("?");
   }
 
+  bool is_idle() {
+    const GrblState *s = this->state;
+    return (
+      s->state == GRBL_MACHINE_STATE_IDLE &&
+      s->last_state == GRBL_MACHINE_STATE_IDLE
+    );
+  }
+
   void write(const char *str) {
     const size_t l = strlen(str);
     for (size_t i=0; i<l; i++) {

@@ -90,7 +90,7 @@ void panel_program(GrblMachine *grbl) {
             !(last_line->words & (1<<GCODE_AXIS_WORD_X))
           );
 
-          if (z_only) {
+          if (z_only && last_line->parser_state.motion_mode == GCODE_MOTION_MODE_G0) {
             gcode_word_pair_t* pairs = last_line->pairs;
             const size_t pair_count = stb_sb_count(pairs);
             for (size_t pair_idx = 0; pair_idx < pair_count; pair_idx++) {
@@ -139,12 +139,20 @@ void panel_program(GrblMachine *grbl) {
       igTextUnformatted(
         "The gcode program you are running has paused.\n\n"
         "This typically occurs around tool changes and such.\n\n"
-        "Please inspect the program and press resume when you are ready to continue"
+        "Please inspect the program and press resume when you are ready to continue\n\n"
       , NULL);
     igPopTextWrapPos();
+    igDummy({ 0.0f, 0.0f });
+    igSameLine(0.0f, 50.0f);
+    if (igButton("Abort", buttonSize)) {
+      state->aborting = 1;
+      grbl->feed_hold();
+    }
+    igSameLine(0.0f, 100.0f);
     if (igButton("Resume", buttonSize)) {
       grbl->cycle_start();
     }
+
     igEndPopup();
   }
 
@@ -263,39 +271,40 @@ void panel_program(GrblMachine *grbl) {
       &grbl->state->machine_position
     );
   }
-  igSameLine(0.0, 1.0);
 
-  igSameLine(0.0, 100.0);
-  if (igButton("load", buttonSize)) {
-    // TODO: this is sort of pointless as tinyfd blocks the render loop.
-    state->status = PROGRAM_STATE_BROWSING;
+  if (grbl->is_idle()) {
+    igSameLine(0.0, 100.0);
+    if (igButton("load", buttonSize)) {
+      // TODO: this is sort of pointless as tinyfd blocks the render loop.
+      state->status = PROGRAM_STATE_BROWSING;
 
-    char *result = tinyfd_openFileDialog(
-	    NULL,
-      // TODO: pull this from config/settings
-      "E:\\cnc\\gcode",
-      CNCWIZ_PROGRAM_FILE_FILTER_COUNT,
-	    cncwiz_program_file_filter,
-	    "gcode files",
-      0
-    );
+      char *result = tinyfd_openFileDialog(
+        NULL,
+        // TODO: pull this from config/settings
+        "E:\\cnc\\gcode",
+        CNCWIZ_PROGRAM_FILE_FILTER_COUNT,
+        cncwiz_program_file_filter,
+        "gcode files",
+        0
+      );
 
-    if (result) {
-      state->status = PROGRAM_STATE_LOADING;
-      state->program.clear();
-      state->program_file.set_c_str(result);
-      state->pending_action = -1;
-      state->current_line = 0;
-      state->parser.reset();
+      if (result) {
+        state->status = PROGRAM_STATE_LOADING;
+        state->program.clear();
+        state->program_file.set_c_str(result);
+        state->pending_action = -1;
+        state->current_line = 0;
+        state->parser.reset();
 
-      if (state->keyframes != NULL) {
-        roaring_bitmap_clear(state->keyframes);
-      } else {
-        state->keyframes = roaring_bitmap_create();
+        if (state->keyframes != NULL) {
+          roaring_bitmap_clear(state->keyframes);
+        } else {
+          state->keyframes = roaring_bitmap_create();
+        }
       }
-    }
 
-    printf("LOADED: %s\n", result);
+      printf("LOADED: %s\n", result);
+    }
   }
 
   // display current status
