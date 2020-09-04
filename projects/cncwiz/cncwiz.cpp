@@ -213,16 +213,172 @@ void panel_random(GrblMachine *grbl) {
   igEnd();
 }
 
+
+bool overlay_disconnected(GrblMachine *grbl) {
+  if (!grbl->sp.valid()) {
+    igOpenPopup("overlay::disconnected", 0);
+
+    igBeginPopupModal(
+      "overlay::disconnected",
+      0,
+      ImGuiWindowFlags_AlwaysAutoResize |
+      ImGuiWindowFlags_NoTitleBar |
+      ImGuiWindowFlags_NoMove
+    );
+
+    igPushTextWrapPos(igGetFontSize() * 30.0f);
+      igTextUnformatted(
+        "grbl is not connected...\n\n"
+      , NULL);
+    igPopTextWrapPos();
+    igEndPopup();
+    return true;
+  }
+  return false;
+}
+
+bool overlay_initializing(GrblMachine *grbl) {
+  if (!grbl->state->initialized) {
+    igOpenPopup("overlay::initializing", 0);
+
+    igBeginPopupModal(
+      "overlay::initializing",
+      0,
+      ImGuiWindowFlags_AlwaysAutoResize |
+      ImGuiWindowFlags_NoTitleBar |
+      ImGuiWindowFlags_NoMove
+    );
+
+    igPushTextWrapPos(igGetFontSize() * 30.0f);
+      igTextUnformatted(
+        "grbl is initializing...\n\n"
+      , NULL);
+    igPopTextWrapPos();
+    igEndPopup();
+    return true;
+  }
+  return false;
+}
+
+bool overlay_alarm(GrblMachine *grbl) {
+  if (grbl->state->state == GRBL_MACHINE_STATE_ALARM) {
+    igOpenPopup("overlay::alarm", 0);
+
+    igBeginPopupModal(
+      "overlay::alarm",
+      0,
+      ImGuiWindowFlags_AlwaysAutoResize |
+      ImGuiWindowFlags_NoTitleBar |
+      ImGuiWindowFlags_NoMove
+    );
+
+    igPushTextWrapPos(igGetFontSize() * 25.0f);
+      igTextUnformatted(
+        "grbl is in an alarm state!\n\n"
+        "You should probably click the Home button below.\n\n"
+      , NULL);
+    igPopTextWrapPos();
+
+    ImVec2 buttonSize = {75, 20};
+    ImVec2 spacerSize = {10, 0};
+
+    // Home button
+    {
+      igPushStyleColorVec4(ImGuiCol_Button, ImVec4{0.0f, 0.7f, 0.0f, 1.0f});
+      ImVec2 homeButtonSize = {0.0, 0.0};
+      igGetContentRegionAvail(&homeButtonSize);
+      homeButtonSize.y = 40.0;
+      if (igButton("Home", homeButtonSize)) {
+        grbl->home();
+      }
+      igPopStyleColor(1);
+    }
+
+    igPushTextWrapPos(igGetFontSize() * 25.0f);
+    igTextUnformatted(
+      "\n"
+      "The Unlock button is here in case you need to unlock and "
+      "jog the machine before it can be safely homed.\n\n",
+      NULL
+    );
+    igPopTextWrapPos();
+
+    // Home button
+    {
+      igPushStyleColorVec4(ImGuiCol_Button, ImVec4{1.0f, 0.3f, 0.0f, 1.0f});
+      ImVec2 unlockButtonSize = {0.0, 0.0};
+      igGetContentRegionAvail(&unlockButtonSize);
+      unlockButtonSize.y = 40.0;
+      if (igButton("Unlock", unlockButtonSize)) {
+        grbl->unlock();
+      }
+      igPopStyleColor(1);
+    }
+
+    igDummy({0.0f, 0.0f});
+    igEndPopup();
+    return true;
+  }
+  return false;
+}
+
+bool overlay_homing(GrblMachine *grbl) {
+  if (grbl->state->state == GRBL_MACHINE_STATE_HOME) {
+    igOpenPopup("overlay::homing", 0);
+
+    igBeginPopupModal(
+      "overlay::homing",
+      0,
+      ImGuiWindowFlags_AlwaysAutoResize |
+      ImGuiWindowFlags_NoTitleBar |
+      ImGuiWindowFlags_NoMove
+    );
+
+    igPushTextWrapPos(igGetFontSize() * 25.0f);
+      igTextUnformatted(
+        "grbl is homing...\n\n"
+      , NULL);
+    igPopTextWrapPos();
+
+    // Cancel homing
+    {
+      igPushStyleColorVec4(ImGuiCol_Button, ImVec4{1.0f, 0.0f, 0.0f, 1.0f});
+      ImVec2 cancelButtonSize = {0.0, 0.0};
+      igGetContentRegionAvail(&cancelButtonSize);
+      cancelButtonSize.y = 40.0;
+      if (igButton("Cancel", cancelButtonSize) || igIsKeyReleased(0x100)) {
+        grbl->soft_reset();
+      }
+
+      igPopStyleColor(1);
+    }
+
+    igEndPopup();
+    return true;
+  }
+  return false;
+}
+
+
 void loop() {
   // this implicitly ticks the underlying serialport
   GrblMachine grbl;
 
-  // grab bag of functionality until it all finds a home
-  panel_random(&grbl);
+  bool unlocked = (
+    !overlay_homing(&grbl) &&
+    !overlay_disconnected(&grbl) &&
+    !overlay_initializing(&grbl) &&
+    !overlay_alarm(&grbl)
+  );
 
-  panel_jog(&grbl);
-  panel_terminal(&grbl);
-  panel_status(&grbl);
-  panel_probe(&grbl);
-  panel_program(&grbl);
+  if (unlocked) {
+    // grab bag of functionality until it all finds a home
+    panel_random(&grbl);
+
+    panel_status(&grbl);
+    panel_jog(&grbl);
+    panel_terminal(&grbl);
+    panel_probe(&grbl);
+    panel_program(&grbl);
+  }
 }

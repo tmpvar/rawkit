@@ -210,7 +210,6 @@ struct GrblMachine {
         const grbl_response_token_t *token = this->rx_parser->token(this->state->token_index);
         switch (token->type) {
           case GRBL_TOKEN_TYPE_ALARM:
-            this->state->initialized = false;
             this->state->state = GRBL_MACHINE_STATE_ALARM;
             break;
           case GRBL_TOKEN_TYPE_STATUS:
@@ -222,9 +221,10 @@ struct GrblMachine {
             }
             break;
 
-          case   GRBL_TOKEN_TYPE_WELCOME:
+          case GRBL_TOKEN_TYPE_WELCOME:
             this->state->last_fetch = 0.0;
             this->state->initialized = true;
+            this->state->state = GRBL_MACHINE_STATE_ALARM;
             break;
 
           case GRBL_TOKEN_TYPE_MACHINE_STATE:
@@ -405,8 +405,8 @@ struct GrblMachine {
   }
 
   grbl_action_id home() {
-    this->write("$h");
     this->state->state = GRBL_MACHINE_STATE_HOME;
+    this->write("$h");
     return this->end_action();
   }
 
