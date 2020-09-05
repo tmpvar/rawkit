@@ -364,3 +364,54 @@ TEST_CASE("[gcode] non-overlapping G codes") {
     printf("feed rate @ 1234mm/m:\n  %s\n", gcode_parser_state_debug(&p.handle->parser_state));
   }
 }
+
+TEST_CASE("[gcode] position tracking") {
+  // basic G1 moves
+  {
+    GCODEParser p;
+    ok(p.push("G1X10\n") == GCODE_RESULT_TRUE);
+    {
+      ok(p.line(0)->parser_state.start_x == 0.0f);
+      ok(p.line(0)->parser_state.start_y == 0.0f);
+      ok(p.line(0)->parser_state.start_z == 0.0f);
+
+      ok(p.line(0)->parser_state.end_x == 10.0f);
+      ok(p.line(0)->parser_state.end_y == 0.0f);
+      ok(p.line(0)->parser_state.end_z == 0.0f);
+    }
+
+
+    ok(p.push("G1X20Y10\n") == GCODE_RESULT_TRUE);
+    {
+      ok(p.line(1)->parser_state.start_x == 10.0f);
+      ok(p.line(1)->parser_state.start_y == 0.0f);
+      ok(p.line(1)->parser_state.start_z == 0.0f);
+
+      ok(p.line(1)->parser_state.end_x == 20.0f);
+      ok(p.line(1)->parser_state.end_y == 10.0f);
+      ok(p.line(1)->parser_state.end_z == 0.0f);
+    }
+
+    ok(p.push("G1X30Y20Z10\n") == GCODE_RESULT_TRUE);
+    {
+      ok(p.line(2)->parser_state.start_x == 20.0f);
+      ok(p.line(2)->parser_state.start_y == 10.0f);
+      ok(p.line(2)->parser_state.start_z == 0.0f);
+
+      ok(p.line(2)->parser_state.end_x == 30.0f);
+      ok(p.line(2)->parser_state.end_y == 20.0f);
+      ok(p.line(2)->parser_state.end_z == 10.0f);
+    }
+
+    ok(p.push("G1X40Y30Z20\n") == GCODE_RESULT_TRUE);
+    {
+      ok(p.line(3)->parser_state.start_x == 30.0f);
+      ok(p.line(3)->parser_state.start_y == 20.0f);
+      ok(p.line(3)->parser_state.start_z == 10.0f);
+
+      ok(p.line(3)->parser_state.end_x == 40.0f);
+      ok(p.line(3)->parser_state.end_y == 30.0f);
+      ok(p.line(3)->parser_state.end_z == 20.0f);
+    }
+  }
+}

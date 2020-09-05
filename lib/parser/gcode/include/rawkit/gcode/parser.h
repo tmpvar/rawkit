@@ -263,7 +263,6 @@ enum gcode_coolant_state {
   GCODE_COOLANT_STATE_M9,
 };
 
-
 struct gcode_parser_state_t {
   gcode_non_modal_command non_modal_command;
   gcode_control_mode control_mode;
@@ -282,6 +281,15 @@ struct gcode_parser_state_t {
   float feed_rate;
   int32_t spindle_speed;
   int16_t tool;
+
+  // TODO: vec3?
+  float start_x;
+  float start_y;
+  float start_z;
+  float end_x;
+  float end_y;
+  float end_z;
+
 };
 
 typedef struct gcode_line_t {
@@ -409,7 +417,7 @@ char *gcode_parser_state_debug(const gcode_parser_state_t *parser_state) {
 // order to access state as of a line, the main parser's state is memcpy'd back to the
 // line's parser state. Meaning, we can access the complete parser state as it was at
 // any line - this is important for resuming jobs that have been aborted.
-void gcode_parser_state_merge(gcode_parser_state_t *main_state, gcode_line_t *line) {
+void gcode_parser_state_merge(gcode_parser_state_t *main_state, gcode_line_t *line, gcode_line_t *previous_line) {
   gcode_parser_state_t *line_state = &line->parser_state;
   if (main_state == NULL || line_state == NULL) {
     gcode_debug("gcode_parser_state_merge was passed a null pointer");
@@ -432,13 +440,6 @@ void gcode_parser_state_merge(gcode_parser_state_t *main_state, gcode_line_t *li
     main_state->motion_mode = line_state->motion_mode;
   } else if (main_state->motion_mode == GCODE_MOTION_MODE_NONE) {
     main_state->motion_mode = GCODE_MOTION_MODE_G0;
-/*    if (
-      (line->words & GCODE_AXIS_WORD_X) ||
-      (line->words & GCODE_AXIS_WORD_Y) ||
-      (line->words & GCODE_AXIS_WORD_Z)
-    ) {
-      line->
-    }*/
   }
 
   if (line_state->wcs_select != GCODE_WCS_SELECT_NONE) {
@@ -505,6 +506,36 @@ void gcode_parser_state_merge(gcode_parser_state_t *main_state, gcode_line_t *li
 
   if (line->words & (1<<GCODE_WORD_T)) {
     main_state->tool = line_state->tool;
+  }
+
+  // propagate the current position
+  {
+    if (previous_line) {
+      line_state->start_x = previous_line->parser_state.end_x;
+      main_state->start_x = previous_line->parser_state.end_x;
+
+      line_state->start_y = previous_line->parser_state.end_y;
+      main_state->start_y = previous_line->parser_state.end_y;
+
+      line_state->start_z = previous_line->parser_state.end_z;
+      main_state->start_z = previous_line->parser_state.end_z;
+    } else {
+      line_state->start_x = 0.0f;
+      line_state->start_y = 0.0f;
+      line_state->start_z = 0.0f;
+    }
+
+    if (line->words & (1<<GCODE_WORD_X)) {
+      main_state->end_x = line_state->end_x;
+    }
+
+    if (line->words & (1<<GCODE_WORD_Y)) {
+      main_state->end_y = line_state->end_y;
+    }
+
+    if (line->words & (1<<GCODE_WORD_Z)) {
+      main_state->end_z = line_state->end_z;
+    }
   }
 
   memcpy(line_state, main_state, sizeof(gcode_parser_state_t));
@@ -1019,6 +1050,18 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
       case 'T':
         line->parser_state.tool = (int16_t)pair.value;
         break;
+
+      // TODO: handle
+      case 'X':
+
+        line->parser_state.end_x = pair.value;
+        break;
+      case 'Y':
+        line->parser_state.end_y = pair.value;
+        break;
+      case 'Z':
+        line->parser_state.end_z = pair.value;
+        break;
     }
 
     line->words |= mask;
@@ -1046,7 +1089,10 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
     }
   }
 
-  gcode_line_t *current_line = &parser->lines[stb_sb_count(parser->lines) - 1];
+  int32_t total_lines = stb_sb_count(parser->lines);
+
+  gcode_line_t *current_line = &parser->lines[total_lines - 1];
+
   if (c == '\n') {
     if  (parser->pending_loc == 0) {
       current_line->type = GCODE_LINE_TYPE_EMPTY;
@@ -1089,7 +1135,10 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
       //       there probably needs to be global parserstate for this.
     }
 
-    gcode_parser_state_merge(&parser->parser_state, current_line);
+    gcode_line_t *previous_line = (total_lines >= 2)
+      ? &parser->lines[total_lines - 2]
+      : NULL;
+    gcode_parser_state_merge(&parser->parser_state, current_line, previous_line);
 
     return gcode_parser_new_line(parser);
   }
