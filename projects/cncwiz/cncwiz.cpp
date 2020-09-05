@@ -14,6 +14,13 @@
 void setup() {}
 
 void panel_jog(GrblMachine *grbl) {
+  if (
+    grbl->state->state != GRBL_MACHINE_STATE_IDLE &&
+    grbl->state->state != GRBL_MACHINE_STATE_JOG
+  ) {
+    return;
+  }
+
   igBegin(
     "Jog",
     nullptr,
@@ -212,7 +219,6 @@ void panel_random(GrblMachine *grbl) {
 
   igEnd();
 }
-
 
 bool overlay_disconnected(GrblMachine *grbl) {
   if (!grbl->sp.valid()) {

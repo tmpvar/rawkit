@@ -34,6 +34,7 @@ struct cncwiz_program_state {
 
   vec3 last_machine_position;
   uint8_t aborting;
+  bool autoscroll;
 };
 
 // const char *path = "E:\\cnc\\gcode\\";
@@ -67,7 +68,7 @@ void panel_program(GrblMachine *grbl) {
     const size_t len = state->program.length();
     if (len) {
       state->status = PROGRAM_STATE_LOADED;
-
+      state->autoscroll = 1;
       for (size_t i = 0; i<len; i++) {
         const String *line = state->program.item(i);
         if (line == NULL) {
@@ -158,7 +159,7 @@ void panel_program(GrblMachine *grbl) {
 
   igBegin("Program", nullptr, ImGuiWindowFlags_None);
 
-  ImVec2 scrollingRegionSize = {0, -90};
+  ImVec2 scrollingRegionSize = {0, -100};
   igBeginChildStr(
     "ScrollingRegion",
     scrollingRegionSize,
@@ -203,11 +204,19 @@ void panel_program(GrblMachine *grbl) {
     }
   }
   ImGuiListClipper_End(&clipper);
-
-  igSetScrollYFloat(state->current_line * line_height - line_height * 10.0f);
+  if (state->autoscroll) {
+    igSetScrollYFloat(state->current_line * line_height - line_height * 10.0f);
+  }
 
   igEndChild();
 
+  if (state->autoscroll && igIsItemHovered(0) && igGetIO()->MouseWheel != 0) {
+    state->autoscroll = 0;
+  }
+
+  igCheckbox("autoscroll", &state->autoscroll);
+
+  igDummy({ 40.0f, 10.0f });
 
   if (!(state->status & PROGRAM_STATE_RUNNING)) {
     if (igButton("run", buttonSize)) {
@@ -259,7 +268,8 @@ void panel_program(GrblMachine *grbl) {
   igSameLine(0.0, 1.0);
   igDummy(spacerSize);
   igSameLine(0.0, 1.0);
-  if (igButton("abort", buttonSize)) {
+
+  if (!grbl->is_idle() && igButton("abort", buttonSize)) {
     // abort procedure
     // - feed hold
     // - wait for two ? queries to return the same MPos
@@ -273,7 +283,7 @@ void panel_program(GrblMachine *grbl) {
   }
 
   if (grbl->is_idle()) {
-    igSameLine(0.0, 100.0);
+    igSameLine(0.0, 0.0);
     if (igButton("load", buttonSize)) {
       // TODO: this is sort of pointless as tinyfd blocks the render loop.
       state->status = PROGRAM_STATE_BROWSING;

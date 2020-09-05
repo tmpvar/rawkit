@@ -2,6 +2,11 @@
 #include "../grbl/machine.h"
 
 void panel_probe(GrblMachine *grbl) {
+
+  if (!grbl->is_idle()) {
+    return;
+  }
+
   igBegin("Probe", nullptr, 0);
 
   ImVec2 wideButtonSize = {0.0, 0.0};
