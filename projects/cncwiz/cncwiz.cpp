@@ -15,7 +15,7 @@ void setup() {}
 
 void panel_jog(GrblMachine *grbl) {
   if (
-    grbl->state->state != GRBL_MACHINE_STATE_IDLE &&
+    !grbl->is_idle() &&
     grbl->state->state != GRBL_MACHINE_STATE_JOG
   ) {
     return;

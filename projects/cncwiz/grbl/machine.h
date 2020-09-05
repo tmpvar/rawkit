@@ -93,6 +93,8 @@ struct GrblState {
   grbl_action_id action_complete;
 
   String tx_line;
+
+  bool force_not_idle;
 };
 
 #define GRBL_ACTION_INVALID -1
@@ -334,7 +336,8 @@ struct GrblMachine {
     const GrblState *s = this->state;
     return (
       s->state == GRBL_MACHINE_STATE_IDLE &&
-      s->last_state == GRBL_MACHINE_STATE_IDLE
+      s->last_state == GRBL_MACHINE_STATE_IDLE &&
+      !s->force_not_idle
     );
   }
 

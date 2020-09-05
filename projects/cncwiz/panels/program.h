@@ -62,6 +62,39 @@ void panel_program(GrblMachine *grbl) {
     nullptr
   );
 
+  // Ensure grbl's idle state reflects the current program run state
+  {
+    if (
+      (state->status & PROGRAM_STATE_PAUSED) ||
+      (state->status & PROGRAM_STATE_RUNNING)
+    ) {
+      grbl->state->force_not_idle = true;
+    } else {
+      grbl->state->force_not_idle = false;
+    }
+  }
+
+  // Handle grbl disconnections while the job is running
+  {
+    bool grbl_able_to_run = (
+      (
+        grbl->state->state == GRBL_MACHINE_STATE_IDLE ||
+        grbl->state->state == GRBL_MACHINE_STATE_RUN ||
+        grbl->state->state == GRBL_MACHINE_STATE_HOLD
+      )
+    );
+
+    if (!grbl_able_to_run && state->status > PROGRAM_STATE_LOADED) {
+      state->status = PROGRAM_STATE_LOADED;
+      state->pending_action = -1;
+      grbl->state->action_complete = 0;
+      grbl->state->action_pending = 0;
+      // TODO: can we use state->parser instead of having two parsers?
+      grbl->tx_parser->reset();
+      state->aborting = 0;
+    }
+  }
+
   if (state->status & PROGRAM_STATE_LOADING) {
     state->program.destroy();
     state->program = readfile_lines(state->program_file.handle);
@@ -184,7 +217,9 @@ void panel_program(GrblMachine *grbl) {
         igTextColored({1.0f, 1.0f, 0.0f, 1.0f}, line->c_str());
       } else if (line_no == last_hovered_line) {
         igTextColored({1.0f, 0.0f, 1.0f, 1.0f}, line->c_str());
-      } else if (state->current_line - 1 == line_no) {
+      // } else if (state->current_line - 1 == line_no) {
+      //   igTextColored({0.5f, 0.5f, 1.0f, 1.0f}, line->c_str());
+      } else if (state->current_line == line_no) {
         igTextColored({0.5f, 0.5f, 1.0f, 1.0f}, line->c_str());
       } else {
         igTextUnformatted(line->c_str(), NULL);
@@ -219,7 +254,15 @@ void panel_program(GrblMachine *grbl) {
   igDummy({ 40.0f, 10.0f });
 
   if (!(state->status & PROGRAM_STATE_RUNNING)) {
-    if (igButton("run", buttonSize)) {
+
+    bool pressed = false;
+    if (state->status & PROGRAM_STATE_PAUSED) {
+      pressed = igButton("continue", buttonSize);
+    } else {
+      pressed = igButton("run", buttonSize);
+    }
+
+    if (pressed) {
       if (state->status & PROGRAM_STATE_LOADED) {
         grbl->cycle_start();
         if (!(state->status & PROGRAM_STATE_RUNNING)) {
@@ -247,7 +290,6 @@ void panel_program(GrblMachine *grbl) {
       if (vec3_eq(&state->last_machine_position, &current)) {
         // ensure the coords are stable for 5 frames
         if ((state->aborting++) > 5) {
-          state->current_line = 0;
           state->pending_action = -1;
           // // TODO: can we use state->parser instead of having two parsers?
           grbl->tx_parser->reset();
@@ -317,6 +359,35 @@ void panel_program(GrblMachine *grbl) {
     }
   }
 
+  // button for resetting the current line to 0
+  {
+    bool can_reset_current_line = (
+      state->current_line > 0 &&
+      grbl->is_idle() &&
+      state->status == PROGRAM_STATE_LOADED
+    );
+
+    if (can_reset_current_line) {
+      igSameLine(0.0, 10.0);
+      if (igButton("reset", buttonSize)) {
+        state->current_line = 0;
+        state->autoscroll = true;
+      }
+
+      if (igIsItemHovered(0)){
+          igBeginTooltip();
+          igPushTextWrapPos(igGetFontSize() * 35.0f);
+          igTextUnformatted(
+            "Reset the starting point of this program\n"
+            "back to the first line.\n",
+            NULL
+          );
+          igPopTextWrapPos();
+          igEndTooltip();
+      }
+    }
+  }
+
   // display current status
   {
     String status("");
@@ -353,7 +424,7 @@ void panel_program(GrblMachine *grbl) {
     igText(
       "status: ( %s) line: %i action: %i vs grbl (%zu / %zu)",
       status.handle,
-      state->current_line - 1,
+      state->current_line,
       state->pending_action,
       grbl->state->action_complete,
       grbl->state->action_pending
