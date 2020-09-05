@@ -323,7 +323,7 @@ bool overlay_alarm(GrblMachine *grbl) {
 }
 
 bool overlay_homing(GrblMachine *grbl) {
-  if (grbl->state->state == GRBL_MACHINE_STATE_HOME) {
+  if (grbl->state->state == GRBL_MACHINE_STATE_HOMING) {
     igOpenPopup("overlay::homing", 0);
 
     igBeginPopupModal(
@@ -364,20 +364,33 @@ void loop() {
   // this implicitly ticks the underlying serialport
   GrblMachine grbl;
 
-  bool unlocked = (
-    !overlay_homing(&grbl) &&
-    !overlay_disconnected(&grbl) &&
-    !overlay_initializing(&grbl) &&
-    !overlay_alarm(&grbl)
+
+  bool booting = (
+    overlay_disconnected(&grbl) ||
+    overlay_initializing(&grbl)
   );
+
+  if (booting) {
+    return;
+  }
+
+  panel_status(&grbl);
+  panel_terminal(&grbl);
+
+
+  bool unlocked = (
+    !overlay_alarm(&grbl) &&
+    !overlay_homing(&grbl)
+  );
+
 
   if (unlocked) {
     // grab bag of functionality until it all finds a home
     panel_random(&grbl);
 
-    panel_status(&grbl);
+
     panel_jog(&grbl);
-    panel_terminal(&grbl);
+
     panel_probe(&grbl);
     panel_program(&grbl);
   }

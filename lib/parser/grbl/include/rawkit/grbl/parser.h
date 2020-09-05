@@ -167,6 +167,7 @@ typedef struct grbl_msg_version_t {
 } grbl_msg_version_t;
 
 enum grbl_machine_state {
+  // standard grbl machine states
   GRBL_MACHINE_STATE_ALARM,
   GRBL_MACHINE_STATE_CHECK,
   GRBL_MACHINE_STATE_DOOR,
@@ -176,6 +177,12 @@ enum grbl_machine_state {
   GRBL_MACHINE_STATE_JOG,
   GRBL_MACHINE_STATE_RUN,
   GRBL_MACHINE_STATE_SLEEP,
+
+  // Grbl stops responding to ? while homing, keeping the status as idle.
+  // this allows the users of this library to set the active state and
+  // have it differ from the home state, which ticks once after the homing
+  // cycle has completed.
+  GRBL_MACHINE_STATE_HOMING,
 
   GRBL_MACHINE_STATE_COUNT
 };
@@ -278,7 +285,8 @@ const char *grbl_machine_state_str[GRBL_MACHINE_STATE_COUNT] = {
   "Idle",
   "Jog",
   "Run",
-  "Sleep"
+  "Sleep",
+  "Homing"
 };
 
 typedef struct grbl_msg_machine_state_t {
@@ -653,7 +661,7 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
         if (buf == NULL) {
           return GRBL_ERROR;
         }
-        
+
         sb_push(parser->tokens, token);
         continue;
       }
@@ -675,7 +683,7 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
       if (strstr(buf, "Bf:") == buf) {
         token.type = GRBL_TOKEN_TYPE_BUFFER_STATE;
         buf = advance(buf, &len, 3);
-        
+
         buf = read_uint32(
           &token.buffer_state.available_blocks,
           buf,
@@ -719,7 +727,7 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
         buf = advance(buf, &len, 2);
         buf = read_uint32(&token.feed_and_spindle.feed, buf, &len);
         token.feed_and_spindle.spindle = 0;
-        
+
         if (buf == NULL) {
           return GRBL_ERROR;
         }
@@ -861,7 +869,7 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
     {
       grbl_response_token_t token;
       token.type = GRBL_TOKEN_TYPE_SETTING_VALUE;
-      
+
       switch (key) {
         // mask values
         case GRBL_SETTING_INVERT_STEP_PULSE_MASK:
@@ -877,7 +885,7 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
             token.u8 = v & 0xFF;
           }
         break;
-        
+
         // boolean values
         case GRBL_SETTING_INVERT_STEP_ENABLE_PIN:
         case GRBL_SETTING_INVERT_LIMIT_PINS:
@@ -949,7 +957,7 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
   // handle messages
   if (buf[0] == '[') {
     grbl_response_token_t token;
-    
+
     buf = advance(buf, &len, 1);
     if (buf == NULL) {
       return GRBL_ERROR;
@@ -1035,7 +1043,7 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
       if (buf == NULL) {
         return GRBL_ERROR;
       }
-      
+
       buf = read_uint32(&token.build_options.buffer_state.available_blocks, buf, &len);
       if (buf == NULL) {
         return GRBL_ERROR;
@@ -1136,7 +1144,7 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
           }
           continue;
         }
-        
+
         if (c == 'M') {
           switch (whole) {
             case 0: state->program_mode = M0; break;
@@ -1260,7 +1268,7 @@ int grbl_parser_tokenize_current_line(grbl_parser_t *parser) {
 // returns true on newline because at that point we should have a valid
 // parser->response
 int grbl_parser_input(grbl_parser_t *parser, const char c) {
-  // ignore 
+  // ignore
   if (c == '\r') {
     return GRBL_FALSE;
   }

@@ -162,9 +162,7 @@ struct GrblMachine {
       }
 
       if (this->state->state != GRBL_MACHINE_STATE_ALARM) {
-        if (this->state->last_state != this->state->state) {
-          this->state->last_state = this->state->state;
-        }
+        this->state->last_state = this->state->state;
       }
     }
 
@@ -215,7 +213,8 @@ struct GrblMachine {
           case GRBL_TOKEN_TYPE_STATUS:
             this->state->action_complete++;
             // TODO: sending commands while unconditionally paused sometimes
-            // causes the complete count to be larger than the pending count
+            // causes the complete count to be larger than the pending count.
+            // This fixes the issue, but I'm not sure if it causes other bugs.
             if (this->state->action_complete > this->state->action_pending) {
               this->state->action_complete = this->state->action_pending;
             }
@@ -228,7 +227,16 @@ struct GrblMachine {
             break;
 
           case GRBL_TOKEN_TYPE_MACHINE_STATE:
-            this->state->state = token->machine_state.value;
+            // Sometimes we get an errant `?` response while homing that causes
+            // GrblMachine to incorrectly mark its status as idle. This guard
+            // prevents this by using the special "homing" state to ignore this
+            // one off packet.
+            if (
+              this->state->state != GRBL_MACHINE_STATE_HOMING ||
+              token->machine_state.value == GRBL_MACHINE_STATE_HOME
+            ) {
+              this->state->state = token->machine_state.value;
+            }
             break;
 
           case GRBL_TOKEN_TYPE_MACHINE_POSITION:
@@ -405,7 +413,7 @@ struct GrblMachine {
   }
 
   grbl_action_id home() {
-    this->state->state = GRBL_MACHINE_STATE_HOME;
+    this->state->state = GRBL_MACHINE_STATE_HOMING;
     this->write("$h");
     return this->end_action();
   }
