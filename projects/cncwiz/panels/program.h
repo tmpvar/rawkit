@@ -103,16 +103,17 @@ String overlay_program_resume(GrblMachine *grbl, cncwiz_program_state *state, gc
     }
 
     // move to a safe z
-    acc.append_c_str("G53 G1 Z0 F1000\n");
+    acc.append_c_str("G53 G0 Z0\n");
 
     // dwell while we let the spindle spool for N seconds
     // TODO: allow spindle spool time to be configured
     int spindle_spool_seconds = 1;
     acc.append("G4 P%i\n", spindle_spool_seconds);
 
+    float feed_rate = parsed_line->parser_state.feed_rate;
 
     // move to the starting x/y
-    acc.append("X%0.3f Y%0.3f\n",
+    acc.append("G0 X%0.3f Y%0.3f\n",
       parsed_line->parser_state.start_x,
       parsed_line->parser_state.start_y
     );
@@ -125,17 +126,19 @@ String overlay_program_resume(GrblMachine *grbl, cncwiz_program_state *state, gc
     }
 
     //only write the motion mode if it is not specified on the line
-    if (
-      parsed_line->parser_state.motion_mode != GCODE_MOTION_MODE_G0 &&
-      // TODO: this can easily bug if a different G command is specified (G90 for instance)
-      //       I think to do this properly we have to scan the pairs
-      !(parsed_line->words & (1 << GCODE_WORD_G)) &&
-      !(parsed_line->words & (1 << GCODE_WORD_M))
-    ) {
-      acc.append("%s ", strings.motion_mode);
+    if (parsed_line->parser_state.motion_mode != GCODE_MOTION_MODE_G0) {
+      if (
+        // TODO: this can easily bug if a different G command is specified (G90 for instance)
+        //       I think to do this properly we have to scan the pairs
+        !(parsed_line->words & (1 << GCODE_WORD_G)) &&
+        !(parsed_line->words & (1 << GCODE_WORD_M))
+      ) {
+        acc.append("%s ", strings.motion_mode);
+      }
+    } else {
+      acc.append("%s\n", strings.motion_mode);
     }
 
-    float feed_rate = parsed_line->parser_state.feed_rate;
     if (
       feed_rate > 0.0f &&
       !(parsed_line->words & (1 << GCODE_WORD_F))
