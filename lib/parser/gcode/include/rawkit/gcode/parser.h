@@ -306,99 +306,106 @@ typedef struct gcode_line_t {
 #define GCODE_DEBUG_STRING_LEN 2048
 char gcode_debug_string[GCODE_DEBUG_STRING_LEN] = {0};
 
-char *gcode_parser_state_debug(const gcode_parser_state_t *parser_state) {
+typedef struct gcode_parser_state_strings_t {
+  char motion_mode[6];
+  char wcs_select[4];
+  char plane_select[4];
+  char units_mode[4];
+  char distance_mode[4];
+  char feed_rate_mode[4];
+  char spindle_state[4];
+  char coolant_state[4];
+} gcode_parser_state_strings_t;
 
-  char motion_mode[6] = {0};
+char *gcode_parser_state_debug(const gcode_parser_state_t *parser_state, gcode_parser_state_strings_t *strings) {
+  if (!strings) {
+    gcode_parser_state_strings_t tmp;
+    strings = &tmp;
+  }
+
+  memset(strings, 0, sizeof(gcode_parser_state_strings_t));
   switch (parser_state->motion_mode) {
-    case GCODE_MOTION_MODE_G0:    strncpy(motion_mode, "G0", 2); break;
-    case GCODE_MOTION_MODE_G1:    strncpy(motion_mode, "G1", 2); break;
-    case GCODE_MOTION_MODE_G2:    strncpy(motion_mode, "G2", 2); break;
-    case GCODE_MOTION_MODE_G3:    strncpy(motion_mode, "G3", 2); break;
-    case GCODE_MOTION_MODE_G38_2: strncpy(motion_mode, "G38.2", 5); break;
-    case GCODE_MOTION_MODE_G38_3: strncpy(motion_mode, "G38.3", 5); break;
-    case GCODE_MOTION_MODE_G38_4: strncpy(motion_mode, "G38.4", 5); break;
-    case GCODE_MOTION_MODE_G38_5: strncpy(motion_mode, "G38.5", 5); break;
-    case GCODE_MOTION_MODE_G80:   strncpy(motion_mode, "G80", 3); break;
+    case GCODE_MOTION_MODE_G0:    strncpy(strings->motion_mode, "G0", 2); break;
+    case GCODE_MOTION_MODE_G1:    strncpy(strings->motion_mode, "G1", 2); break;
+    case GCODE_MOTION_MODE_G2:    strncpy(strings->motion_mode, "G2", 2); break;
+    case GCODE_MOTION_MODE_G3:    strncpy(strings->motion_mode, "G3", 2); break;
+    case GCODE_MOTION_MODE_G38_2: strncpy(strings->motion_mode, "G38.2", 5); break;
+    case GCODE_MOTION_MODE_G38_3: strncpy(strings->motion_mode, "G38.3", 5); break;
+    case GCODE_MOTION_MODE_G38_4: strncpy(strings->motion_mode, "G38.4", 5); break;
+    case GCODE_MOTION_MODE_G38_5: strncpy(strings->motion_mode, "G38.5", 5); break;
+    case GCODE_MOTION_MODE_G80:   strncpy(strings->motion_mode, "G80", 3); break;
     default:
       break;
   }
 
-  char wcs_select[4] = {0};
   switch (parser_state->wcs_select) {
-    case GCODE_WCS_SELECT_G54: strcpy(wcs_select, "G54"); break;
-    case GCODE_WCS_SELECT_G55: strcpy(wcs_select, "G55"); break;
-    case GCODE_WCS_SELECT_G56: strcpy(wcs_select, "G56"); break;
-    case GCODE_WCS_SELECT_G57: strcpy(wcs_select, "G57"); break;
-    case GCODE_WCS_SELECT_G58: strcpy(wcs_select, "G58"); break;
-    case GCODE_WCS_SELECT_G59: strcpy(wcs_select, "G59"); break;
+    case GCODE_WCS_SELECT_G54: strcpy(strings->wcs_select, "G54"); break;
+    case GCODE_WCS_SELECT_G55: strcpy(strings->wcs_select, "G55"); break;
+    case GCODE_WCS_SELECT_G56: strcpy(strings->wcs_select, "G56"); break;
+    case GCODE_WCS_SELECT_G57: strcpy(strings->wcs_select, "G57"); break;
+    case GCODE_WCS_SELECT_G58: strcpy(strings->wcs_select, "G58"); break;
+    case GCODE_WCS_SELECT_G59: strcpy(strings->wcs_select, "G59"); break;
     default:
       break;
   }
 
-  char plane_select[4] = {0};
   switch (parser_state->plane_select) {
-    case GCODE_PLANE_SELECT_G17: strcpy(plane_select, "G17"); break;
-    case GCODE_PLANE_SELECT_G18: strcpy(plane_select, "G18"); break;
-    case GCODE_PLANE_SELECT_G19: strcpy(plane_select, "G19"); break;
+    case GCODE_PLANE_SELECT_G17: strcpy(strings->plane_select, "G17"); break;
+    case GCODE_PLANE_SELECT_G18: strcpy(strings->plane_select, "G18"); break;
+    case GCODE_PLANE_SELECT_G19: strcpy(strings->plane_select, "G19"); break;
     default:
       break;
   }
 
-  char units_mode[4] = {0};
   switch (parser_state->units_mode) {
-    case GCODE_UNITS_MODE_G20: strcpy(units_mode, "G20"); break;
-    case GCODE_UNITS_MODE_G21: strcpy(units_mode, "G21"); break;
+    case GCODE_UNITS_MODE_G20: strcpy(strings->units_mode, "G20"); break;
+    case GCODE_UNITS_MODE_G21: strcpy(strings->units_mode, "G21"); break;
     default:
       break;
   }
 
-  char distance_mode[4] = {0};
   switch (parser_state->distance_mode) {
-    case GCODE_DISTANCE_MODE_G90: strcpy(distance_mode, "G90"); break;
-    case GCODE_DISTANCE_MODE_G91: strcpy(distance_mode, "G91"); break;
+    case GCODE_DISTANCE_MODE_G90: strcpy(strings->distance_mode, "G90"); break;
+    case GCODE_DISTANCE_MODE_G91: strcpy(strings->distance_mode, "G91"); break;
     default:
       break;
   }
 
-  char feed_rate_mode[4] = {0};
   switch (parser_state->feed_rate_mode) {
-    case GCODE_FEED_RATE_MODE_G93: strcpy(feed_rate_mode, "G93"); break;
-    case GCODE_FEED_RATE_MODE_G94: strcpy(feed_rate_mode, "G94"); break;
+    case GCODE_FEED_RATE_MODE_G93: strcpy(strings->feed_rate_mode, "G93"); break;
+    case GCODE_FEED_RATE_MODE_G94: strcpy(strings->feed_rate_mode, "G94"); break;
     default:
       break;
   }
 
-  char spindle_state[4] = {0};
   switch (parser_state->spindle_state) {
-    case GCODE_SPINDLE_STATE_M3: strcpy(spindle_state, "M3"); break;
-    case GCODE_SPINDLE_STATE_M4: strcpy(spindle_state, "M4"); break;
-    case GCODE_SPINDLE_STATE_M5: strcpy(spindle_state, "M5"); break;
+    case GCODE_SPINDLE_STATE_M3: strcpy(strings->spindle_state, "M3"); break;
+    case GCODE_SPINDLE_STATE_M4: strcpy(strings->spindle_state, "M4"); break;
+    case GCODE_SPINDLE_STATE_M5: strcpy(strings->spindle_state, "M5"); break;
     default:
       break;
   }
 
-  char coolant_state[4] = {0};
   switch (parser_state->coolant_state) {
-    case GCODE_COOLANT_STATE_M7: strcpy(coolant_state, "M7"); break;
-    case GCODE_COOLANT_STATE_M8: strcpy(coolant_state, "M8"); break;
-    case GCODE_COOLANT_STATE_M9: strcpy(coolant_state, "M9"); break;
+    case GCODE_COOLANT_STATE_M7: strcpy(strings->coolant_state, "M7"); break;
+    case GCODE_COOLANT_STATE_M8: strcpy(strings->coolant_state, "M8"); break;
+    case GCODE_COOLANT_STATE_M9: strcpy(strings->coolant_state, "M9"); break;
     default:
       break;
   }
 
   sprintf(
     gcode_debug_string,
-    // "[GC:G0 G54 G17 G21 G90 G94 M5 M9 T0 F0 S0]",
-    "[GC:%s %s %s %s %s %s %s %s T%u F%0.3f S%u]",
+    "%s %s %s %s %s %s %s %s T%u F%0.3f S%u",
     // non_modal_command,
-    motion_mode,
-    wcs_select,
-    plane_select,
-    units_mode,
-    distance_mode,
-    feed_rate_mode,
-    spindle_state,
-    coolant_state,
+    strings->motion_mode,
+    strings->wcs_select,
+    strings->plane_select,
+    strings->units_mode,
+    strings->distance_mode,
+    strings->feed_rate_mode,
+    strings->spindle_state,
+    strings->coolant_state,
     parser_state->tool,
     parser_state->feed_rate,
     parser_state->spindle_speed
@@ -1403,7 +1410,7 @@ class GCODEParser {
         return NULL;
       }
 
-      return gcode_parser_state_debug(&this->handle->parser_state);
+      return gcode_parser_state_debug(&this->handle->parser_state, NULL);
     }
 
     const char *line_state_debug(int64_t line_number) {
@@ -1416,6 +1423,23 @@ class GCODEParser {
         return NULL;
       }
 
-      return gcode_parser_state_debug(&selected->parser_state);
+      return gcode_parser_state_debug(&selected->parser_state, NULL);
+    }
+
+    bool line_state_strings(int64_t line_number, gcode_parser_state_strings_t *strings) {
+      if (this->handle == NULL) {
+        return false;
+      }
+
+      gcode_line_t *selected = this->line(line_number);
+      if (selected == NULL) {
+        return false;
+      }
+
+      if (!gcode_parser_state_debug(&selected->parser_state, strings)) {
+        return false;
+      }
+
+      return true;
     }
 };

@@ -35,6 +35,7 @@ struct cncwiz_program_state {
   vec3 last_machine_position;
   uint8_t aborting;
   bool autoscroll;
+  bool show_resume_modal;
 };
 
 // const char *path = "E:\\cnc\\gcode\\";
@@ -54,6 +55,137 @@ void panel_program_next_line(GrblMachine *grbl, cncwiz_program_state *state) {
     state->pending_action = grbl->end_action();
   }
 }
+
+String overlay_program_resume(GrblMachine *grbl, cncwiz_program_state *state, gcode_line_t *parsed_line) {
+  if (parsed_line == NULL) {
+    return String("");
+  }
+
+  bool result = false;
+  igOpenPopup("overlay::program::resume", 0);
+
+  igBeginPopupModal(
+    "overlay::program::resume",
+    0,
+    ImGuiWindowFlags_AlwaysAutoResize |
+    ImGuiWindowFlags_NoTitleBar |
+    ImGuiWindowFlags_NoMove
+  );
+
+  // compute the gcode that we'll use to put grbl in the right
+  // state.
+  String acc("");
+  {
+    gcode_parser_state_strings_t strings;
+    if (!state->parser.line_state_strings(state->current_line, &strings)) {
+      printf("ERROR: unable to retrieve the line state strings for line %lli\n", state->current_line);
+      exit(1);
+    }
+
+    acc.append("%s %s %s %s %s %s\n",
+      strings.wcs_select,
+      strings.plane_select,
+      strings.units_mode,
+      "G90",
+      strings.coolant_state,
+      strings.feed_rate_mode
+    );
+
+    // restore spindle state
+    if (
+      parsed_line->parser_state.spindle_state &&
+      parsed_line->parser_state.spindle_speed > 0
+    ) {
+      acc.append("%s S%i\n",
+        strings.spindle_state,
+        parsed_line->parser_state.spindle_speed
+      );
+    }
+
+    // move to a safe z
+    acc.append_c_str("G53 G1 Z0 F1000\n");
+
+    // dwell while we let the spindle spool for N seconds
+    // TODO: allow spindle spool time to be configured
+    int spindle_spool_seconds = 1;
+    acc.append("G4 P%i\n", spindle_spool_seconds);
+
+
+    // move to the starting x/y
+    acc.append("X%0.3f Y%0.3f\n",
+      parsed_line->parser_state.start_x,
+      parsed_line->parser_state.start_y
+    );
+
+    // move to the starting z
+    acc.append("Z%0.3f\n", parsed_line->parser_state.start_z);
+
+    if (parsed_line->parser_state.distance_mode != GCODE_DISTANCE_MODE_G90) {
+      acc.append("%s\n", strings.distance_mode);
+    }
+
+    //only write the motion mode if it is not specified on the line
+    if (
+      parsed_line->parser_state.motion_mode != GCODE_MOTION_MODE_G0 &&
+      // TODO: this can easily bug if a different G command is specified (G90 for instance)
+      //       I think to do this properly we have to scan the pairs
+      !(parsed_line->words & (1 << GCODE_WORD_G)) &&
+      !(parsed_line->words & (1 << GCODE_WORD_M))
+    ) {
+      acc.append("%s ", strings.motion_mode);
+    }
+
+    float feed_rate = parsed_line->parser_state.feed_rate;
+    if (
+      feed_rate > 0.0f &&
+      !(parsed_line->words & (1 << GCODE_WORD_F))
+    ) {
+      acc.append("F%0.3f ", feed_rate);
+    }
+  }
+
+
+  igPushTextWrapPos(igGetFontSize() * 25.0f);
+    igTextUnformatted(
+      "Are you sure you want to resume?\n"
+      "The following code will be run to put the machine in the correct state:\n\n"
+    , NULL);
+  igPopTextWrapPos();
+
+  igTextUnformatted(
+    acc.handle,
+    NULL
+  );
+  igDummy({0.0, 10.0f});
+
+  {
+    ImVec2 buttonSize = {70.0, 30.0};
+    igDummy({25.0f, 0.0f});
+    igSameLine(0.0, 0.0f);
+
+
+    if (igButton("cancel", buttonSize) || igIsKeyReleased(0x100)) {
+      result = false;
+      state->show_resume_modal = false;
+    }
+
+    igSameLine(0.0, 100.0f);
+    if (igButton("continue", buttonSize)) {
+      result = true;
+      state->show_resume_modal = false;
+    }
+  }
+
+  igEndPopup();
+
+  if (result) {
+    return acc;
+  } else {
+    acc.destroy();
+    return String("");
+  }
+}
+
 
 void panel_program(GrblMachine *grbl) {
   cncwiz_program_state *state = (cncwiz_program_state *)hotState(
@@ -225,6 +357,12 @@ void panel_program(GrblMachine *grbl) {
         igTextUnformatted(line->c_str(), NULL);
       }
       if (igIsItemHovered(0)) {
+        // only allow double click on a line when a program is loaded and idle.
+        if (igIsMouseDoubleClicked(0) && state->status == PROGRAM_STATE_LOADED) {
+          state->current_line = line_no;
+          printf("hrm: %s\n", state->parser.line_state_debug(state->current_line));
+        }
+
         hovered_line = line_no;
         const char *tooltip_text = state->parser.line_state_debug(line_no);
         if (tooltip_text != NULL) {
@@ -266,15 +404,53 @@ void panel_program(GrblMachine *grbl) {
   if (!(state->status & PROGRAM_STATE_RUNNING)) {
 
     bool pressed = false;
+    bool resuming = false;
     if (state->status & PROGRAM_STATE_PAUSED) {
       pressed = igButton("continue", buttonSize);
+    } else if (state->current_line > 0) {
+      pressed = igButton("resume", buttonSize);
+      if (igIsItemHovered(0)){
+        igBeginTooltip();
+        igPushTextWrapPos(igGetFontSize() * 35.0f);
+        igText(
+          "Resume this program from the selected line (%i)\n",
+          state->current_line
+        );
+        igPopTextWrapPos();
+        igEndTooltip();
+      }
+
+      // TODO: message the user saying that they should double check the gcode
+      //       that we are generating below.
+      // this should move into GrblMachine as it will probably involve a bunch more work
+      // than just setting the line_state as seen below.
+      if (pressed) {
+        state->show_resume_modal = true;
+        pressed = false;
+      }
+
+      gcode_line_t *parsed_line = state->parser.line(state->current_line);
+
+      if (state->show_resume_modal) {
+        pressed = false;
+        String resume_code = overlay_program_resume(grbl, state, parsed_line);
+        if (resume_code.length()) {
+          resuming = true;
+          pressed = true;
+          grbl->write(resume_code.handle);
+          resume_code.destroy();
+        }
+      }
+
     } else {
       pressed = igButton("run", buttonSize);
     }
 
     if (pressed) {
       if (state->status & PROGRAM_STATE_LOADED) {
-        grbl->cycle_start();
+        if (!resuming) {
+          grbl->cycle_start();
+        }
         if (!(state->status & PROGRAM_STATE_RUNNING)) {
           if (grbl->is_action_complete(state->pending_action)) {
             panel_program_next_line(grbl, state);

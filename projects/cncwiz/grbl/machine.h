@@ -364,6 +364,14 @@ struct GrblMachine {
     this->write((const char *)buffer);
   }
 
+  void write(const int i) {
+    char buffer [100];
+    int cx;
+
+    snprintf(buffer, 100, "%i", i);
+    this->write((const char *)buffer);
+  }
+
   void user_input(const char *str) {
     this->state->action_pending += 1;
     this->write(str);

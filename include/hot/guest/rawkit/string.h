@@ -2,6 +2,7 @@
 
 #define GB_STRING_IMPLEMENTATION
 #include <stdlib.h>
+#include <stdarg.h>
 #include <gb_string.h>
 
 typedef struct String {
@@ -47,6 +48,20 @@ typedef struct String {
     } else {
       this->handle = gb_append_cstring(this->handle, str);
     }
+    return this;
+  }
+
+  String *append(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    int l = vsnprintf(NULL, 0, fmt, args) + 1;
+
+    char *res = (char *)malloc(l+1);
+
+    vsnprintf(res, l, fmt, args);
+    this->append_c_str(res);
+    free(res);
+
     return this;
   }
 
