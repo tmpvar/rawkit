@@ -401,8 +401,8 @@ void panel_program(GrblMachine *grbl) {
   }
 
   igCheckbox("autoscroll", &state->autoscroll);
-
-  igDummy({ 40.0f, 10.0f });
+  igDummy({ 0.0f, 10.0f });
+  igDummy({ 0.0f, 0.0f });
 
   if (!(state->status & PROGRAM_STATE_RUNNING)) {
 
@@ -445,7 +445,7 @@ void panel_program(GrblMachine *grbl) {
         }
       }
 
-    } else {
+    } else if (state->status == PROGRAM_STATE_LOADED) {
       pressed = igButton("run", buttonSize);
     }
 
@@ -496,25 +496,24 @@ void panel_program(GrblMachine *grbl) {
     }
   }
 
-  igSameLine(0.0, 1.0);
-  igDummy(spacerSize);
-  igSameLine(0.0, 1.0);
-
-  if (!grbl->is_idle() && igButton("abort", buttonSize)) {
-    // abort procedure
-    // - feed hold
-    // - wait for two ? queries to return the same MPos
-    // - soft reset
-    grbl->feed_hold();
-    state->aborting = 1;
-    vec3_copy(
-      &state->last_machine_position,
-      &grbl->state->machine_position
-    );
+  if (!grbl->is_idle()) {
+    igSameLine(0.0, 10.0);
+    if (igButton("abort", buttonSize)) {
+      // abort procedure
+      // - feed hold
+      // - wait for two ? queries to return the same MPos
+      // - soft reset
+      grbl->feed_hold();
+      state->aborting = 1;
+      vec3_copy(
+        &state->last_machine_position,
+        &grbl->state->machine_position
+      );
+    }
   }
 
   if (grbl->is_idle()) {
-    igSameLine(0.0, 0.0);
+    igSameLine(0.0, 10.0);
     if (igButton("load", buttonSize)) {
       // TODO: this is sort of pointless as tinyfd blocks the render loop.
       state->status = PROGRAM_STATE_BROWSING;
