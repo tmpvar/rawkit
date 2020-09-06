@@ -366,7 +366,7 @@ TEST_CASE("[gcode] non-overlapping G codes") {
 }
 
 TEST_CASE("[gcode] position tracking") {
-  // basic G1 moves
+  // basic G90 G1 moves
   {
     GCODEParser p;
     ok(p.push("G1X10\n") == GCODE_RESULT_TRUE);
@@ -413,5 +413,31 @@ TEST_CASE("[gcode] position tracking") {
       ok(p.line(3)->parser_state.end_y == 30.0f);
       ok(p.line(3)->parser_state.end_z == 20.0f);
     }
+  }
+
+  // basic G91 G1 moves
+  {
+    GCODEParser p;
+
+    ok(p.line_count() == 0);
+    ok(p.handle->parser_state.distance_mode == GCODE_DISTANCE_MODE_G90);
+    ok(p.push("G91\n") == GCODE_RESULT_TRUE);
+
+    ok(p.line_count() == 2);
+    ok(p.handle->parser_state.distance_mode == GCODE_DISTANCE_MODE_G91);
+    ok(p.line(0)->parser_state.distance_mode == GCODE_DISTANCE_MODE_G91);
+    ok(p.line(1)->type == GCODE_LINE_TYPE_EOF);
+
+    ok(p.push("G1X1\n") == GCODE_RESULT_TRUE);
+    ok(p.push("G1X1\n") == GCODE_RESULT_TRUE);
+    ok(p.push("G1X1\n") == GCODE_RESULT_TRUE);
+
+    ok(p.line(1)->parser_state.start_x == 0.0f);
+    ok(p.line(2)->parser_state.start_x == 1.0f);
+    ok(p.line(3)->parser_state.start_x == 2.0f);
+
+    ok(p.line(1)->parser_state.end_x == 1.0f);
+    ok(p.line(2)->parser_state.end_x == 2.0f);
+    ok(p.line(3)->parser_state.end_x == 3.0f);
   }
 }

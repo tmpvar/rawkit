@@ -77,11 +77,9 @@ void panel_program(GrblMachine *grbl) {
   // Handle grbl disconnections while the job is running
   {
     bool grbl_able_to_run = (
-      (
-        grbl->state->state == GRBL_MACHINE_STATE_IDLE ||
-        grbl->state->state == GRBL_MACHINE_STATE_RUN ||
-        grbl->state->state == GRBL_MACHINE_STATE_HOLD
-      )
+      grbl->state->state == GRBL_MACHINE_STATE_IDLE ||
+      grbl->state->state == GRBL_MACHINE_STATE_RUN ||
+      grbl->state->state == GRBL_MACHINE_STATE_HOLD
     );
 
     if (!grbl_able_to_run && state->status > PROGRAM_STATE_LOADED) {
@@ -207,9 +205,11 @@ void panel_program(GrblMachine *grbl) {
   String *line = nullptr;
   int last_hovered_line = hovered_line;
   hovered_line = -1;
+
   while (ImGuiListClipper_Step(&clipper)) {
     for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++) {
       line = state->program.item(line_no);
+      gcode_line_t *parsed_line = state->parser.line(line_no);
 
       igText("%i", line_no); igSameLine(0, 20.0f);
 
@@ -232,6 +232,16 @@ void panel_program(GrblMachine *grbl) {
           igPushTextWrapPos(igGetFontSize() * 35.0f);
           igText("line: %i", line_no);
           igTextUnformatted(tooltip_text, NULL);
+          igText(
+            "(%0.3f, %0.3f, %0.3f) -> (%0.3f, %0.3f, %0.3f)",
+            parsed_line->parser_state.start_x,
+            parsed_line->parser_state.start_y,
+            parsed_line->parser_state.start_z,
+            parsed_line->parser_state.end_x,
+            parsed_line->parser_state.end_y,
+            parsed_line->parser_state.end_z
+          );
+
           igPopTextWrapPos();
           igEndTooltip();
         }

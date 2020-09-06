@@ -538,6 +538,33 @@ void gcode_parser_state_merge(gcode_parser_state_t *main_state, gcode_line_t *li
     }
   }
 
+
+  // ensure the main state position is properly tracked in relative mode (G91)
+  // this expects that the main state is memcpy'd to the line state
+  {
+    bool is_relative = (
+      line_state->distance_mode == GCODE_DISTANCE_MODE_G91 ||
+      (
+        line_state->distance_mode == GCODE_DISTANCE_MODE_NONE &&
+        main_state->distance_mode == GCODE_DISTANCE_MODE_G91
+      )
+    );
+
+    if (is_relative) {
+      if (line->words & (1 << GCODE_WORD_X)) {
+        main_state->end_x += main_state->start_x;
+      }
+
+      if (line->words & (1 << GCODE_WORD_Y)) {
+        main_state->end_y += main_state->start_y;
+      }
+
+      if (line->words & (1 << GCODE_WORD_Z)) {
+        main_state->end_z += main_state->start_z;
+      }
+    }
+  }
+
   memcpy(line_state, main_state, sizeof(gcode_parser_state_t));
 }
 
@@ -942,7 +969,6 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
     line->code = pair.value;
 
   } else if (pair.letter == 'M') {
-
     switch ((int)pair.value) {
       // Program Modes
       case 0:
@@ -1051,9 +1077,7 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
         line->parser_state.tool = (int16_t)pair.value;
         break;
 
-      // TODO: handle
       case 'X':
-
         line->parser_state.end_x = pair.value;
         break;
       case 'Y':
