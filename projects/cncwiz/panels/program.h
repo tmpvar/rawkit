@@ -409,7 +409,7 @@ void panel_program(GrblMachine *grbl) {
     bool pressed = false;
     bool resuming = false;
     if (state->status & PROGRAM_STATE_PAUSED) {
-      pressed = igButton("continue", buttonSize);
+      pressed = igButton("continue", buttonSize) || igIsKeyReleased(0x20);
     } else if (state->current_line > 0) {
       pressed = igButton("resume", buttonSize);
       if (igIsItemHovered(0)){
@@ -440,6 +440,7 @@ void panel_program(GrblMachine *grbl) {
         if (resume_code.length()) {
           resuming = true;
           pressed = true;
+          state->autoscroll = true;
           grbl->write(resume_code.handle);
           resume_code.destroy();
         }
@@ -453,6 +454,7 @@ void panel_program(GrblMachine *grbl) {
       if (state->status & PROGRAM_STATE_LOADED) {
         if (!resuming) {
           grbl->cycle_start();
+          state->autoscroll = true;
         }
         if (!(state->status & PROGRAM_STATE_RUNNING)) {
           if (grbl->is_action_complete(state->pending_action)) {
@@ -464,7 +466,7 @@ void panel_program(GrblMachine *grbl) {
       }
     }
   } else {
-    if (igButton("pause", buttonSize)) {
+    if (igButton("pause", buttonSize) || igIsKeyReleased(0x20)) {
       if (state->status & PROGRAM_STATE_RUNNING) {
         grbl->feed_hold();
         state->status = (cncwiz_program_status)(PROGRAM_STATE_LOADED | PROGRAM_STATE_PAUSED);
@@ -498,7 +500,7 @@ void panel_program(GrblMachine *grbl) {
 
   if (!grbl->is_idle()) {
     igSameLine(0.0, 10.0);
-    if (igButton("abort", buttonSize)) {
+    if (igButton("abort", buttonSize) || igIsKeyReleased(0x100)) {
       // abort procedure
       // - feed hold
       // - wait for two ? queries to return the same MPos
