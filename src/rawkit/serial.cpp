@@ -128,10 +128,10 @@ void Serial_Write(SerialID id, const uint8_t *buf, size_t len) {
 
 
 void host_rawkit_serial_init(JitJob *job) {
-  job->addExport("Serial_Open", Serial_Open);
-  job->addExport("Serial_Valid", Serial_Valid);
-  job->addExport("Serial_Available", Serial_Available);
-  job->addExport("Serial_Read", Serial_Read);
-  job->addExport("Serial_Write", Serial_Write);
+  job->addExport("Serial_Open", (void *)&Serial_Open);
+  job->addExport("Serial_Valid", (void *)&Serial_Valid);
+  job->addExport("Serial_Available", (void *)&Serial_Available);
+  job->addExport("Serial_Read", (void *)&Serial_Read);
+  job->addExport("Serial_Write", (void *)&Serial_Write);
 }
 

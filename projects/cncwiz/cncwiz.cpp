@@ -10,8 +10,11 @@
 #include "panels/probe.h"
 #include "panels/program.h"
 
-
-void setup() {}
+#include "util/readfile.h"
+void setup() {
+  StringList lines = readfile_lines("../../cnc/gcode/m1-gear-test.nc");
+  printf("lines.length() == %i\n", lines.length());
+}
 
 void panel_jog(GrblMachine *grbl) {
   if (

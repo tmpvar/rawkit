@@ -24,7 +24,7 @@ include_directories(
 # DEP: Vulkan
 if(APPLE)
     set(MOLTENVK_PATH "$ENV{VULKAN_SDK}")
-    target_link_directories(rawkit PUBLIC "${MOLTENVK_PATH}/lib")
+    link_directories("${MOLTENVK_PATH}/lib")
     set(VULKAN_LIBS
         vulkan
         "-framework IOSurface"
@@ -134,7 +134,8 @@ if (WIN32)
     set(EXTRA_COMPILE_OPTIONS "/MD")
 else()
   set_property(TARGET rawkit PROPERTY CXX_STANDARD 14)
-  set(EXTRA_COMPILE_OPTIONS "-Wl,export-dynamic")
+  # set(EXTRA_COMPILE_OPTIONS "-Wl,export-dynamic")
+  set(EXTRA_LINKER_OPTIONS "-Wl,-export_dynamic")
 endif()
 
 set(LLVM_SEARCH_PATHS
@@ -163,6 +164,12 @@ target_compile_options(
   -DRAWKIT_CIMGUI_INCLUDE_DIR="-I${DEPS_DIR}/cimgui"
   -DRAWKIT_GUEST_INCLUDE_DIR="-I${CMAKE_CURRENT_LIST_DIR}/include/hot/guest"
   ${EXTRA_COMPILE_OPTIONS}
+)
+
+target_link_options(
+  rawkit
+  PRIVATE
+  ${EXTRA_LINKER_OPTIONS}
 )
 
 # fix an error on mac:
@@ -215,7 +222,7 @@ target_link_libraries(
 
 add_subdirectory(lib)
 
-
+# TODO: install all headers under a rawkit prefix so we don't blow away existing entries in a global install on unix
 file(GLOB HOT_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/hot/*.h")
 install(
     FILES
@@ -241,10 +248,19 @@ install(
     FILES
       ${DEPS_DIR}/cimgui/cimgui.h
       ${CMAKE_CURRENT_LIST_DIR}/include/stb_sb.h
-      ${CMAKE_CURRENT_LIST_DIR}/include/dirent.h
       ${DEPS_DIR}/tinyfiledialogs/tinyfiledialogs.h
     DESTINATION include/
 )
+
+# dirent
+if(WIN32)
+  install(
+      FILES
+        ${CMAKE_CURRENT_LIST_DIR}/include/win32_dirent.h
+      DESTINATION include
+      RENAME dirent.h
+  )
+endif()
 
 install(
     FILES

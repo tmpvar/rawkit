@@ -523,7 +523,11 @@ void panel_program(GrblMachine *grbl) {
       char *result = tinyfd_openFileDialog(
         NULL,
         // TODO: pull this from config/settings
+        #ifdef WIN32
         "E:\\cnc\\gcode",
+        #else
+        "/",
+        #endif
         CNCWIZ_PROGRAM_FILE_FILTER_COUNT,
         cncwiz_program_file_filter,
         "gcode files",

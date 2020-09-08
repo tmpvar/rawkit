@@ -1,6 +1,10 @@
 #include <hot/jitjob.h>
 #include <stdio.h>
 
+#ifdef __APPLE__
+#include <dirent.h>
+#endif
+
 void host_init_stdio(JitJob *job) {
   job->addExport("fclose", (void *)&fclose);
   job->addExport("clearerr", (void *)&clearerr);
@@ -9,7 +13,9 @@ void host_init_stdio(JitJob *job) {
   job->addExport("fflush", (void *)&fflush);
   job->addExport("fgetpos", (void *)&fgetpos);
   job->addExport("fopen", (void *)&fopen);
+  #ifdef WIN32
   job->addExport("fopen_s", (void *)&fopen_s);
+  #endif
   job->addExport("fread", (void *)&fread);
   job->addExport("freopen", (void *)&freopen);
   job->addExport("fseek", (void *)&fseek);
@@ -24,13 +30,28 @@ void host_init_stdio(JitJob *job) {
   job->addExport("tmpfile", (void *)&tmpfile);
   job->addExport("tmpnam", (void *)&tmpnam);
 
+  #ifdef WIN32
   job->addExport("__stdio_common_vfprintf", (void *)&__stdio_common_vfprintf);
   job->addExport("__stdio_common_vsprintf", (void *)&__stdio_common_vsprintf);
   job->addExport("__stdio_common_vsprintf_s", (void *)&__stdio_common_vsprintf_s);
+  #endif
 
   job->addExport("fprintf", (void *)&fprintf);
   job->addExport("printf", (void *)&printf);
   job->addExport("sprintf", (void *)&sprintf);
+
+  // #ifdef __APPLE__
+
+  // job->addExport("_readdir$INODE64", (void *)&readdir);
+  // job->addExport("_opendir$INODE64", (void *)&opendir);
+  // job->addExport("_sprintf", (void *)&sprintf);
+  // // job->addExport("___bzero", (void *)&___bzero);
+  // job->addExport("_vsnprintf", (void *)&vsnprintf);
+  // job->addExport("_snprintf", (void *)&snprintf);
+  // job->addExport("_closedir", (void *)&closedir);
+
+  // #endif
+
   job->addExport("vfprintf", (void *)&vfprintf);
   job->addExport("vprintf", (void *)&vprintf);
   job->addExport("vsprintf", (void *)&vsprintf);

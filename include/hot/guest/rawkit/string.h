@@ -5,6 +5,10 @@
 #include <stdarg.h>
 #include <gb_string.h>
 
+#ifndef va_copy
+#define va_copy(dest, src) dest = src
+#endif
+
 typedef struct String {
   gbString handle = nullptr;
 
@@ -54,7 +58,9 @@ typedef struct String {
   String *append(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    int l = vsnprintf(NULL, 0, fmt, args) + 1;
+    va_list args_copy;
+    va_copy(args_copy, args);
+    int l = vsnprintf(NULL, 0, fmt, args_copy) + 1;
 
     char *res = (char *)malloc(l+1);
 

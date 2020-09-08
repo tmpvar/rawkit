@@ -112,8 +112,8 @@ JitJob *JitJob::create(int argc, const char **argv) {
   }
 
   #if defined(_WIN32)
-    // Args.push_back("-fms-extensions");
-    // Args.push_back("-fms-compatibility");
+    Args.push_back("-fms-extensions");
+    Args.push_back("-fms-compatibility");
     Args.push_back("-fdelayed-template-parsing");
     Args.push_back("-fms-compatibility-version=19.00");
     Args.push_back("-D_CRT_SECURE_NO_DEPRECATE");
@@ -125,6 +125,12 @@ JitJob *JitJob::create(int argc, const char **argv) {
   #endif
 
   Args.push_back("-fsyntax-only");
+  Args.push_back("-fno-builtin");
+  // TODO: this is not safe, but it is unclear how to get around missing `___stack_chk_guard` symbols on mac
+  Args.push_back("-fno-stack-protector");
+  Args.push_back("-fvisibility-inlines-hidden");
+  Args.push_back("-fno-exceptions");
+  Args.push_back("-fno-rtti");
   Args.push_back(job->guest_include.c_str());
   Args.push_back("-I/usr/local/opt/llvm/Toolchains/LLVM10.0.0.xctoolchain/usr/lib/clang/10.0.0/include");
 
@@ -268,11 +274,9 @@ bool JitJob::rebuild() {
     auto abs_path = fs::canonical(include);
     auto rel = fs::relative(abs_path, this->guest_include_dir);
 
-
     // Filter down the results to files that exist outside of the rawkit install dir
-    if (rel.begin()->string() == "..") {
+    if (rel.string().find("..") != 0) {
       cout << "  " << abs_path.string() << endl;
-
       JitJobFileEntry entry;
       entry.file = abs_path;
       entry.mtime = fs::last_write_time(entry.file);

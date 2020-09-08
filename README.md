@@ -17,6 +17,10 @@ cmake .. -G "Visual Studio 16 2019" -A x64 -T host=x64 -DCMAKE_INSTALL_PREFIX=in
 cmake --build . --config RelWithDebInfo --target install
 ```
 
+__MacOs__
+```
+cmake .. -DCMAKE_INSTALL_PREFIX=install -DLLVM_DIR=/usr/local/opt/llvm/Toolchains/LLVM10.0.0.xctoolchain/usr/lib/cmake/llvm/ -DClang_DIR=/usr/local/opt/llvm/Toolchains/LLVM10.0.0.xctoolchain/usr/lib/cmake/clang/
+```
 ## running
 
 __windows__

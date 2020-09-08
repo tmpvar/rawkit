@@ -402,7 +402,8 @@ int main(int argc, const char **argv) {
     if (port != "/dev/null") {
         sp.setPort(port);
         sp.setBaudrate(115200);
-        sp.setTimeout(serial::Timeout::simpleTimeout(1));
+        // TODO: WTF MAC?
+        // sp.setTimeout(serial::Timeout::simpleTimeout(1));
         sp.open();
     }
 

@@ -9,7 +9,7 @@
 #include <hot/host/croaring.h>
 #include <hot/host/tinyfiledialogs.h>
 void host_hot_init_state(JitJob *job) {
-  job->addExport("hotState", hotState);
+  job->addExport("hotState", (void *)&hotState);
 }
 
 void host_rawkit_serial_init(JitJob *job);
@@ -28,5 +28,5 @@ void host_hot_init(JitJob *job) {
   host_croaring_init(job);
   host_rawkit_serial_init(job);
 
-  job->addExport("rawkit_now", rawkit_now);
+  job->addExport("rawkit_now", (void *)&rawkit_now);
 }

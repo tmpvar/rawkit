@@ -108,7 +108,11 @@ struct GrblMachine {
   GrblState *state;
 
   GrblMachine() {
-    this->sp.open("COM3");
+    #ifdef _WIN32
+      this->sp.open("COM3");
+    #elif __APPLE__
+      this->sp.open("/dev/tty.usbmodem14101");
+    #endif
 
     this->line = (String *)hotState(
       GRBL_MACHINE_HOT_STATE_OFFSET,

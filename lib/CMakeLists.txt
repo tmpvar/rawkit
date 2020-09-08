@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 project(rawkit-parser-libs)
-
+set(CMAKE_CXX_STANDARD 11)
 include(CTest)
 
 
