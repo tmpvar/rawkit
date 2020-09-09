@@ -2,9 +2,19 @@ cmake_minimum_required(VERSION 3.17)
 project(rawkit)
 
 set(DEPS_DIR ${CMAKE_CURRENT_LIST_DIR}/deps)
-set(SRC_DIR ${CMAKE_CURRENT_LIST_DIR}/SRC)
+set(SRC_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 
-# DEP: llvm
+#2 DEP: llvm
+set(LLVM_SEARCH_PATHS
+  "E:/llvm/" #tmpvar's pc
+  # general homebrew install
+  "/usr/local/opt/llvm/lib/cmake/llvm"
+  "/usr/local/opt/llvm/lib/cmake/clang"
+  # ubuntu llvm@10
+  /usr/lib/llvm-10
+)
+
+find_library(found_LLVM LLVM HINTS ${LLVM_SEARCH_PATHS})
 find_package(LLVM REQUIRED CONFIG
   PATHS ${LLVM_SEARCH_PATHS}
   NO_DEFAULT_PATH
@@ -32,7 +42,7 @@ if(APPLE)
         "-framework QuartzCore"
     )
     include_directories(${MOLTENVK_PATH}/include)
-elseif(WIN32)
+else()
     find_package(Vulkan)
     set(VULKAN_LIBS
         ${Vulkan_LIBRARIES}
@@ -129,22 +139,36 @@ add_executable(
 )
 
 
-if (WIN32)
+if (CMAKE_SYSTEM_NAME STREQUAL Windows)
   set_property(TARGET rawkit PROPERTY CXX_STANDARD 11)
-    set(EXTRA_COMPILE_OPTIONS "/MD")
-else()
-  set_property(TARGET rawkit PROPERTY CXX_STANDARD 14)
-  # set(EXTRA_COMPILE_OPTIONS "-Wl,export-dynamic")
-  set(EXTRA_LINKER_OPTIONS "-Wl,-export_dynamic")
 endif()
 
-set(LLVM_SEARCH_PATHS
-  "E:/llvm/" #tmpvar's pc
-  # general homebrew install
-  "/usr/local/opt/llvm/lib/cmake/llvm"
-  "/usr/local/opt/llvm/lib/cmake/clang"
-)
+if (CMAKE_SYSTEM_NAME STREQUAL Linux)
+  set(EXTRA_LINKER_OPTIONS "-export-dynamic")
+endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
+  set_property(TARGET rawkit PROPERTY CXX_STANDARD 14)
+  set(EXTRA_LINKER_OPTIONS "-Wl,-export_dynamic")
+
+  # fix an error on mac:
+  #    means the weak symbol cannot be overridden at runtime.
+  #    This was likely caused by different translation units
+  #    being compiled with different visibility settings.
+
+  function(append_if condition value)
+    if (${condition})
+      foreach(variable ${ARGN})
+        set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
+      endforeach(variable)
+    endif()
+  endfunction()
+
+  include(CheckCXXCompilerFlag)
+  check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
+  append_if(SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG "-fvisibility-inlines-hidden" CMAKE_CXX_FLAGS)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+endif()
 
 target_compile_options(
   rawkit
@@ -160,6 +184,8 @@ target_compile_options(
   # see: http://www.suodenjoki.dk/us/archive/2010/min-max.htm
   -DNOMINMAX=1
 
+  -Wall
+
   # TODO: install these headers so we don't have to include them
   -DRAWKIT_CIMGUI_INCLUDE_DIR="-I${DEPS_DIR}/cimgui"
   -DRAWKIT_GUEST_INCLUDE_DIR="-I${CMAKE_CURRENT_LIST_DIR}/include/hot/guest"
@@ -172,25 +198,6 @@ target_link_options(
   ${EXTRA_LINKER_OPTIONS}
 )
 
-# fix an error on mac:
-#    means the weak symbol cannot be overridden at runtime.
-#    This was likely caused by different translation units
-#    being compiled with different visibility settings.
-
-function(append_if condition value)
-  if (${condition})
-    foreach(variable ${ARGN})
-      set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
-    endforeach(variable)
-  endif()
-endfunction()
-
-include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
-append_if(SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG "-fvisibility-inlines-hidden" CMAKE_CXX_FLAGS)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-
-
 target_link_libraries(
   rawkit
   glfw
@@ -198,7 +205,6 @@ target_link_libraries(
   # shaderc
   serial
   ${VULKAN_LIBS}
-
   LLVMCore
   LLVMExecutionEngine
   LLVMMC
@@ -209,7 +215,6 @@ target_link_libraries(
   LLVMRuntimeDyld
   LLVMSupport
   LLVMTarget
-
   LLVMX86CodeGen
 
   clangBasic

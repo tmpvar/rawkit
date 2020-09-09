@@ -59,7 +59,7 @@ static int                      g_SwapChainResizeHeight = 0;
 
 
 void rawkit_wassert(wchar_t const* m, wchar_t const* f, unsigned l) {
-  printf("ASSERT: %s (%s:%u)\n", m, f, l);
+  printf("ASSERT: %ls (%ls:%u)\n", m, f, l);
 }
 
 static void check_vk_result(VkResult err)
@@ -391,7 +391,7 @@ int main(int argc, const char **argv) {
     host_hot_init(job);
 
     auto list = serial::list_ports();
-    auto it = find_if(list.begin(), list.end(), [](const serial::PortInfo& obj) {
+    find_if(list.begin(), list.end(), [](const serial::PortInfo& obj) {
       cout << "arduino: " << obj.description << " :: " << obj.hardware_id << endl;
 
       return obj.description.find("Arduino") == 0 || obj.description.find("USB Serial Device") == 0;
@@ -523,7 +523,6 @@ int main(int argc, const char **argv) {
     // Our state
     bool show_demo_window = true;
     bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     // Main loop
     while (!glfwWindowShouldClose(window))

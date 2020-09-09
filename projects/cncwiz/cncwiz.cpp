@@ -12,8 +12,8 @@
 
 #include "util/readfile.h"
 void setup() {
-  StringList lines = readfile_lines("../../cnc/gcode/m1-gear-test.nc");
-  printf("lines.length() == %i\n", lines.length());
+  // StringList lines = readfile_lines("../../cnc/gcode/m1-gear-test.nc");
+  // printf("lines.length() == %i\n", lines.length());
 }
 
 void panel_jog(GrblMachine *grbl) {

@@ -65,7 +65,6 @@ private:
       Runnable *run = new Runnable();
       llvm::ExitOnError EOE;
       EOE.setBanner("jit.h");
-      auto JTMB = EOE(llvm::orc::JITTargetMachineBuilder::detectHost());
       auto jit_builder = llvm::orc::LLJITBuilder();
       auto mod_ptr = action->takeModule();
 
@@ -120,12 +119,21 @@ private:
       };
 
       #ifndef _WIN32
-        jit_builder.setJITTargetMachineBuilder(std::move(JTMB));
+        auto JTMB = llvm::orc::JITTargetMachineBuilder::detectHost();
+        if (!JTMB) {
+          printf("ERROR: unable to detect host\n");
+          return nullptr;
+        }
+
+        jit_builder.setJITTargetMachineBuilder(std::move(*JTMB));
         jit_builder.setObjectLinkingLayerCreator(objectLinkingLayerCreator);
       #endif
 
 
-      jit_builder.prepareForConstruction();
+      if (jit_builder.prepareForConstruction()) {
+        printf("ERROR: failed to prepare for construction\n");
+        return nullptr;
+      }
       auto jit_result = jit_builder.create();
 
       if (!jit_result) {
@@ -145,13 +153,17 @@ private:
           run->jit->getDataLayout()
         );
 
-        run->jit->defineAbsolute(
+        auto err = run->jit->defineAbsolute(
           mangled_name_stream.str().c_str(),
           llvm::JITEvaluatedSymbol(
             it.second,
             llvm::JITSymbolFlags(llvm::JITSymbolFlags::FlagNames::Exported)
           )
         );
+
+        if (err) {
+          printf("ERROR: could not defineAbsolute(%s)\n", it.first);
+        }
       }
 
       if (!mod_ptr) {
@@ -161,7 +173,6 @@ private:
       string mangledSetup = "";
       string mangledLoop = "";
 
-      int i = 0;
       for (auto& f : *mod_ptr) {
 
         string mangled = f.getName().str();
@@ -194,23 +205,35 @@ private:
         std::unique_ptr<llvm::LLVMContext>(action->takeLLVMContext())
       );
 
-      run->jit->addIRModule(std::move(M));
+      if (run->jit->addIRModule(std::move(M))) {
+        printf("ERROR: unable to add IR module\n");
+        return nullptr;
+      }
+
 
       {
+        run->setup_fn = nullptr;
         auto mangledResult = run->jit->lookupLinkerMangled(mangledSetup);
-        auto mangledLookupResult = run->jit->lookup(mangledSetup);
-        auto normalResult = run->jit->lookup("setup");
-        auto fnResult = run->jit->lookup("setup()");
-
         if (mangledResult) {
           run->setup_fn = (mainfn)mangledResult.get().getAddress();
-        } else if (normalResult) {
-          run->setup_fn = (mainfn)normalResult.get().getAddress();
-        } else if (mangledLookupResult) {
-          run->setup_fn = (mainfn)mangledLookupResult.get().getAddress();
-        } else if (fnResult) {
-          run->setup_fn = (mainfn)fnResult.get().getAddress();
         } else {
+          auto mangledLookupResult = run->jit->lookup(mangledSetup);
+          if (mangledLookupResult) {
+            run->setup_fn = (mainfn)mangledLookupResult.get().getAddress();
+          } else {
+            auto normalResult = run->jit->lookup("setup");
+            if (normalResult) {
+              run->setup_fn = (mainfn)normalResult.get().getAddress();
+            } else {
+              auto fnResult = run->jit->lookup("setup()");
+              if (fnResult) {
+                run->setup_fn = (mainfn)fnResult.get().getAddress();
+              }
+            }
+          }
+        }
+
+        if (run->setup_fn == nullptr) {
           printf("could not find setup()\n");
           return nullptr;
         }
@@ -218,25 +241,36 @@ private:
 
       {
         auto mangledResult = run->jit->lookupLinkerMangled(mangledLoop);
-        auto mangledLookupResult = run->jit->lookup(mangledLoop);
-        auto normalResult = run->jit->lookup("loop");
-        auto fnResult = run->jit->lookup("loop()");
-
         if (mangledResult) {
           run->loop_fn = (mainfn)mangledResult.get().getAddress();
-        } else if (mangledLookupResult) {
-          run->loop_fn = (mainfn)mangledLookupResult.get().getAddress();
-        } else if (normalResult) {
-          run->loop_fn = (mainfn)normalResult.get().getAddress();
-        } else if (fnResult) {
-          run->loop_fn = (mainfn)fnResult.get().getAddress();
         } else {
+          auto mangledLookupResult = run->jit->lookup(mangledLoop);
+          if (mangledLookupResult) {
+            run->loop_fn = (mainfn)mangledLookupResult.get().getAddress();
+          } else {
+        
+            auto normalResult = run->jit->lookup("loop");
+            if (normalResult) {
+              run->loop_fn = (mainfn)normalResult.get().getAddress();
+            } else {
+              auto fnResult = run->jit->lookup("loop()");
+              if (fnResult) {
+                run->loop_fn = (mainfn)fnResult.get().getAddress();
+              }
+            }
+          }
+        }
+
+        if (run->loop_fn == nullptr) {
           printf("could not find loop()\n");
           return nullptr;
         }
       }
 
-      run->jit->runConstructors();
+      if (run->jit->runConstructors()) {
+        printf("ERROR: could not run constructors\n");
+        return nullptr;
+      }
       return run;
     }
 

@@ -41,7 +41,7 @@ SerialID Serial_Open(const char *portName) {
     SerialID index = serial_ports.size();
     serial_ports.push_back(port);
     return index;
-  } catch (serial::IOException e) {
+  } catch (serial::IOException &e) {
     return -1;
   }
 }
@@ -64,7 +64,7 @@ inline OptionalSerial GetSerialPortById(SerialID id) {
       if (!sp->isOpen()) {
         return nullptr;
       }
-    } catch (serial::IOException e) {
+    } catch (serial::IOException &e) {
       return nullptr;
     }
   }
@@ -80,7 +80,7 @@ size_t Serial_Available(SerialID id){
 
   try {
     return sp->available();
-  } catch (serial::IOException e) {
+  } catch (serial::IOException &e) {
     sp->close();
     return 0;
   }
@@ -104,7 +104,7 @@ int16_t Serial_Read(SerialID id) {
   try  {
     sp->read(&out, 1);
     return static_cast<int16_t>(out);
-  } catch (serial::IOException e) {
+  } catch (serial::IOException &e) {
     printf("closing serialport because read failed\n");
     sp->close();
     return -1;
@@ -119,7 +119,7 @@ void Serial_Write(SerialID id, const uint8_t *buf, size_t len) {
 
   try  {
     sp->write(buf, len);
-  } catch (serial::IOException e) {
+  } catch (serial::IOException &e) {
     printf("closing serialport because write failed (len=%zu) (%s)\n", len, (char *)buf);
     printf("error (%i): %s\n\n", e.getErrorNumber(), e.what());
     //sp->close();

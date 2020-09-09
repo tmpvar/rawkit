@@ -112,6 +112,8 @@ struct GrblMachine {
       this->sp.open("COM3");
     #elif __APPLE__
       this->sp.open("/dev/tty.usbmodem14101");
+    #elif __linux__
+      this->sp.open("/dev/ttyACM0");
     #endif
 
     this->line = (String *)hotState(

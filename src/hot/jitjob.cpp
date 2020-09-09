@@ -124,6 +124,10 @@ JitJob *JitJob::create(int argc, const char **argv) {
     Args.push_back("-D_SCL_SECURE_NO_WARNINGS");
   #endif
 
+  #ifdef __linux__
+    Args.push_back("-I/home/tmpvar/llvm/lib/clang/10.0.1/include/");
+  #endif
+
   Args.push_back("-fsyntax-only");
   Args.push_back("-fno-builtin");
   // TODO: this is not safe, but it is unclear how to get around missing `___stack_chk_guard` symbols on mac
@@ -321,7 +325,7 @@ void JitJob::tick() {
           this->dirty = true;
           break;
         }
-      } catch (fs::filesystem_error e) {
+      } catch (fs::filesystem_error &e) {
       }
     }
   }
