@@ -19,6 +19,11 @@ cmake --build . --config RelWithDebInfo --target install
 
 __MacOs__
 
+install XCode and then the command line tools
+```
+xcode-select --install
+```
+
 install llvm@10
 ```
 brew install llvm@10
