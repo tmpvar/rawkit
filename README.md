@@ -18,7 +18,34 @@ cmake --build . --config RelWithDebInfo --target install
 ```
 
 __MacOs__
+
+install llvm@10
 ```
+brew install llvm@10
+```
+
+install moltenvk sdk
+```
+wget https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.dmg -O ~/Downloads/vulkan-sdk.dmg
+hdiutil attach ~/Downloads/vulkan-sdk.dmg
+mkdir ~/moltenvk
+cp -rv /Volumes/vulkansdk-macos-* ~/moltenvk/
+```
+
+add moltenvk setup to `~/.bash_profile` or similar
+```
+# vulkan sdk
+. ~/vulkansdk/setup-env.sh
+```
+
+update the current session:
+```
+. ~/.bash_profile
+```
+
+```
+mkdir build
+cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=install -DLLVM_DIR=/usr/local/opt/llvm/Toolchains/LLVM10.0.0.xctoolchain/usr/lib/cmake/llvm/ -DClang_DIR=/usr/local/opt/llvm/Toolchains/LLVM10.0.0.xctoolchain/usr/lib/cmake/clang/
 ```
 ## running
