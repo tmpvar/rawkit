@@ -28,8 +28,8 @@ install moltenvk sdk
 ```
 wget https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.dmg -O ~/Downloads/vulkan-sdk.dmg
 hdiutil attach ~/Downloads/vulkan-sdk.dmg
-mkdir ~/moltenvk
-cp -rv /Volumes/vulkansdk-macos-* ~/moltenvk/
+mkdir ~/vulkansdk
+cp -rv /Volumes/vulkansdk-macos-* ~/vulkansdk/
 ```
 
 add moltenvk setup to `~/.bash_profile` or similar
