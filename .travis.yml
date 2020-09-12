@@ -1,15 +1,42 @@
-language: cpp
-dist: focal
-compiler:
-- gcc
-os:
-- linux
+language: minimal
+cache: ccache
+jobs:
+  include:
+    - os: linux
+      dist: focal
+      compiler:
+        - gcc
+    - os: windows
+    - os: osx
+      osx_image: xcode12u
 before_install:
-- pip install --user cpp-coveralls
+  - |
+    if [ "$TRAVIS_OS_NAME" == "windows" ]; then
+      cinst -y python make
+      # refreshenv does not seem to work in bash, so reload it manually.
+      # Entries in the Machine PATH might contain trailing slashes, drop those.
+      # Apply Process paths before Machine to ensure /bin appears before others.
+      export PATH="$(powershell -Command '("Process", "Machine" | % {
+        [Environment]::GetEnvironmentVariable("PATH", $_) -Split ";" -Replace "\\$", ""
+      } | Select -Unique | % { cygpath $_ }) -Join ":"')"
+    fi
+  - |
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      which cmake
+      sudo apt purge --auto-remove cmake
+      sudo rm -rf /usr/local/cmake-3.*
+      wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | sudo tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null
+      sudo apt-add-repository 'deb https://apt.kitware.com/ubuntu/ focal main'
+      sudo apt update
+      sudo apt install cmake
+    fi
+  - pip3 install --user cpp-coveralls
+
 script:
-- mkdir build
-- cmake -Slib -Bbuild
-- pushd build && cmake --build . && make test
+  - mkdir build
+  - pushd build
+  - cmake ../lib
+  - cmake --build . --config Release && ctest -C Release -V
 after_success:
-- coveralls -r .. -i "lib/" -b $(pwd) --gcov-options '\-lp' --exclude-pattern "CMake.*" --exclude-pattern '.*test.*' --exclude include -E "CMakeFiles" -E build/CMakeFiles -E 'test.*.cpp' --exclude lib/test --exclude src --exclude projects --verbose
+  - coveralls -r .. -i "lib/" -b $(pwd) --gcov-options '\-lp' --exclude-pattern "CMake.*" --exclude-pattern '.*test.*' --exclude include -E "CMakeFiles" -E build/CMakeFiles -E 'test.*.cpp' --exclude lib/test --exclude src --exclude projects --verbose
 #- coveralls -r lib --gcov $(which llvm-cov) --gcov-options '\-lp'
