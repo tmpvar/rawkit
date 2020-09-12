@@ -1,5 +1,8 @@
 # Rawkit
 
+[![Build Status](https://travis-ci.org/tmpvar/rawkit.svg?branch=master)](https://travis-ci.org/tmpvar/rawkit)
+[![Coverage Status](https://coveralls.io/repos/github/tmpvar/rawkit/badge.svg?branch=master)](https://coveralls.io/github/tmpvar/rawkit?branch=master)
+
 using an llvm built with
 
 ```
