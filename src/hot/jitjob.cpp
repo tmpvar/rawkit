@@ -184,9 +184,9 @@ JitJob *JitJob::create(int argc, const char **argv) {
   fs::path file(argv[1]);
   // TODO: allow a directory to be specified as the "program" and look for common filenames
   //       sort of like node w/ index.js
-  job->program_source = fs::canonical(fs::current_path() / file);
-  job->program_dir = fs::canonical(job->program_source.remove_filename());
-  cout << "running program: " << job->program_source.string() << endl;
+  job->program_source = fs::canonical(fs::current_path() / argv[1]);
+  job->program_dir = fs::path(job->program_source).remove_filename();
+  cout << "running program: " << job->program_source.string() << " (" << file.filename().string() << ") " << endl;
 
   return job;
 }
@@ -273,20 +273,33 @@ bool JitJob::rebuild() {
   }
 
   this->watched_files.clear();
-  cout << "watching: " << endl;
+
+  {
+    JitJobFileEntry entry;
+    entry.file = this->program_source;
+    entry.mtime = fs::last_write_time(this->program_source);
+    watched_files.push_back(entry);
+  }
+
   for (auto &include : includes) {
     auto abs_path = fs::canonical(include);
     auto rel = fs::relative(abs_path, this->guest_include_dir);
 
     // Filter down the results to files that exist outside of the rawkit install dir
     if (rel.string().find("..") != 0) {
-      cout << "  " << abs_path.string() << endl;
       JitJobFileEntry entry;
       entry.file = abs_path;
       entry.mtime = fs::last_write_time(entry.file);
       this->watched_files.push_back(entry);
     }
   }
+
+
+  cout << "watching: " << endl;
+  for (auto &watched : this->watched_files) {
+    cout << "  " << watched.file << endl;
+  }
+
 
   //ASTContext& ast_context = compiler_instance.getASTContext();
   //clang::MangleContext *mangle_context = ast_context.createMangleContext();

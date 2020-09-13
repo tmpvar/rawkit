@@ -180,7 +180,6 @@ target_compile_options(
   -D__STDC_LIMIT_MACROS
   # see: https://developercommunity.visualstudio.com/content/problem/93889/error-c2872-byte-ambiguous-symbol.html
   -D_HAS_STD_BYTE=0
-
   # see: http://www.suodenjoki.dk/us/archive/2010/min-max.htm
   -DNOMINMAX=1
 
@@ -252,6 +251,12 @@ install(
 install(
     FILES
       ${DEPS_DIR}/cimgui/cimgui.h
+      ${DEPS_DIR}/cimgui/imgui/imgui.h
+      ${DEPS_DIR}/cimgui/imgui/imgui_internal.h
+      ${DEPS_DIR}/cimgui/imgui/imconfig.h
+      ${DEPS_DIR}/cimgui/imgui/imstb_rectpack.h
+      ${DEPS_DIR}/cimgui/imgui/imstb_textedit.h
+      ${DEPS_DIR}/cimgui/imgui/imstb_truetype.h
       ${CMAKE_CURRENT_LIST_DIR}/include/stb_sb.h
       ${DEPS_DIR}/tinyfiledialogs/tinyfiledialogs.h
     DESTINATION include/

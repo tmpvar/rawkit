@@ -2,7 +2,7 @@
 #include <hot/jitjob.h>
 
 #include <hot/guest/hot/state.h>
-#if defined(__apple__)
+#if !defined(__linux__)
   #include <hot/host/stdlib.h>
 #endif
 #include <hot/host/stdio.h>
@@ -30,11 +30,11 @@ void host_hot_init(JitJob *job) {
 
   host_rawkit_serial_init(job);
 
-  #if !defined(_WIN32)
-    host_croaring_init(job);
-  #endif
+  //#if !defined(_WIN32)
+  host_croaring_init(job);
+  //#endif
 
-  #if defined(__apple__)
+  #if !defined(__linux__)
     host_init_stdlib(job);
   #endif
 
