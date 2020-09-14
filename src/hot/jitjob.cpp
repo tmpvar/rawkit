@@ -135,6 +135,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
   Args.push_back("-fvisibility-inlines-hidden");
   Args.push_back("-fno-exceptions");
   Args.push_back("-fno-rtti");
+  // Args.push_back(("-I" + fs::path(job->guest_include_dir / "rawkit" / "vulkan").string()).c_str());
   Args.push_back(job->guest_include.c_str());
   Args.push_back("-I/usr/local/opt/llvm/Toolchains/LLVM10.0.0.xctoolchain/usr/lib/clang/10.0.0/include");
 

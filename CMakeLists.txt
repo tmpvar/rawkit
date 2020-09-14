@@ -41,22 +41,24 @@ if(APPLE)
         "-framework Metal"
         "-framework QuartzCore"
     )
-    include_directories(${MOLTENVK_PATH}/include)
+    set(RAWKIT_GUEST_VULKAN_INCLUDE_DIR ${MOLTENVK_PATH}/include)
+
 else()
     find_package(Vulkan)
     set(VULKAN_LIBS
         ${Vulkan_LIBRARIES}
     )
-    include_directories(${Vulkan_INCLUDE_DIRS})
+    set(RAWKIT_GUEST_VULKAN_INCLUDE_DIR ${Vulkan_INCLUDE_DIRS})
     message(STATUS "vulkan sdk path ${VK_SDK_PATH} ${Vulkan_INCLUDE_DIRS} ${Vulkan_LIBRARIES}")
 
-    get_cmake_property(_variableNames VARIABLES)
-    list (SORT _variableNames)
-    foreach (_variableName ${_variableNames})
-        message(STATUS "${_variableName}=${${_variableName}}")
-    endforeach()
+    # get_cmake_property(_variableNames VARIABLES)
+    # list (SORT _variableNames)
+    # foreach (_variableName ${_variableNames})
+    #     message(STATUS "${_variableName}=${${_variableName}}")
+    # endforeach()
 endif()
 
+include_directories(${RAWKIT_GUEST_VULKAN_INCLUDE_DIR})
 
 # DEP: glfw
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -108,7 +110,6 @@ include_directories(
 add_subdirectory(${DEPS_DIR}/serial)
 include_directories(
   ${DEPS_DIR}/serial/include
-  ${DEPS_DIR}/whereami/src
 )
 
 # DEP: tinyfiledialogs
@@ -123,6 +124,11 @@ set(CROARING_SRC
 
 include_directories(
   ${DEPS_DIR}/croaring
+)
+
+# DEP: whereami
+include_directories(
+  ${DEPS_DIR}/whereami/src
 )
 
 add_executable(
@@ -278,6 +284,14 @@ install(
     DESTINATION include/roaring
 )
 
+
+# vulkan headers
+install(
+  DIRECTORY
+    ${RAWKIT_GUEST_VULKAN_INCLUDE_DIR}/vulkan/
+  DESTINATION
+    include/vulkan/
+)
 
 install(
     TARGETS
