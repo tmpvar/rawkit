@@ -147,6 +147,7 @@ add_executable(
 
 if (CMAKE_SYSTEM_NAME STREQUAL Windows)
   set_property(TARGET rawkit PROPERTY CXX_STANDARD 11)
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL Linux)

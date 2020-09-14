@@ -68,6 +68,14 @@ private:
       auto jit_builder = llvm::orc::LLJITBuilder();
       auto mod_ptr = action->takeModule();
 
+      auto JTMB = llvm::orc::JITTargetMachineBuilder::detectHost();
+      if (!JTMB) {
+        printf("ERROR: unable to detect host\n");
+        return nullptr;
+      }
+
+      bool isCoffFormat = JTMB->getTargetTriple().isOSBinFormatCOFF();
+
       // Callback to create the object layer with symbol resolution to current
       // process and dynamically linked libraries.
       auto objectLinkingLayerCreator = [&](
@@ -80,6 +88,16 @@ private:
               return std::make_unique<llvm::SectionMemoryManager>();
             }
         );
+
+        objectLayer->setOverrideObjectFlagsWithResponsibilityFlags(true);
+
+        // Fix the "unable to materialize symbol" __real@123124 and related errors.
+        // see: http://llvm.org/doxygen/classllvm_1_1orc_1_1ObjectLinkingLayer.html#aa30bc825696d7254aef0fe76015d10ff
+        // see: https://stackoverflow.com/a/60609825/132424
+        if (isCoffFormat) {
+          objectLayer->setAutoClaimResponsibilityForObjectSymbols(true);
+        }
+
         auto dataLayout = mod_ptr->getDataLayout();
         llvm::orc::JITDylib *mainJD = session.getJITDylibByName("<main>");
         if (!mainJD) {
@@ -118,17 +136,8 @@ private:
         return objectLayer;
       };
 
-      #ifndef _WIN32
-        auto JTMB = llvm::orc::JITTargetMachineBuilder::detectHost();
-        if (!JTMB) {
-          printf("ERROR: unable to detect host\n");
-          return nullptr;
-        }
-
-        jit_builder.setJITTargetMachineBuilder(std::move(*JTMB));
-        jit_builder.setObjectLinkingLayerCreator(objectLinkingLayerCreator);
-      #endif
-
+      jit_builder.setJITTargetMachineBuilder(std::move(*JTMB));
+      jit_builder.setObjectLinkingLayerCreator(objectLinkingLayerCreator);
 
       if (jit_builder.prepareForConstruction()) {
         printf("ERROR: failed to prepare for construction\n");
@@ -162,7 +171,8 @@ private:
         );
 
         if (err) {
-          printf("ERROR: could not defineAbsolute(%s)\n", it.first);
+          printf("WARNING: could not defineAbsolute(%s)\n", it.first);
+          consumeError(std::move(err));
         }
       }
 
@@ -248,7 +258,7 @@ private:
           if (mangledLookupResult) {
             run->loop_fn = (mainfn)mangledLookupResult.get().getAddress();
           } else {
-        
+
             auto normalResult = run->jit->lookup("loop");
             if (normalResult) {
               run->loop_fn = (mainfn)normalResult.get().getAddress();

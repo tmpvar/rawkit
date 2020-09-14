@@ -21,7 +21,6 @@ std::string GetExecutablePath(const char *Argv0, void *MainAddr) {
   return llvm::sys::fs::getMainExecutable(Argv0, MainAddr);
 }
 
-
 static ArgStringList FilterArgs(const ArgStringList& input) {
   ArgStringList args(input);
   ArgStringList::iterator it;
@@ -148,6 +147,8 @@ JitJob *JitJob::create(int argc, const char **argv) {
   Args.push_back(RAWKIT_GUEST_INCLUDE_DIR);
   Args.push_back(RAWKIT_CIMGUI_INCLUDE_DIR);
   */
+
+  Args.push_back("-Iinstall/include");
   Args.push_back("-DHOT_GUEST=1");
   Args.push_back("-DRAWKIT_GUEST=1");
 

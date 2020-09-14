@@ -360,6 +360,11 @@ inline std::string trim(const std::string &s)
    return (wsback<=wsfront ? std::string() : std::string(wsfront,wsback));
 }
 
+VkDevice rawkit_vulkan_device() {
+    printf("host: vulkan device: %p\n", g_Device);
+    return g_Device;
+}
+
 llvm::ExitOnError ExitOnErr;
 int main(int argc, const char **argv) {
     llvm::InitLLVM initialize_llvm(argc, argv);
@@ -387,6 +392,8 @@ int main(int argc, const char **argv) {
         job->addExport("_errno", (void *)&_errno);
         job->addExport("_wassert", rawkit_wassert);
     #endif
+
+    job->addExport("rawkit_vulkan_device", (void *)&rawkit_vulkan_device);
 
     host_hot_init(job);
 

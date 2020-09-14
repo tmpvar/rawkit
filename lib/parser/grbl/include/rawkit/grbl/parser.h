@@ -19,6 +19,10 @@ SOFTWARE.
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1345,3 +1349,6 @@ struct GrblParser {
   }
 };
 
+#ifdef __cplusplus
+}
+#endif

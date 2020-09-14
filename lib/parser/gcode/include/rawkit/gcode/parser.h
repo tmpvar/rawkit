@@ -19,6 +19,10 @@ SOFTWARE.
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1443,3 +1447,7 @@ class GCODEParser {
       return true;
     }
 };
+
+#ifdef __cplusplus
+}
+#endif
