@@ -98,7 +98,7 @@ set(IMGUI_SRC
   ${DEPS_DIR}/cimgui/imgui/imgui_draw.cpp
   ${DEPS_DIR}/cimgui/imgui/imgui_widgets.cpp
   ${DEPS_DIR}/cimgui/imgui/examples/imgui_impl_glfw.cpp
-  ${DEPS_DIR}/cimgui/imgui/examples/imgui_impl_vulkan.cpp
+  ${SRC_DIR}/imgui/imgui_impl_vulkan.cpp
 )
 
 include_directories(

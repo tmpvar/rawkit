@@ -22,6 +22,7 @@
 #include <iostream>
 #include <optional>
 #include <cctype>
+#include <random>
 
 
 #include <hot/hot.h>
@@ -30,8 +31,16 @@
 #include "llvm/Support/InitLLVM.h"
 
 #include <hot/host/hot.h>
+#include <hot/guest/rawkit/image.h>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 #include <imgui/examples/imgui_impl_glfw.h>
-#include <imgui/examples/imgui_impl_vulkan.h>
+#include "imgui/imgui_impl_vulkan.h"
+
+#include <ghc/filesystem.hpp>
+namespace fs = ghc::filesystem;
 
 // this must come after including llvm because visual studio / windows sdk
 // conflict with std::byte
@@ -56,7 +65,6 @@ static int                      g_MinImageCount = 2;
 static bool                     g_SwapChainRebuild = false;
 static int                      g_SwapChainResizeWidth = 0;
 static int                      g_SwapChainResizeHeight = 0;
-
 
 void rawkit_wassert(wchar_t const* m, wchar_t const* f, unsigned l) {
   printf("ASSERT: %ls (%ls:%u)\n", m, f, l);
@@ -242,7 +250,7 @@ static void SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface
 
     // Create SwapChain, RenderPass, Framebuffer, etc.
     IM_ASSERT(g_MinImageCount >= 2);
-    ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, g_PhysicalDevice, g_Device, wd, g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
+    ImGui_ImplVulkanH_CreateWindow(g_Instance, g_PhysicalDevice, g_Device, wd, g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
 }
 
 static void CleanupVulkan()
@@ -361,8 +369,69 @@ inline std::string trim(const std::string &s)
 }
 
 VkDevice rawkit_vulkan_device() {
-    printf("host: vulkan device: %p\n", g_Device);
     return g_Device;
+}
+
+VkPhysicalDevice rawkit_vulkan_physical_device() {
+    return g_PhysicalDevice;
+}
+
+VkCommandBuffer rawkit_vulkan_command_buffer() {
+    ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+    return wd->Frames[wd->FrameIndex].CommandBuffer;
+}
+
+VkCommandPool rawkit_vulkan_command_pool() {
+    ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+    return wd->Frames[wd->FrameIndex].CommandPool;
+}
+
+ImTextureID rawkit_imgui_add_texture(VkSampler sampler, VkImageView image_view, VkImageLayout image_layout) {
+    return ImGui_ImplVulkan_AddTexture(sampler, image_view, image_layout);
+}
+
+VkQueue rawkit_vulkan_queue() {
+    return g_Queue;
+}
+
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_real_distribution<> dis(0.0, 1.0);
+float rawkit_randf() {
+  return dis(gen);
+}
+
+const rawkit_image rawkit_load_image_relative_to_file(const char *from_file, const char *path) {
+  // todo: compute the path relative to the file that included it
+  const fs::path base_dir = fs::path(from_file).remove_filename();
+  rawkit_image ret = {};
+  memset(&ret, 0, sizeof(ret));
+
+  try {
+    const fs::path abs_path = fs::canonical(base_dir / path);
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    ret.pixels = stbi_loadf(
+      abs_path.string().c_str(),
+      &width,
+      &height,
+      &channels,
+      4
+    );
+
+    if (!ret.pixels) {
+      return ret;
+    }
+
+    ret.width = static_cast<float>(width);
+    ret.height = static_cast<float>(height);
+    ret.channels = 4;
+
+  } catch(fs::filesystem_error& fe) {
+    return ret;
+  }
+  return ret;
 }
 
 llvm::ExitOnError ExitOnErr;
@@ -394,6 +463,13 @@ int main(int argc, const char **argv) {
     #endif
 
     job->addExport("rawkit_vulkan_device", (void *)&rawkit_vulkan_device);
+    job->addExport("rawkit_vulkan_physical_device", (void *)&rawkit_vulkan_physical_device);
+    job->addExport("rawkit_vulkan_command_buffer", (void *)&rawkit_vulkan_command_buffer);
+    job->addExport("rawkit_vulkan_command_pool", (void *)&rawkit_vulkan_command_pool);
+    job->addExport("rawkit_imgui_add_texture", (void *)&rawkit_imgui_add_texture);
+    job->addExport("rawkit_vulkan_queue", (void *)&rawkit_vulkan_queue);
+    job->addExport("rawkit_randf", (void *)&rawkit_randf);
+    job->addExport("rawkit_load_image_relative_to_file", (void *)&rawkit_load_image_relative_to_file);
 
     host_hot_init(job);
 
@@ -558,7 +634,7 @@ int main(int argc, const char **argv) {
         {
             g_SwapChainRebuild = false;
             ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
-            ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, g_PhysicalDevice, g_Device, &g_MainWindowData, g_QueueFamily, g_Allocator, g_SwapChainResizeWidth, g_SwapChainResizeHeight, g_MinImageCount);
+            ImGui_ImplVulkanH_CreateWindow(g_Instance, g_PhysicalDevice, g_Device, &g_MainWindowData, g_QueueFamily, g_Allocator, g_SwapChainResizeWidth, g_SwapChainResizeHeight, g_MinImageCount);
             g_MainWindowData.FrameIndex = 0;
         }
 
