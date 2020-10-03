@@ -131,6 +131,14 @@ include_directories(
   ${DEPS_DIR}/whereami/src
 )
 
+# DEP: pull-stream
+set(PULL_STREAM_BUILD_TESTS OFF CACHE INTERNAL "")
+set(PULL_STREAM_TEST_COVERAGE ON CACHE INTERNAL "")
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream)
+include_directories(
+  ${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream/include
+)
+
 # DEP: gcode-parser
 set(RAWKIT_GCODE_PARSER_BUILD_TESTS OFF CACHE INTERNAL "")
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser)
@@ -321,6 +329,7 @@ enable_testing()
 set(RAWKIT_TEST_FILES
   ${RAWKIT_GCODE_PARSER_TEST_FILES}
   ${RAWKIT_GRBL_PARSER_TEST_FILES}
+  ${PULL_STREAM_TEST_FILES}
 )
 
 add_executable(rawkit-test
@@ -329,6 +338,7 @@ add_executable(rawkit-test
 )
 
 set_property(TARGET rawkit-test PROPERTY CXX_STANDARD 11)
+set_property(TARGET rawkit-test PROPERTY C_STANDARD 11)
 
 source_group("tests" FILES ${RAWKIT_TEST_FILES})
 
@@ -350,6 +360,10 @@ else()
     --coverage
   )
 endif()
+
+target_link_libraries(rawkit-test PRIVATE
+  pull-stream
+)
 
 target_compile_options(rawkit-test PRIVATE
   ${RAWKIT_TEST_COMPILE_FLAGS}

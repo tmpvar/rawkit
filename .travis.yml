@@ -55,10 +55,10 @@ before_install:
       brew install llvm@10
       cmake .. || cat C:/Users/travis/build/tmpvar/rawkit/build/CMakeFiles/CMakeOutput.log
     fi
-  - pip3 install --user cpp-coveralls
-install: pip3 install --user --upgrade pip
+install:
+  - pip3 install cpp-coveralls
 script:
   - cmake --build . --config Debug --target rawkit-test && ctest -C Debug
 after_success:
-  - coveralls -r .. -i "lib/" -b $(pwd) --gcov-options '\-lp' --exclude-pattern "CMake.*" --exclude-pattern '.*test.*' --exclude include -E "CMakeFiles" -E build/CMakeFiles -E 'test.*.cpp' --exclude lib/test --exclude src --exclude projects --verbose
+  - cpp-coveralls -r .. -i "lib/" -b $(pwd) --gcov-options '\-lp' --exclude-pattern "CMake.*" --exclude-pattern '.*test.*' --exclude include -E "CMakeFiles" -E build/CMakeFiles -E 'test.*.cpp' --exclude lib/test --exclude src --exclude projects --verbose
 #- coveralls -r lib --gcov $(which llvm-cov) --gcov-options '\-lp'
