@@ -23,19 +23,19 @@ file(GLOB PULL_STREAM_IO_SOURCES
   "${CMAKE_CURRENT_LIST_DIR}/src/io/*.c"
 )
 
-file(GLOB PULL_STREAM_PRIMITIVE_SOURCES
+file(GLOB PULL_STREAM_SYNC_SOURCES
   "${CMAKE_CURRENT_LIST_DIR}/src/sync/*.c"
 )
 
 add_library(pull-stream
   ${PULL_STREAM_CORE_SOURCES}
   ${PULL_STREAM_IO_SOURCES}
-  ${PULL_STREAM_PRIMITIVE_SOURCES}
+  ${PULL_STREAM_SYNC_SOURCES}
 )
 
 source_group("core" FILES ${PS_CORE_SOURCES})
 source_group("io" FILES ${PS_IO_SOURCES})
-source_group("primitive" FILES ${PS_PRIMITIVE_SOURCES})
+source_group("sync" FILES ${PS_PRIMITIVE_SOURCES})
 
 set_property(TARGET pull-stream PROPERTY CXX_STANDARD 11)
 set_property(TARGET pull-stream PROPERTY C_STANDARD 11)

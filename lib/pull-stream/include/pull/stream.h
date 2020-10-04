@@ -13,6 +13,7 @@ typedef enum {
 } ps_status;
 
 #include "sync.h"
+#include "io.h"
 
 #ifdef __cplusplus
 extern "C" {

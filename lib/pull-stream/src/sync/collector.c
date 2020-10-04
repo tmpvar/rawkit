@@ -23,6 +23,7 @@ static ps_val_t *collector_fn(ps_t *base, ps_status status) {
 
   ps_val_t *val = pull_through(base, status);
 
+
   switch (base->status) {
     // drop the buffer and return null
     case PS_ERR: {
@@ -37,6 +38,13 @@ static ps_val_t *collector_fn(ps_t *base, ps_status status) {
 
     // copy the contents of val into collector->buffer
     case PS_OK: {
+
+      // it is ok that val sometimes comes back as null, it likely means
+      // that the source stream is async and we are waiting for data
+      if (!val) {
+        return NULL;
+      }
+
       uint64_t len = collector->buffer->len;
       uint64_t new_len = len + val->len;
 
