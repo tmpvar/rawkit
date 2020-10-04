@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-typedef struct ps_cb_t ps_cb_t;
+typedef struct ps_t ps_t;
 
 #include "sync.h"
 
@@ -18,25 +18,33 @@ typedef enum {
   PS_DONE = 1,
 } ps_status;
 
-typedef struct ps_value_t {
+typedef void (*ps_value_destroy_fn)(void *s);
+
+typedef struct ps_val_t {
   void *data;
   int64_t len;
-} ps_value_t;
+  ps_value_destroy_fn destroy_fn;
+} ps_val_t;
+
+typedef ps_val_t *(*ps_pull_fn)(ps_t *s, ps_status status);
+typedef void (*ps_destroy_fn)(ps_t *s);
 
 // Utils
-ps_status handle_status(ps_cb_t *cb, ps_status status);
-ps_value_t *pull_through(ps_cb_t* cb, ps_status status);
+ps_status handle_status(ps_t *s, ps_status status);
+ps_val_t *pull_through(ps_t* s, ps_status status);
 
-typedef ps_value_t *(*ps_pull_fn)(ps_cb_t *cb, ps_status status);
+void ps_val_destroy(ps_val_t *val);
+void ps_destroy(ps_t *s);
 
 #define PS_CB_FIELDS \
   ps_status status; \
   ps_pull_fn fn; \
-  ps_cb_t *source;
+  ps_destroy_fn destroy_fn; \
+  ps_t *source;
 
-typedef struct ps_cb_t {
+typedef struct ps_t {
   PS_CB_FIELDS
-} ps_cb_t;
+} ps_t;
 
 #ifdef __cplusplus
 }

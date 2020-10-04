@@ -1,6 +1,6 @@
 #include <pull/stream.h>
 
-ps_status handle_status(ps_cb_t *cb, ps_status status) {
+ps_status handle_status(ps_t *cb, ps_status status) {
   if (cb->status) {
     return cb->status;
   }
@@ -15,14 +15,12 @@ ps_status handle_status(ps_cb_t *cb, ps_status status) {
     if (cb->source) {
       cb->source->fn(cb->source, status);
     }
-
-    return status;
   }
 
   return status;
 }
 
-ps_value_t *pull_through(ps_cb_t* cb, ps_status status) {
+ps_val_t *pull_through(ps_t* cb, ps_status status) {
   if (handle_status(cb, status)) {
     return NULL;
   }
@@ -32,8 +30,26 @@ ps_value_t *pull_through(ps_cb_t* cb, ps_status status) {
     return NULL;
   }
 
-  ps_value_t* v = cb->source->fn(cb->source, status);
+  ps_val_t* v = cb->source->fn(cb->source, status);
   handle_status(cb, cb->source->status);
 
   return v;
+}
+
+void ps_destroy(ps_t *s) {
+  if (!s || !s->destroy_fn) {
+    free(s);
+    return;
+  }
+
+  s->destroy_fn(s);
+}
+
+void ps_val_destroy(ps_val_t *val) {
+  if (!val || !val->destroy_fn) {
+    return;
+  }
+
+  val->destroy_fn(val->data);
+  free(val);
 }
