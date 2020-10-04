@@ -19,7 +19,7 @@ TEST_CASE("[pull/stream] collector through stream") {
   {
 
     ps_t *counter = create_counter();
-    ps_t *taker = create_taker(5);
+    ps_t *taker = create_taker(5, PS_DONE);
     ps_t *collector = create_collector();
 
     taker->source = counter;
@@ -44,7 +44,7 @@ TEST_CASE("[pull/stream] collector through stream") {
     CHECK(values[3] == 4);
     CHECK(values[4] == 5);
     CHECK(collector->status == PS_OK);
-    
+
     ps_val_destroy(val);
 
     // pull after done..

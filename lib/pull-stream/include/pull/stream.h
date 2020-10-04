@@ -6,17 +6,17 @@
 
 typedef struct ps_t ps_t;
 
-#include "sync.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef enum {
   PS_ERR = -1,
   PS_OK = 0,
   PS_DONE = 1,
 } ps_status;
+
+#include "sync.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef void (*ps_value_destroy_fn)(void *s);
 
