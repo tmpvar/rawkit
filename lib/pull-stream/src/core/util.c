@@ -1,6 +1,10 @@
 #include <pull/stream.h>
 
 ps_status handle_status(ps_t *cb, ps_status status) {
+  if (!cb) {
+    return PS_ERR;
+  }
+
   if (cb->status) {
     return cb->status;
   }
