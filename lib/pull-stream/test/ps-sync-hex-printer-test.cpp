@@ -47,11 +47,11 @@ TEST_CASE("[pull/stream] hex printer test") {
       ps_val_t *val = printer->fn(printer, PS_OK);
       REQUIRE(val == nullptr);
       CHECK(printer->status == PS_DONE);
-      
+
       ps_val_destroy(val);
 
       uint64_t buffer_len = ftell(tmp);
-      
+
       char *buffer = (char *)calloc(buffer_len + 1, 1);
       REQUIRE(buffer != nullptr);
 
@@ -63,12 +63,8 @@ TEST_CASE("[pull/stream] hex printer test") {
         buffer,
         "61 62 63 31 32 33                                 |  abc123 \n"
       ) == 0);
-
-      printf("BUFFER: %s\n", buffer);
-
     }
-    
+
     ps_destroy(printer);
   }
-
 }
