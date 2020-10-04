@@ -10,7 +10,8 @@ TEST_CASE("[pull/stream] single value source stream") {
   {
     REQUIRE(create_single_value(NULL, 0) == nullptr);
     REQUIRE(create_single_value(NULL, 1) == nullptr);
-    REQUIRE(create_single_value("asdf", 0) == nullptr);
+    const char *str = "asdf";
+    REQUIRE(create_single_value((void *)str, 0) == nullptr);
   }
 
   // print a value one time

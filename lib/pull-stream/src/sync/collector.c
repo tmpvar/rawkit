@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 typedef struct collector_t {
   PS_FIELDS

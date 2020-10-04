@@ -1,6 +1,7 @@
 #include <pull/stream.h>
 
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct single_value_t {
   PS_FIELDS
@@ -17,7 +18,7 @@ ps_val_t *single_value_fn(ps_t *base, ps_status status) {
 
   single_value_t *s = (single_value_t *)base;
   if (!s->value) {
-    handle_status(s, PS_DONE);
+    handle_status(base, PS_DONE);
     return NULL;
   }
 
