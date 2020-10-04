@@ -6,7 +6,10 @@
 extern "C" {
 #endif
 
+// counter - increments a uint64_t on every pull, the first value returned is `1`
 ps_t *create_counter();
+
+// multiplier - multiply a uint64_t by `scale`
 ps_t *create_multiplier(uint64_t scale);
 
 // nooper - the smallest possible through stream
@@ -23,7 +26,7 @@ ps_t *create_collector();
 // Note: hex_printer will not close the incoming stream - this allows it to be used with stdout/stderr
 ps_t *create_hex_printer(FILE *output);
 
-// single_value - source stream that outputs the provided value and then changes its status to `next_status`
+// single_value - source stream that outputs the provided value and then changes its status to PS_DONE
 ps_t *create_single_value(void *data, uint64_t len);
 
 #ifdef __cplusplus
