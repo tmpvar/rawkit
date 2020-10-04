@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 typedef struct taker_t {
-  PS_CB_FIELDS
+  PS_FIELDS
   int64_t n;
   ps_status next_status;
 } taker_t;

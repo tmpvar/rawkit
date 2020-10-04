@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 typedef struct collector_t {
-  PS_CB_FIELDS
+  PS_FIELDS
 
   ps_val_t *buffer;
 } collector_t;

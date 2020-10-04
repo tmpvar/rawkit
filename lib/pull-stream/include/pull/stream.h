@@ -36,14 +36,14 @@ ps_val_t *pull_through(ps_t* s, ps_status status);
 void ps_val_destroy(ps_val_t *val);
 void ps_destroy(ps_t *s);
 
-#define PS_CB_FIELDS \
+#define PS_FIELDS \
   ps_status status; \
   ps_pull_fn fn; \
   ps_destroy_fn destroy_fn; \
   ps_t *source;
 
 typedef struct ps_t {
-  PS_CB_FIELDS
+  PS_FIELDS
 } ps_t;
 
 #ifdef __cplusplus

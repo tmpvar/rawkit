@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 typedef struct hex_printer_t {
-  PS_CB_FIELDS
+  PS_FIELDS
 
   FILE *output;
 } hex_printer_t;

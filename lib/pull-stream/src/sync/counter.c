@@ -4,7 +4,7 @@
 
 // counter
 typedef struct counter_t {
-  PS_CB_FIELDS
+  PS_FIELDS
   uint64_t value;
 } counter_t;
 

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 typedef struct single_value_t {
-  PS_CB_FIELDS
+  PS_FIELDS
 
   ps_val_t *value;
   ps_status next_status;

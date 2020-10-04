@@ -4,7 +4,7 @@
 
 // multiplier (uint64)
 typedef struct multiplier_t {
-  PS_CB_FIELDS
+  PS_FIELDS
   uint64_t scale;
   uint64_t value;
 } multiplier_t;
