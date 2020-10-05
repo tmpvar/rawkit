@@ -67,7 +67,7 @@ class TCPEchoServer {
 
     static void alloc_buffer(uv_handle_t *, size_t suggested_size, uv_buf_t *buf) {
       buf->base = (char*) malloc(suggested_size);
-      buf->len = (ULONG)suggested_size;
+      buf->len = suggested_size;
     }
 
     static void on_close(uv_handle_t* handle) {
