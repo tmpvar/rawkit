@@ -40,7 +40,7 @@ TEST_CASE("[pull/stream/redux] multiplier through stream") {
 
     mult->source = counter;
 
-    handle_status(mult, PS_ERR);
+    ps_status(mult, PS_ERR);
 
     CHECK(counter->status == PS_ERR);
     CHECK(mult->status == PS_ERR);

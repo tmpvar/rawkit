@@ -8,8 +8,8 @@ typedef struct counter_t {
   uint64_t value;
 } counter_t;
 
-static ps_val_t *counter_fn(ps_t *base, ps_status status) {
-  if (handle_status(base, status)) {
+static ps_val_t *counter_fn(ps_t *base, ps_stream_status status) {
+  if (ps_status(base, status)) {
     return NULL;
   }
 

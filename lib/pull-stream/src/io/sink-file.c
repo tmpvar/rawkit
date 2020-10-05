@@ -24,7 +24,7 @@ static void on_sink_file_open(uv_fs_t *req) {
   int result = uv_fs_get_result(req);
 
   if (result < 0 || !s) {
-    handle_status((ps_t *)s, PS_ERR);
+    ps_status((ps_t *)s, PS_ERR);
     return;
   }
 
@@ -37,7 +37,7 @@ static void on_sink_file_close(uv_fs_t *req) {
     return;
   }
 
-  handle_status((ps_t *)s, PS_DONE);
+  ps_status((ps_t *)s, PS_DONE);
   s->handle = -1;
 }
 
@@ -47,13 +47,13 @@ static void on_sink_file_write(uv_fs_t *req) {
   sink->value = NULL;
 }
 
-ps_val_t *file_sink_fn(ps_t *base, ps_status status) {
-  if (handle_status(base, status)) {
+ps_val_t *file_sink_fn(ps_t *base, ps_stream_status status) {
+  if (ps_status(base, status)) {
     return NULL;
   }
 
   if (!base->source) {
-    handle_status(base, PS_ERR);
+    ps_status(base, PS_ERR);
     return NULL;
   }
 
@@ -69,7 +69,7 @@ ps_val_t *file_sink_fn(ps_t *base, ps_status status) {
     return NULL;
   }
 
-  ps_val_t *val = pull_through(base, PS_OK);
+  ps_val_t *val = ps_pull(base, PS_OK);
 
   // handle ERR/DONE
   if (base->status) {

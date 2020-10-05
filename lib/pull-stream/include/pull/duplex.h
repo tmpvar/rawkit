@@ -8,7 +8,7 @@ extern "C" {
 
 #define PS_DUPLEX_FIELDS \
   PS_HANDLE_FIELDS \
-  ps_status status; \
+  ps_stream_status status; \
   ps_t *source; \
   ps_t *sink;
 

@@ -9,15 +9,15 @@ typedef struct multiplier_t {
   uint64_t value;
 } multiplier_t;
 
-static ps_val_t *multiplier_cb(ps_t *base, ps_status status) {
-  ps_val_t *input = pull_through(base, status);
+static ps_val_t *multiplier_cb(ps_t *base, ps_stream_status status) {
+  ps_val_t *input = ps_pull(base, status);
   if (!input) {
     return NULL;
   }
 
   // invalid value data or size
   if (!input->data || input->len < sizeof(uint64_t)) {
-    handle_status(base, PS_ERR);
+    ps_status(base, PS_ERR);
     ps_destroy(input);
     return NULL;
   }

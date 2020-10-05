@@ -6,11 +6,11 @@
 
 typedef struct ps_t ps_t;
 
-typedef enum {
+typedef enum ps_stream_status {
   PS_ERR = -1,
   PS_OK = 0,
   PS_DONE = 1,
-} ps_status;
+} ps_stream_status;
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,11 +44,11 @@ typedef struct ps_val_t {
   PS_VALUE_FIELDS
 } ps_val_t;
 
-typedef ps_val_t *(*ps_pull_fn)(ps_t *s, ps_status status);
+typedef ps_val_t *(*ps_pull_fn)(ps_t *s, ps_stream_status status);
 
 // Utils
-ps_status handle_status(ps_t *s, ps_status status);
-ps_val_t *pull_through(ps_t* s, ps_status status);
+ps_stream_status ps_status(ps_t *s, ps_stream_status status);
+ps_val_t *ps_pull(ps_t* s, ps_stream_status status);
 
 void _ps_destroy(ps_handle_t **s);
 #define ps_destroy(h) _ps_destroy((ps_handle_t **)&h)
@@ -62,7 +62,7 @@ ps_handle_t *_ps_create(uint64_t size, ps_handle_type type, ps_destroy_fn destro
 
 #define PS_FIELDS \
   PS_HANDLE_FIELDS \
-  ps_status status; \
+  ps_stream_status status; \
   ps_pull_fn fn; \
   ps_t *source;
 

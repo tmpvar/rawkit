@@ -38,9 +38,9 @@ static void dump_hex(FILE *file, void *data, uint64_t size) {
 	}
 }
 
-ps_val_t *hex_printer_fn(ps_t *base, ps_status status) {
+ps_val_t *hex_printer_fn(ps_t *base, ps_stream_status status) {
 
-  ps_val_t *val = pull_through(base, status);
+  ps_val_t *val = ps_pull(base, status);
   if (!val) {
     return NULL;
   }
@@ -56,7 +56,7 @@ ps_t *create_hex_printer(FILE *output) {
   printer->fn = hex_printer_fn;
 
   if (!output) {
-    handle_status((ps_t *)printer, PS_ERR);
+    ps_status((ps_t *)printer, PS_ERR);
   } else {
 	printer->output = output;
   }

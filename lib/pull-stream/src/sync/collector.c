@@ -10,18 +10,18 @@ typedef struct collector_t {
   ps_val_t *buffer;
 } collector_t;
 
-static ps_val_t *collector_fn(ps_t *base, ps_status status) {
+static ps_val_t *collector_fn(ps_t *base, ps_stream_status status) {
   if (base->status) {
     return NULL;
   }
 
   collector_t *collector = (collector_t *)base;
   if (!collector->buffer) {
-    handle_status(base, PS_DONE);
+    ps_status(base, PS_DONE);
     return NULL;
   }
 
-  ps_val_t *val = pull_through(base, status);
+  ps_val_t *val = ps_pull(base, status);
 
 
   switch (base->status) {
@@ -50,7 +50,7 @@ static ps_val_t *collector_fn(ps_t *base, ps_status status) {
 
       void *data = realloc(collector->buffer->data, new_len);
       if (data == NULL) {
-        handle_status(base, PS_ERR);
+        ps_status(base, PS_ERR);
         ps_destroy(collector->buffer);
         collector->buffer = NULL;
         ps_destroy(val);

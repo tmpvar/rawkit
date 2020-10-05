@@ -23,7 +23,7 @@ typedef struct file_source_t {
 
 void on_source_file_close(uv_fs_t* req) {
   file_source_t* s = (file_source_t*)req->data;
-  if (handle_status((ps_t *)s, PS_OK)) {
+  if (ps_status((ps_t *)s, PS_OK)) {
     return;
   }
 
@@ -33,14 +33,14 @@ void on_source_file_close(uv_fs_t* req) {
     s->read_buffer.len = 0;
   }
 
-  handle_status((ps_t *)s, PS_DONE);
+  ps_status((ps_t *)s, PS_DONE);
 }
 
 void on_source_file_read(uv_fs_t *req) {
   file_source_t *s = (file_source_t *)req->data;
 
   if (req->result < 0) {
-    handle_status((ps_t *)s, PS_ERR);
+    ps_status((ps_t *)s, PS_ERR);
     return;
   }
 
@@ -75,7 +75,7 @@ void request_read(file_source_t *s) {
   s->read_buffer.base = (char *)calloc(s->read_buffer_len + 1, 1);
 
   if (s->read_buffer.base == NULL) {
-    handle_status((ps_t *)s, PS_ERR);
+    ps_status((ps_t *)s, PS_ERR);
     return;
   }
 
@@ -92,10 +92,10 @@ void request_read(file_source_t *s) {
   );
 }
 
-static ps_val_t *file_source_fn(ps_t *base, ps_status status) {
+static ps_val_t *file_source_fn(ps_t *base, ps_stream_status status) {
   file_source_t *source = (file_source_t *)base;
 
-  if (handle_status(base, status)) {
+  if (ps_status(base, status)) {
     return NULL;
   }
 
@@ -114,7 +114,7 @@ static void on_source_file_open(uv_fs_t *req) {
   int result = uv_fs_get_result(req);
 
   if (result < 0) {
-    handle_status((ps_t *)s, PS_ERR);
+    ps_status((ps_t *)s, PS_ERR);
     return;
   }
 
