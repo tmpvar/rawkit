@@ -42,13 +42,13 @@ ps_t *create_single_value(void *data, uint64_t len) {
     return NULL;
   }
 
-  single_value_t *s = ps_create_stream(single_value_t,  single_value_destroy_fn);
+  single_value_t *s = ps_create_stream(single_value_t, single_value_destroy_fn);
 
   s->fn = single_value_fn;
-  s->value = (ps_val_t *)malloc(sizeof(ps_val_t));
+  s->value = ps_create_value(ps_val_t, NULL);
   s->value->data = calloc(len + 1, 1);
   memcpy(s->value->data, data, len);
   s->value->len = len;
-  s->value->handle_destroy_fn = free;
+
   return (ps_t *)s;
 }

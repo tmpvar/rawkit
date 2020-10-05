@@ -56,7 +56,7 @@ void on_source_file_read(uv_fs_t *req) {
 
   s->read_pending = false;
 
-  ps_val_t *val = (ps_val_t *)calloc(sizeof(ps_val_t), 1);
+  ps_val_t *val = ps_create_value(ps_val_t, NULL);
   val->len = req->result;
   val->data = s->read_buffer.base;
 

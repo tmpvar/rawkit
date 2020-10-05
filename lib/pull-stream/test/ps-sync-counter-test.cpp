@@ -12,7 +12,7 @@ TEST_CASE("[pull/stream/redux] counter source stream") {
       REQUIRE(v != nullptr);
       CHECK(counter->status == PS_OK);
       uint64_t iv = *((uint64_t *)v->data);
-      CHECK(iv == (i+1));
+      CHECK(iv == i);
       ps_destroy(v);
     }
 
@@ -30,7 +30,7 @@ TEST_CASE("[pull/stream/redux] counter source stream") {
         REQUIRE(v != nullptr);
         CHECK(counter->status == PS_OK);
         uint64_t iv = *((uint64_t *)v->data);
-        CHECK(iv == (i+1));
+        CHECK(iv == i);
         ps_destroy(v);
       }
     }
@@ -71,7 +71,7 @@ TEST_CASE("[pull/stream/redux] counter source stream") {
         REQUIRE(v != nullptr);
         CHECK(counter->status == PS_OK);
         uint64_t iv = *((uint64_t *)v->data);
-        CHECK(iv == (i+1));
+        CHECK(iv == i);
         ps_destroy(v);
       }
     }

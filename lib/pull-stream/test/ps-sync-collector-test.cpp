@@ -38,11 +38,11 @@ TEST_CASE("[pull/stream] collector through stream") {
     REQUIRE(val != nullptr);
     CHECK(val->len == (sizeof(uint64_t) * 5));
     uint64_t *values = (uint64_t *)val->data;
-    CHECK(values[0] == 1);
-    CHECK(values[1] == 2);
-    CHECK(values[2] == 3);
-    CHECK(values[3] == 4);
-    CHECK(values[4] == 5);
+    CHECK(values[0] == 0);
+    CHECK(values[1] == 1);
+    CHECK(values[2] == 2);
+    CHECK(values[3] == 3);
+    CHECK(values[4] == 4);
     CHECK(collector->status == PS_OK);
 
     ps_destroy(val);

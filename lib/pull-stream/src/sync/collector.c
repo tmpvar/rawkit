@@ -92,8 +92,7 @@ ps_t *create_collector() {
   collector_t *collector = ps_create_stream(collector_t, collector_destroy_fn);
 
   collector->fn = collector_fn;
-  collector->buffer = (ps_val_t *)calloc(sizeof(ps_val_t), 1);
-  collector->buffer->handle_destroy_fn = free;
+  collector->buffer = ps_create_value(ps_val_t, NULL);
 
   return (ps_t *)collector;
 }

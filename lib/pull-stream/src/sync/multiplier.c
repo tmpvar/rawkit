@@ -1,6 +1,6 @@
 #include <pull/stream.h>
 
-#include <stdint.h>
+#include <string.h>
 
 // multiplier (uint64)
 typedef struct multiplier_t {
@@ -26,9 +26,11 @@ static ps_val_t *multiplier_cb(ps_t *base, ps_stream_status status) {
   mult->value = (*(uint64_t *)input->data) * mult->scale;
   ps_destroy(input);
 
-  ps_val_t *output = (ps_val_t *)calloc(sizeof(ps_val_t), 1);
-  output->data = (void *)&mult->value;
+  ps_val_t *output = ps_create_value(ps_val_t, NULL);
   output->len = sizeof(mult->value);
+  output->data = calloc(output->len, 1);
+
+  memcpy(output->data, (void *)&mult->value, output->len);
 
   return output;
 }

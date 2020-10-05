@@ -3,6 +3,8 @@
 #include <pull/stream.h>
 #include <uv.h>
 
+#include <string.h>
+
 class TCPEchoServer;
 
 TEST_CASE("[pull/stream/io] duplex tcp") {

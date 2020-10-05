@@ -26,7 +26,7 @@ TEST_CASE("[pull/stream] taker through stream") {
       ps_val_t *val = taker->fn(taker, PS_OK);
       REQUIRE(val != nullptr);
       CHECK(val->len == sizeof(uint64_t));
-      CHECK((*(uint64_t *)val->data) == 1);
+      CHECK((*(uint64_t *)val->data) == 0);
       ps_destroy(val);
     }
 
@@ -54,7 +54,7 @@ TEST_CASE("[pull/stream] taker through stream") {
       ps_val_t *val = taker->fn(taker, PS_OK);
       REQUIRE(val != nullptr);
       CHECK(val->len == sizeof(uint64_t));
-      CHECK((*(uint64_t *)val->data) == 1);
+      CHECK((*(uint64_t *)val->data) == 0);
       ps_destroy(val);
     }
 
