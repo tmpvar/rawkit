@@ -12,9 +12,6 @@ typedef enum {
   PS_DONE = 1,
 } ps_status;
 
-#include "sync.h"
-#include "io.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -46,6 +43,10 @@ void ps_destroy(ps_t *s);
 typedef struct ps_t {
   PS_FIELDS
 } ps_t;
+
+#include "duplex.h"
+#include "io.h"
+#include "sync.h"
 
 #ifdef __cplusplus
 }
