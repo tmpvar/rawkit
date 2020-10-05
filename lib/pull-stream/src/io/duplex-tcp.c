@@ -30,7 +30,7 @@ ps_duplex_t *create_tcp_client(const char *addr, uint16_t port, uv_loop_t *loop)
     return NULL;
   }
 
-  tcp_t *s = (tcp_t *)calloc(sizeof(tcp_t), 1);
+  tcp_t *s = ps_create_stream(tcp_t, NULL);
 
   uv_ip4_addr(addr, port, &s->dest);
   s->loop = loop;

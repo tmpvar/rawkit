@@ -42,11 +42,9 @@ ps_t *create_single_value(void *data, uint64_t len) {
     return NULL;
   }
 
-  single_value_t *s = (single_value_t *)calloc(sizeof(single_value_t), 1);
+  single_value_t *s = ps_create_stream(single_value_t,  single_value_destroy_fn);
 
   s->fn = single_value_fn;
-  s->handle_destroy_fn = single_value_destroy_fn;
-
   s->value = (ps_val_t *)malloc(sizeof(ps_val_t));
   s->value->data = calloc(len + 1, 1);
   memcpy(s->value->data, data, len);

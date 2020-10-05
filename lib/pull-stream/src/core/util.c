@@ -1,41 +1,84 @@
 #include <pull/stream.h>
 
-ps_stream_status ps_status(ps_t *cb, ps_stream_status status) {
-  if (!cb) {
+static inline ps_stream_status ps_status_duplex(ps_duplex_t *d, ps_stream_status status) {
+  if (!d->source || !d->sink) {
+    d->status = PS_ERR;
     return PS_ERR;
   }
 
-  if (cb->status) {
-    return cb->status;
+  ps_stream_status source_status = ps_status(d->source, status);
+  ps_stream_status sink_status = ps_status(d->sink, status);
+
+  if (source_status == PS_ERR) {
+    return ps_status(d->sink, status);
   }
 
-  if (cb->source && cb->source->status) {
-    cb->status = cb->source->status;
+  if (sink_status == PS_ERR) {
+    return ps_status(d->source, status);
   }
 
+  if (sink_status == PS_DONE && source_status == PS_DONE) {
+    return PS_DONE;
+  }
+
+  return status;
+}
+
+static inline ps_stream_status ps_status_stream(ps_t *s, ps_stream_status status) {
+  if (s->status) {
+    return s->status;
+  }
+
+  if (s->source && s->source->status) {
+    s->status = s->source->status;
+  }
+
+  // incoming DONE/ERR
   if (status) {
-    cb->status = status;
+    s->status = status;
 
-    if (cb->source) {
-      cb->source->fn(cb->source, status);
+    // push the DONE/ERR up through the chain, each stream is responsible
+    // for setting the status freeing any pending data.
+    if (s->source) {
+      s->source->fn(s->source, status);
     }
   }
 
   return status;
 }
 
-ps_val_t *ps_pull(ps_t* cb, ps_stream_status status) {
-  if (ps_status(cb, status)) {
+ps_stream_status _ps_status(ps_handle_t *h, ps_stream_status status) {
+  if (!h) {
+    return PS_ERR;
+  }
+
+  switch (h->handle_type) {
+    case PS_HANDLE_DUPLEX:
+      return ps_status_duplex((ps_duplex_t *)h, status);
+
+    case PS_HANDLE_STREAM:
+      return ps_status_stream((ps_t *)h, status);
+
+
+    // VALUE and NONE do not have explicit status so calling status on
+    // these items always results in error.
+    default:
+      return PS_ERR;
+  }
+}
+
+ps_val_t *ps_pull(ps_t* s, ps_stream_status status) {
+  if (ps_status(s, status)) {
     return NULL;
   }
 
-  if (!cb->source || !cb->source->fn) {
-    cb->status = PS_ERR;
+  if (!s->source || !s->source->fn) {
+    s->status = PS_ERR;
     return NULL;
   }
 
-  ps_val_t* v = cb->source->fn(cb->source, status);
-  ps_status(cb, cb->source->status);
+  ps_val_t* v = s->source->fn(s->source, status);
+  ps_status(s, s->source->status);
 
   return v;
 }

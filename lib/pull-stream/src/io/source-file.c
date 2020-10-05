@@ -127,7 +127,7 @@ ps_t *create_file_source(const char *path, uv_loop_t *loop) {
     return NULL;
   }
 
-  file_source_t *s = (file_source_t *)calloc(sizeof(file_source_t), 1);
+  file_source_t *s = ps_create_stream(file_source_t, NULL);
 
   s->fn = file_source_fn;
   s->loop = loop;

@@ -89,11 +89,11 @@ void collector_destroy_fn(ps_handle_t *base) {
 }
 
 ps_t *create_collector() {
-  collector_t *collector = (collector_t *)calloc(sizeof(collector_t), 1);
+  collector_t *collector = ps_create_stream(collector_t, collector_destroy_fn);
 
   collector->fn = collector_fn;
-  collector->handle_destroy_fn = collector_destroy_fn;
   collector->buffer = (ps_val_t *)calloc(sizeof(ps_val_t), 1);
   collector->buffer->handle_destroy_fn = free;
+
   return (ps_t *)collector;
 }

@@ -23,7 +23,7 @@ static ps_val_t *counter_fn(ps_t *base, ps_stream_status status) {
 }
 
 ps_t *create_counter() {
-  counter_t *c = (counter_t *)calloc(sizeof(counter_t), 1);
+  counter_t *c = ps_create_stream(counter_t, NULL);
   c->fn = counter_fn;
   return (ps_t *)c;
 }

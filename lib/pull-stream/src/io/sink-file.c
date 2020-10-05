@@ -128,7 +128,7 @@ ps_t *create_file_sink(const char *path, uv_loop_t *loop) {
     return NULL;
   }
 
-  file_sink_t *sink = (file_sink_t *)calloc(sizeof(file_sink_t), 1);
+  file_sink_t *sink = ps_create_stream(file_sink_t, NULL);
 
   sink->loop = loop;
   sink->req.data = (void *)sink;

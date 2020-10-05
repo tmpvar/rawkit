@@ -47,7 +47,10 @@ typedef struct ps_val_t {
 typedef ps_val_t *(*ps_pull_fn)(ps_t *s, ps_stream_status status);
 
 // Utils
-ps_stream_status ps_status(ps_t *s, ps_stream_status status);
+ps_stream_status _ps_status(ps_handle_t *s, ps_stream_status status);
+#define ps_status(handle, status) _ps_status((ps_handle_t *)handle, status)
+
+
 ps_val_t *ps_pull(ps_t* s, ps_stream_status status);
 
 void _ps_destroy(ps_handle_t **s);

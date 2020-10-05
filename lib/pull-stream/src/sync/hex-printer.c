@@ -52,13 +52,14 @@ ps_val_t *hex_printer_fn(ps_t *base, ps_stream_status status) {
 }
 
 ps_t *create_hex_printer(FILE *output) {
-  hex_printer_t *printer = (hex_printer_t *)calloc(sizeof(hex_printer_t), 1);
+  hex_printer_t *printer = ps_create_stream(hex_printer_t, NULL);
+
   printer->fn = hex_printer_fn;
 
   if (!output) {
     ps_status((ps_t *)printer, PS_ERR);
   } else {
-	printer->output = output;
+	  printer->output = output;
   }
 
   return (ps_t *)printer;
