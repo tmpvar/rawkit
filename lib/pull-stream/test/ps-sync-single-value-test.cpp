@@ -34,7 +34,7 @@ TEST_CASE("[pull/stream] single value source stream") {
 
       CHECK(strcmp((char *)val->data, str) == 0);
 
-      ps_val_destroy(val);
+      ps_destroy(val);
     }
 
     // read again (DONE)

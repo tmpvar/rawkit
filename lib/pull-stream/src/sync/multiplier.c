@@ -18,13 +18,13 @@ static ps_val_t *multiplier_cb(ps_t *base, ps_status status) {
   // invalid value data or size
   if (!input->data || input->len < sizeof(uint64_t)) {
     handle_status(base, PS_ERR);
-    ps_val_destroy(input);
+    ps_destroy(input);
     return NULL;
   }
 
   multiplier_t *mult = (multiplier_t *)base;
   mult->value = (*(uint64_t *)input->data) * mult->scale;
-  ps_val_destroy(input);
+  ps_destroy(input);
 
   ps_val_t *output = (ps_val_t *)calloc(sizeof(ps_val_t), 1);
   output->data = (void *)&mult->value;

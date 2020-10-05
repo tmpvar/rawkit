@@ -31,7 +31,7 @@ static ps_val_t *collector_fn(ps_t *base, ps_status status) {
         return NULL;
       }
 
-      ps_val_destroy(collector->buffer);
+      ps_destroy(collector->buffer);
       collector->buffer = NULL;
       return NULL;
     }
@@ -51,9 +51,9 @@ static ps_val_t *collector_fn(ps_t *base, ps_status status) {
       void *data = realloc(collector->buffer->data, new_len);
       if (data == NULL) {
         handle_status(base, PS_ERR);
-        ps_val_destroy(collector->buffer);
+        ps_destroy(collector->buffer);
         collector->buffer = NULL;
-        ps_val_destroy(val);
+        ps_destroy(val);
         return NULL;
       }
 
@@ -62,7 +62,7 @@ static ps_val_t *collector_fn(ps_t *base, ps_status status) {
       collector->buffer->data = data;
       collector->buffer->len = new_len;
 
-      ps_val_destroy(val);
+      ps_destroy(val);
       return NULL;
     }
 
@@ -78,13 +78,13 @@ static ps_val_t *collector_fn(ps_t *base, ps_status status) {
   return NULL;
 }
 
-void collector_destroy_fn(ps_t *base) {
+void collector_destroy_fn(ps_handle_t *base) {
   if (!base) {
     return;
   }
 
   collector_t *collector = (collector_t *)base;
-  ps_val_destroy(collector->buffer);
+  ps_destroy(collector->buffer);
   free(base);
 }
 
@@ -92,8 +92,8 @@ ps_t *create_collector() {
   collector_t *collector = (collector_t *)calloc(sizeof(collector_t), 1);
 
   collector->fn = collector_fn;
-  collector->destroy_fn = collector_destroy_fn;
+  collector->handle_destroy_fn = collector_destroy_fn;
   collector->buffer = (ps_val_t *)calloc(sizeof(ps_val_t), 1);
-  collector->buffer->destroy_fn = free;
+  collector->buffer->handle_destroy_fn = free;
   return (ps_t *)collector;
 }

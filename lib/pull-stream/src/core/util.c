@@ -40,20 +40,55 @@ ps_val_t *pull_through(ps_t* cb, ps_status status) {
   return v;
 }
 
-void ps_destroy(ps_t *s) {
-  if (!s || !s->destroy_fn) {
-    free(s);
+void _ps_destroy(ps_handle_t **p) {
+  ps_handle_t *s = *p;
+
+  if (!s) {
     return;
   }
 
-  s->destroy_fn(s);
+  *p = NULL;
+
+  if (s->handle_destroy_fn) {
+    s->handle_destroy_fn(s);
+    return;
+  }
+
+  switch (s->handle_type) {
+    case PS_HANDLE_DUPLEX: {
+      ps_duplex_t *duplex = (ps_duplex_t *)s;
+      ps_destroy(duplex->source);
+      ps_destroy(duplex->sink);
+
+      free(duplex);
+      break;
+    }
+
+    case PS_HANDLE_STREAM: {
+      free(s);
+      break;
+    }
+
+    case PS_HANDLE_VALUE: {
+      ps_val_t *value = (ps_val_t *)s;
+
+      if (value->data) {
+        free(value->data);
+        value->data = NULL;
+        free(value);
+      }
+    }
+  }
 }
 
-void ps_val_destroy(ps_val_t *val) {
-  if (!val || !val->destroy_fn) {
-    return;
+ps_handle_t *_ps_create(uint64_t size, ps_handle_type type, ps_destroy_fn destroy_fn) {
+  ps_handle_t *h = (ps_handle_t *)calloc(size, 1);
+  if (!h) {
+    return NULL;
   }
 
-  val->destroy_fn(val->data);
-  free(val);
+  h->handle_type = type;
+  h->handle_destroy_fn = destroy_fn;
+
+  return h;
 }

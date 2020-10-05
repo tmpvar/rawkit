@@ -43,7 +43,7 @@ static void on_sink_file_close(uv_fs_t *req) {
 
 static void on_sink_file_write(uv_fs_t *req) {
   file_sink_t *sink = (file_sink_t *)req->data;
-  ps_val_destroy(sink->value);
+  ps_destroy(sink->value);
   sink->value = NULL;
 }
 
@@ -74,7 +74,7 @@ ps_val_t *file_sink_fn(ps_t *base, ps_status status) {
   // handle ERR/DONE
   if (base->status) {
     if (base->status == PS_ERR) {
-      ps_val_destroy(s->value);
+      ps_destroy(s->value);
       s->value = NULL;
     }
 

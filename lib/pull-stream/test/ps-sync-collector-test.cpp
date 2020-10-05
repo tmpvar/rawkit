@@ -11,7 +11,7 @@ TEST_CASE("[pull/stream] collector through stream") {
     ps_val_t *val = collector->fn(collector, PS_OK);
     REQUIRE(val == nullptr);
     CHECK(collector->status == PS_ERR);
-    ps_val_destroy(val);
+    ps_destroy(val);
     ps_destroy(collector);
   }
 
@@ -45,7 +45,7 @@ TEST_CASE("[pull/stream] collector through stream") {
     CHECK(values[4] == 5);
     CHECK(collector->status == PS_OK);
 
-    ps_val_destroy(val);
+    ps_destroy(val);
 
     // pull after done..
     val = collector->fn(collector, PS_OK);

@@ -31,7 +31,7 @@ TEST_CASE("[pull/stream/io] file source stream") {
     REQUIRE(val != nullptr);
     CHECK(strstr((char *)val->data, "FIND THIS STRING") != nullptr);
 
-    ps_val_destroy(val);
+    ps_destroy(val);
     ps_destroy(source);
     ps_destroy(collector);
     uv_loop_close(&loop);

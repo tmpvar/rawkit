@@ -27,7 +27,7 @@ TEST_CASE("[pull/stream] taker through stream") {
       REQUIRE(val != nullptr);
       CHECK(val->len == sizeof(uint64_t));
       CHECK((*(uint64_t *)val->data) == 1);
-      ps_val_destroy(val);
+      ps_destroy(val);
     }
 
     // second read (done)
@@ -55,7 +55,7 @@ TEST_CASE("[pull/stream] taker through stream") {
       REQUIRE(val != nullptr);
       CHECK(val->len == sizeof(uint64_t));
       CHECK((*(uint64_t *)val->data) == 1);
-      ps_val_destroy(val);
+      ps_destroy(val);
     }
 
     // second read (error)

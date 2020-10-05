@@ -48,7 +48,7 @@ TEST_CASE("[pull/stream] hex printer test") {
       REQUIRE(val == nullptr);
       CHECK(printer->status == PS_DONE);
 
-      ps_val_destroy(val);
+      ps_destroy(val);
 
       uint64_t buffer_len = ftell(tmp);
 

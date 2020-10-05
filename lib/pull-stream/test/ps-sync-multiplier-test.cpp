@@ -26,7 +26,7 @@ TEST_CASE("[pull/stream/redux] multiplier through stream") {
 
       uint64_t iv = *((uint64_t *)v->data);
       CHECK(iv == (i * 10));
-      ps_val_destroy(v);
+      ps_destroy(v);
     }
 
     ps_destroy(counter);

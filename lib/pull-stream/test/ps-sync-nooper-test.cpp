@@ -41,7 +41,7 @@ TEST_CASE("[pull/stream] noop through stream") {
     {
       ps_val_t *v = nop3->fn(nop3, PS_OK);
       REQUIRE(v != nullptr);
-      ps_val_destroy(v);
+      ps_destroy(v);
       CHECK(counter->status == PS_OK);
       CHECK(nop3->status == PS_OK);
       CHECK(nop2->status == PS_OK);
