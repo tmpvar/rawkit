@@ -48,7 +48,7 @@ static ps_val_t *collector_fn(ps_t *base, ps_stream_status status) {
       uint64_t len = collector->buffer->len;
       uint64_t new_len = len + val->len;
 
-      void *data = realloc(collector->buffer->data, new_len);
+      void *data = realloc(collector->buffer->data, new_len + 1);
       if (data == NULL) {
         ps_status(base, PS_ERR);
         ps_destroy(collector->buffer);
@@ -60,8 +60,11 @@ static ps_val_t *collector_fn(ps_t *base, ps_stream_status status) {
       memcpy((uint8_t *)data + len, val->data, val->len);
 
       collector->buffer->data = data;
-      collector->buffer->len = new_len;
 
+      // just in case we're dealing with a char *.
+      ((uint8_t *)collector->buffer->data)[new_len] = 0;
+      collector->buffer->len = new_len;
+      
       ps_destroy(val);
       return NULL;
     }

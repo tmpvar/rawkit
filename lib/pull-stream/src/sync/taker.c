@@ -13,11 +13,15 @@ static ps_val_t *taker_fn(ps_t *base, ps_stream_status status) {
   if (taker->n <= 0) {
     ps_status(base, taker->next_status);
     return NULL;
+  } 
+
+  ps_val_t *val = ps_pull(base, status);
+  if (!val) {
+    return NULL;
   }
 
   taker->n--;
-
-  return ps_pull(base, status);
+  return val;
 }
 
 ps_t *create_taker(int64_t n, ps_stream_status status) {

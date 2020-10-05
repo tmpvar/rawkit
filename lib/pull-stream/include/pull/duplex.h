@@ -18,7 +18,8 @@ typedef struct ps_duplex_t {
 
 #define PS_DUPLEX_SOURCE_FIELDS \
   PS_FIELDS \
-  ps_duplex_t *duplex;
+  ps_duplex_t *duplex; \
+  ps_val_t *value;
 
 typedef struct ps_duplex_source_t {
   PS_DUPLEX_SOURCE_FIELDS
@@ -27,6 +28,10 @@ typedef struct ps_duplex_source_t {
 #define PS_DUPLEX_SINK_FIELDS \
   PS_FIELDS \
   ps_duplex_t *duplex;
+
+typedef struct ps_duplex_sink_t {
+  PS_DUPLEX_SINK_FIELDS
+} ps_duplex_sink_t;
 
 #ifdef __cplusplus
 }

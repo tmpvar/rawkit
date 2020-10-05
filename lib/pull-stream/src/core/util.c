@@ -67,6 +67,9 @@ ps_stream_status _ps_status(ps_handle_t *h, ps_stream_status status) {
   }
 }
 
+
+// NOTE: this is used internally for pulling values into a sink
+// TODO: rename this - it used to be called pull_through 
 ps_val_t *ps_pull(ps_t* s, ps_stream_status status) {
   if (ps_status(s, status)) {
     return NULL;

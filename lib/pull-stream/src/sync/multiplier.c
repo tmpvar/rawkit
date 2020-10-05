@@ -36,10 +36,10 @@ static ps_val_t *multiplier_cb(ps_t *base, ps_stream_status status) {
 }
 
 ps_t *create_multiplier(uint64_t scale) {
-  multiplier_t *cb = ps_create_stream(multiplier_t, NULL);
+  multiplier_t *s = ps_create_stream(multiplier_t, NULL);
 
-  cb->scale = scale;
-  cb->fn = multiplier_cb;
+  s->scale = scale;
+  s->fn = multiplier_cb;
 
-  return (ps_t *)cb;
+  return (ps_t *)s;
 }

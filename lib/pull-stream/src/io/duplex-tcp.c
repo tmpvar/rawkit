@@ -18,7 +18,7 @@ static void on_connect_cb(uv_connect_t* req, int status) {
   }
 
   tcp_t *s = (tcp_t *)req->data;
-  s->connect_pending = false;
+  s->ready = true;
   if (status < 0) {
     s->status = PS_ERR;
     return;
@@ -30,26 +30,60 @@ ps_duplex_t *create_tcp_client(const char *addr, uint16_t port, uv_loop_t *loop)
     return NULL;
   }
 
-  tcp_t *s = ps_create_stream(tcp_t, NULL);
+  tcp_t *duplex = ps_create_stream(tcp_t, NULL);
+  // setup the source stream
+  {
+    ps_duplex_io_source_t *source = NULL;
+    source = (ps_duplex_io_source_t *)ps_create_stream(
+      ps_duplex_io_source_t,
+      NULL
+    );
 
-  uv_ip4_addr(addr, port, &s->dest);
-  s->loop = loop;
-  s->stream = (uv_stream_t *)malloc(sizeof(uv_tcp_t));
-  uv_tcp_init(loop, (uv_tcp_t *)s->stream);
-  s->stream->data = (void*)s;
+    if (!source) {
+      ps_destroy(duplex);
+    }
+
+    source->fn = ps_uv_source_fn;
+    source->duplex = (ps_duplex_t *)duplex;
+    duplex->source = (ps_t *)source;
+  }
+
+  {
+    // setup the sink stream
+    ps_duplex_io_sink_t *sink = NULL;
+    sink = (ps_duplex_io_sink_t *)ps_create_stream(
+      ps_duplex_io_sink_t,
+      NULL
+    );
+
+    if (!sink) {
+      ps_destroy(duplex);
+    }
+
+    sink->fn = ps_uv_sink_fn;
+    sink->duplex = (ps_duplex_t *)duplex;
+    duplex->sink = (ps_t *)sink;
+  }
+
+
+  uv_ip4_addr(addr, port, &duplex->dest);
+  duplex->loop = loop;
+  duplex->stream = (uv_stream_t *)calloc(sizeof(uv_tcp_t), 1);
+  uv_tcp_init(loop, (uv_tcp_t *)duplex->stream);
+  duplex->stream->data = (void*)duplex;
 
   // begin connection
-  s->connect_req.data = (void *)s;
+  duplex->connect_req.data = (void *)duplex;
   int r = uv_tcp_connect(
-    &s->connect_req,
-    (uv_tcp_t *)s->stream,
-    (const struct sockaddr *)&s->dest,
+    &duplex->connect_req,
+    (uv_tcp_t *)duplex->stream,
+    (const struct sockaddr *)&duplex->dest,
     on_connect_cb
   );
 
   if (r < 0) {
-    s->status = PS_ERR;
+    duplex->status = PS_ERR;
   }
 
-  return (ps_duplex_t *)s;
+  return (ps_duplex_t *)duplex;
 }

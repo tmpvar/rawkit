@@ -2,6 +2,7 @@
 
 #include <pull/stream.h>
 
+#include <string.h>
 
 TEST_CASE("[pull/stream/core] ps_status") {
 
