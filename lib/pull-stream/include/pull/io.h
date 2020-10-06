@@ -62,7 +62,8 @@ ps_val_t *ps_uv_source_fn(ps_t *source, ps_stream_status status);
 
 
 ps_duplex_t *create_tcp_client(const char *addr, uint16_t port, uv_loop_t *loop);
-
+ps_duplex_t *create_tcp_client_from_stream(uv_tcp_t *client, uv_loop_t *loop);
+ps_t *create_tcp_server(const char *ip, uint16_t port, uv_loop_t *loop);
 
 #ifdef __cplusplus
 }

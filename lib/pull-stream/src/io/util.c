@@ -11,6 +11,11 @@ void ps_uv_read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf) {
     return;
   }
 
+  if (nread <= 0) {
+    ps_status(duplex, PS_DONE);
+    return;
+  }
+
   if (duplex->source == NULL) {
     ps_status(duplex, PS_ERR);
     return;
@@ -50,7 +55,7 @@ void ps_uv_write_cb(uv_write_t *base, int status) {
 
   if (status < 0) {
     ps_status(sink, PS_ERR);
-    
+
   }
 }
 
@@ -127,7 +132,9 @@ ps_val_t *ps_uv_sink_fn(ps_t *base, ps_stream_status status) {
     return NULL;
   }
 
-  ps_uv_write(duplex, val);
+  if (val) {
+    ps_uv_write(duplex, val);
+  }
 
   return NULL;
 }

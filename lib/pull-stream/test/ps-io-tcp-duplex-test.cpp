@@ -52,7 +52,6 @@ class TCPEchoServer {
         return;
       }
 
-      printf("SERVER: new connection!\n");
       TCPEchoServer *that = (TCPEchoServer *)server->data;
 
       uv_tcp_t *client = (uv_tcp_t*) malloc(sizeof(uv_tcp_t));
@@ -78,13 +77,6 @@ class TCPEchoServer {
       if (nread > 0) {
         write_req_t *req = (write_req_t*) malloc(sizeof(write_req_t));
         req->buf = uv_buf_init(buf->base, static_cast<unsigned int>(nread));
-
-        {
-          char *a = (char *)calloc(nread + 1, 1);
-          memcpy(a, buf->base, nread);
-          printf("SERVER READ: %s\n", a);
-          free(a);
-        }
 
         uv_write((uv_write_t*) req, client, &req->buf, 1, TCPEchoServer::echo_write);
         return;
@@ -137,6 +129,8 @@ TEST_CASE("[pull/stream/io] duplex tcp") {
 
     CHECK(sentinel > 0);
     CHECK(client->status == PS_ERR);
+    ps_destroy(client);
+    uv_stop(&loop);
   }
 
   // connection success

@@ -37,7 +37,7 @@ void single_value_destroy_fn(ps_handle_t *base) {
   free(base);
 }
 
-ps_t *create_single_value(void *data, uint64_t len) {
+ps_t *create_single_value(const void *data, uint64_t len) {
   if (!data || !len) {
     return NULL;
   }

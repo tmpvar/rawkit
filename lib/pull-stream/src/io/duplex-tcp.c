@@ -41,6 +41,7 @@ ps_duplex_t *create_tcp_client(const char *addr, uint16_t port, uv_loop_t *loop)
 
     if (!source) {
       ps_destroy(duplex);
+      return NULL;
     }
 
     source->fn = ps_uv_source_fn;
@@ -58,6 +59,7 @@ ps_duplex_t *create_tcp_client(const char *addr, uint16_t port, uv_loop_t *loop)
 
     if (!sink) {
       ps_destroy(duplex);
+      return NULL;
     }
 
     sink->fn = ps_uv_sink_fn;
@@ -84,6 +86,58 @@ ps_duplex_t *create_tcp_client(const char *addr, uint16_t port, uv_loop_t *loop)
   if (r < 0) {
     duplex->status = PS_ERR;
   }
+
+  return (ps_duplex_t *)duplex;
+}
+
+ps_duplex_t *create_tcp_client_from_stream(uv_tcp_t *client, uv_loop_t *loop) {
+  tcp_t *duplex = ps_create_stream(tcp_t, NULL);
+  // setup the source stream
+  {
+    ps_duplex_io_source_t *source = NULL;
+    source = (ps_duplex_io_source_t *)ps_create_stream(
+      ps_duplex_io_source_t,
+      NULL
+    );
+
+    if (!source) {
+      ps_destroy(duplex);
+      return NULL;
+    }
+
+    source->fn = ps_uv_source_fn;
+    source->duplex = (ps_duplex_t *)duplex;
+    duplex->source = (ps_t *)source;
+  }
+
+  {
+    // setup the sink stream
+    ps_duplex_io_sink_t *sink = NULL;
+    sink = (ps_duplex_io_sink_t *)ps_create_stream(
+      ps_duplex_io_sink_t,
+      NULL
+    );
+
+    if (!sink) {
+      ps_destroy(duplex);
+      return NULL;
+    }
+
+    sink->fn = ps_uv_sink_fn;
+    sink->duplex = (ps_duplex_t *)duplex;
+    duplex->sink = (ps_t *)sink;
+  }
+
+  duplex->loop = loop;
+  duplex->stream = (uv_stream_t *)client;
+  duplex->stream->data = (void*)duplex;
+  duplex->ready = true;
+
+  uv_read_start(
+    (uv_stream_t*) client,
+    ps_uv_alloc_cb,
+    ps_uv_read_cb
+  );
 
   return (ps_duplex_t *)duplex;
 }
