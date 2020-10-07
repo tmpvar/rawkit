@@ -3,18 +3,31 @@
 #include <string.h>
 
 static ps_val_t *user_value_fn(ps_t *base, ps_stream_status status) {
-  if (ps_status(base, status)) {
-    return NULL;
+  ps_user_value_t* s = (ps_user_value_t*)base;
+
+  switch (ps_status(base, status)) {
+    case PS_OK: {
+      ps_val_t* val = s->value;
+      s->value = NULL;
+      return val;
+    }
+
+    case PS_ERR: {
+      ps_destroy(s->value);
+      return NULL;
+    }
+
+    case PS_DONE: {
+      if (s->value) {
+        ps_val_t* val = s->value;
+        s->value = NULL;
+        return val;
+      }
+      return NULL;
+    }
   }
 
-  ps_user_value_t *s = (ps_user_value_t *)base;
-  if (!s->value) {
-    return NULL;
-  }
-
-  ps_val_t *val = s->value;
-  s->value = NULL;
-  return val;
+  return NULL;
 }
 
 

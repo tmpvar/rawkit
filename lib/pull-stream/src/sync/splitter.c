@@ -1,6 +1,7 @@
 #include <pull/stream.h>
 
 #include <stdbool.h>
+#include <string.h>
 
 typedef struct {
   const uint8_t *bytes;
@@ -13,6 +14,7 @@ typedef struct {
   pattern_t pattern;
   ps_val_t *tmp;
   uint64_t tmp_loc;
+  uint64_t loc;
 } splitter_t;
 
 static ps_val_t* emit_value(splitter_t *s, uint64_t len) {
@@ -78,13 +80,15 @@ static ps_val_t *splitter_fn(ps_t *base, ps_stream_status status) {
       }
 
       if (match) {
-        ps_val_t *val = emit_value(s, loc - s->tmp_loc);
+        ps_val_t *val = emit_value(s, s->loc - s->tmp_loc);
 
-        s->tmp_loc = loc + pattern_loc;
+        s->tmp_loc = s->loc + pattern_loc;
         if (s->tmp_loc == s->tmp->len) {
           ps_destroy(s->tmp);
           s->tmp = NULL;
+          s->tmp_loc = 0;
         }
+        s->loc = s->tmp_loc;
         return val;
       }
     }
@@ -94,7 +98,8 @@ static ps_val_t *splitter_fn(ps_t *base, ps_stream_status status) {
     ps_val_t* val = emit_value(s, s->tmp->len - s->tmp_loc);
     ps_destroy(s->tmp);
     s->tmp = NULL;
-
+    s->tmp_loc = 0;
+    s->loc = 0;
     return val;
   }
 
@@ -109,6 +114,8 @@ static ps_val_t *splitter_fn(ps_t *base, ps_stream_status status) {
         ps_val_t *val = emit_value(s, s->tmp->len - s->tmp_loc);
         ps_destroy(s->tmp);
         s->tmp = NULL;
+        s->tmp_loc = 0;
+        s->loc = 0;
         return val;
       }
 

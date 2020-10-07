@@ -99,4 +99,98 @@ TEST_CASE("[pull/stream] splitter through stream") {
   }
 
 
+  // multiple packets with single line and a multibyte pattern
+  {
+    ps_t *user_value = create_user_value();
+    REQUIRE(user_value != nullptr);
+
+    ps_t *splitter = create_splitter(2, (uint8_t *)"\r\n");
+    REQUIRE(splitter != nullptr);
+
+    splitter->source = user_value;
+
+    ps_user_value_t * uv = (ps_user_value_t *)user_value;
+
+    ps_user_value_from_str(uv, "H");
+    REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+    ps_user_value_from_str(uv, "E");
+    REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+    ps_user_value_from_str(uv, "L");
+    REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+    ps_user_value_from_str(uv, "L");
+    REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+    ps_user_value_from_str(uv, "O");
+    REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+    ps_status(user_value, PS_DONE);
+
+    ps_val_t *val = splitter->fn(splitter, PS_OK);
+    REQUIRE(val != nullptr);
+    REQUIRE(val->data != nullptr);
+    CHECK(val->len == 5);
+    CHECK(strcmp((char *)val->data, "HELLO") == 0);
+
+    ps_destroy(val);
+    ps_destroy(splitter);
+    ps_destroy(user_value);
+  }
+
+  // multiple packets with multiple lines and a multibyte pattern
+  {
+    ps_t *user_value = create_user_value();
+    REQUIRE(user_value != nullptr);
+
+    ps_t *splitter = create_splitter(2, (uint8_t *)"\r\n");
+    REQUIRE(splitter != nullptr);
+
+    splitter->source = user_value;
+
+    ps_user_value_t * uv = (ps_user_value_t *)user_value;
+
+    // first line
+    {
+      ps_user_value_from_str(uv, "H");
+      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      ps_user_value_from_str(uv, "E");
+      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      ps_user_value_from_str(uv, "L");
+      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      ps_user_value_from_str(uv, "L");
+      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      ps_user_value_from_str(uv, "O");
+      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      ps_user_value_from_str(uv, "\r\n");
+      ps_val_t *val = splitter->fn(splitter, PS_OK);
+      REQUIRE(val != nullptr);
+      REQUIRE(val->data != nullptr);
+      CHECK(val->len == 5);
+      CHECK(strcmp((char *)val->data, "HELLO") == 0);
+      ps_destroy(val);
+    }
+
+    // second line
+    {
+      ps_user_value_from_str(uv, "W");
+      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      ps_user_value_from_str(uv, "O");
+      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      ps_user_value_from_str(uv, "R");
+      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      ps_user_value_from_str(uv, "L");
+      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      ps_user_value_from_str(uv, "D");
+      ps_status(uv, PS_DONE);
+
+      ps_val_t *val = splitter->fn(splitter, PS_OK);
+      REQUIRE(val != nullptr);
+      REQUIRE(val->data != nullptr);
+      CHECK(val->len == 5);
+      CHECK(strcmp((char *)val->data, "WORLD") == 0);
+      ps_destroy(val);
+    }
+
+    ps_destroy(splitter);
+    ps_destroy(user_value);
+  }
+
+  // TODO: test the case where the separator is at EOF
 }
