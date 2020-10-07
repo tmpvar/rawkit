@@ -7,6 +7,7 @@
 
 #include <vector>
 
+
 class TCPEchoServer {
   uv_loop_t *loop;
   uv_tcp_t server;
@@ -66,7 +67,11 @@ class TCPEchoServer {
 
     static void alloc_buffer(uv_handle_t *, size_t suggested_size, uv_buf_t *buf) {
       buf->base = (char*) malloc(suggested_size);
-      buf->len = suggested_size;
+      #ifdef WIN32
+        buf->len = (ULONG)suggested_size;
+      #else
+        buf->len = suggested_size;
+      #endif
     }
 
     static void on_close(uv_handle_t* handle) {
