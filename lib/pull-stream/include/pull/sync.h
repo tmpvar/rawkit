@@ -35,6 +35,15 @@ ps_t *create_reverser();
 // splitter - split a stream by a series of bytes
 ps_t *create_splitter(uint64_t len, const uint8_t *bytes);
 
+// user-value - allow a user to provide a value on the source side of a pipeline
+typedef struct ps_user_value_t {
+  PS_FIELDS
+  ps_val_t *value;
+} ps_user_value_t;
+
+ps_t *create_user_value();
+void ps_user_value_from_str(ps_user_value_t *s, const char *str);
+
 #ifdef __cplusplus
 }
 #endif
