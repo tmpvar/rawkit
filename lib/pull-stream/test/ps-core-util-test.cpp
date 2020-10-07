@@ -76,3 +76,32 @@ TEST_CASE("[pull/stream/core] ps_status") {
     CHECK(s->status == PS_OK);
   }
 }
+
+TEST_CASE("[pull/stream/core] ps_pipeline") {
+  // invalid arguments
+  {
+    REQUIRE(ps_pipeline() == nullptr);
+    REQUIRE(ps_pipeline(NULL) == nullptr);
+    REQUIRE(ps_pipeline(NULL, NULL) == nullptr);
+    REQUIRE(ps_pipeline(NULL, NULL, NULL) == nullptr);
+  }
+
+  // valid pipeline
+  {
+    ps_t *s = ps_pipeline(
+      create_single_value((void *)"hello", 5),
+      create_nooper(),
+      create_reverser(),
+      create_taker(1, PS_DONE)
+    );
+
+    REQUIRE(s != nullptr);
+
+    ps_val_t *val = s->fn(s, PS_OK);
+    REQUIRE(val != nullptr);
+    CHECK(val->len == 5);
+    CHECK(strcmp((char *)val->data, "olleh") == 0);
+  }
+
+
+}

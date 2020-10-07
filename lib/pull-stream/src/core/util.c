@@ -1,5 +1,7 @@
 #include <pull/stream.h>
 
+#include <stdarg.h>
+
 static inline ps_stream_status ps_status_duplex(ps_duplex_t *d, ps_stream_status status) {
   if (!d->source || !d->sink) {
     d->status = PS_ERR;
@@ -69,7 +71,7 @@ ps_stream_status _ps_status(ps_handle_t *h, ps_stream_status status) {
 
 
 // NOTE: this is used internally for pulling values into a sink
-// TODO: rename this - it used to be called pull_through 
+// TODO: rename this - it used to be called pull_through
 ps_val_t *ps_pull(ps_t* s, ps_stream_status status) {
   if (ps_status(s, status)) {
     return NULL;
@@ -137,4 +139,28 @@ ps_handle_t *_ps_create(uint64_t size, ps_handle_type type, ps_destroy_fn destro
   h->handle_destroy_fn = destroy_fn;
 
   return h;
+}
+
+ps_t *_ps_pipeline(uint64_t argc, ...) {
+  if (argc < 2) {
+    return NULL;
+  }
+
+  va_list argv;
+  va_start(argv, argc);
+  ps_t *source = va_arg(argv, ps_t *);
+  ps_t *sink = NULL;
+
+  for (uint32_t i = 1; i<argc; i++) {
+    // TODO: ps_pipeline(source, duplex); ps_pipeline(duplex, sink)??????
+    sink = va_arg(argv, ps_t *);
+    if (!sink || !source) {
+      sink = NULL;
+      break;
+    }
+    sink->source = source;
+    source = sink;
+  }
+  va_end(argv);
+  return sink;
 }

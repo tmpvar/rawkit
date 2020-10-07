@@ -13,8 +13,18 @@ typedef enum ps_stream_status {
   PS_DONE = 1,
 } ps_stream_status;
 
+
+// PS_VA_ARG_COUNT - count the number of VA_ARGS in both c and c++ mode
 #ifdef __cplusplus
-extern "C" {
+  #include <tuple>
+  #define PS_VA_ARG_COUNT(...) (std::tuple_size<decltype(std::make_tuple(__VA_ARGS__))>::value)
+#else
+  #define PS_VA_ARG_COUNT(...) ((int)(sizeof((int[]){ __VA_ARGS__ })/sizeof(int)))
+#endif
+
+
+#ifdef __cplusplus
+  extern "C" {
 #endif
 
 typedef struct ps_handle_t ps_handle_t;
@@ -63,6 +73,8 @@ ps_handle_t *_ps_create(uint64_t size, ps_handle_type type, ps_destroy_fn destro
 #define ps_create_stream(type, destroy_fn) (type *)_ps_create(sizeof(type), PS_HANDLE_STREAM, destroy_fn)
 #define ps_create_value(type, destroy_fn) (type *)_ps_create(sizeof(type), PS_HANDLE_VALUE, destroy_fn)
 
+ps_t *_ps_pipeline(uint64_t argc, ...);
+#define ps_pipeline(...) _ps_pipeline(PS_VA_ARG_COUNT(__VA_ARGS__),## __VA_ARGS__)
 
 #define PS_FIELDS \
   PS_HANDLE_FIELDS \
