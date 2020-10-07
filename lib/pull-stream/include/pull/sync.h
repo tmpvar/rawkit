@@ -32,6 +32,9 @@ ps_t *create_single_value(const void *data, uint64_t len);
 // reverser - through stream that will reverse the bytes of a packet
 ps_t *create_reverser();
 
+// splitter - split a stream by a series of bytes
+ps_t *create_splitter(uint64_t len, const uint8_t *bytes);
+
 #ifdef __cplusplus
 }
 #endif
