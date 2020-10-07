@@ -29,6 +29,9 @@ ps_t *create_hex_printer(FILE *output);
 // single_value - source stream that outputs the provided value and then changes its status to PS_DONE
 ps_t *create_single_value(const void *data, uint64_t len);
 
+// reverser - through stream that will reverse the bytes of a packet
+ps_t *create_reverser();
+
 #ifdef __cplusplus
 }
 #endif
