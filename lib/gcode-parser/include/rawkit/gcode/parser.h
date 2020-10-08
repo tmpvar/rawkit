@@ -329,15 +329,15 @@ char *gcode_parser_state_debug(const gcode_parser_state_t *parser_state, gcode_p
 
   memset(strings, 0, sizeof(gcode_parser_state_strings_t));
   switch (parser_state->motion_mode) {
-    case GCODE_MOTION_MODE_G0:    strncpy(strings->motion_mode, "G0", 2); break;
-    case GCODE_MOTION_MODE_G1:    strncpy(strings->motion_mode, "G1", 2); break;
-    case GCODE_MOTION_MODE_G2:    strncpy(strings->motion_mode, "G2", 2); break;
-    case GCODE_MOTION_MODE_G3:    strncpy(strings->motion_mode, "G3", 2); break;
-    case GCODE_MOTION_MODE_G38_2: strncpy(strings->motion_mode, "G38.2", 5); break;
-    case GCODE_MOTION_MODE_G38_3: strncpy(strings->motion_mode, "G38.3", 5); break;
-    case GCODE_MOTION_MODE_G38_4: strncpy(strings->motion_mode, "G38.4", 5); break;
-    case GCODE_MOTION_MODE_G38_5: strncpy(strings->motion_mode, "G38.5", 5); break;
-    case GCODE_MOTION_MODE_G80:   strncpy(strings->motion_mode, "G80", 3); break;
+    case GCODE_MOTION_MODE_G0:    strcpy(strings->motion_mode, "G0"); break;
+    case GCODE_MOTION_MODE_G1:    strcpy(strings->motion_mode, "G1"); break;
+    case GCODE_MOTION_MODE_G2:    strcpy(strings->motion_mode, "G2"); break;
+    case GCODE_MOTION_MODE_G3:    strcpy(strings->motion_mode, "G3"); break;
+    case GCODE_MOTION_MODE_G38_2: strcpy(strings->motion_mode, "G38.2"); break;
+    case GCODE_MOTION_MODE_G38_3: strcpy(strings->motion_mode, "G38.3"); break;
+    case GCODE_MOTION_MODE_G38_4: strcpy(strings->motion_mode, "G38.4"); break;
+    case GCODE_MOTION_MODE_G38_5: strcpy(strings->motion_mode, "G38.5"); break;
+    case GCODE_MOTION_MODE_G80:   strcpy(strings->motion_mode, "G80"); break;
     default:
       break;
   }
@@ -652,7 +652,7 @@ gcode_parse_result gcode_parser_line_process_command_dollar(gcode_parser_t *pars
   parser->pending_buf[parser->pending_loc] = 0;
   if (gcode_is_digit(buf[1])) {
     const char *equal = strstr(buf, "=");
-    const int8_t l = (equal - buf) - 1;
+    const int8_t l = (int8_t)(equal - buf) - 1;
 
     if (equal == NULL) {
       gcode_debug("ERROR: setting set command did not include an =\n");
@@ -667,7 +667,7 @@ gcode_parse_result gcode_parser_line_process_command_dollar(gcode_parser_t *pars
     char str[4] = {0, 0, 0, 0};
     memcpy(&str, buf+1, l);
     int v = atoi(str);
-    current_line->code = v;
+    current_line->code = (float)v;
     current_line->type = GCODE_LINE_TYPE_COMMAND_SET_SETTING;
     return GCODE_RESULT_TRUE;
   }
@@ -735,7 +735,7 @@ gcode_parse_result gcode_parser_line_process_command_dollar(gcode_parser_t *pars
         }
 
         const char *equal = strstr(buf, "=");
-        int l = (equal - buf) - 1;
+        int l = (int)(equal - buf) - 1;
         if (equal == NULL || l < 0) {
           gcode_debug("ERROR: setting startup block $N<d>=... expected =\n");
           return gcode_parser_reset(parser, GCODE_RESULT_ERROR);
@@ -749,7 +749,7 @@ gcode_parse_result gcode_parser_line_process_command_dollar(gcode_parser_t *pars
         current_line->type = GCODE_LINE_TYPE_COMMAND_SET_STARTUP_BLOCK;
         // grbl only supports 2 startup blocks so we avoid doing atoi and the
         // associated hoop jumps here.
-        current_line->code = (buf[2] - '0');
+        current_line->code = (float)(buf[2] - '0');
         return GCODE_RESULT_TRUE;
       }
 
@@ -777,7 +777,7 @@ gcode_parse_result gcode_parser_line_add_pending_pair(gcode_parser_t *parser) {
   }
 
   parser->pending_buf[parser->pending_loc] = 0;
-  pair.value = atof(parser->pending_buf + 1);
+  pair.value = (float)atof(parser->pending_buf + 1);
   gcode_line_t *line = &stb_sb_last(parser->lines);
 
   if (pair.letter == 'G') {
@@ -1134,7 +1134,6 @@ gcode_parse_result gcode_parser_input(gcode_parser_t *parser, uint8_t c) {
     }
 
     current_line->end_loc = parser->total_loc - 1;
-    gcode_parse_result result = GCODE_RESULT_FALSE;
     switch (current_line->type) {
       // handle comments `(` and remove blocks `/` by doing nothing
       case GCODE_LINE_TYPE_COMMENT:
@@ -1339,8 +1338,7 @@ class GCODEParser {
 
     void init() {
       if (this->handle == NULL) {
-        this->handle = (gcode_parser_t *)malloc(sizeof(gcode_parser_t));
-        memset(this->handle, 0, sizeof(gcode_parser_t));
+        this->handle = (gcode_parser_t *)calloc(sizeof(gcode_parser_t), 1);
         this->handle->total_loc = -1;
 
         // setup the default parser state

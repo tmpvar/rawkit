@@ -410,8 +410,7 @@ typedef struct grbl_parser_t {
 } grbl_parser_t;
 
 grbl_parser_t *grbl_parser_create() {
-  grbl_parser_t *parser = (grbl_parser_t *)malloc(sizeof(grbl_parser_t));
-  memset(parser, 0, sizeof(grbl_parser_t));
+  grbl_parser_t *parser = (grbl_parser_t *)calloc(1, sizeof(grbl_parser_t));
   return parser;
 }
 

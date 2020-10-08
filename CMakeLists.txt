@@ -131,6 +131,21 @@ include_directories(
   ${DEPS_DIR}/whereami/src
 )
 
+# DEP: gcode-parser
+set(RAWKIT_GCODE_PARSER_BUILD_TESTS OFF CACHE INTERNAL "")
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser)
+include_directories(
+  ${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser/include
+)
+
+# DEP: grbl-parser
+set(RAWKIT_GRBL_PARSER_BUILD_TESTS OFF CACHE INTERNAL "")
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser)
+include_directories(
+  ${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser/include
+)
+
+
 add_executable(
   rawkit
   ${SRC_DIR}/main.cpp
@@ -230,9 +245,6 @@ target_link_libraries(
   clangSerialization
 )
 
-
-add_subdirectory(lib)
-
 # TODO: install all headers under a rawkit prefix so we don't blow away existing entries in a global install on unix
 file(GLOB HOT_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/hot/*.h")
 install(
@@ -300,3 +312,51 @@ install(
     RUNTIME DESTINATION
         bin
 )
+
+
+# tests
+include(CTest)
+enable_testing()
+
+set(RAWKIT_TEST_FILES
+  ${RAWKIT_GCODE_PARSER_TEST_FILES}
+  ${RAWKIT_GRBL_PARSER_TEST_FILES}
+)
+
+add_executable(rawkit-test
+  ${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
+  ${RAWKIT_TEST_FILES}
+)
+
+set_property(TARGET rawkit-test PROPERTY CXX_STANDARD 11)
+
+source_group("tests" FILES ${RAWKIT_TEST_FILES})
+
+if (CMAKE_GENERATOR MATCHES "Visual Studio")
+  set(RAWKIT_TEST_COMPILE_FLAGS
+    /W4
+    -D_CRT_SECURE_NO_WARNINGS
+  )
+else()
+  set(COVERAGE_DIR ${PROJECT_BINARY_DIR}/coverage)
+  message(STATUS ${COVERAGE_DIR})
+  set(RAWKIT_TEST_COMPILE_FLAGS
+    -Wall
+    -g
+    -O0
+    --coverage
+  )
+  target_link_options(rawkit-test PRIVATE
+    --coverage
+  )
+endif()
+
+target_compile_options(rawkit-test PRIVATE
+  ${RAWKIT_TEST_COMPILE_FLAGS}
+)
+
+target_include_directories(rawkit-test PRIVATE
+  ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
+)
+
+add_test(rawkit rawkit-test)
