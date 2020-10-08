@@ -15,18 +15,19 @@ before_install:
   - |
     if [ "$TRAVIS_OS_NAME" == "windows" ]; then
       choco install python --version 3.8.0
-      choco install vulkan-sdk --version 1.2.141.0
       choco install -y 7zip.commandline
       python -m pip install --upgrade pip
+      wget -q http://tmpvar.com/llvm.7z
+      7z x llvm.7z
+      wget -q http://tmpvar.com/vulkansdk/vulkansdk-windows.7z
+      7z x vulkansdk-windows.7z
+      export VULKAN_SDK="C:/Users/travis/build/tmpvar/rawkit/build/vulkansdk"
       # refreshenv does not seem to work in bash, so reload it manually.
       # Entries in the Machine PATH might contain trailing slashes, drop those.
       # Apply Process paths before Machine to ensure /bin appears before others.
-      export PATH="C:\VulkanSDK\1.2.141.0\Bin;C:\Python38;$(powershell -Command '("Process", "Machine" | % {
+      export PATH="C:\Users\travis\build\tmpvar\rawkit\build\vulkansdk\Bin;C:\Python38;$(powershell -Command '("Process", "Machine" | % {
         [Environment]::GetEnvironmentVariable("PATH", $_) -Split ";" -Replace "\\$", ""
       } | Select -Unique | % { cygpath $_ }) -Join ":"')"
-      wget -q http://tmpvar.com/llvm.7z
-      7z x llvm.7z
-      export VULKAN_SDK="C:/VulkanSDK/1.2.141.0"
       cmake ..  -DLLVM_DIR:PATH=C:/Users/travis/build/tmpvar/rawkit/build/llvm/lib/cmake/llvm -DClang_DIR:PATH=C:/Users/travis/build/tmpvar/rawkit/build/llvm/lib/cmake/clang > configure.log
     fi
   - |
