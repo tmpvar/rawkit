@@ -330,10 +330,10 @@ bool JitJob::rebuild() {
   }
 
 
-  cout << "watching: " << endl;
-  for (auto &watched : this->watched_files) {
-    cout << "  " << watched.file << endl;
-  }
+  // cout << "watching: " << endl;
+  // for (auto &watched : this->watched_files) {
+  //   cout << "  " << watched.file << endl;
+  // }
 
 
   //ASTContext& ast_context = compiler_instance.getASTContext();
