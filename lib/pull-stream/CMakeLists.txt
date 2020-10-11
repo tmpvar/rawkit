@@ -44,10 +44,6 @@ include_directories(
   ${CMAKE_CURRENT_LIST_DIR}/include
 )
 
-target_include_directories(pull-stream PRIVATE
-  ${CMAKE_CURRENT_LIST_DIR}/deps/croaring
-)
-
 target_link_libraries(pull-stream PUBLIC uv_a)
 
 if (PULL_STREAM_TEST_COVERAGE)
