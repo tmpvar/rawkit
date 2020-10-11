@@ -65,10 +65,6 @@ file(GLOB PULL_STREAM_TEST_FILES
 set(PULL_STREAM_TEST_FILES ${PULL_STREAM_TEST_FILES} CACHE INTERNAL "")
 
 if (PULL_STREAM_BUILD_TESTS)
-  target_link_options(pull-stream PUBLIC
-    --coverage
-  )
-
   # DEP: doctest
   include_directories(
     ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
