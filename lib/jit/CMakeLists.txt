@@ -109,26 +109,37 @@ if (RAWKIT_JIT_TEST_COVERAGE)
   )
 endif()
 
-target_link_libraries(rawkit-jit PUBLIC
-  LLVMCore
-  LLVMExecutionEngine
-  LLVMMC
-  LLVMMCJIT
-  LLVMObject
-  LLVMOrcJIT
-  LLVMOption
-  LLVMRuntimeDyld
-  LLVMSupport
-  LLVMTarget
-  LLVMX86CodeGen
+if (CMAKE_SYSTEM_NAME STREQUAL Windows)
+  target_link_libraries(rawkit-jit PRIVATE
+    LLVMCore
+    LLVMExecutionEngine
+    LLVMMC
+    LLVMMCJIT
+    LLVMObject
+    LLVMOrcJIT
+    LLVMOption
+    LLVMRuntimeDyld
+    LLVMSupport
+    LLVMTarget
+    LLVMX86CodeGen
 
-  clangBasic
-  clangCodeGen
-  clangDriver
-  clangFrontend
-  clangSerialization
-)
+    clangBasic
+    clangCodeGen
+    clangDriver
+    clangFrontend
+    clangSerialization
+  )
+else()
+  target_link_libraries(rawkit-jit PRIVATE
+    LLVM
 
+    clangBasic
+    clangCodeGen
+    clangDriver
+    clangFrontend
+    clangSerialization
+  )
+endif()
 
 # Testing
 file(GLOB RAWKIT_JIT_TEST_FILES
@@ -154,7 +165,7 @@ if (RAWKIT_JIT_BUILD_TESTS)
     ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
   )
 
-  set_property(TARGET rawkit-jit-test PROPERTY CXX_STANDARD 17)
+  set_property(TARGET rawkit-jit-test PROPERTY CXX_STANDARD 14)
   set_property(TARGET rawkit-jit-test PROPERTY C_STANDARD 11)
 
 

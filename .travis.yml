@@ -15,7 +15,11 @@ before_install:
   - |
     if [ "$TRAVIS_OS_NAME" == "windows" ]; then
       choco install python --version 3.8.0
+      choco install llvm --version 10.0.0
       choco install -y 7zip.commandline
+      choco install visualstudio2019community
+      choco install visualstudio2019-workload-nativedesktop
+      export VS160COMNTOOLS="/c/Program Files (x86)/Microsoft Visual Studio/2019/Community/Common7/Tools"
       python -m pip install --upgrade pip
       wget -q http://tmpvar.com/llvm.7z
       7z x llvm.7z
@@ -28,7 +32,7 @@ before_install:
       export PATH="C:\Users\travis\build\tmpvar\rawkit\build\vulkansdk\Bin;C:\Python38;$(powershell -Command '("Process", "Machine" | % {
         [Environment]::GetEnvironmentVariable("PATH", $_) -Split ";" -Replace "\\$", ""
       } | Select -Unique | % { cygpath $_ }) -Join ":"')"
-      cmake ..  -DLLVM_DIR:PATH=C:/Users/travis/build/tmpvar/rawkit/build/llvm/lib/cmake/llvm -DClang_DIR:PATH=C:/Users/travis/build/tmpvar/rawkit/build/llvm/lib/cmake/clang > configure.log
+      cmake .. -G "Visual Studio 16 2019" -A x64 -T host=x64 -DLLVM_DIR:PATH=C:/Users/travis/build/tmpvar/rawkit/build/llvm/lib/cmake/llvm -DClang_DIR:PATH=C:/Users/travis/build/tmpvar/rawkit/build/llvm/lib/cmake/clang > configure.log
     fi
   - |
     if [ "$TRAVIS_OS_NAME" == "linux" ]; then
@@ -58,7 +62,7 @@ before_install:
 install:
   - pip3 install cpp-coveralls
 script:
-  - cmake --build . --config Debug --target rawkit-test && ctest -C Debug
+  - cmake --build . --config RelWithDebInfo --target rawkit-test && ctest -C RelWithDebInfo -V
 after_success:
   - cpp-coveralls -r .. -i "lib/" -b $(pwd) --gcov-options '\-lp' --exclude-pattern "CMake.*" --exclude-pattern '.*test.*' --exclude include -E "CMakeFiles" -E build/CMakeFiles -E 'test.*.cpp' --exclude lib/test --exclude src --exclude projects --verbose
 #- coveralls -r lib --gcov $(which llvm-cov) --gcov-options '\-lp'

@@ -19,7 +19,7 @@ TEST_CASE("[rawkit/jit/internal] call host function") {
   const char* args[] = { fixturePath("callmemaybe.cpp") };
   JitJob* job = JitJob::create(1, args);
 
-  job->addExport("callmemaybe", callmemaybe);
+  job->addExport("callmemaybe", (void *)callmemaybe);
   job->rebuild();
   REQUIRE(job != nullptr);
   REQUIRE(job->active_runnable);

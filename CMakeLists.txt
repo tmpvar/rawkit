@@ -300,7 +300,7 @@ add_executable(rawkit-test
   ${RAWKIT_TEST_FILES}
 )
 
-set_property(TARGET rawkit-test PROPERTY CXX_STANDARD 11)
+set_property(TARGET rawkit-test PROPERTY CXX_STANDARD 14)
 set_property(TARGET rawkit-test PROPERTY C_STANDARD 11)
 
 source_group("tests" FILES ${RAWKIT_TEST_FILES})
@@ -343,4 +343,4 @@ target_include_directories(rawkit-test PRIVATE
   ${LLVM_INCLUDE_DIRS}
 )
 
-add_test(rawkit rawkit-test)
+add_test(rawkit-test rawkit-test)

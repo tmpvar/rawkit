@@ -115,9 +115,18 @@ JitJob *JitJob::create(int argc, const char **argv) {
   job->main_addr = (void*)(intptr_t)GetExecutablePath;
   job->path = GetExecutablePath(job->exe_arg.c_str(), job->main_addr);
 
-  job->guest_include_dir = fs::canonical(
-    fs::path(job->path).remove_filename() / ".." / "include"
-  );
+  try {
+    job->guest_include_dir = fs::canonical(
+      fs::path(job->path).remove_filename() / ".." / "include"
+    );
+  }
+  catch (fs::filesystem_error) {
+    // Handle the case where the executable is in a subdirectory
+    // example: rawkit/build/Debug/rawkit.exe
+    job->guest_include_dir = fs::canonical(
+      fs::path(job->path).remove_filename() / ".." / ".." / "include"
+    );
+  }
 
   job->guest_include.assign(
     std::string("-I") + job->guest_include_dir.string()
