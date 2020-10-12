@@ -468,26 +468,20 @@ int main(int argc, const char **argv) {
 
     auto list = serial::list_ports();
     auto found = find_if(list.begin(), list.end(), [](const serial::PortInfo& obj) {
-      cout << "arduino: " << obj.description << " :: " << obj.hardware_id << endl;
-
+      // cout << "arduino: " << obj.description << " :: " << obj.hardware_id << endl;
       return obj.description.find("Arduino") == 0 || obj.description.find("USB Serial Device") == 0;
     });
 
     string port = "/dev/null";
     serial::Serial sp;
     if (port != "/dev/null") {
-        sp.setPort(port);
-        sp.setBaudrate(115200);
-        // TODO: WTF MAC?
-        // sp.setTimeout(serial::Timeout::simpleTimeout(1));
-        sp.open();
+      sp.setPort(port);
+      sp.setBaudrate(115200);
+      // TODO: WTF MAC?
+      // sp.setTimeout(serial::Timeout::simpleTimeout(1));
+      sp.open();
     }
 
-    if (sp.isOpen()) {
-      cout << "serial port is open!" << endl;
-    } else {
-      cout << "serial port not open" << endl;
-    }
 
     vector<string> sp_rx_lines;
 
