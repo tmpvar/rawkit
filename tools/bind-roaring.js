@@ -32,7 +32,7 @@ void host_croaring_init(rawkit_jit_t  *jit) {
   ${outLines.join('\n  ')}
 }
 `
-console.log(outHeader);
+
 fs.writeFileSync(
     path.join(__dirname, '..', 'include', 'hot', 'host', 'croaring.h'),
     outHeader

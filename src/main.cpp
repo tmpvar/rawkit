@@ -28,7 +28,6 @@
 #include <random>
 
 
-#include <hot/hot.h>
 #include <stdio.h>
 #include <locale.h>
 
@@ -444,16 +443,16 @@ int main(int argc, const char **argv) {
     }
 
     #if defined(_WIN32)
-        // add guest support for dirent.h
-        rawkit_jit_add_export(jit, "FindClose", (void *)&FindClose);
-        rawkit_jit_add_export(jit, "FindFirstFileExW", (void *)&FindFirstFileExW);
-        rawkit_jit_add_export(jit, "FindNextFileW", (void *)&FindNextFileW);
-        rawkit_jit_add_export(jit, "GetFullPathNameW", (void *)&GetFullPathNameW);
-        rawkit_jit_add_export(jit, "GetLastError", (void *)&GetLastError);
-        rawkit_jit_add_export(jit, "_set_errno", (void *)&_set_errno);
-        rawkit_jit_add_export(jit, "setlocale", (void *)&setlocale);
-        rawkit_jit_add_export(jit, "_errno", (void *)&_errno);
-        rawkit_jit_add_export(jit, "_wassert", rawkit_wassert);
+      // add guest support for dirent.h
+      rawkit_jit_add_export(jit, "FindClose", (void *)&FindClose);
+      rawkit_jit_add_export(jit, "FindFirstFileExW", (void *)&FindFirstFileExW);
+      rawkit_jit_add_export(jit, "FindNextFileW", (void *)&FindNextFileW);
+      rawkit_jit_add_export(jit, "GetFullPathNameW", (void *)&GetFullPathNameW);
+      rawkit_jit_add_export(jit, "GetLastError", (void *)&GetLastError);
+      rawkit_jit_add_export(jit, "_set_errno", (void *)&_set_errno);
+      rawkit_jit_add_export(jit, "setlocale", (void *)&setlocale);
+      rawkit_jit_add_export(jit, "_errno", (void *)&_errno);
+      rawkit_jit_add_export(jit, "_wassert", rawkit_wassert);
     #endif
 
     rawkit_jit_add_export(jit, "rawkit_vulkan_device", (void *)&rawkit_vulkan_device);
@@ -468,7 +467,7 @@ int main(int argc, const char **argv) {
     host_hot_init(jit);
 
     auto list = serial::list_ports();
-    find_if(list.begin(), list.end(), [](const serial::PortInfo& obj) {
+    auto found = find_if(list.begin(), list.end(), [](const serial::PortInfo& obj) {
       cout << "arduino: " << obj.description << " :: " << obj.hardware_id << endl;
 
       return obj.description.find("Arduino") == 0 || obj.description.find("USB Serial Device") == 0;
