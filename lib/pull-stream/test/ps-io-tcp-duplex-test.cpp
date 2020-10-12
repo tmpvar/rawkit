@@ -173,8 +173,8 @@ TEST_CASE("[pull/stream/io] duplex tcp") {
     REQUIRE(client->sink != nullptr);
     REQUIRE(client->source != nullptr);
 
-    char *src_value = "hello world as seen bounced off of an echo server";
-    ps_t *source = create_single_value((void *)src_value, strlen(src_value));
+    const char *src_value = "hello world as seen bounced off of an echo server";
+    ps_t *source = create_single_value((const void *)src_value, strlen(src_value));
     client->sink->source = source;
 
     ps_t *limiter = create_taker(1, PS_DONE);

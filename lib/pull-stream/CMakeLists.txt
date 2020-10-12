@@ -83,12 +83,7 @@ if (PULL_STREAM_BUILD_TESTS)
   set_property(TARGET pull-stream-test PROPERTY CXX_STANDARD 11)
   set_property(TARGET pull-stream-test PROPERTY C_STANDARD 11)
 
-
   source_group("tests" FILES ${PULL_STREAM_TEST_FILES})
-
-  target_compile_options(pull-stream-test PRIVATE
-    -Wall
-  )
 
   target_link_libraries(pull-stream-test PRIVATE
     pull-stream
