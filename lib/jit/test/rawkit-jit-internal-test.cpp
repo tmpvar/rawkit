@@ -4,7 +4,7 @@
 
 #include "fixtures/util.h"
 
-TEST_CASE("[rawkit/jit] construction") {
+TEST_CASE("[rawkit/jit/internal] construction") {
   {
     const char *args[] = { fixturePath("noop.c") };
     JitJob *job = JitJob::create(1, args);

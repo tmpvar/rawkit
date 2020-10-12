@@ -95,6 +95,15 @@ JitJob::JitJob() {
 
 
 JitJob *JitJob::create(int argc, const char **argv) {
+  if (!argc || !argv || !argv[0]) {
+    return nullptr;
+  }
+
+  // ensure the file exists, which should be argv[0]
+  if (!fs::exists(argv[0])) {
+    return nullptr;
+  }
+
   JitJob *job = new JitJob();
 
   // paths / env and such
@@ -221,7 +230,6 @@ JitJob *JitJob::create(int argc, const char **argv) {
   //       sort of like node w/ index.js
   job->program_source = fs::canonical(fs::current_path() / argv[0]);
   job->program_dir = fs::path(job->program_source).remove_filename();
-  cout << "running program: " << job->program_source.string() << " (" << file.filename().string() << ") " << endl;
 
   return job;
 }
@@ -250,6 +258,10 @@ class IncludeCollector : public DependencyFileGenerator {
 
 
 bool JitJob::rebuild() {
+  if (!this->dirty) {
+    return false;
+  }
+
   this->dirty = false;
   std::unique_ptr<CompilerInvocation> invocation(new CompilerInvocation);
   CompilerInvocation::CreateFromArgs(

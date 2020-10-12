@@ -10,12 +10,12 @@
 using namespace std;
 
 
-uint32_t called = 0;
+uint32_t internal_called = 0;
 static void callmemaybe(uint32_t value) {
-  called = value;
+  internal_called = value;
 }
 
-TEST_CASE("[rawkit/jit] call host function") {
+TEST_CASE("[rawkit/jit/internal] call host function") {
   const char* args[] = { fixturePath("callmemaybe.cpp") };
   JitJob* job = JitJob::create(1, args);
 
@@ -25,8 +25,8 @@ TEST_CASE("[rawkit/jit] call host function") {
   REQUIRE(job->active_runnable);
 
   job->setup();
-  CHECK(called == 0xFEED);
+  CHECK(internal_called == 0xFEED);
 
   job->loop();
-  CHECK(called == 0xF00D);
+  CHECK(internal_called == 0xF00D);
 }

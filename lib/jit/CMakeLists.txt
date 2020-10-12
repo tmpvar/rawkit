@@ -26,6 +26,7 @@ find_package(Clang REQUIRED CONFIG
 
 
 add_library(rawkit-jit
+  src/api.cpp
   src/job.cpp
   src/runnable.cpp
 )

@@ -115,6 +115,7 @@ class JitJob {
     bool rebuild();
     void addExport(const char *name, void *addr);
     void addExport(const char *name, llvm::JITTargetAddress addr);
+
     void tick();
     void setup();
     void loop();
