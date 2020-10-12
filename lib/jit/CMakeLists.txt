@@ -47,6 +47,19 @@ include_directories(
 if (CMAKE_SYSTEM_NAME STREQUAL Windows)
   set_property(TARGET rawkit-jit PROPERTY CXX_STANDARD 11)
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+  set(EXTRA_COMPILE_OPTIONS
+    -DUNICODE
+    -D_UNICODE
+    -D__STDC_CONSTANT_MACROS
+    -D__STDC_FORMAT_MACROS
+    -D__STDC_LIMIT_MACROS
+    # see: https://developercommunity.visualstudio.com/content/problem/93889/error-c2872-byte-ambiguous-symbol.html
+    -D_HAS_STD_BYTE=0
+    # see: http://www.suodenjoki.dk/us/archive/2010/min-max.htm
+    -DNOMINMAX=1
+  )
+
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL Linux)
@@ -77,16 +90,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 
 target_compile_options(rawkit-jit PUBLIC
-  -DUNICODE
-  -D_UNICODE
-  -D__STDC_CONSTANT_MACROS
-  -D__STDC_FORMAT_MACROS
-  -D__STDC_LIMIT_MACROS
-  # see: https://developercommunity.visualstudio.com/content/problem/93889/error-c2872-byte-ambiguous-symbol.html
-  -D_HAS_STD_BYTE=0
-  # see: http://www.suodenjoki.dk/us/archive/2010/min-max.htm
-  -DNOMINMAX=1
-
   ${EXTRA_COMPILE_OPTIONS}
 )
 
@@ -132,6 +135,10 @@ file(GLOB RAWKIT_JIT_TEST_FILES
   "${CMAKE_CURRENT_LIST_DIR}/test/*-test.cpp"
 )
 set(RAWKIT_JIT_TEST_FILES ${RAWKIT_JIT_TEST_FILES} CACHE INTERNAL "")
+set(LLVM_INCLUDE_DIRS ${LLVM_INCLUDE_DIRS} CACHE INTERNAL "")
+
+set(RAWKIT_JIT_EXTRA_COMPILE_FLAGS ${EXTRA_COMPILE_OPTIONS} CACHE INTERNAL "")
+set(RAWKIT_JIT_EXTRA_LINK_FLAGS ${EXTRA_LINK_OPTIONS} CACHE INTERNAL "")
 
 if (RAWKIT_JIT_BUILD_TESTS)
   include(CTest)

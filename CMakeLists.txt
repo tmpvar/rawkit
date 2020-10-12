@@ -4,29 +4,8 @@ project(rawkit)
 set(DEPS_DIR ${CMAKE_CURRENT_LIST_DIR}/deps)
 set(SRC_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 
-#2 DEP: llvm
-set(LLVM_SEARCH_PATHS
-  "E:/llvm/" #tmpvar's pc
-  # general homebrew install
-  "/usr/local/opt/llvm/lib/cmake/llvm"
-  "/usr/local/opt/llvm/lib/cmake/clang"
-  # ubuntu llvm@10
-  /usr/lib/llvm-10
-)
-
-find_library(found_LLVM LLVM HINTS ${LLVM_SEARCH_PATHS})
-find_package(LLVM REQUIRED CONFIG
-  PATHS ${LLVM_SEARCH_PATHS}
-  NO_DEFAULT_PATH
-)
-find_package(Clang REQUIRED CONFIG
-  PATHS  ${LLVM_SEARCH_PATHS}
-  NO_DEFAULT_PATH
-)
-
 include_directories(
   ${CMAKE_CURRENT_LIST_DIR}/include
-  ${LLVM_INCLUDE_DIRS}
   include
   include/hot/guest
 )
@@ -131,7 +110,7 @@ include_directories(
   ${DEPS_DIR}/whereami/src
 )
 
-# DEP: pull-stream
+# LIB: pull-stream
 set(PULL_STREAM_BUILD_TESTS OFF CACHE INTERNAL "")
 set(PULL_STREAM_TEST_COVERAGE ON CACHE INTERNAL "")
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream)
@@ -139,18 +118,25 @@ include_directories(
   ${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream/include
 )
 
-# DEP: gcode-parser
+# LIB: gcode-parser
 set(RAWKIT_GCODE_PARSER_BUILD_TESTS OFF CACHE INTERNAL "")
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser)
 include_directories(
   ${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser/include
 )
 
-# DEP: grbl-parser
+# LIB: grbl-parser
 set(RAWKIT_GRBL_PARSER_BUILD_TESTS OFF CACHE INTERNAL "")
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser)
 include_directories(
   ${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser/include
+)
+
+# LIB: rawkit-jit
+set(RAWKIT_JIT_BUILD_TESTS OFF CACHE INTERNAL "")
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/jit)
+include_directories(
+  ${CMAKE_CURRENT_LIST_DIR}/lib/jit/include
 )
 
 
@@ -229,28 +215,13 @@ target_link_options(
 
 target_link_libraries(
   rawkit
+  rawkit-jit
+
   glfw
   # grab this from the vulkan sdk
   # shaderc
   serial
   ${VULKAN_LIBS}
-  LLVMCore
-  LLVMExecutionEngine
-  LLVMMC
-  LLVMMCJIT
-  LLVMObject
-  LLVMOrcJIT
-  LLVMOption
-  LLVMRuntimeDyld
-  LLVMSupport
-  LLVMTarget
-  LLVMX86CodeGen
-
-  clangBasic
-  clangCodeGen
-  clangDriver
-  clangFrontend
-  clangSerialization
 )
 
 # TODO: install all headers under a rawkit prefix so we don't blow away existing entries in a global install on unix
@@ -330,6 +301,7 @@ set(RAWKIT_TEST_FILES
   ${RAWKIT_GCODE_PARSER_TEST_FILES}
   ${RAWKIT_GRBL_PARSER_TEST_FILES}
   ${PULL_STREAM_TEST_FILES}
+  ${RAWKIT_JIT_TEST_FILES}
 )
 
 add_executable(rawkit-test
@@ -344,7 +316,6 @@ source_group("tests" FILES ${RAWKIT_TEST_FILES})
 
 if (CMAKE_GENERATOR MATCHES "Visual Studio")
   set(RAWKIT_TEST_COMPILE_FLAGS
-    /W4
     -D_CRT_SECURE_NO_WARNINGS
   )
 else()
@@ -363,14 +334,22 @@ endif()
 
 target_link_libraries(rawkit-test PRIVATE
   pull-stream
+  rawkit-jit
 )
 
 target_compile_options(rawkit-test PRIVATE
   ${RAWKIT_TEST_COMPILE_FLAGS}
+  ${RAWKIT_JIT_EXTRA_COMPILE_FLAGS}
+)
+
+target_link_options(rawkit-test PRIVATE
+  ${RAWKIT_TEST_COMPILE_FLAGS}
+  ${RAWKIT_JIT_EXTRA_LINK_FLAGS}
 )
 
 target_include_directories(rawkit-test PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
+  ${LLVM_INCLUDE_DIRS}
 )
 
 add_test(rawkit rawkit-test)

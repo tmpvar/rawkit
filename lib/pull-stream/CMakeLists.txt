@@ -47,15 +47,17 @@ include_directories(
 target_link_libraries(pull-stream PUBLIC uv_a)
 
 if (PULL_STREAM_TEST_COVERAGE)
-  target_compile_options(pull-stream PUBLIC
-    -g
-    -O0
-    --coverage
-    -ftest-coverage
-    -fprofile-arcs
-    -fno-default-inline
-    -fno-inline
-  )
+  if (NOT CMAKE_GENERATOR MATCHES "Visual Studio")
+    target_compile_options(pull-stream PUBLIC
+      -g
+      -O0
+      --coverage
+      -ftest-coverage
+      -fprofile-arcs
+      -fno-default-inline
+      -fno-inline
+    )
+  endif()
 endif()
 
 # Testing
