@@ -1,5 +1,5 @@
 
-#include <hot/jitjob.h>
+#include <rawkit/jit.h>
 
 #include <hot/guest/hot/state.h>
 #if !defined(__linux__)
@@ -10,33 +10,33 @@
 #include <hot/host/cimgui.h>
 #include <hot/host/croaring.h>
 #include <hot/host/tinyfiledialogs.h>
-void host_hot_init_state(JitJob *job) {
-  job->addExport("hotState", (void *)&hotState);
+void host_hot_init_state(rawkit_jit_t *jit) {
+  rawkit_jit_add_export(jit, "hotState", (void *)&hotState);
 }
 
-void host_rawkit_serial_init(JitJob *job);
+void host_rawkit_serial_init(rawkit_jit_t *jit);
 
 double rawkit_now() {
   return glfwGetTime();
 }
 
-void host_hot_init(JitJob *job) {
-  host_hot_init_state(job);
-  host_init_string(job);
+void host_hot_init(rawkit_jit_t *jit) {
+  host_hot_init_state(jit);
+  host_init_string(jit);
 
-  host_init_stdio(job);
-  host_init_tinyfiledialogs(job);
-  host_cimgui_init(job);
+  host_init_stdio(jit);
+  host_init_tinyfiledialogs(jit);
+  host_cimgui_init(jit);
 
-  host_rawkit_serial_init(job);
+  host_rawkit_serial_init(jit);
 
   //#if !defined(_WIN32)
-  host_croaring_init(job);
+  host_croaring_init(jit);
   //#endif
 
   #if !defined(__linux__)
-    host_init_stdlib(job);
+    host_init_stdlib(jit);
   #endif
 
-  job->addExport("rawkit_now", (void *)&rawkit_now);
+  rawkit_jit_add_export(jit, "rawkit_now", (void *)&rawkit_now);
 }

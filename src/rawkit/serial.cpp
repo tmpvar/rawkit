@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <iterator>
 #include <serial/serial.h>
-#include <hot/jitjob.h>
+#include <rawkit/jit.h>
 
 using namespace std;
 
@@ -127,11 +127,11 @@ void Serial_Write(SerialID id, const uint8_t *buf, size_t len) {
 }
 
 
-void host_rawkit_serial_init(JitJob *job) {
-  job->addExport("Serial_Open", (void *)&Serial_Open);
-  job->addExport("Serial_Valid", (void *)&Serial_Valid);
-  job->addExport("Serial_Available", (void *)&Serial_Available);
-  job->addExport("Serial_Read", (void *)&Serial_Read);
-  job->addExport("Serial_Write", (void *)&Serial_Write);
+void host_rawkit_serial_init(rawkit_jit_t *jit) {
+  rawkit_jit_add_export(jit, "Serial_Open", (void *)&Serial_Open);
+  rawkit_jit_add_export(jit, "Serial_Valid", (void *)&Serial_Valid);
+  rawkit_jit_add_export(jit, "Serial_Available", (void *)&Serial_Available);
+  rawkit_jit_add_export(jit, "Serial_Read", (void *)&Serial_Read);
+  rawkit_jit_add_export(jit, "Serial_Write", (void *)&Serial_Write);
 }
 

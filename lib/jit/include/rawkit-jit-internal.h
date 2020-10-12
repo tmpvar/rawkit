@@ -1,38 +1,38 @@
 #pragma once
 
 #include <ghc/filesystem.hpp>
-
-#include <clang/Basic/DiagnosticOptions.h>
-#include <clang/CodeGen/CodeGenAction.h>
-#include <clang/Driver/Compilation.h>
-#include <clang/Driver/Driver.h>
-#include <clang/Driver/Tool.h>
-#include <clang/Frontend/CompilerInstance.h>
-#include <clang/Frontend/CompilerInvocation.h>
-#include <clang/Frontend/FrontendDiagnostic.h>
-#include <clang/Frontend/TextDiagnosticPrinter.h>
-#include <llvm/ADT/SmallString.h>
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/ExecutionEngine/Orc/CompileUtils.h>
-#include <llvm/ExecutionEngine/Orc/ExecutionUtils.h>
-#include <llvm/ExecutionEngine/Orc/IRCompileLayer.h>
-#include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
-#include <llvm/ExecutionEngine/SectionMemoryManager.h>
-#include <llvm/IR/DataLayout.h>
-#include <llvm/IR/Mangler.h>
-#include <llvm/IR/Module.h>
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/Host.h>
-#include <llvm/Support/ManagedStatic.h>
-#include <llvm/Support/Path.h>
-#include <llvm/Support/TargetSelect.h>
-#include <llvm/Support/raw_ostream.h>
-#include <llvm/Target/TargetMachine.h>
-#include "llvm/ExecutionEngine/JITLink/JITLinkMemoryManager.h"
-#include <llvm/ExecutionEngine/Orc/LLJIT.h>
-#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
-
-#include <llvm/Demangle/Demangle.h>
+#pragma warning(push, 0)
+  #include <clang/Basic/DiagnosticOptions.h>
+  #include <clang/CodeGen/CodeGenAction.h>
+  #include <clang/Driver/Compilation.h>
+  #include <clang/Driver/Driver.h>
+  #include <clang/Driver/Tool.h>
+  #include <clang/Frontend/CompilerInstance.h>
+  #include <clang/Frontend/CompilerInvocation.h>
+  #include <clang/Frontend/FrontendDiagnostic.h>
+  #include <clang/Frontend/TextDiagnosticPrinter.h>
+  #include <llvm/ADT/SmallString.h>
+  #include <llvm/ExecutionEngine/ExecutionEngine.h>
+  #include <llvm/ExecutionEngine/Orc/CompileUtils.h>
+  #include <llvm/ExecutionEngine/Orc/ExecutionUtils.h>
+  #include <llvm/ExecutionEngine/Orc/IRCompileLayer.h>
+  #include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
+  #include <llvm/ExecutionEngine/SectionMemoryManager.h>
+  #include <llvm/IR/DataLayout.h>
+  #include <llvm/IR/Mangler.h>
+  #include <llvm/IR/Module.h>
+  #include <llvm/Support/FileSystem.h>
+  #include <llvm/Support/Host.h>
+  #include <llvm/Support/ManagedStatic.h>
+  #include <llvm/Support/Path.h>
+  #include <llvm/Support/TargetSelect.h>
+  #include <llvm/Support/raw_ostream.h>
+  #include <llvm/Target/TargetMachine.h>
+  #include "llvm/ExecutionEngine/JITLink/JITLinkMemoryManager.h"
+  #include <llvm/ExecutionEngine/Orc/LLJIT.h>
+  #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
+  #include <llvm/Demangle/Demangle.h>
+#pragma warning(pop)
 
 #include <stdio.h>
 #include <iostream>

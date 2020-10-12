@@ -14,7 +14,10 @@
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include <vulkan/vulkan.h>
+
+#pragma warning( push, 0 )
+  #include <vulkan/vulkan.h>
+#pragma warning( pop )
 
 #include <serial/serial.h>
 
@@ -28,7 +31,6 @@
 #include <hot/hot.h>
 #include <stdio.h>
 #include <locale.h>
-#include "llvm/Support/InitLLVM.h"
 
 #include <hot/host/hot.h>
 #include <hot/guest/rawkit/image.h>
@@ -39,11 +41,11 @@
 #include <imgui/examples/imgui_impl_glfw.h>
 #include "imgui/imgui_impl_vulkan.h"
 
+#include <rawkit/jit.h>
+
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
 
-// this must come after including llvm because visual studio / windows sdk
-// conflict with std::byte
 using namespace std;
 // #define IMGUI_UNLIMITED_FRAME_RATE
 #ifdef _DEBUG
@@ -434,44 +436,36 @@ const rawkit_image rawkit_load_image_relative_to_file(const char *from_file, con
   return ret;
 }
 
-llvm::ExitOnError ExitOnErr;
 int main(int argc, const char **argv) {
-    llvm::InitLLVM initialize_llvm(argc, argv);
 
-    llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmPrinter();
-    ExitOnErr.setBanner("rawkit");
-    JitJob *job = JitJob::create(argc, argv);
-    if (job == nullptr) {
-        printf("failed to create jit job\n");
-        return 1;
+    rawkit_jit_t *jit = rawkit_jit_create(argv[1]);
+    if (!jit) {
+      return -1;
     }
 
     #if defined(_WIN32)
         // add guest support for dirent.h
-        job->addExport("FindClose", (void *)&FindClose);
-        job->addExport("FindFirstFileExW", (void *)&FindFirstFileExW);
-        job->addExport("FindNextFileW", (void *)&FindNextFileW);
-        job->addExport("GetFullPathNameW", (void *)&GetFullPathNameW);
-        job->addExport("GetLastError", (void *)&GetLastError);
-
-        job->addExport("_set_errno", (void *)&_set_errno);
-        job->addExport("setlocale", (void *)&setlocale);
-        job->addExport("_errno", (void *)&_errno);
-        job->addExport("_wassert", rawkit_wassert);
+        rawkit_jit_add_export(jit, "FindClose", (void *)&FindClose);
+        rawkit_jit_add_export(jit, "FindFirstFileExW", (void *)&FindFirstFileExW);
+        rawkit_jit_add_export(jit, "FindNextFileW", (void *)&FindNextFileW);
+        rawkit_jit_add_export(jit, "GetFullPathNameW", (void *)&GetFullPathNameW);
+        rawkit_jit_add_export(jit, "GetLastError", (void *)&GetLastError);
+        rawkit_jit_add_export(jit, "_set_errno", (void *)&_set_errno);
+        rawkit_jit_add_export(jit, "setlocale", (void *)&setlocale);
+        rawkit_jit_add_export(jit, "_errno", (void *)&_errno);
+        rawkit_jit_add_export(jit, "_wassert", rawkit_wassert);
     #endif
 
-    job->addExport("rawkit_vulkan_device", (void *)&rawkit_vulkan_device);
-    job->addExport("rawkit_vulkan_physical_device", (void *)&rawkit_vulkan_physical_device);
-    job->addExport("rawkit_vulkan_command_buffer", (void *)&rawkit_vulkan_command_buffer);
-    job->addExport("rawkit_vulkan_command_pool", (void *)&rawkit_vulkan_command_pool);
-    job->addExport("rawkit_imgui_add_texture", (void *)&rawkit_imgui_add_texture);
-    job->addExport("rawkit_vulkan_queue", (void *)&rawkit_vulkan_queue);
-    job->addExport("rawkit_randf", (void *)&rawkit_randf);
-    job->addExport("rawkit_load_image_relative_to_file", (void *)&rawkit_load_image_relative_to_file);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_device", (void *)&rawkit_vulkan_device);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_physical_device", (void *)&rawkit_vulkan_physical_device);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_command_buffer", (void *)&rawkit_vulkan_command_buffer);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_command_pool", (void *)&rawkit_vulkan_command_pool);
+    rawkit_jit_add_export(jit, "rawkit_imgui_add_texture", (void *)&rawkit_imgui_add_texture);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_queue", (void *)&rawkit_vulkan_queue);
+    rawkit_jit_add_export(jit, "rawkit_randf", (void *)&rawkit_randf);
+    rawkit_jit_add_export(jit, "rawkit_load_image_relative_to_file", (void *)&rawkit_load_image_relative_to_file);
 
-    host_hot_init(job);
+    host_hot_init(jit);
 
     auto list = serial::list_ports();
     find_if(list.begin(), list.end(), [](const serial::PortInfo& obj) {
@@ -617,7 +611,9 @@ int main(int argc, const char **argv) {
         // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
         glfwPollEvents();
 
-        job->tick();
+        if (rawkit_jit_tick(jit)) {
+          rawkit_jit_call_setup(jit);
+        }
 
 
         // Poll the serialport
@@ -643,7 +639,7 @@ int main(int argc, const char **argv) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        job->loop();
+        rawkit_jit_call_loop(jit);
 
         // Rendering
         ImGui::Render();

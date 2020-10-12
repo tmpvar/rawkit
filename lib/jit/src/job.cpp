@@ -2,11 +2,15 @@
 
 // https://kevinaboos.wordpress.com/2013/07/29/clang-tutorial-part-iii-plugin-example/
 // https://gist.github.com/dhbaird/918a92405657220aed166f636e732f6d
-#include <clang/AST/Mangle.h>
-#include <clang/Frontend/FrontendActions.h>
-#include <clang/Lex/Preprocessor.h>
-// #include <clang/AST/RecursiveASTVisitor.h>
-#include "llvm/Support/InitLLVM.h"
+
+#pragma warning(push, 0)
+  #include <clang/AST/Mangle.h>
+  #include <clang/Frontend/FrontendActions.h>
+  #include <clang/Lex/Preprocessor.h>
+  // #include <clang/AST/RecursiveASTVisitor.h>
+  #include "llvm/Support/InitLLVM.h"
+#pragma warning(pop)
+
 
 #include <whereami.c>
 
@@ -111,13 +115,13 @@ JitJob *JitJob::create(int argc, const char **argv) {
   job->main_addr = (void*)(intptr_t)GetExecutablePath;
   job->path = GetExecutablePath(job->exe_arg.c_str(), job->main_addr);
 
-  // job->guest_include_dir = fs::canonical(
-  //   fs::path(job->path).remove_filename() / ".." / "include"
-  // );
+  job->guest_include_dir = fs::canonical(
+    fs::path(job->path).remove_filename() / ".." / "include"
+  );
 
-  // job->guest_include.assign(
-  //   std::string("-I") + job->guest_include_dir.string()
-  // );
+  job->guest_include.assign(
+    std::string("-I") + job->guest_include_dir.string()
+  );
 
   llvm::Triple triple(job->triple_str);
 

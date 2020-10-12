@@ -105,11 +105,6 @@ include_directories(
   ${DEPS_DIR}/croaring
 )
 
-# DEP: whereami
-include_directories(
-  ${DEPS_DIR}/whereami/src
-)
-
 # LIB: pull-stream
 set(PULL_STREAM_BUILD_TESTS OFF CACHE INTERNAL "")
 set(PULL_STREAM_TEST_COVERAGE ON CACHE INTERNAL "")
@@ -143,11 +138,9 @@ include_directories(
 add_executable(
   rawkit
   ${SRC_DIR}/main.cpp
-  ${SRC_DIR}/hot/jitjob.cpp
   ${SRC_DIR}/hot/state.cpp
   ${SRC_DIR}/hot/cimgui.cpp
   ${SRC_DIR}/rawkit/serial.cpp
-  ${DEPS_DIR}/whereami/src/whereami.c
   ${DEPS_DIR}/tinyfiledialogs/tinyfiledialogs.c
   ${IMGUI_SRC}
   ${CROARING_SRC}
@@ -198,8 +191,6 @@ target_compile_options(
   -D_HAS_STD_BYTE=0
   # see: http://www.suodenjoki.dk/us/archive/2010/min-max.htm
   -DNOMINMAX=1
-
-  -Wall
 
   # TODO: install these headers so we don't have to include them
   -DRAWKIT_CIMGUI_INCLUDE_DIR="-I${DEPS_DIR}/cimgui"

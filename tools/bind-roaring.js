@@ -19,16 +19,16 @@ const outLines = lines.map(line => {
   }
 
   const name = matches[1]
-  return `job->addExport("${name}", ${name});`
+  return `rawkit_jit_add_export(jit, "${name}", ${name});`
 }).filter(Boolean)
 
 
 const outHeader = `
 #pragma once
-#include <hot/jitjob.h>
+#include <rawkit/jit.h>
 #include <roaring/roaring.h>
 
-void host_croaring_init(JitJob *job) {
+void host_croaring_init(rawkit_jit_t  *jit) {
   ${outLines.join('\n  ')}
 }
 `

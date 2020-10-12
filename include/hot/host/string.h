@@ -1,6 +1,6 @@
 #pragma once
 
-#include <hot/jitjob.h>
+#include <rawkit/jit.h>
 
 const void *string_host_memchr(const void *a, int b, size_t c)
 {
@@ -22,27 +22,27 @@ const char *string_host_strstr(const char *a, const char *b)
   return strstr(a, b);
 }
 
-void host_init_string(JitJob *job) {
-  job->addExport("memcpy", (void *)&memcpy);
-  job->addExport("memmove", (void *)&memmove);
-  job->addExport("memchr", (void *)&string_host_memchr);
-  job->addExport("memcmp", (void *)&memcmp);
-  job->addExport("memset", (void *)&memset);
-  job->addExport("strcat", (void *)&strcat);
-  job->addExport("strncat", (void *)&strncat);
-  job->addExport("strchr", (void *)(char *(*)(char *, int))strchr);
-  job->addExport("strrchr", (void *)&string_host_strrchr);
-  job->addExport("strcmp", (void *)&strcmp);
-  job->addExport("strncmp", (void *)&strncmp);
-  job->addExport("strcoll", (void *)&strcoll);
-  job->addExport("strcpy", (void *)&strcpy);
-  job->addExport("strncpy", (void *)&strncpy);
-  job->addExport("strerror", (void *)&strerror);
-  job->addExport("strlen", (void *)&strlen);
-  job->addExport("strspn", (void *)&strspn);
-  job->addExport("strcspn", (void *)&strcspn);
-  job->addExport("strpbrk", (void *)&string_host_strpbrk);
-  job->addExport("strstr", (void *)&string_host_strstr);
-  job->addExport("strtok", (void *)&strtok);
-  job->addExport("strxfrm", (void *)&strxfrm);
+void host_init_string(rawkit_jit_t *jit) {
+  rawkit_jit_add_export(jit, "memcpy", (void *)&memcpy);
+  rawkit_jit_add_export(jit, "memmove", (void *)&memmove);
+  rawkit_jit_add_export(jit, "memchr", (void *)&string_host_memchr);
+  rawkit_jit_add_export(jit, "memcmp", (void *)&memcmp);
+  rawkit_jit_add_export(jit, "memset", (void *)&memset);
+  rawkit_jit_add_export(jit, "strcat", (void *)&strcat);
+  rawkit_jit_add_export(jit, "strncat", (void *)&strncat);
+  rawkit_jit_add_export(jit, "strchr", (void *)(char *(*)(char *, int))strchr);
+  rawkit_jit_add_export(jit, "strrchr", (void *)&string_host_strrchr);
+  rawkit_jit_add_export(jit, "strcmp", (void *)&strcmp);
+  rawkit_jit_add_export(jit, "strncmp", (void *)&strncmp);
+  rawkit_jit_add_export(jit, "strcoll", (void *)&strcoll);
+  rawkit_jit_add_export(jit, "strcpy", (void *)&strcpy);
+  rawkit_jit_add_export(jit, "strncpy", (void *)&strncpy);
+  rawkit_jit_add_export(jit, "strerror", (void *)&strerror);
+  rawkit_jit_add_export(jit, "strlen", (void *)&strlen);
+  rawkit_jit_add_export(jit, "strspn", (void *)&strspn);
+  rawkit_jit_add_export(jit, "strcspn", (void *)&strcspn);
+  rawkit_jit_add_export(jit, "strpbrk", (void *)&string_host_strpbrk);
+  rawkit_jit_add_export(jit, "strstr", (void *)&string_host_strstr);
+  rawkit_jit_add_export(jit, "strtok", (void *)&strtok);
+  rawkit_jit_add_export(jit, "strxfrm", (void *)&strxfrm);
 }

@@ -154,7 +154,7 @@ if (RAWKIT_JIT_BUILD_TESTS)
     ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
   )
 
-  set_property(TARGET rawkit-jit-test PROPERTY CXX_STANDARD 11)
+  set_property(TARGET rawkit-jit-test PROPERTY CXX_STANDARD 17)
   set_property(TARGET rawkit-jit-test PROPERTY C_STANDARD 11)
 
 

@@ -31,7 +31,7 @@ TEST_CASE("[rawkit/jit/api] lifecycle") {
     rawkit_jit_t *jit = rawkit_jit_create(fixturePath("callmemaybe.cpp"));
     REQUIRE(jit != nullptr);
 
-    rawkit_jit_add_export(jit, "callmemaybe", callmemaybe);
+    rawkit_jit_add_export(jit, "callmemaybe", (void *)callmemaybe);
     rawkit_jit_tick(jit);
     CHECK(rawkit_jit_get_status(jit) == RAWKIT_JIT_STATUS_OK);
 
