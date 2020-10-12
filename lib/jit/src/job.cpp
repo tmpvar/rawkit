@@ -262,6 +262,13 @@ class IncludeCollector : public DependencyFileGenerator {
 
 
 bool JitJob::rebuild() {
+  for (auto &entry : this->watched_files) {
+    if (entry.mtime != fs::last_write_time(entry.file)) {
+      this->dirty = true;
+      break;
+    }
+  }
+
   if (!this->dirty) {
     return false;
   }
