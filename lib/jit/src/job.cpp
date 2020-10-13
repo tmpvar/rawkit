@@ -136,12 +136,10 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
   // clang diagnostic engine
   job->diag_opts = new DiagnosticOptions();
-  job->diag_printer = new TextDiagnosticPrinter(llvm::errs(), &*job->diag_opts);
-  job->diag_id = new DiagnosticIDs();
   job->diag_engine = new DiagnosticsEngine(
-    job->diag_id,
+    new DiagnosticIDs(),
     job->diag_opts,
-    job->diag_printer
+    new TextDiagnosticPrinter(llvm::errs(), &*job->diag_opts)
   );
 
   // clang
@@ -152,7 +150,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
   SmallVector<const char *, 16> Args;
 
   Args.push_back(job->exe_arg.c_str());
-  for (uint32_t i = 0; i < argc; i++) {
+  for (int32_t i = 0; i < argc; i++) {
     Args.push_back(argv[i]);
   }
 
@@ -361,7 +359,6 @@ bool JitJob::rebuild() {
     }
   }
 
-
   // cout << "watching: " << endl;
   // for (auto &watched : this->watched_files) {
   //   cout << "  " << watched.file << endl;
@@ -405,7 +402,7 @@ void JitJob::tick() {
           this->dirty = true;
           break;
         }
-      } catch (fs::filesystem_error &e) {
+      } catch (fs::filesystem_error) {
       }
     }
   }

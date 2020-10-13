@@ -90,16 +90,12 @@ class JitJob {
     void *main_addr;
     clang::driver::Driver *driver;
 
-
     std::string exe_arg;
     llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> diag_opts;
-    clang::TextDiagnosticPrinter *diag_printer;
-    llvm::IntrusiveRefCntPtr<clang::DiagnosticIDs> diag_id;
     clang::DiagnosticsEngine *diag_engine;
 
     std::unique_ptr<clang::driver::Compilation> compilation;
     llvm::opt::ArgStringList compilation_args;
-    std::unique_ptr<clang::CodeGenAction> compiler_action;
     llvm::orc::JITSymbolBag symbols;
 
     ghc::filesystem::path program_source;
