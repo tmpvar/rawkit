@@ -1,17 +1,4 @@
 #include <rawkit-jit-internal.h>
-
-// https://kevinaboos.wordpress.com/2013/07/29/clang-tutorial-part-iii-plugin-example/
-// https://gist.github.com/dhbaird/918a92405657220aed166f636e732f6d
-
-#pragma warning(push, 0)
-  #include <clang/AST/Mangle.h>
-  #include <clang/Frontend/FrontendActions.h>
-  #include <clang/Lex/Preprocessor.h>
-  // #include <clang/AST/RecursiveASTVisitor.h>
-  #include "llvm/Support/InitLLVM.h"
-#pragma warning(pop)
-
-
 #include <whereami.c>
 
 #include <ghc/filesystem.hpp>
@@ -245,29 +232,6 @@ JitJob *JitJob::create(int argc, const char **argv) {
   return job;
 }
 
-
-// Adapted from llvm/clang/unittests/Tooling/DependencyScannerTest.cpp
-class IncludeCollector : public DependencyFileGenerator {
-  vector<string> &includes;
-  public:
-  IncludeCollector(DependencyOutputOptions &Opts, vector<string> &includes)
-    : DependencyFileGenerator(Opts)
-    , includes(includes)
-  {
-
-  }
-
-  void finishedMainFile(DiagnosticsEngine &Diags) override {
-    auto new_deps = this->getDependencies();
-    this->includes.insert(
-      this->includes.end(),
-      new_deps.begin(),
-      new_deps.end()
-    );
-  }
-};
-
-
 bool JitJob::rebuild() {
   for (auto &entry : this->watched_files) {
     if (entry.mtime != fs::last_write_time(entry.file)) {
@@ -288,52 +252,9 @@ bool JitJob::rebuild() {
     *this->diag_engine
   );
 
-  if (!invocation) {
-    printf("failed to create compiler invocation\n");
-    return false;
-  }
+  Runnable *run = Runnable::compile(std::move(invocation), symbols);
 
-  const driver::JobList &compilation_jobs = this->compilation->getJobs();
-  if (invocation->getHeaderSearchOpts().Verbose) {
-    llvm::errs() << "clang invocation:\n";
-    compilation_jobs.Print(llvm::errs(), "\n", true);
-    llvm::errs() << "\n";
-  }
-
-  CompilerInstance compiler_instance;
-  compiler_instance.setInvocation(std::move(invocation));
-
-  // Create the compilers actual diagnostics engine.
-  compiler_instance.createDiagnostics();
-
-  if (!compiler_instance.hasDiagnostics()) {
-    printf("could not create diagnostics engine\n");
-    return false;
-  }
-
-  // Infer the builtin include path if unspecified.
-  if (
-    compiler_instance.getHeaderSearchOpts().UseBuiltinIncludes &&
-    compiler_instance.getHeaderSearchOpts().ResourceDir.empty()
-  ) {
-    std::string res_path = CompilerInvocation::GetResourcesPath(
-      this->exe_arg.c_str(),
-      this->main_addr
-    );
-    compiler_instance.getHeaderSearchOpts().ResourceDir = res_path;
-  }
-
-  vector<string> includes;
-  compiler_instance.addDependencyCollector(std::make_shared<IncludeCollector>(
-    compiler_instance.getInvocation().getDependencyOutputOpts(),
-    includes
-  ));
-
-
-  // Create and execute the frontend to generate an LLVM bitcode module.
-  auto action = new EmitLLVMOnlyAction();
-  if (!compiler_instance.ExecuteAction(*action)) {
-    printf("failed to execute action\n");
+  if (!run) {
     return false;
   }
 
@@ -346,7 +267,7 @@ bool JitJob::rebuild() {
     watched_files.push_back(entry);
   }
 
-  for (auto &include : includes) {
+  for (auto &include : run->includes) {
     auto abs_path = fs::canonical(include);
     auto rel = fs::relative(abs_path, this->guest_include_dir);
 
@@ -357,22 +278,6 @@ bool JitJob::rebuild() {
       entry.mtime = fs::last_write_time(entry.file);
       this->watched_files.push_back(entry);
     }
-  }
-
-  // cout << "watching: " << endl;
-  // for (auto &watched : this->watched_files) {
-  //   cout << "  " << watched.file << endl;
-  // }
-
-
-  //ASTContext& ast_context = compiler_instance.getASTContext();
-  //clang::MangleContext *mangle_context = ast_context.createMangleContext();
-  //mangle_context->mangleCXXName()
-  Runnable *run = Runnable::create(action, this->symbols);
-  delete action;
-
-  if (!run) {
-    return false;
   }
 
   this->active_runnable.reset(run);

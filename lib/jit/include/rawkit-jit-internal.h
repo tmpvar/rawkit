@@ -32,6 +32,13 @@
   #include <llvm/ExecutionEngine/Orc/LLJIT.h>
   #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
   #include <llvm/Demangle/Demangle.h>
+
+  #include <clang/AST/Mangle.h>
+  #include <clang/Frontend/FrontendActions.h>
+  #include <clang/Lex/Preprocessor.h>
+  // #include <clang/AST/RecursiveASTVisitor.h>
+  #include "llvm/Support/InitLLVM.h"
+
 #pragma warning(pop)
 
 #include <stdio.h>
@@ -58,9 +65,14 @@ class Runnable {
     Runnable() {}
 
   public:
+    std::vector<string> includes;
     rawkit_jit_guest_fn setup_fn;
     rawkit_jit_guest_fn loop_fn;
     static Runnable *create(clang::CodeGenAction *action, const llvm::orc::JITSymbolBag &symbols);
+    static Runnable *compile(
+      std::unique_ptr<clang::CompilerInvocation> invocation,
+      const llvm::orc::JITSymbolBag &symbols
+    );
     void setup();
     void loop();
 };

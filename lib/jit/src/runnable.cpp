@@ -1,5 +1,81 @@
 #include <rawkit-jit-internal.h>
 
+using namespace clang;
+using namespace clang::driver;
+using namespace llvm::opt;
+
+
+// Adapted from llvm/clang/unittests/Tooling/DependencyScannerTest.cpp
+class IncludeCollector : public DependencyFileGenerator {
+  vector<string> &includes;
+  public:
+  IncludeCollector(DependencyOutputOptions &Opts, vector<string> &includes)
+    : DependencyFileGenerator(Opts)
+    , includes(includes)
+  {
+
+  }
+
+  void finishedMainFile(DiagnosticsEngine &Diags) override {
+    auto new_deps = this->getDependencies();
+    this->includes.insert(
+      this->includes.end(),
+      new_deps.begin(),
+      new_deps.end()
+    );
+  }
+};
+
+Runnable *Runnable::compile(std::unique_ptr<CompilerInvocation> invocation, const llvm::orc::JITSymbolBag &symbols) {
+  if (!invocation) {
+    printf("failed to create compiler invocation\n");
+    return nullptr;
+  }
+
+  CompilerInstance compiler_instance;
+  compiler_instance.setInvocation(std::move(invocation));
+
+  // Create the compilers actual diagnostics engine.
+  compiler_instance.createDiagnostics();
+
+  if (!compiler_instance.hasDiagnostics()) {
+    printf("could not create diagnostics engine\n");
+    return nullptr;
+  }
+
+  // Infer the builtin include path if unspecified.
+  // if (
+  //   compiler_instance.getHeaderSearchOpts().UseBuiltinIncludes &&
+  //   compiler_instance.getHeaderSearchOpts().ResourceDir.empty()
+  // ) {
+  //   std::string res_path = CompilerInvocation::GetResourcesPath(
+  //     this->exe_arg.c_str(),
+  //     this->main_addr
+  //   );
+  //   compiler_instance.getHeaderSearchOpts().ResourceDir = res_path;
+  // }
+
+  vector<string> includes;
+  compiler_instance.addDependencyCollector(std::make_shared<IncludeCollector>(
+    compiler_instance.getInvocation().getDependencyOutputOpts(),
+    includes
+  ));
+
+
+  // Create and execute the frontend to generate an LLVM bitcode module.
+  auto action = new EmitLLVMOnlyAction();
+  if (!compiler_instance.ExecuteAction(*action)) {
+    printf("failed to execute action\n");
+    return nullptr;
+  }
+
+  Runnable *run = Runnable::create(action, symbols);
+  run->includes = includes;
+  delete action;
+  return run;
+}
+
+
 Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSymbolBag &symbols) {
   Runnable *run = new Runnable();
   llvm::ExitOnError EOE;
