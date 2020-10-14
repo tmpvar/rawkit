@@ -1,19 +1,11 @@
 cmake_minimum_required(VERSION 3.14)
 project(pull-stream)
 
-
 option(PULL_STREAM_BUILD_TESTS "Build the pull-stream test programs" ON)
 option(PULL_STREAM_TEST_COVERAGE "Add coverage information for tests run against libpull_stream" OFF)
 
-include_directories(include)
 
-# DEP: libuv
-add_subdirectory(
-  ${CMAKE_CURRENT_LIST_DIR}/deps/libuv-1.39.0
-)
-set(LIBUV_LIBS uv_a ${uv_libraries} CACHE INTERNAL "")
-set(LIBUV_INCLUDE_DIRS ${CMAKE_CURRENT_LIST_DIR}/deps/libuv-1.39.0/include CACHE INTERNAL "")
-include_directories(${LIBUV_INCLUDE_DIRS})
+
 
 file(GLOB PULL_STREAM_CORE_SOURCES
   "${CMAKE_CURRENT_LIST_DIR}/src/core/*.c"
@@ -32,6 +24,25 @@ add_library(pull-stream
   ${PULL_STREAM_IO_SOURCES}
   ${PULL_STREAM_SYNC_SOURCES}
 )
+
+
+set(PULL_STREAM_INCLUDES
+  ${CMAKE_CURRENT_LIST_DIR}/include
+  ${CMAKE_CURRENT_LIST_DIR}/deps/libuv-1.39.0/include
+)
+
+
+target_include_directories(pull-stream PUBLIC
+  ${PULL_STREAM_INCLUDES}
+)
+
+# DEP: libuv
+add_subdirectory(
+  ${CMAKE_CURRENT_LIST_DIR}/deps/libuv-1.39.0
+)
+
+set(PULL_STREAM_INCLUDES ${PULL_STREAM_INCLUDES} PARENT_SCOPE)
+set(PULL_STREAM_LIBS pull-stream PARENT_SCOPE)
 
 source_group("core" FILES ${PS_CORE_SOURCES})
 source_group("io" FILES ${PS_IO_SOURCES})

@@ -168,3 +168,7 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src) {
   ret->valid = true;
   return ret;
 }
+
+ps_t *rawkit_glsl_compiler() {
+  return ps_create_stream(ps_t, NULL);
+}

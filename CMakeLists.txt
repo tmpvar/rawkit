@@ -85,30 +85,37 @@ include_directories(
 # LIB: pull-stream
 set(PULL_STREAM_BUILD_TESTS OFF CACHE INTERNAL "")
 set(PULL_STREAM_TEST_COVERAGE ON CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream deps/pull-stream)
 include_directories(
   ${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream/include
 )
 
 # LIB: gcode-parser
 set(RAWKIT_GCODE_PARSER_BUILD_TESTS OFF CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser deps/gcode-parser)
 include_directories(
   ${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser/include
 )
 
 # LIB: grbl-parser
 set(RAWKIT_GRBL_PARSER_BUILD_TESTS OFF CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser deps/grbl-parser)
 include_directories(
   ${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser/include
 )
 
 # LIB: rawkit-jit
 set(RAWKIT_JIT_BUILD_TESTS OFF CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/jit)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/jit deps/rawkit-jit)
 include_directories(
   ${CMAKE_CURRENT_LIST_DIR}/lib/jit/include
+)
+
+# LIB: rawkit-glsl
+set(RAWKIT_GLSL_BUILD_TESTS OFF CACHE INTERNAL "")
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-glsl deps/rawkit-glsl)
+include_directories(
+  ${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-glsl/include
 )
 
 
@@ -184,6 +191,7 @@ target_link_options(
 target_link_libraries(
   rawkit
   rawkit-jit
+  rawkit-glsl
 
   glfw
   # grab this from the vulkan sdk
@@ -270,7 +278,10 @@ set(RAWKIT_TEST_FILES
   ${RAWKIT_GRBL_PARSER_TEST_FILES}
   ${PULL_STREAM_TEST_FILES}
   ${RAWKIT_JIT_TEST_FILES}
+  ${RAWKIT_GLSL_TEST_FILES}
 )
+
+message(STATUS "RAWKIT TEST FILES: ${RAWKIT_TEST_FILES}")
 
 add_executable(rawkit-test
   ${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
@@ -303,6 +314,7 @@ endif()
 target_link_libraries(rawkit-test PRIVATE
   pull-stream
   rawkit-jit
+  rawkit-glsl
 )
 
 target_compile_options(rawkit-test PRIVATE

@@ -5,6 +5,22 @@ project(rawkit-glsl)
 option(RAWKIT_GLSL_BUILD_TESTS "Build the rawkit-glsl test programs" ON)
 option(RAWKIT_GLSL_TEST_COVERAGE "Add coverage information for tests run against libpull_stream" OFF)
 
+add_library(rawkit-glsl
+  ${CMAKE_CURRENT_LIST_DIR}/src/rawkit-glsl.cpp
+)
+
+# DEP: pull-stream (sibling)
+if (NOT PULL_STREAM_LIBS)
+  add_subdirectory(../pull-stream deps/pull-stream)
+endif()
+
+target_include_directories(rawkit-glsl PUBLIC
+  ${PULL_STREAM_INCLUDES}
+)
+
+target_link_libraries(rawkit-glsl PUBLIC
+  ${PULL_STREAM_LIBS}
+)
 
 # DEP: glslang
 set(BUILD_EXTERNAL OFF CACHE BOOL "" FORCE)
@@ -13,10 +29,6 @@ set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "" FORCE)
 # set(ENABLE_PCH OFF CACHE BOOL "" FORCE)
 set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "" FORCE)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/deps/glslang)
-
-add_library(rawkit-glsl
-  ${CMAKE_CURRENT_LIST_DIR}/src/rawkit-glsl.cpp
-)
 
 target_include_directories(rawkit-glsl PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}/deps
@@ -37,7 +49,6 @@ set_property(TARGET rawkit-glsl PROPERTY CXX_STANDARD 17)
 
 target_include_directories(rawkit-glsl PUBLIC
   ${CMAKE_CURRENT_LIST_DIR}/include
-  ${CMAKE_CURRENT_LIST_DIR}/deps/glslang
 )
 
 target_link_libraries(rawkit-glsl PRIVATE
@@ -85,10 +96,12 @@ if (RAWKIT_GLSL_BUILD_TESTS)
 
   target_link_libraries(rawkit-glsl-test PRIVATE
     rawkit-glsl
+    ${PULL_STREAM_LIBS}
   )
 
   target_include_directories(rawkit-glsl-test PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
+    ${PULL_STREAM_INCLUDES}
   )
 
   add_test(rawkit-glsl rawkit-glsl-test)
