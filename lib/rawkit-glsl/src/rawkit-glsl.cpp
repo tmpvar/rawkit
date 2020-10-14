@@ -169,6 +169,69 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src) {
   return ret;
 }
 
-ps_t *rawkit_glsl_compiler() {
-  return ps_create_stream(ps_t, NULL);
+typedef struct ps_rawkit_glsl_t {
+  PS_FIELDS
+
+  char *name;
+} ps_rawkit_glsl_t;
+
+static void rawkit_glsl_destroy_fn(ps_handle_t *base) {
+  if (!base) {
+    return;
+  }
+
+  ps_rawkit_glsl_t *s = (ps_rawkit_glsl_t *)base;
+  if (!s->name) {
+    free(s->name);
+    s->name = NULL;
+  }
+
+  free(s);
+}
+
+static ps_val_t *rawkit_glsl_read_fn(ps_t *base, ps_stream_status status) {
+  if (ps_status(base, status)) {
+    return NULL;
+  }
+
+  ps_val_t *input = ps_pull(base, PS_OK);
+
+  // if the pull caused the stream to go ERR/DONE
+  if (base->status != PS_OK) {
+    // This should never happen
+    if (input) {
+      ps_destroy(input);
+      abort();
+    }
+    return NULL;
+  }
+
+  if (!input || !input->len) {
+    return NULL;
+  }
+
+  ps_rawkit_glsl_t *s = (ps_rawkit_glsl_t *)base;
+  rawkit_glsl_t *r = rawkit_glsl_compile(
+    s->name,
+    (const char *)input->data
+  );
+
+  if (!r) {
+    return NULL;
+  }
+
+  ps_destroy(input);
+  ps_val_t *output = ps_create_value(ps_val_t, NULL);
+  output->data = (void *)r;
+  output->len = sizeof(r);
+  return output;
+}
+
+ps_t *rawkit_glsl_compiler(const char *name) {
+  ps_rawkit_glsl_t *s = ps_create_stream(ps_rawkit_glsl_t, rawkit_glsl_destroy_fn);
+
+  s->name = strdup(name);
+  s->fn = rawkit_glsl_read_fn;
+
+  return (ps_t *)s;
 }

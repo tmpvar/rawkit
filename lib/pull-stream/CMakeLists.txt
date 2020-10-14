@@ -25,12 +25,10 @@ add_library(pull-stream
   ${PULL_STREAM_SYNC_SOURCES}
 )
 
-
 set(PULL_STREAM_INCLUDES
   ${CMAKE_CURRENT_LIST_DIR}/include
   ${CMAKE_CURRENT_LIST_DIR}/deps/libuv-1.39.0/include
 )
-
 
 target_include_directories(pull-stream PUBLIC
   ${PULL_STREAM_INCLUDES}
