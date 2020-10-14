@@ -46,29 +46,6 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_VULKAN_STATIC ON CACHE BOOL "" FORCE)
 add_subdirectory(${DEPS_DIR}/glfw)
 
-# DEP: SPIRV-Headers
-# set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "" FORCE)
-# set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "" FORCE)
-# add_subdirectory(${DEPS_DIR}/SPIRV-Headers)
-# add_definitions(-DSPIRV-Headers_SOURCE_DIR="${DEPS_DIR}/SPIRV-Headers")
-
-# DEP: SPIRV-Tools
-# set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "" FORCE)
-# set(SPIRV_WERROR OFF CACHE BOOL "" FORCE)
-# add_subdirectory(${DEPS_DIR}/SPIRV-Tools)
-
-# DEP: glslang
-# set(BUILD_EXTERNAL OFF CACHE BOOL "" FORCE)
-# set(ENABLE_CTEST OFF CACHE BOOL "" FORCE)
-# set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "" FORCE)
-# # set(ENABLE_PCH OFF CACHE BOOL "" FORCE)
-# set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "" FORCE)
-# add_subdirectory(${DEPS_DIR}/glslang)
-
-# DEP: shaderc
-# set(SHADERC_SKIP_TESTS ON CACHE BOOL "" FORCE)
-# add_subdirectory(${DEPS_DIR}/shaderc)
-
 # DEP: cimgui / imgui
 set(IMGUI_SRC
   ${DEPS_DIR}/cimgui/cimgui.cpp
