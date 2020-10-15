@@ -1,7 +1,7 @@
-#include <stdint.h>
+
 
 extern "C" {
-  void callmemaybe(uint32_t);
+  void callmemaybe(unsigned int);
 }
 
 void setup() {
