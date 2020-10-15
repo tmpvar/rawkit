@@ -293,11 +293,7 @@ set_property(TARGET rawkit-test PROPERTY C_STANDARD 11)
 
 source_group("tests" FILES ${RAWKIT_TEST_FILES})
 
-if (CMAKE_GENERATOR MATCHES "Visual Studio")
-  set(RAWKIT_TEST_COMPILE_FLAGS
-    -D_CRT_SECURE_NO_WARNINGS
-  )
-else()
+if (NOT CMAKE_GENERATOR MATCHES "Visual Studio")
   set(COVERAGE_DIR ${PROJECT_BINARY_DIR}/coverage)
   message(STATUS ${COVERAGE_DIR})
   set(RAWKIT_TEST_COMPILE_FLAGS

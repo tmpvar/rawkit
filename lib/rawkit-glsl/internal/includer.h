@@ -8,6 +8,7 @@
 #include "glslang/Public/ShaderLang.h"
 
 #include <ghc/filesystem.hpp>
+namespace fs = ghc::filesystem;
 using namespace std;
 
 class GLSLIncluder : public glslang::TShader::Includer {
@@ -45,6 +46,18 @@ class GLSLIncluder : public glslang::TShader::Includer {
     // directories and the nominal name of the header.
     virtual IncludeResult* readPath(const char* header, const char* includer, size_t depth) {
 
+      // handle absolute paths
+      try {
+        fs::path p = fs::canonical(header);
+        
+        std::ifstream file(p, std::ios_base::binary | std::ios_base::ate);
+        if (file) {
+          this->dependencies.push_back(p);
+          directoryStack.push_back(p.remove_filename());
+          return newIncludeResult(p, file, (int)file.tellg());
+        }
+      } catch (fs::filesystem_error) {}
+
       // Discard popped include directories, and initialize when at parse-time first level.
       directoryStack.resize(depth + externalLocalDirectoryCount);
       if (depth == 1) {
@@ -54,6 +67,7 @@ class GLSLIncluder : public glslang::TShader::Includer {
       // Find a directory that works, using a reverse search of the include stack.
       for (auto it = directoryStack.rbegin(); it != directoryStack.rend(); ++it) {
         ghc::filesystem::path p(*it);
+
         p = ghc::filesystem::absolute(p / header);
 
         std::ifstream file(p, std::ios_base::binary | std::ios_base::ate);

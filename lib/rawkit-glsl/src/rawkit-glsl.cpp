@@ -31,12 +31,12 @@ static EShLanguage filename_to_stage(string filename) {
     return EShLanguage::EShLangGeometry;
   }
 
-  printf("unhandled extension: %s\n", ext.c_str());
+  // TODO: set an error string or something somewhere
 
   return EShLanguage::EShLangCount;
 }
 
-rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src) {
+rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawkit_glsl_paths_t *include_dirs) {
   if (!name || !src) {
     return NULL;
   }
@@ -54,7 +54,9 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src) {
   }
 
   rawkit_glsl_t *ret = (rawkit_glsl_t *)calloc(sizeof(rawkit_glsl_t), 1);
-
+  if (!ret) {
+    return NULL;
+  }
 
 
   glslang::TShader shader(stage);
@@ -94,7 +96,14 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src) {
   string output;
   GLSLIncluder includer;
 
-  includer.pushExternalLocalDirectory("install/shaders");
+  if (include_dirs && include_dirs->count) {
+    for (uint32_t i=0; i<include_dirs->count; i++) {
+      const char *include = include_dirs->entry[i];
+      if (include != nullptr) {
+        includer.pushExternalLocalDirectory(include);
+      }
+    }
+  }
 
   TBuiltInResource resource_limits = get_default_resource_limits();
 
@@ -126,9 +135,6 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src) {
     );
 
     return ret;
-
-  } else {
-    printf("parsed %s\n", name);
   }
 
   glslang::TProgram program;
@@ -148,7 +154,7 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src) {
     EShReflectionAllBlockVariables |
     EShReflectionUnwrapIOBlocks*/
   );
-  program.dumpReflection();
+  //program.dumpReflection();
 
   glslang::SpvOptions options;
   options.generateDebugInfo = true;
@@ -163,19 +169,48 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src) {
     spirv,
     &options);
 
-  spv::Disassemble(std::cout, spirv);
+  // spv::Disassemble(std::cout, spirv);
 
   ret->valid = true;
   return ret;
+}
+
+void rawkit_glsl_paths_destroy(rawkit_glsl_paths_t *paths) {
+  if (paths->count) {
+    for (uint32_t i=0; paths->count; i++) {
+      free(paths->entry[i]);
+      paths->entry[i] = NULL;
+    }
+    paths->count = 0;
+    free(paths->entry);
+    paths->entry = NULL;
+  }
+}
+
+static void val_destroy_fn(ps_handle_t *base) {
+  if (!base) {
+    return;
+  }
+
+  ps_val_t *v = (ps_val_t *)base;
+  if (v->data == NULL || !v->len || v->handle_type != PS_HANDLE_VALUE) {
+    return;
+  }
+
+  rawkit_glsl_t *glsl = (rawkit_glsl_t *)v->data;
+  rawkit_glsl_paths_destroy(&glsl->included_files);
+
+  free(base);
 }
 
 typedef struct ps_rawkit_glsl_t {
   PS_FIELDS
 
   char *name;
+  rawkit_glsl_paths_t include_dirs;
 } ps_rawkit_glsl_t;
 
-static void rawkit_glsl_destroy_fn(ps_handle_t *base) {
+static void stream_destroy_fn(ps_handle_t *base) {
   if (!base) {
     return;
   }
@@ -213,7 +248,8 @@ static ps_val_t *rawkit_glsl_read_fn(ps_t *base, ps_stream_status status) {
   ps_rawkit_glsl_t *s = (ps_rawkit_glsl_t *)base;
   rawkit_glsl_t *r = rawkit_glsl_compile(
     s->name,
-    (const char *)input->data
+    (const char *)input->data,
+    &s->include_dirs
   );
 
   if (!r) {
@@ -221,16 +257,23 @@ static ps_val_t *rawkit_glsl_read_fn(ps_t *base, ps_stream_status status) {
   }
 
   ps_destroy(input);
-  ps_val_t *output = ps_create_value(ps_val_t, NULL);
+  ps_val_t *output = ps_create_value(ps_val_t, val_destroy_fn);
   output->data = (void *)r;
-  output->len = sizeof(r);
+  output->len = sizeof(rawkit_glsl_t);
   return output;
 }
 
-ps_t *rawkit_glsl_compiler(const char *name) {
-  ps_rawkit_glsl_t *s = ps_create_stream(ps_rawkit_glsl_t, rawkit_glsl_destroy_fn);
+ps_t *rawkit_glsl_compiler(const char *name, const rawkit_glsl_paths_t *includes) {
+  ps_rawkit_glsl_t *s = ps_create_stream(ps_rawkit_glsl_t, stream_destroy_fn);
 
   s->name = strdup(name);
+  s->include_dirs.entry = (char **)malloc(sizeof(char *) * includes->count);
+
+  for (uint32_t i=0; includes->count; i++) {
+    s->include_dirs.entry[i] = strdup(includes->entry[i]);
+  }
+  s->include_dirs.count = includes->count;
+
   s->fn = rawkit_glsl_read_fn;
 
   return (ps_t *)s;
