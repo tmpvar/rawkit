@@ -125,17 +125,12 @@ include_directories(
   ${RAWKIT_HASH_INCLUDES}
 )
 
-<<<<<<< HEAD
-MESSAGE(STATUS "hash includes: ${RAWKIT_HASH_INCLUDES}")
-
-=======
-# LIB: rawkit-hash
+# LIB: rawkit-hot
 set(RAWKIT_HOT_BUILD_TESTS OFF CACHE INTERNAL "")
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-hot deps/rawkit-hot)
 include_directories(
   ${RAWKIT_HOT_INCLUDES}
 )
->>>>>>> b8d502e... S: remove cmake debug for rawkit-hash
 
 add_executable(
   rawkit
@@ -299,6 +294,7 @@ set(RAWKIT_TEST_FILES
   ${RAWKIT_JIT_TEST_FILES}
   ${RAWKIT_GLSL_TEST_FILES}
   ${RAWKIT_HASH_TEST_FILES}
+  ${RAWKIT_HOT_TEST_FILES}
 )
 
 
@@ -331,6 +327,7 @@ target_link_libraries(rawkit-test PRIVATE
   rawkit-jit
   rawkit-glsl
   ${RAWKIT_HASH_LIBS}
+  ${RAWKIT_HOT_LIBS}
 )
 
 target_compile_options(rawkit-test PRIVATE
