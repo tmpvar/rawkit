@@ -118,6 +118,24 @@ include_directories(
   ${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-glsl/include
 )
 
+# LIB: rawkit-hash
+set(RAWKIT_HASH_BUILD_TESTS OFF CACHE INTERNAL "")
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-hash deps/rawkit-hash)
+include_directories(
+  ${RAWKIT_HASH_INCLUDES}
+)
+
+<<<<<<< HEAD
+MESSAGE(STATUS "hash includes: ${RAWKIT_HASH_INCLUDES}")
+
+=======
+# LIB: rawkit-hash
+set(RAWKIT_HOT_BUILD_TESTS OFF CACHE INTERNAL "")
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-hot deps/rawkit-hot)
+include_directories(
+  ${RAWKIT_HOT_INCLUDES}
+)
+>>>>>>> b8d502e... S: remove cmake debug for rawkit-hash
 
 add_executable(
   rawkit
@@ -192,6 +210,7 @@ target_link_libraries(
   rawkit
   rawkit-jit
   rawkit-glsl
+  ${RAWKIT_HASH_LIBS}
 
   glfw
   # grab this from the vulkan sdk
@@ -279,9 +298,9 @@ set(RAWKIT_TEST_FILES
   ${PULL_STREAM_TEST_FILES}
   ${RAWKIT_JIT_TEST_FILES}
   ${RAWKIT_GLSL_TEST_FILES}
+  ${RAWKIT_HASH_TEST_FILES}
 )
 
-message(STATUS "RAWKIT TEST FILES: ${RAWKIT_TEST_FILES}")
 
 add_executable(rawkit-test
   ${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
@@ -311,6 +330,7 @@ target_link_libraries(rawkit-test PRIVATE
   pull-stream
   rawkit-jit
   rawkit-glsl
+  ${RAWKIT_HASH_LIBS}
 )
 
 target_compile_options(rawkit-test PRIVATE
@@ -326,6 +346,7 @@ target_link_options(rawkit-test PRIVATE
 target_include_directories(rawkit-test PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
   ${LLVM_INCLUDE_DIRS}
+  ${RAWKIT_HASH_INCLUDES}
 )
 
 add_test(rawkit-test rawkit-test)
