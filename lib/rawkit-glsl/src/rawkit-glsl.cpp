@@ -187,6 +187,20 @@ void rawkit_glsl_paths_destroy(rawkit_glsl_paths_t *paths) {
   }
 }
 
+void rawkit_glsl_destroy(rawkit_glsl_t *ref) {
+  if (!ref) {
+    return;
+  }
+
+  if (ref->len && ref->data) {
+    free(ref->data);
+    ref->len = 0;
+    ref->data = NULL;
+  }
+
+  rawkit_glsl_paths_destroy(&ref->included_files);
+}
+
 static void val_destroy_fn(ps_handle_t *base) {
   if (!base) {
     return;
@@ -197,9 +211,7 @@ static void val_destroy_fn(ps_handle_t *base) {
     return;
   }
 
-  rawkit_glsl_t *glsl = (rawkit_glsl_t *)v->data;
-  rawkit_glsl_paths_destroy(&glsl->included_files);
-
+  rawkit_glsl_destroy((rawkit_glsl_t *)v->data);
   free(base);
 }
 

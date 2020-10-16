@@ -10,6 +10,8 @@
 #include <hot/host/cimgui.h>
 #include <hot/host/croaring.h>
 #include <hot/host/tinyfiledialogs.h>
+#include <hot/host/rawkit-glsl.h>
+
 void host_hot_init_state(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "hotState", (void *)&hotState);
 }
@@ -37,6 +39,8 @@ void host_hot_init(rawkit_jit_t *jit) {
   #if !defined(__linux__)
     host_init_stdlib(jit);
   #endif
+
+  host_init_rawkit_glsl(jit);
 
   rawkit_jit_add_export(jit, "rawkit_now", (void *)&rawkit_now);
 }

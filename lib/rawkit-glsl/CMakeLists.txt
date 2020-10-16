@@ -70,6 +70,14 @@ if (RAWKIT_GLSL_TEST_COVERAGE)
   endif()
 endif()
 
+# Install
+install(
+  FILES
+    ${CMAKE_CURRENT_LIST_DIR}/include/rawkit/glsl.h
+  DESTINATION include/rawkit
+)
+
+
 # Testing
 file(GLOB RAWKIT_GLSL_TEST_FILES
   "${CMAKE_CURRENT_LIST_DIR}/test/*-test.cpp"
