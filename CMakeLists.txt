@@ -132,6 +132,13 @@ include_directories(
   ${RAWKIT_HOT_INCLUDES}
 )
 
+# LIB: rawkit-file
+set(RAWKIT_FILE_BUILD_TESTS OFF CACHE INTERNAL "")
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-file deps/rawkit-file)
+include_directories(
+  ${RAWKIT_FILE_INCLUDES}
+)
+
 add_executable(
   rawkit
   ${SRC_DIR}/main.cpp
@@ -207,6 +214,7 @@ target_link_libraries(
   rawkit-glsl
   ${RAWKIT_HASH_LIBS}
   ${RAWKIT_HOT_LIBS}
+  ${RAWKIT_FILE_LIBS}
 
   glfw
   # grab this from the vulkan sdk
@@ -296,6 +304,7 @@ set(RAWKIT_TEST_FILES
   ${RAWKIT_GLSL_TEST_FILES}
   ${RAWKIT_HASH_TEST_FILES}
   ${RAWKIT_HOT_TEST_FILES}
+  ${RAWKIT_FILE_TEST_FILES}
 )
 
 
@@ -329,6 +338,7 @@ target_link_libraries(rawkit-test PRIVATE
   rawkit-glsl
   ${RAWKIT_HASH_LIBS}
   ${RAWKIT_HOT_LIBS}
+  ${RAWKIT_FILE_LIBS}
 )
 
 target_compile_options(rawkit-test PRIVATE

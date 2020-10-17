@@ -13,6 +13,8 @@
 #include <hot/host/rawkit-glsl.h>
 #include <hot/host/rawkit-hash.h>
 #include <hot/host/rawkit-hot.h>
+#include <hot/host/rawkit-file.h>
+#include <hot/host/uv.h>
 
 void host_hot_init_state(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "hotState", (void *)&hotState);
@@ -45,6 +47,8 @@ void host_hot_init(rawkit_jit_t *jit) {
   host_init_rawkit_glsl(jit);
   host_init_rawkit_hash(jit);
   host_init_rawkit_hot(jit);
+  host_init_rawkit_file(jit);
+  host_init_uv(jit);
 
   rawkit_jit_add_export(jit, "rawkit_now", (void *)&rawkit_now);
 }
