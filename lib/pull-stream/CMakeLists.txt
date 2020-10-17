@@ -69,6 +69,17 @@ if (PULL_STREAM_TEST_COVERAGE)
   endif()
 endif()
 
+# Install
+install(
+  FILES
+    ${CMAKE_CURRENT_LIST_DIR}/include/pull/stream.h
+    ${CMAKE_CURRENT_LIST_DIR}/include/pull/io.h
+    ${CMAKE_CURRENT_LIST_DIR}/include/pull/sync.h
+    ${CMAKE_CURRENT_LIST_DIR}/include/pull/duplex.h
+  DESTINATION include/pull
+)
+
+
 # Testing
 file(GLOB PULL_STREAM_TEST_FILES
   "${CMAKE_CURRENT_LIST_DIR}/test/*-test.cpp"
