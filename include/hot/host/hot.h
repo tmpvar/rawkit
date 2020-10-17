@@ -12,6 +12,7 @@
 #include <hot/host/tinyfiledialogs.h>
 #include <hot/host/rawkit-glsl.h>
 #include <hot/host/rawkit-hash.h>
+#include <hot/host/rawkit-hot.h>
 
 void host_hot_init_state(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "hotState", (void *)&hotState);
@@ -43,6 +44,7 @@ void host_hot_init(rawkit_jit_t *jit) {
 
   host_init_rawkit_glsl(jit);
   host_init_rawkit_hash(jit);
+  host_init_rawkit_hot(jit);
 
   rawkit_jit_add_export(jit, "rawkit_now", (void *)&rawkit_now);
 }

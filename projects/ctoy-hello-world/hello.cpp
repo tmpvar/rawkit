@@ -31,7 +31,7 @@ CTOY
 
 #include <cimgui.h>
 #include <rawkit/rawkit.h>
-#include <rawkit/hot/state.h>
+#include <rawkit/hot.h>
 
 #include <vulkan/vulkan.h>
 
@@ -158,17 +158,8 @@ void setup() {
 }
 
 void loop() {
-  VkImage *pImage = (VkImage *)hotState(
-    0x1133,
-    sizeof(VkImage),
-    NULL
-  );
-
-  SharedTexture *tex = (SharedTexture *)hotState(
-    0x1334,
-    sizeof(SharedTexture),
-    NULL
-  );
+  VkImage *pImage = rawkit_hot_state("pImage", VkImage);
+  SharedTexture *tex = rawkit_hot_state("shared texture", SharedTexture);
 
   tex->init(
     (uint32_t)image.width,

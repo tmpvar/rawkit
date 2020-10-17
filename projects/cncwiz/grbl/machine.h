@@ -1,6 +1,8 @@
 #pragma once
 
 #include <stdint.h>
+
+#include <rawkit/hot.h>
 #include <rawkit/serial.h>
 #include <rawkit/grbl/parser.h>
 #include <rawkit/gcode/parser.h>
@@ -116,35 +118,11 @@ struct GrblMachine {
       this->sp.open("/dev/ttyACM0");
     #endif
 
-    this->line = (String *)hotState(
-      GRBL_MACHINE_HOT_STATE_OFFSET,
-      sizeof(String),
-      nullptr
-    );
-
-    this->log = (StringList *)hotState(
-      GRBL_MACHINE_HOT_STATE_OFFSET + 1,
-      sizeof(StringList),
-      nullptr
-    );
-
-    this->rx_parser = (GrblParser *)hotState(
-      GRBL_MACHINE_HOT_STATE_OFFSET + 2,
-      sizeof(GrblParser),
-      nullptr
-    );
-
-    this->tx_parser = (GCODEParser *)hotState(
-      GRBL_MACHINE_HOT_STATE_OFFSET + 3,
-      sizeof(GCODEParser),
-      nullptr
-    );
-
-    this->state = (GrblState *)hotState(
-      GRBL_MACHINE_HOT_STATE_OFFSET + 4,
-      sizeof(GrblState),
-      nullptr
-    );
+    this->line = rawkit_hot_state("GrblMachine::line", String);
+    this->log = rawkit_hot_state("GrblMachine::log", StringList);
+    this->rx_parser = rawkit_hot_state("GrblMachine::rx_parser", GrblParser);
+    this->tx_parser = rawkit_hot_state("GrblMachine::tx_parser", GCODEParser);
+    this->state = rawkit_hot_state("GrblMachine::state", GrblState);
 
     double now = rawkit_now();
     double last_fetch = this->state->last_fetch;

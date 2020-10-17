@@ -206,6 +206,7 @@ target_link_libraries(
   rawkit-jit
   rawkit-glsl
   ${RAWKIT_HASH_LIBS}
+  ${RAWKIT_HOT_LIBS}
 
   glfw
   # grab this from the vulkan sdk
