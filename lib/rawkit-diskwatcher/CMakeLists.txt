@@ -84,7 +84,7 @@ endif()
 # Install
 install(
   FILES
-    ${CMAKE_CURRENT_LIST_DIR}/include/rawkit/file.h
+    ${CMAKE_CURRENT_LIST_DIR}/include/rawkit/diskwatcher.h
   DESTINATION include/rawkit
 )
 

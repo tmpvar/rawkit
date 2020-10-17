@@ -132,6 +132,13 @@ include_directories(
   ${RAWKIT_HOT_INCLUDES}
 )
 
+# LIB: rawkit-diskwatcher
+set(RAWKIT_DISKWATCHER_BUILD_TESTS OFF CACHE INTERNAL "")
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-diskwatcher deps/rawkit-diskwatcher)
+include_directories(
+  ${RAWKIT_DISKWATCHER_INCLUDES}
+)
+
 # LIB: rawkit-file
 set(RAWKIT_FILE_BUILD_TESTS OFF CACHE INTERNAL "")
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-file deps/rawkit-file)
@@ -215,6 +222,7 @@ target_link_libraries(
   ${RAWKIT_HASH_LIBS}
   ${RAWKIT_HOT_LIBS}
   ${RAWKIT_FILE_LIBS}
+  ${RAWKIT_DISKWATCHER_LIBS}
 
   glfw
   # grab this from the vulkan sdk
@@ -339,6 +347,7 @@ target_link_libraries(rawkit-test PRIVATE
   ${RAWKIT_HASH_LIBS}
   ${RAWKIT_HOT_LIBS}
   ${RAWKIT_FILE_LIBS}
+  ${RAWKIT_DISKWATCHER_LIBS}
 )
 
 target_compile_options(rawkit-test PRIVATE
