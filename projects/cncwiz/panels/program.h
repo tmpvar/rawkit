@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../grbl/machine.h"
-#include <rawkit/hot/state.h>
+#include <rawkit/hot.h>
 
 #include "../util/ls.h"
 #include "../util/readfile.h"
@@ -191,11 +191,7 @@ String overlay_program_resume(GrblMachine *grbl, cncwiz_program_state *state, gc
 
 
 void panel_program(GrblMachine *grbl) {
-  cncwiz_program_state *state = (cncwiz_program_state *)hotState(
-    RAWKIT_PROGRAM_STATE_OFFSET,
-    sizeof(cncwiz_program_state),
-    nullptr
-  );
+  cncwiz_program_state *state = rawkit_hot_state("cncwiz program state", cncwiz_program_state);
 
   // Ensure grbl's idle state reflects the current program run state
   {

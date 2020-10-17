@@ -6,6 +6,12 @@ option(RAWKIT_GCODE_PARSER_BUILD_TESTS "Build the pull-stream test programs" ON)
 
 include_directories(include)
 
+# Install
+install(
+  FILES
+    ${CMAKE_CURRENT_LIST_DIR}/include/rawkit/gcode/parser.h
+  DESTINATION include/rawkit/gcode
+)
 
 # Testing
 file(GLOB RAWKIT_GCODE_PARSER_TEST_FILES

@@ -6,6 +6,12 @@ option(RAWKIT_GRBL_PARSER_BUILD_TESTS "Build the pull-stream test programs" ON)
 
 include_directories(include)
 
+# Install
+install(
+  FILES
+    ${CMAKE_CURRENT_LIST_DIR}/include/rawkit/grbl/parser.h
+  DESTINATION include/rawkit/grbl
+)
 
 # Testing
 file(GLOB RAWKIT_GRBL_PARSER_TEST_FILES
