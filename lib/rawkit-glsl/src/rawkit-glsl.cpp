@@ -126,7 +126,7 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawk
     includer
   );
 
-  printf("Debug log for %s\n%s\n", name, shader.getInfoDebugLog());
+  // printf("Debug log for %s\n%s\n", name, shader.getInfoDebugLog());
 
   if (!r) {
     printf("glslang: failed to parse shader %s\nLOG: %s",
