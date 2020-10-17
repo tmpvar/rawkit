@@ -10,6 +10,7 @@
 
 #include <stdio.h>          // printf, fprintf, wcstombs_s
 #include <stdlib.h>         // abort
+#include <uv.h>
 
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
@@ -23,7 +24,6 @@
 
 #include <algorithm>
 #include <iostream>
-#include <optional>
 #include <cctype>
 #include <random>
 
@@ -607,6 +607,9 @@ int main(int argc, const char **argv) {
         if (rawkit_jit_tick(jit)) {
           rawkit_jit_call_setup(jit);
         }
+
+        // service libuv
+        uv_run(uv_default_loop(), UV_RUN_NOWAIT);
 
 
         // Poll the serialport
