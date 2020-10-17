@@ -2,6 +2,7 @@
 
 #include <rawkit/file.h>
 #include <rawkit/hot.h>
+#include <rawkit/diskwatcher.h>
 
 #include <string>
 using namespace std;
@@ -13,6 +14,7 @@ enum file_status {
   NOT_FOUND = -1,
   INIT = 0,
   RUNNING = 1,
+  DONE = 2,
 };
 
 typedef struct file_state_t {
@@ -25,7 +27,7 @@ typedef struct file_state_t {
 
 static const rawkit_file_t OOM = { 0, RAWKIT_FILE_OOM, 0, NULL };
 
-const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv_loop_t *loop) {
+const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv_loop_t *loop, rawkit_diskwatcher_t *watcher) {
   fs::path rel_dir = fs::path(from_file).remove_filename();
   string id = string("file://") + path + " from " + rel_dir.string();
 
@@ -35,21 +37,34 @@ const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv
     return (const rawkit_file_t *)&OOM;
   }
 
+  fs::path full_path(path);
+  if (!fs::exists(full_path)) {
+    full_path = rel_dir / full_path;
+  }
+
+  if (watcher) {
+    uint64_t version = rawkit_diskwatcher_file_version(watcher, full_path.string().c_str());
+    if (version != f->version) {
+      ps_destroy(f->value);
+      ps_destroy(f->stream);
+      f->version = version;
+      f->status = INIT;
+    }
+  }
+
   switch (f->status) {
     case INIT: {
-      fs::path p(path);
-      if (!fs::exists(path)) {
-        p = rel_dir / p;
-        if (!fs::exists(p)) {
-          f->file.error = RAWKIT_FILE_NOT_FOUND;
-          f->status = NOT_FOUND;
-          break;
-        }
+
+      if (!fs::exists(full_path)) {
+        f->file.error = RAWKIT_FILE_NOT_FOUND;
+        f->status = NOT_FOUND;
+        break;
       }
+
 
       f->status = RUNNING;
       f->stream = ps_pipeline(
-        create_file_source(p.string().c_str(), loop),
+        create_file_source(full_path.string().c_str(), loop),
         create_collector()
       );
 
@@ -67,6 +82,7 @@ const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv
         f->value = v;
         f->file.data = (uint8_t *)v->data;
         f->file.len = v->len;
+        f->status = DONE;
         return &f->file;
       }
 

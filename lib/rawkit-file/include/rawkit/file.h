@@ -2,6 +2,7 @@
 #include <uv.h>
 
 #include <rawkit/hot.h>
+#include <rawkit/diskwatcher.h>
 
 #include <stdint.h>
 
@@ -22,10 +23,15 @@
     uint64_t len;
   } rawkit_file_t;
 
-  const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv_loop_t *loop);
+  const rawkit_file_t *_rawkit_file_ex(
+    const char *from_file,
+    const char *path,
+    uv_loop_t *loop,
+    rawkit_diskwatcher_t *watcher
+  );
 
-  #define rawkit_file_ex(path, loop) _rawkit_file_ex(__FILE__, path, loop)
-  #define rawkit_file(path) _rawkit_file_ex(__FILE__, path, uv_default_loop())
+  #define rawkit_file_ex(path, loop, diskwatcher) _rawkit_file_ex(__FILE__, path, loop, diskwatcher)
+  #define rawkit_file(path) _rawkit_file_ex(__FILE__, path, uv_default_loop(), rawkit_default_diskwatcher())
 
 #ifdef __cplusplus
   }

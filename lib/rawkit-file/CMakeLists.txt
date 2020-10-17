@@ -27,12 +27,22 @@ target_include_directories(rawkit-file PUBLIC
   ${RAWKIT_HOT_INCLUDES}
 )
 
+# DEP: rawkit-diskwatcher (sibling)
+if (NOT RAWKIT_DISKWATCHER_LIBS)
+  set(RAWKIT_DISKWATCHER_BUILD_TESTS OFF)
+  add_subdirectory(../rawkit-diskwatcher deps/rawkit-diskwatcher)
+endif()
+target_include_directories(rawkit-file PUBLIC
+  ${RAWKIT_DISKWATCHER_INCLUDES}
+)
+
 target_include_directories(rawkit-file PUBLIC
   ${RAWKIT_HASH_INCLUDES}
 )
 
 target_link_libraries(rawkit-file PUBLIC
   ${RAWKIT_HASH_LIBS}
+  ${RAWKIT_DISKWATCHER_LIBS}
 )
 
 target_compile_options(rawkit-file PRIVATE
@@ -56,6 +66,7 @@ set(RAWKIT_FILE_LIBS
   rawkit-file
   ${PULL_STREAM_LIBS}
   ${RAWKIT_HOT_LIBS}
+  ${RAWKIT_DISKWATCHER_LIBS}
 )
 set(RAWKIT_FILE_LIBS rawkit-file PARENT_SCOPE)
 
@@ -116,6 +127,7 @@ if (RAWKIT_FILE_BUILD_TESTS)
   target_link_libraries(rawkit-file-test PUBLIC
     ${RAWKIT_FILE_LIBS}
     ${RAWKIT_HASH_LIBS}
+    ${RAWKIT_DISKWATCHER_LIBS}
   )
 
   target_include_directories(rawkit-file-test PRIVATE

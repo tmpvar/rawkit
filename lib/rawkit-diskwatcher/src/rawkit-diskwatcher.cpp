@@ -13,8 +13,13 @@ class WatcherEntry {
   public:
     uint64_t version = 0;
     fs::path dir;
+    fs::path full_path;
 
-    WatcherEntry(fs::path dir, uint64_t version) : dir(dir), version(version) {
+    WatcherEntry(fs::path dir, uint64_t version, fs::path full_path)
+    : dir(dir)
+    , version(version)
+    , full_path(full_path)
+    {
 
     }
 };
@@ -68,7 +73,9 @@ void on_file_event(uv_fs_event_t* handle, const char* filename, int events, int 
   }
 
   fs::path full = entry->dir / fs::path(filename).filename();
-  entry->version++;
+  if (full == entry->full_path) {
+    entry->version++;
+  }
 }
 
 uint64_t rawkit_diskwatcher_file_version(rawkit_diskwatcher_t *watcher, const char *full_path) {
@@ -92,7 +99,7 @@ uint64_t rawkit_diskwatcher_file_version(rawkit_diskwatcher_t *watcher, const ch
 
     uv_fs_event_t* req = (uv_fs_event_t *)calloc(sizeof(uv_fs_event_t), 1);
     uv_fs_event_init(watcher->loop, req);
-    WatcherEntry *entry = new WatcherEntry(dir, version);
+    WatcherEntry *entry = new WatcherEntry(dir, version, full_path);
     req->data = (void *)entry;
     watcher->entries->emplace(str, entry);
 
