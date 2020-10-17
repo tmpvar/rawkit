@@ -61,9 +61,9 @@ TEST_CASE("[pull/stream/io] file sink stream") {
     REQUIRE(sink != nullptr);
 
     sink->source = source;
-    int sentinel = 1000;
+    int sentinel = 100;
     while (sink->status == PS_OK && sentinel --) {
-      uv_run(&loop, UV_RUN_NOWAIT);
+      uv_run(&loop, UV_RUN_ONCE);
       CHECK(sink->fn(sink, PS_OK) == nullptr);
     }
 
