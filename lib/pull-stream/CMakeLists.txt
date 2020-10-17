@@ -4,9 +4,6 @@ project(pull-stream)
 option(PULL_STREAM_BUILD_TESTS "Build the pull-stream test programs" ON)
 option(PULL_STREAM_TEST_COVERAGE "Add coverage information for tests run against libpull_stream" OFF)
 
-
-
-
 file(GLOB PULL_STREAM_CORE_SOURCES
   "${CMAKE_CURRENT_LIST_DIR}/src/core/*.c"
 )

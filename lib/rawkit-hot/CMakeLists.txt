@@ -9,7 +9,7 @@ add_library(rawkit-hot
   ${CMAKE_CURRENT_LIST_DIR}/src/rawkit-hot.cpp
 )
 
-# DEP: pull-stream (sibling)
+# DEP: rawkit-hash (sibling)
 if (NOT RAWKIT_HASH_LIBS)
   set(RAWKIT_HASH_BUILD_TESTS OFF)
   add_subdirectory(../rawkit-hash deps/rawkit-hash)
@@ -37,6 +37,7 @@ set_property(TARGET rawkit-hot PROPERTY CXX_STANDARD 17)
 
 set(RAWKIT_HOT_INCLUDES
   ${CMAKE_CURRENT_LIST_DIR}/include
+  ${RAWKIT_HASH_INCLUDES}
 )
 set(RAWKIT_HOT_INCLUDES ${RAWKIT_HOT_INCLUDES} PARENT_SCOPE)
 
