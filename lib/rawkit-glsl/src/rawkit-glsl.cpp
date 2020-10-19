@@ -3,12 +3,10 @@
 #include "../internal/includer.h"
 #include "../internal/defaults.h"
 
-#include <glslang/StandAlone/ResourceLimits.h>
-
-#include <glslang/SPIRV/GlslangToSpv.h>
-#include <glslang/SPIRV/SpvTools.h>
-#include <glslang/SPIRV/disassemble.h>
-#include <glslang/glslang/Public/ShaderLang.h>
+#include <SPIRV/GlslangToSpv.h>
+#include <SPIRV/SpvTools.h>
+#include <SPIRV/disassemble.h>
+#include <glslang/Public/ShaderLang.h>
 
 
 #include <string.h>

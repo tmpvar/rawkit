@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glslang/StandAlone/ResourceLimits.h>
+#include <StandAlone/ResourceLimits.h>
 
 static TBuiltInResource get_default_resource_limits() {
   TBuiltInResource ret = {0};
