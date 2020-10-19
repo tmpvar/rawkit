@@ -1,9 +1,6 @@
 #include <rawkit/hash.h>
 
-#include <meow_hash.h>
-
-#include <unordered_map>
-using namespace std;
+#include "meow_hash.h"
 
 uint64_t rawkit_hash(uint64_t len, void *data) {
   if (!len || !data) {
@@ -13,7 +10,6 @@ uint64_t rawkit_hash(uint64_t len, void *data) {
   meow_u128 hash = MeowHash(MeowDefaultSeed, len, data);
   return MeowU64From(hash, 0);
 }
-
 
 typedef struct ps_rawkit_hasher_t {
   PS_FIELDS
