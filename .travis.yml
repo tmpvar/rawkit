@@ -62,7 +62,7 @@ before_install:
 install:
   - pip3 install cpp-coveralls
 script:
-  - cmake --build . --config RelWithDebInfo --target rawkit-test && ctest -C RelWithDebInfo -V
+  - cmake --build . --config RelWithDebInfo && ctest -C RelWithDebInfo -V
 after_success:
   - cpp-coveralls -r .. -i "lib/" -b $(pwd) --gcov-options '\-lp' --exclude-pattern "CMake.*" --exclude-pattern '.*test.*' --exclude include -E "CMakeFiles" -E build/CMakeFiles -E 'test.*.cpp' --exclude lib/test --exclude src --exclude projects --verbose
 #- coveralls -r lib --gcov $(which llvm-cov) --gcov-options '\-lp'

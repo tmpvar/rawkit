@@ -82,69 +82,36 @@ include_directories(
   ${DEPS_DIR}/croaring
 )
 
+include(CTest)
+enable_testing()
+
 # LIB: pull-stream
-set(PULL_STREAM_BUILD_TESTS OFF CACHE INTERNAL "")
-set(PULL_STREAM_TEST_COVERAGE ON CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream deps/pull-stream)
-include_directories(
-  ${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream/include
-)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream)
 
 # LIB: gcode-parser
-set(RAWKIT_GCODE_PARSER_BUILD_TESTS OFF CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser deps/gcode-parser)
-include_directories(
-  ${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser/include
-)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser)
 
 # LIB: grbl-parser
-set(RAWKIT_GRBL_PARSER_BUILD_TESTS OFF CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser deps/grbl-parser)
-include_directories(
-  ${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser/include
-)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser)
 
 # LIB: rawkit-jit
-set(RAWKIT_JIT_BUILD_TESTS OFF CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/jit deps/rawkit-jit)
-include_directories(
-  ${CMAKE_CURRENT_LIST_DIR}/lib/jit/include
-)
+
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-jit)
 
 # LIB: rawkit-glsl
-set(RAWKIT_GLSL_BUILD_TESTS OFF CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-glsl deps/rawkit-glsl)
-include_directories(
-  ${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-glsl/include
-)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-glsl)
 
 # LIB: rawkit-hash
-set(RAWKIT_HASH_BUILD_TESTS OFF CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-hash deps/rawkit-hash)
-include_directories(
-  ${RAWKIT_HASH_INCLUDES}
-)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-hash)
 
 # LIB: rawkit-hot
-set(RAWKIT_HOT_BUILD_TESTS OFF CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-hot deps/rawkit-hot)
-include_directories(
-  ${RAWKIT_HOT_INCLUDES}
-)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-hot)
 
 # LIB: rawkit-diskwatcher
-set(RAWKIT_DISKWATCHER_BUILD_TESTS OFF CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-diskwatcher deps/rawkit-diskwatcher)
-include_directories(
-  ${RAWKIT_DISKWATCHER_INCLUDES}
-)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-diskwatcher)
 
 # LIB: rawkit-file
-set(RAWKIT_FILE_BUILD_TESTS OFF CACHE INTERNAL "")
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-file deps/rawkit-file)
-include_directories(
-  ${RAWKIT_FILE_INCLUDES}
-)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-file)
 
 add_executable(
   rawkit
@@ -156,7 +123,6 @@ add_executable(
   ${IMGUI_SRC}
   ${CROARING_SRC}
 )
-
 
 if (CMAKE_SYSTEM_NAME STREQUAL Windows)
   set_property(TARGET rawkit PROPERTY CXX_STANDARD 11)
@@ -217,12 +183,15 @@ target_link_options(
 
 target_link_libraries(
   rawkit
-  rawkit-jit
-  rawkit-glsl
-  ${RAWKIT_HASH_LIBS}
-  ${RAWKIT_HOT_LIBS}
-  ${RAWKIT_FILE_LIBS}
-  ${RAWKIT_DISKWATCHER_LIBS}
+  rawkit::jit
+  rawkit::glsl
+  rawkit::hash
+  rawkit::hot
+  rawkit::file
+  rawkit::diskwatcher
+
+  rawkit::grbl::parser
+  rawkit::gcode::parser
 
   glfw
   # grab this from the vulkan sdk
@@ -231,56 +200,54 @@ target_link_libraries(
   ${VULKAN_LIBS}
 )
 
-# TODO: install all headers under a rawkit prefix so we don't blow away existing entries in a global install on unix
-file(GLOB HOT_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/hot/*.h")
 install(
-    FILES
-      ${HOT_GUEST_INCLUDE_FILES}
-    DESTINATION include/rawkit/hot
+  DIRECTORY
+    ${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/hot
+  DESTINATION include/rawkit
 )
 
 install(
-    DIRECTORY
-      ${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/rawkit/
-    DESTINATION include/rawkit
+  DIRECTORY
+    ${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/rawkit/
+  DESTINATION include/rawkit
 )
 
 
 file(GLOB SHARED_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/*.h")
 install(
-    FILES
-      ${SHARED_GUEST_INCLUDE_FILES}
-    DESTINATION include/
+  FILES
+    ${SHARED_GUEST_INCLUDE_FILES}
+  DESTINATION include/
 )
 
 install(
-    FILES
-      ${DEPS_DIR}/cimgui/cimgui.h
-      ${DEPS_DIR}/cimgui/imgui/imgui.h
-      ${DEPS_DIR}/cimgui/imgui/imgui_internal.h
-      ${DEPS_DIR}/cimgui/imgui/imconfig.h
-      ${DEPS_DIR}/cimgui/imgui/imstb_rectpack.h
-      ${DEPS_DIR}/cimgui/imgui/imstb_textedit.h
-      ${DEPS_DIR}/cimgui/imgui/imstb_truetype.h
-      ${CMAKE_CURRENT_LIST_DIR}/include/stb_sb.h
-      ${DEPS_DIR}/tinyfiledialogs/tinyfiledialogs.h
-    DESTINATION include/
+  FILES
+    ${DEPS_DIR}/cimgui/cimgui.h
+    ${DEPS_DIR}/cimgui/imgui/imgui.h
+    ${DEPS_DIR}/cimgui/imgui/imgui_internal.h
+    ${DEPS_DIR}/cimgui/imgui/imconfig.h
+    ${DEPS_DIR}/cimgui/imgui/imstb_rectpack.h
+    ${DEPS_DIR}/cimgui/imgui/imstb_textedit.h
+    ${DEPS_DIR}/cimgui/imgui/imstb_truetype.h
+    ${CMAKE_CURRENT_LIST_DIR}/include/stb_sb.h
+    ${DEPS_DIR}/tinyfiledialogs/tinyfiledialogs.h
+  DESTINATION include/
 )
 
 # dirent
 if(WIN32)
   install(
-      FILES
-        ${CMAKE_CURRENT_LIST_DIR}/include/win32_dirent.h
-      DESTINATION include
-      RENAME dirent.h
+    FILES
+      ${CMAKE_CURRENT_LIST_DIR}/include/win32_dirent.h
+    DESTINATION include
+    RENAME dirent.h
   )
 endif()
 
 install(
-    FILES
-      ${DEPS_DIR}/croaring/roaring/roaring.h
-    DESTINATION include/roaring
+  FILES
+    ${DEPS_DIR}/croaring/roaring/roaring.h
+  DESTINATION include/roaring
 )
 
 
@@ -293,77 +260,8 @@ install(
 )
 
 install(
-    TARGETS
-        rawkit
-    RUNTIME DESTINATION
-        bin
+  TARGETS
+    rawkit
+  RUNTIME DESTINATION
+    bin
 )
-
-
-# tests
-include(CTest)
-enable_testing()
-
-set(RAWKIT_TEST_FILES
-  ${RAWKIT_GCODE_PARSER_TEST_FILES}
-  ${RAWKIT_GRBL_PARSER_TEST_FILES}
-  ${PULL_STREAM_TEST_FILES}
-  ${RAWKIT_JIT_TEST_FILES}
-  ${RAWKIT_GLSL_TEST_FILES}
-  ${RAWKIT_HASH_TEST_FILES}
-  ${RAWKIT_HOT_TEST_FILES}
-  ${RAWKIT_FILE_TEST_FILES}
-)
-
-
-add_executable(rawkit-test
-  ${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
-  ${RAWKIT_TEST_FILES}
-)
-
-set_property(TARGET rawkit-test PROPERTY CXX_STANDARD 14)
-set_property(TARGET rawkit-test PROPERTY C_STANDARD 11)
-
-source_group("tests" FILES ${RAWKIT_TEST_FILES})
-
-if (NOT CMAKE_GENERATOR MATCHES "Visual Studio")
-  set(COVERAGE_DIR ${PROJECT_BINARY_DIR}/coverage)
-  message(STATUS ${COVERAGE_DIR})
-  set(RAWKIT_TEST_COMPILE_FLAGS
-    -Wall
-    -g
-    -O0
-    --coverage
-  )
-  target_link_options(rawkit-test PRIVATE
-    --coverage
-  )
-endif()
-
-target_link_libraries(rawkit-test PRIVATE
-  pull-stream
-  rawkit-jit
-  rawkit-glsl
-  ${RAWKIT_HASH_LIBS}
-  ${RAWKIT_HOT_LIBS}
-  ${RAWKIT_FILE_LIBS}
-  ${RAWKIT_DISKWATCHER_LIBS}
-)
-
-target_compile_options(rawkit-test PRIVATE
-  ${RAWKIT_TEST_COMPILE_FLAGS}
-  ${RAWKIT_JIT_EXTRA_COMPILE_FLAGS}
-)
-
-target_link_options(rawkit-test PRIVATE
-  ${RAWKIT_TEST_COMPILE_FLAGS}
-  ${RAWKIT_JIT_EXTRA_LINK_FLAGS}
-)
-
-target_include_directories(rawkit-test PRIVATE
-  ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
-  ${LLVM_INCLUDE_DIRS}
-  ${RAWKIT_HASH_INCLUDES}
-)
-
-add_test(rawkit-test rawkit-test)
