@@ -1,10 +1,16 @@
 cmake_minimum_required(VERSION 3.14)
 project(rawkit-gcode-parser)
 
-
 option(RAWKIT_GCODE_PARSER_BUILD_TESTS "Build the pull-stream test programs" ON)
 
-include_directories(include)
+add_library(${PROJECT_NAME} INTERFACE)
+add_library(rawkit::gcode::parser ALIAS ${PROJECT_NAME})
+
+target_include_directories(${PROJECT_NAME}
+  INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 
 # Install
 install(
@@ -13,27 +19,21 @@ install(
   DESTINATION include/rawkit/gcode
 )
 
-# Testing
-file(GLOB RAWKIT_GCODE_PARSER_TEST_FILES
-  "${CMAKE_CURRENT_LIST_DIR}/test/*-test.h"
-  "${CMAKE_CURRENT_LIST_DIR}/test/*-test.cpp"
+install(TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
+  LIBRARY DESTINATION lib
+  INCLUDES DESTINATION include
 )
-set(RAWKIT_GCODE_PARSER_TEST_FILES ${RAWKIT_GCODE_PARSER_TEST_FILES} CACHE INTERNAL "")
 
+install(EXPORT ${PROJECT_NAME}Targets
+  FILE ${PROJECT_NAME}Targets.cmake
+  NAMESPACE rawkit::
+  DESTINATION lib/cmake/rawkit
+)
+
+# Testing
 if (RAWKIT_GCODE_PARSER_BUILD_TESTS)
   include(CTest)
   enable_testing()
-
-  add_executable(gcode-parser-test
-    ${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
-    ${PULL_STREAM_TEST_FILES}
-  )
-
-  source_group("tests" FILES ${PULL_STREAM_TEST_FILES})
-
-  target_include_directories(gcode-parser-test PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
-  )
-
-  add_test(rawkit-gcode-parser gcode-parser-test)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/test)
 endif()
