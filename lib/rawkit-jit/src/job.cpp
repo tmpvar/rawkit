@@ -110,9 +110,13 @@ JitJob *JitJob::create(int argc, const char **argv) {
   catch (fs::filesystem_error) {
     // Handle the case where the executable is in a subdirectory
     // example: rawkit/build/Debug/rawkit.exe
-    job->guest_include_dir = fs::canonical(
-      fs::path(job->path).remove_filename() / ".." / ".." / "include"
-    );
+    try {
+      job->guest_include_dir = fs::canonical(
+        fs::path(job->path).remove_filename() / ".." / ".." / "include"
+      );
+    }
+    catch (fs::filesystem_error) {
+    }
   }
 
   job->guest_include.assign(

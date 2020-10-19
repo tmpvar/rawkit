@@ -53,7 +53,7 @@ void _rawkit_jit_destroy(rawkit_jit_t **jit) {
   *jit = NULL;
 }
 
-void rawkit_jit_add_export(rawkit_jit_t *jit, const char *name, void *address) {
+void _rawkit_jit_add_export(rawkit_jit_t *jit, const char *name, void *address) {
   if (!jit || !jit->job || !name || !address) {
     return;
   }

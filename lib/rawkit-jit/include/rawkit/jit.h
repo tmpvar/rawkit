@@ -18,7 +18,9 @@ rawkit_jit_status rawkit_jit_get_status(rawkit_jit_t *jit);
 void _rawkit_jit_destroy(rawkit_jit_t **jit);
 #define rawkit_jit_destroy(jit) _rawkit_jit_destroy(&jit)
 
-void rawkit_jit_add_export(rawkit_jit_t *jit, const char *name, void *address);
+void _rawkit_jit_add_export(rawkit_jit_t *jit, const char *name, void *address);
+#define rawkit_jit_add_export(jit, name, address) _rawkit_jit_add_export(jit, name, (void *)address)
+
 bool rawkit_jit_tick(rawkit_jit_t *jit);
 
 void rawkit_jit_call_setup(rawkit_jit_t *jit);

@@ -247,21 +247,27 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
 
   {
     run->setup_fn = nullptr;
+
     auto mangledResult = run->jit->lookupLinkerMangled(mangledSetup);
     if (mangledResult) {
       run->setup_fn = (rawkit_jit_guest_fn)mangledResult.get().getAddress();
     } else {
+      consumeError(mangledResult.takeError());
       auto mangledLookupResult = run->jit->lookup(mangledSetup);
       if (mangledLookupResult) {
         run->setup_fn = (rawkit_jit_guest_fn)mangledLookupResult.get().getAddress();
       } else {
+        consumeError(mangledLookupResult.takeError());
         auto normalResult = run->jit->lookup("setup");
         if (normalResult) {
           run->setup_fn = (rawkit_jit_guest_fn)normalResult.get().getAddress();
         } else {
+          consumeError(normalResult.takeError());
           auto fnResult = run->jit->lookup("setup()");
           if (fnResult) {
             run->setup_fn = (rawkit_jit_guest_fn)fnResult.get().getAddress();
+          } else {
+            consumeError(fnResult.takeError());
           }
         }
       }
@@ -278,18 +284,22 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
     if (mangledResult) {
       run->loop_fn = (rawkit_jit_guest_fn)mangledResult.get().getAddress();
     } else {
+      consumeError(mangledResult.takeError());
       auto mangledLookupResult = run->jit->lookup(mangledLoop);
       if (mangledLookupResult) {
         run->loop_fn = (rawkit_jit_guest_fn)mangledLookupResult.get().getAddress();
       } else {
-
+        consumeError(mangledLookupResult.takeError());
         auto normalResult = run->jit->lookup("loop");
         if (normalResult) {
           run->loop_fn = (rawkit_jit_guest_fn)normalResult.get().getAddress();
         } else {
+          consumeError(normalResult.takeError());
           auto fnResult = run->jit->lookup("loop()");
           if (fnResult) {
             run->loop_fn = (rawkit_jit_guest_fn)fnResult.get().getAddress();
+          } else {
+            consumeError(fnResult.takeError());
           }
         }
       }

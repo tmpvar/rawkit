@@ -25,27 +25,33 @@ find_package(Clang REQUIRED CONFIG
 )
 
 
-add_library(rawkit-jit
+add_library(${PROJECT_NAME} STATIC
   src/api.cpp
   src/job.cpp
   src/runnable.cpp
 )
 
-target_include_directories(rawkit-jit PUBLIC
-  ${LLVM_INCLUDE_DIRS}
+add_library(rawkit::jit ALIAS ${PROJECT_NAME})
+
+target_include_directories(${PROJECT_NAME}
+  PUBLIC
+    ${LLVM_INCLUDE_DIRS}
 )
 
-target_include_directories(rawkit-jit PRIVATE
-  ${CMAKE_CURRENT_LIST_DIR}/include
-  ${CMAKE_CURRENT_LIST_DIR}/deps/whereami/src
+target_include_directories(${PROJECT_NAME}
+  PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/include
+    ${CMAKE_CURRENT_LIST_DIR}/deps/whereami/src
 )
 
-include_directories(
-  ${CMAKE_CURRENT_LIST_DIR}/include
+target_include_directories(${PROJECT_NAME}
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 
 if (CMAKE_SYSTEM_NAME STREQUAL Windows)
-  set_property(TARGET rawkit-jit PROPERTY CXX_STANDARD 11)
+  set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 11)
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
   set(EXTRA_COMPILE_OPTIONS
@@ -67,7 +73,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL Linux)
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
-  set_property(TARGET rawkit-jit PROPERTY CXX_STANDARD 14)
+  set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
   set(EXTRA_LINKER_OPTIONS "-Wl,-export_dynamic")
 
   # fix an error on mac:
@@ -93,91 +99,87 @@ target_compile_options(rawkit-jit PUBLIC
   ${EXTRA_COMPILE_OPTIONS}
 )
 
-target_link_options(rawkit-jit PRIVATE
+target_link_options( ${PROJECT_NAME} PRIVATE
   ${EXTRA_LINKER_OPTIONS}
 )
 
-if (RAWKIT_JIT_TEST_COVERAGE)
-  target_compile_options(pull-stream PUBLIC
-    -g
-    -O0
-    --coverage
-    -ftest-coverage
-    -fprofile-arcs
-    -fno-default-inline
-    -fno-inline
-  )
-endif()
-
 if (CMAKE_SYSTEM_NAME STREQUAL Windows)
-  target_link_libraries(rawkit-jit PRIVATE
-    LLVMCore
-    LLVMExecutionEngine
-    LLVMMC
-    LLVMMCJIT
-    LLVMObject
-    LLVMOrcJIT
-    LLVMOption
-    LLVMRuntimeDyld
-    LLVMSupport
-    LLVMTarget
-    LLVMX86CodeGen
+  target_link_libraries(${PROJECT_NAME}
+    PRIVATE
+      LLVMCore
+      LLVMExecutionEngine
+      LLVMMC
+      LLVMMCJIT
+      LLVMObject
+      LLVMOrcJIT
+      LLVMOption
+      LLVMRuntimeDyld
+      LLVMSupport
+      LLVMTarget
+      LLVMX86CodeGen
 
-    clangBasic
-    clangCodeGen
-    clangDriver
-    clangFrontend
-    clangSerialization
+      clangBasic
+      clangCodeGen
+      clangDriver
+      clangFrontend
+      clangSerialization
+  )
+elseif (CMAKE_SYSTEM_NAME STREQUAL Darwin)
+  target_link_libraries(${PROJECT_NAME}
+    PRIVATE
+      LLVMCore
+      LLVMExecutionEngine
+      LLVMMC
+      LLVMMCJIT
+      LLVMObject
+      LLVMOrcJIT
+      LLVMOption
+      LLVMRuntimeDyld
+      LLVMSupport
+      LLVMTarget
+      LLVMX86CodeGen
+
+      clangBasic
+      clangCodeGen
+      clangDriver
+      clangFrontend
+      clangSerialization
   )
 else()
-  target_link_libraries(rawkit-jit PRIVATE
-    LLVM
+  target_link_libraries(${PROJECT_NAME}
+    PRIVATE
+      LLVM
 
-    clangBasic
-    clangCodeGen
-    clangDriver
-    clangFrontend
-    clangSerialization
+      clangBasic
+      clangCodeGen
+      clangDriver
+      clangFrontend
+      clangSerialization
   )
 endif()
 
-# Testing
-file(GLOB RAWKIT_JIT_TEST_FILES
-  "${CMAKE_CURRENT_LIST_DIR}/test/*-test.cpp"
+# Install
+install(
+  FILES
+    ${CMAKE_CURRENT_LIST_DIR}/include/rawkit/jit.h
+  DESTINATION include/rawkit
 )
-set(RAWKIT_JIT_TEST_FILES ${RAWKIT_JIT_TEST_FILES} CACHE INTERNAL "")
-set(LLVM_INCLUDE_DIRS ${LLVM_INCLUDE_DIRS} CACHE INTERNAL "")
 
-set(RAWKIT_JIT_EXTRA_COMPILE_FLAGS ${EXTRA_COMPILE_OPTIONS} CACHE INTERNAL "")
-set(RAWKIT_JIT_EXTRA_LINK_FLAGS ${EXTRA_LINK_OPTIONS} CACHE INTERNAL "")
+install(TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
+  LIBRARY DESTINATION lib
+  INCLUDES DESTINATION include
+)
 
+install(EXPORT ${PROJECT_NAME}Targets
+  FILE ${PROJECT_NAME}Targets.cmake
+  NAMESPACE rawkit::
+  DESTINATION lib/cmake/rawkit
+)
+
+# Testing
 if (RAWKIT_JIT_BUILD_TESTS)
   include(CTest)
   enable_testing()
-
-  add_executable(rawkit-jit-test
-    ${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
-    ${RAWKIT_JIT_TEST_FILES}
-  )
-
-  # DEP: doctest
-  target_include_directories(rawkit-jit-test PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
-  )
-
-  set_property(TARGET rawkit-jit-test PROPERTY CXX_STANDARD 14)
-  set_property(TARGET rawkit-jit-test PROPERTY C_STANDARD 11)
-
-
-  source_group("tests" FILES ${RAWKIT_JIT_TEST_FILES})
-
-  target_link_libraries(rawkit-jit-test PRIVATE
-    rawkit-jit
-  )
-
-  target_include_directories(rawkit-jit-test PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
-  )
-
-  add_test(rawkit-jit rawkit-jit-test)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/test)
 endif()
