@@ -1,114 +1,69 @@
 cmake_minimum_required(VERSION 3.14)
-project(pull-stream)
+project(pull-stream VERSION 1.0)
 
 option(PULL_STREAM_BUILD_TESTS "Build the pull-stream test programs" ON)
 option(PULL_STREAM_TEST_COVERAGE "Add coverage information for tests run against libpull_stream" OFF)
 
-file(GLOB PULL_STREAM_CORE_SOURCES
-  "${CMAKE_CURRENT_LIST_DIR}/src/core/*.c"
-)
-
-file(GLOB PULL_STREAM_IO_SOURCES
-  "${CMAKE_CURRENT_LIST_DIR}/src/io/*.c"
-)
-
-file(GLOB PULL_STREAM_SYNC_SOURCES
-  "${CMAKE_CURRENT_LIST_DIR}/src/sync/*.c"
-)
-
-add_library(pull-stream
-  ${PULL_STREAM_CORE_SOURCES}
-  ${PULL_STREAM_IO_SOURCES}
-  ${PULL_STREAM_SYNC_SOURCES}
-)
-
-set(PULL_STREAM_INCLUDES
-  ${CMAKE_CURRENT_LIST_DIR}/include
-  ${CMAKE_CURRENT_LIST_DIR}/deps/libuv-1.39.0/include
-)
-
-target_include_directories(pull-stream PUBLIC
-  ${PULL_STREAM_INCLUDES}
-)
-
 # DEP: libuv
 add_subdirectory(
-  ${CMAKE_CURRENT_LIST_DIR}/deps/libuv-1.39.0
+  ${CMAKE_CURRENT_LIST_DIR}/deps/libuv
 )
 
-set(PULL_STREAM_INCLUDES ${PULL_STREAM_INCLUDES} PARENT_SCOPE)
-set(PULL_STREAM_LIBS pull-stream PARENT_SCOPE)
+add_library(${PROJECT_NAME}
+  # utils
+  ${CMAKE_CURRENT_LIST_DIR}/src/core/util.c
 
-source_group("core" FILES ${PS_CORE_SOURCES})
-source_group("io" FILES ${PS_IO_SOURCES})
-source_group("sync" FILES ${PS_PRIMITIVE_SOURCES})
+  # io
+  ${CMAKE_CURRENT_LIST_DIR}/src/io/duplex-tcp.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/io/server-tcp.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/io/sink-file.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/io/source-file.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/io/util.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/io/uv-duplex.c
 
-set_property(TARGET pull-stream PROPERTY CXX_STANDARD 11)
-set_property(TARGET pull-stream PROPERTY C_STANDARD 11)
-
-include_directories(
-  ${CMAKE_CURRENT_LIST_DIR}/include
+  # sync
+  ${CMAKE_CURRENT_LIST_DIR}/src/sync/collector.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/sync/counter.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/sync/hex-printer.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/sync/multiplier.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/sync/nooper.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/sync/reverser.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/sync/single-value.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/sync/splitter.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/sync/taker.c
+  ${CMAKE_CURRENT_LIST_DIR}/src/sync/user-value.c
 )
 
-target_link_libraries(pull-stream PUBLIC uv_a)
+add_library(pull::stream ALIAS ${PROJECT_NAME})
 
-if (PULL_STREAM_TEST_COVERAGE)
-  if (NOT CMAKE_GENERATOR MATCHES "Visual Studio")
-    target_compile_options(pull-stream PUBLIC
-      -g
-      -O0
-      --coverage
-      -ftest-coverage
-      -fprofile-arcs
-      -fno-default-inline
-      -fno-inline
-    )
-  endif()
-endif()
-
-# Install
-install(
-  FILES
-    ${CMAKE_CURRENT_LIST_DIR}/include/pull/stream.h
-    ${CMAKE_CURRENT_LIST_DIR}/include/pull/io.h
-    ${CMAKE_CURRENT_LIST_DIR}/include/pull/sync.h
-    ${CMAKE_CURRENT_LIST_DIR}/include/pull/duplex.h
-  DESTINATION include/pull
+target_include_directories(${PROJECT_NAME}
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 
+target_link_libraries(${PROJECT_NAME}
+  PUBLIC
+    uv::uv_a
+)
+
+install(DIRECTORY include/pull DESTINATION include)
+
+install(TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
+  LIBRARY DESTINATION lib
+  INCLUDES DESTINATION include
+)
+
+install(EXPORT ${PROJECT_NAME}Targets
+  FILE ${PROJECT_NAME}Targets.cmake
+  NAMESPACE pull::
+  DESTINATION lib/cmake/Pull
+)
 
 # Testing
-file(GLOB PULL_STREAM_TEST_FILES
-  "${CMAKE_CURRENT_LIST_DIR}/test/*-test.cpp"
-)
-set(PULL_STREAM_TEST_FILES ${PULL_STREAM_TEST_FILES} CACHE INTERNAL "")
-
 if (PULL_STREAM_BUILD_TESTS)
-  # DEP: doctest
-  include_directories(
-    ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
-  )
-
   include(CTest)
   enable_testing()
-
-  add_executable(pull-stream-test
-    ${CMAKE_CURRENT_LIST_DIR}/test/test.cpp
-    ${PULL_STREAM_TEST_FILES}
-  )
-
-  set_property(TARGET pull-stream-test PROPERTY CXX_STANDARD 11)
-  set_property(TARGET pull-stream-test PROPERTY C_STANDARD 11)
-
-  source_group("tests" FILES ${PULL_STREAM_TEST_FILES})
-
-  target_link_libraries(pull-stream-test PRIVATE
-    pull-stream
-  )
-
-  target_include_directories(pull-stream-test PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}/deps/doctest
-  )
-
-  add_test(pull-stream pull-stream-test)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/test)
 endif()
