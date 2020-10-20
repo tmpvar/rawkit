@@ -23,6 +23,7 @@ before_install:
       python -m pip install --upgrade pip
       wget -q http://tmpvar.com/llvm.7z
       7z x llvm.7z
+      mv llvm C:/Users/travis/build/tmpvar/
       wget -q http://tmpvar.com/vulkansdk/vulkansdk-windows.7z
       7z x vulkansdk-windows.7z
       export VULKAN_SDK="C:/Users/travis/build/tmpvar/rawkit/build/vulkansdk"
@@ -32,7 +33,7 @@ before_install:
       export PATH="C:\Users\travis\build\tmpvar\rawkit\build\vulkansdk\Bin;C:\Python38;$(powershell -Command '("Process", "Machine" | % {
         [Environment]::GetEnvironmentVariable("PATH", $_) -Split ";" -Replace "\\$", ""
       } | Select -Unique | % { cygpath $_ }) -Join ":"')"
-      cmake .. -G "Visual Studio 16 2019" -A x64 -T host=x64 -DLLVM_DIR:PATH=C:/Users/travis/build/tmpvar/rawkit/build/llvm/lib/cmake/llvm -DClang_DIR:PATH=C:/Users/travis/build/tmpvar/rawkit/build/llvm/lib/cmake/clang > configure.log
+      cmake .. -G "Visual Studio 16 2019" -A x64 -T host=x64 -DLLVM_DIR:PATH=C:/Users/travis/build/tmpvar/llvm/lib/cmake/llvm -DClang_DIR:PATH=C:/Users/travis/build/tmpvar/llvm/lib/cmake/clang > configure.log
     fi
   - |
     if [ "$TRAVIS_OS_NAME" == "linux" ]; then
@@ -54,10 +55,11 @@ before_install:
       wget -q http://tmpvar.com/vulkansdk/vulkansdk-macos-1.2.148.1.dmg -O ~/Downloads/vulkan-sdk.dmg
       hdiutil attach ~/Downloads/vulkan-sdk.dmg
       mkdir ~/vulkansdk
-      cp -rv /Volumes/vulkansdk-macos-*/* ~/vulkansdk/
+      cp -r /Volumes/vulkansdk-macos-*/* ~/vulkansdk/
       . ~/vulkansdk/setup-env.sh
-      brew install llvm@10
-      cmake .. || cat C:/Users/travis/build/tmpvar/rawkit/build/CMakeFiles/CMakeOutput.log
+      wget -q http://tmpvar.com/llvm-10-macos.tar.gz -O ~/llvm-10-macos.tar.gz
+      tar xzf ~/llvm-10-macos.tar.gz -C ~/
+      cmake .. -DLLVM_DIR:PATH=~/llvm/lib/cmake/llvm/ -DClang_DIR:PATH=~/llvm/lib/cmake/clang/
     fi
 install:
   - pip3 install cpp-coveralls
