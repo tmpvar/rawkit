@@ -53,8 +53,6 @@ set(IMGUI_SRC
   ${DEPS_DIR}/cimgui/imgui/imgui_demo.cpp
   ${DEPS_DIR}/cimgui/imgui/imgui_draw.cpp
   ${DEPS_DIR}/cimgui/imgui/imgui_widgets.cpp
-  ${DEPS_DIR}/cimgui/imgui/examples/imgui_impl_glfw.cpp
-  ${SRC_DIR}/imgui/imgui_impl_vulkan.cpp
 )
 
 include_directories(
@@ -119,6 +117,8 @@ add_executable(
   ${SRC_DIR}/hot/state.cpp
   ${SRC_DIR}/hot/cimgui.cpp
   ${SRC_DIR}/rawkit/serial.cpp
+  ${SRC_DIR}/imgui/imgui_impl_glfw.cpp
+  ${SRC_DIR}/imgui/imgui_impl_vulkan.cpp
   ${DEPS_DIR}/tinyfiledialogs/tinyfiledialogs.c
   ${IMGUI_SRC}
   ${CROARING_SRC}
@@ -175,10 +175,14 @@ target_compile_options(
   ${EXTRA_COMPILE_OPTIONS}
 )
 
-target_link_options(
-  rawkit
+target_link_options(${PROJECT_NAME}
   PRIVATE
-  ${EXTRA_LINKER_OPTIONS}
+    ${EXTRA_LINKER_OPTIONS}
+)
+
+target_compile_features(${PROJECT_NAME}
+  PRIVATE
+    cxx_std_14
 )
 
 target_link_libraries(
