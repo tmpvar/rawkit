@@ -10,35 +10,6 @@ include_directories(
   include/hot/guest
 )
 
-# DEP: Vulkan
-if(APPLE)
-    set(MOLTENVK_PATH "$ENV{VULKAN_SDK}")
-    link_directories("${MOLTENVK_PATH}/lib")
-    set(VULKAN_LIBS
-        vulkan
-        "-framework IOSurface"
-        "-framework Metal"
-        "-framework QuartzCore"
-    )
-    set(RAWKIT_GUEST_VULKAN_INCLUDE_DIR ${MOLTENVK_PATH}/include)
-
-else()
-    find_package(Vulkan)
-    set(VULKAN_LIBS
-        ${Vulkan_LIBRARIES}
-    )
-    set(RAWKIT_GUEST_VULKAN_INCLUDE_DIR ${Vulkan_INCLUDE_DIRS})
-    message(STATUS "vulkan sdk path ${VK_SDK_PATH} ${Vulkan_INCLUDE_DIRS} ${Vulkan_LIBRARIES}")
-
-    # get_cmake_property(_variableNames VARIABLES)
-    # list (SORT _variableNames)
-    # foreach (_variableName ${_variableNames})
-    #     message(STATUS "${_variableName}=${${_variableName}}")
-    # endforeach()
-endif()
-
-include_directories(${RAWKIT_GUEST_VULKAN_INCLUDE_DIR})
-
 # DEP: glfw
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -93,7 +64,6 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser)
 
 # LIB: rawkit-jit
-
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-jit)
 
 # LIB: rawkit-glsl
@@ -110,6 +80,9 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-diskwatcher)
 
 # LIB: rawkit-file
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-file)
+
+# LIB: rawkit-gpu
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-gpu)
 
 add_executable(
   rawkit
@@ -196,12 +169,12 @@ target_link_libraries(
 
   rawkit::grbl::parser
   rawkit::gcode::parser
+  rawkit::gpu
 
   glfw
   # grab this from the vulkan sdk
   # shaderc
   serial
-  ${VULKAN_LIBS}
 )
 
 install(
@@ -252,15 +225,6 @@ install(
   FILES
     ${DEPS_DIR}/croaring/roaring/roaring.h
   DESTINATION include/roaring
-)
-
-
-# vulkan headers
-install(
-  DIRECTORY
-    ${RAWKIT_GUEST_VULKAN_INCLUDE_DIR}/vulkan/
-  DESTINATION
-    include/vulkan/
 )
 
 install(
