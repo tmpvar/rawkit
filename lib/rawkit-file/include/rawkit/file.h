@@ -10,11 +10,11 @@
   extern "C" {
 #endif
 
-  enum rawkit_file_error {
+  typedef enum {
     RAWKIT_FILE_OOM = -2,
     RAWKIT_FILE_NOT_FOUND = -1,
     RAWKIT_FILE_ERROR_NONE = 0,
-  };
+  } rawkit_file_error;
 
   typedef struct rawkit_file_t {
     uint64_t version;

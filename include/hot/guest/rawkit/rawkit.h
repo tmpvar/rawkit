@@ -1,13 +1,17 @@
+#pragma once
 
+#include "time.h"
 #include "image.h"
 #include "serial.h"
 #include "string.h"
 #include "vulkan.h"
 
-#pragma once
-
-
+#ifdef __cplusplus
 extern "C" {
-  double rawkit_now();
+#endif
+
   float rawkit_randf();
+
+#ifdef __cplusplus
 }
+#endif

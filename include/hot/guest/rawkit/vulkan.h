@@ -1,7 +1,9 @@
 #include <vulkan/vulkan.h>
 #include <cimgui.h>
 
+#ifdef __cplusplus
 extern "C" {
+#endif
   VkDevice rawkit_vulkan_device();
   VkPhysicalDevice rawkit_vulkan_physical_device();
   VkCommandBuffer rawkit_vulkan_command_buffer();
@@ -12,4 +14,6 @@ extern "C" {
   VkRenderPass rawkit_vulkan_renderpass();
   VkDescriptorPool rawkit_vulkan_descriptor_pool();
   uint32_t rawkit_vulkan_queue_family();
+#ifdef __cplusplus
 }
+#endif

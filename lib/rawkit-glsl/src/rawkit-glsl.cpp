@@ -8,13 +8,38 @@
 #include <SPIRV/disassemble.h>
 #include <glslang/Public/ShaderLang.h>
 
+#include <spirv_cross.hpp>
+#include <spirv_reflect.hpp>
+
 
 #include <string.h>
 #include <string>
+#include <unordered_map>
 using namespace std;
 
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
+
+typedef struct rawkit_glsl_t {
+  uint32_t *data;
+  uint64_t len;
+  uint64_t bytes;
+  uint32_t workgroup_size[3];
+  bool valid;
+  rawkit_glsl_paths_t included_files;
+  unordered_map<string, rawkit_glsl_reflection_entry_t> *reflection;
+} rawkit_glsl_t;
+
+bool rawkit_glsl_valid(const rawkit_glsl_t *ref) {
+  return ref && ref->valid;
+}
+
+const uint32_t *rawkit_glsl_workgroup_size(const rawkit_glsl_t *ref) {
+  if (!ref) {
+    return NULL;
+  }
+  return ref->workgroup_size;
+}
 
 static EShLanguage filename_to_stage(string filename) {
   fs::path p = filename;
@@ -33,6 +58,350 @@ static EShLanguage filename_to_stage(string filename) {
 
   return EShLanguage::EShLangCount;
 }
+
+const rawkit_glsl_reflection_entry_t rawkit_glsl_reflection_entry(const rawkit_glsl_t *ref, const char *name) {
+  rawkit_glsl_reflection_entry_t entry = {};
+  entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_NOT_FOUND;
+
+  if (!ref || !ref->reflection) {
+    return entry;
+  }
+
+  auto it = ref->reflection->find(name);
+  if (it == ref->reflection->end()) {
+    return entry;
+  }
+
+  return it->second;
+}
+
+class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
+  public:
+    RawkitGLSLCompiler(std::vector<uint32_t> ir) : CompilerReflection(ir) {
+
+    }
+
+    void populate_push_constants(unordered_map<string, rawkit_glsl_reflection_entry_t> *entries) {
+      spirv_cross::ShaderResources res = this->get_shader_resources();
+      for (auto& buffer : res.push_constant_buffers) {
+        auto& type = this->get_type(buffer.type_id);
+        auto& base_type = this->get_type(buffer.base_type_id);
+
+        size_t size = type.member_types.size();
+        for (uint32_t i = 0; i < size; ++i) {
+          string name = this->get_member_name(buffer.base_type_id, i);
+          rawkit_glsl_reflection_entry_t entry = {};
+          entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER;
+          entry.location = -1;
+          entry.set = -1;
+          entry.binding = -1;
+          entry.readable = true;
+          entry.writable = false;
+
+          entry.offset = this->type_struct_member_offset(base_type, i);
+          entries->emplace(name, entry);
+        }
+      }
+    }
+
+    static rawkit_glsl_image_format image_format(spv::ImageFormat input) {
+      switch (input) {
+          case spv::ImageFormatUnknown: return RAWKIT_GLSL_IMAGE_FORMAT_UNKNOWN;
+          case spv::ImageFormatRgba32f: return RAWKIT_GLSL_IMAGE_FORMAT_RGBA32F;
+          case spv::ImageFormatRgba16f: return RAWKIT_GLSL_IMAGE_FORMAT_RGBA16F;
+          case spv::ImageFormatR32f: return RAWKIT_GLSL_IMAGE_FORMAT_R32F;
+          case spv::ImageFormatRgba8: return RAWKIT_GLSL_IMAGE_FORMAT_RGBA8;
+          case spv::ImageFormatRgba8Snorm: return RAWKIT_GLSL_IMAGE_FORMAT_RGBA8SNORM;
+          case spv::ImageFormatRg32f: return RAWKIT_GLSL_IMAGE_FORMAT_RG32F;
+          case spv::ImageFormatRg16f: return RAWKIT_GLSL_IMAGE_FORMAT_RG16F;
+          case spv::ImageFormatR11fG11fB10f: return RAWKIT_GLSL_IMAGE_FORMAT_R11FG11FB10F;
+          case spv::ImageFormatR16f: return RAWKIT_GLSL_IMAGE_FORMAT_R16F;
+          case spv::ImageFormatRgba16: return RAWKIT_GLSL_IMAGE_FORMAT_RGBA16;
+          case spv::ImageFormatRgb10A2: return RAWKIT_GLSL_IMAGE_FORMAT_RGB10A2;
+          case spv::ImageFormatRg16: return RAWKIT_GLSL_IMAGE_FORMAT_RG16;
+          case spv::ImageFormatRg8: return RAWKIT_GLSL_IMAGE_FORMAT_RG8;
+          case spv::ImageFormatR16: return RAWKIT_GLSL_IMAGE_FORMAT_R16;
+          case spv::ImageFormatR8: return RAWKIT_GLSL_IMAGE_FORMAT_R8;
+          case spv::ImageFormatRgba16Snorm: return RAWKIT_GLSL_IMAGE_FORMAT_RGBA16SNORM;
+          case spv::ImageFormatRg16Snorm: return RAWKIT_GLSL_IMAGE_FORMAT_RG16SNORM;
+          case spv::ImageFormatRg8Snorm: return RAWKIT_GLSL_IMAGE_FORMAT_RG8SNORM;
+          case spv::ImageFormatR16Snorm: return RAWKIT_GLSL_IMAGE_FORMAT_R16SNORM;
+          case spv::ImageFormatR8Snorm: return RAWKIT_GLSL_IMAGE_FORMAT_R8SNORM;
+          case spv::ImageFormatRgba32i: return RAWKIT_GLSL_IMAGE_FORMAT_RGBA32I;
+          case spv::ImageFormatRgba16i: return RAWKIT_GLSL_IMAGE_FORMAT_RGBA16I;
+          case spv::ImageFormatRgba8i: return RAWKIT_GLSL_IMAGE_FORMAT_RGBA8I;
+          case spv::ImageFormatR32i: return RAWKIT_GLSL_IMAGE_FORMAT_R32I;
+          case spv::ImageFormatRg32i: return RAWKIT_GLSL_IMAGE_FORMAT_RG32I;
+          case spv::ImageFormatRg16i: return RAWKIT_GLSL_IMAGE_FORMAT_RG16I;
+          case spv::ImageFormatRg8i: return RAWKIT_GLSL_IMAGE_FORMAT_RG8I;
+          case spv::ImageFormatR16i: return RAWKIT_GLSL_IMAGE_FORMAT_R16I;
+          case spv::ImageFormatR8i: return RAWKIT_GLSL_IMAGE_FORMAT_R8I;
+          case spv::ImageFormatRgba32ui: return RAWKIT_GLSL_IMAGE_FORMAT_RGBA32UI;
+          case spv::ImageFormatRgba16ui: return RAWKIT_GLSL_IMAGE_FORMAT_RGBA16UI;
+          case spv::ImageFormatRgba8ui: return RAWKIT_GLSL_IMAGE_FORMAT_RGBA8UI;
+          case spv::ImageFormatR32ui: return RAWKIT_GLSL_IMAGE_FORMAT_R32UI;
+          case spv::ImageFormatRgb10a2ui: return RAWKIT_GLSL_IMAGE_FORMAT_RGB10A2UI;
+          case spv::ImageFormatRg32ui: return RAWKIT_GLSL_IMAGE_FORMAT_RG32UI;
+          case spv::ImageFormatRg16ui: return RAWKIT_GLSL_IMAGE_FORMAT_RG16UI;
+          case spv::ImageFormatRg8ui: return RAWKIT_GLSL_IMAGE_FORMAT_RG8UI;
+          case spv::ImageFormatR16ui: return RAWKIT_GLSL_IMAGE_FORMAT_R16UI;
+          case spv::ImageFormatR8ui: return RAWKIT_GLSL_IMAGE_FORMAT_R8UI;
+          case spv::ImageFormatMax: return RAWKIT_GLSL_IMAGE_FORMAT_MAX;
+          default:
+            return RAWKIT_GLSL_IMAGE_FORMAT_UNKNOWN;
+      }
+    }
+
+    static rawkit_glsl_dims get_image_dims(const spirv_cross::SPIRType &type) {
+      switch (type.image.dim) {
+        case spv::Dim1D: return RAWKIT_GLSL_DIMS_1D;
+        case spv::Dim2D: return RAWKIT_GLSL_DIMS_2D;
+        case spv::Dim3D: return RAWKIT_GLSL_DIMS_3D;
+        case spv::DimCube: return RAWKIT_GLSL_DIMS_CUBE;
+        case spv::DimRect: return RAWKIT_GLSL_DIMS_RECT;
+        case spv::DimBuffer: return RAWKIT_GLSL_DIMS_BUFFER;
+        case spv::DimSubpassData: return RAWKIT_GLSL_DIMS_SUBPASS_DATA;
+        case spv::DimMax: return RAWKIT_GLSL_DIMS_MAX;
+        default: return RAWKIT_GLSL_DIMS_MAX;
+      }
+    }
+
+    void populate_storage_images(unordered_map<string, rawkit_glsl_reflection_entry_t>* entries) {
+      spirv_cross::ShaderResources res = this->get_shader_resources();
+      for (auto& image : res.storage_images) {
+        rawkit_glsl_reflection_entry_t entry = {};
+        entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE;
+        entry.location = this->get_decoration(image.id, spv::DecorationLocation);
+        entry.set = this->get_decoration(image.id, spv::DecorationDescriptorSet);
+        entry.binding = this->get_decoration(image.id, spv::DecorationBinding);
+        entry.offset = -1;
+
+        spirv_cross::Bitset mask = this->get_decoration_bitset(image.id);
+        entry.readable = !mask.get(spv::DecorationNonReadable);
+        entry.writable = !mask.get(spv::DecorationNonWritable);
+
+        auto type = this->get_type(image.type_id);
+        entry.image_format = RawkitGLSLCompiler::image_format(type.image.format);
+        entry.dims = RawkitGLSLCompiler::get_image_dims(type);
+
+        entries->emplace(image.name, entry);
+      }
+    }
+
+    void populate_textures(unordered_map<string, rawkit_glsl_reflection_entry_t>* entries) {
+      spirv_cross::ShaderResources res = this->get_shader_resources();
+      for (auto& texture : res.sampled_images) {
+        rawkit_glsl_reflection_entry_t entry = {};
+        entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_SAMPLED_IMAGE;
+        entry.image_format = RAWKIT_GLSL_IMAGE_FORMAT_UNKNOWN;
+        entry.offset = -1;
+        entry.readable = true;
+        entry.writable = false;
+        entry.location = this->get_decoration(texture.id, spv::DecorationLocation);
+        entry.set = this->get_decoration(texture.id, spv::DecorationDescriptorSet);
+        entry.binding = this->get_decoration(texture.id, spv::DecorationBinding);
+
+        auto type = this->get_type(texture.type_id);
+        entry.dims = RawkitGLSLCompiler::get_image_dims(type);
+
+        entries->emplace(texture.name, entry);
+      }
+    }
+
+    void populate_ssbos(unordered_map<string, rawkit_glsl_reflection_entry_t>* entries) {
+      spirv_cross::ShaderResources res = this->get_shader_resources();
+      for (auto& ssbo : res.storage_buffers) {
+        rawkit_glsl_reflection_entry_t entry = {};
+        entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_BUFFER;
+        entry.image_format = RAWKIT_GLSL_IMAGE_FORMAT_UNKNOWN;
+        entry.dims = RAWKIT_GLSL_DIMS_BUFFER;
+        entry.offset = -1;
+
+        entry.location = this->get_decoration(ssbo.id, spv::DecorationLocation);
+        entry.set = this->get_decoration(ssbo.id, spv::DecorationDescriptorSet);
+        entry.binding = this->get_decoration(ssbo.id, spv::DecorationBinding);
+
+        auto type = this->get_type(ssbo.type_id);
+        auto base_type = this->get_type(ssbo.base_type_id);
+        auto mask = this->get_buffer_block_flags(ssbo.id);
+        entry.readable = !mask.get(spv::DecorationNonReadable);
+        entry.writable = !mask.get(spv::DecorationNonWritable);
+
+        if (!base_type.member_types.empty()) {
+  	      entry.block_size = this->get_declared_struct_size(base_type);
+        }
+
+        entries->emplace(ssbo.name, entry);
+      }
+    }
+
+    void populate_separate_images(unordered_map<string, rawkit_glsl_reflection_entry_t>* entries) {
+      spirv_cross::ShaderResources res = this->get_shader_resources();
+      for (auto& image : res.separate_images) {
+        rawkit_glsl_reflection_entry_t entry = {};
+        entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_SEPARATE_IMAGE;
+        entry.location = this->get_decoration(image.id, spv::DecorationLocation);
+        entry.set = this->get_decoration(image.id, spv::DecorationDescriptorSet);
+        entry.binding = this->get_decoration(image.id, spv::DecorationBinding);
+        entry.offset = -1;
+
+        spirv_cross::Bitset mask = this->get_decoration_bitset(image.id);
+        entry.readable = !mask.get(spv::DecorationNonReadable);
+        entry.writable = !mask.get(spv::DecorationNonWritable);
+
+        auto type = this->get_type(image.type_id);
+        entry.image_format = RawkitGLSLCompiler::image_format(type.image.format);
+        entry.dims = RawkitGLSLCompiler::get_image_dims(type);
+
+        entries->emplace(image.name, entry);
+      }
+    }
+
+    void populate_separate_samplers(unordered_map<string, rawkit_glsl_reflection_entry_t>* entries) {
+      spirv_cross::ShaderResources res = this->get_shader_resources();
+      for (auto& sampler : res.separate_samplers) {
+        rawkit_glsl_reflection_entry_t entry = {};
+        entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_SEPARATE_SAMPLER;
+        entry.location = this->get_decoration(sampler.id, spv::DecorationLocation);
+        entry.set = this->get_decoration(sampler.id, spv::DecorationDescriptorSet);
+        entry.binding = this->get_decoration(sampler.id, spv::DecorationBinding);
+        entry.offset = -1;
+
+        spirv_cross::Bitset mask = this->get_decoration_bitset(sampler.id);
+        entry.readable = !mask.get(spv::DecorationNonReadable);
+        entry.writable = !mask.get(spv::DecorationNonWritable);
+
+        auto type = this->get_type(sampler.type_id);
+        entry.image_format = RawkitGLSLCompiler::image_format(type.image.format);
+        entry.dims = RawkitGLSLCompiler::get_image_dims(type);
+
+        entries->emplace(sampler.name, entry);
+      }
+    }
+
+    void populate_uniform_buffers(unordered_map<string, rawkit_glsl_reflection_entry_t>* entries) {
+      spirv_cross::ShaderResources res = this->get_shader_resources();
+      for (auto& ubo : res.uniform_buffers) {
+        rawkit_glsl_reflection_entry_t entry = {};
+        entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_UNIFORM_BUFFER;
+        entry.image_format = RAWKIT_GLSL_IMAGE_FORMAT_UNKNOWN;
+        entry.dims = RAWKIT_GLSL_DIMS_BUFFER;
+        entry.offset = -1;
+
+        entry.location = this->get_decoration(ubo.id, spv::DecorationLocation);
+        entry.set = this->get_decoration(ubo.id, spv::DecorationDescriptorSet);
+        entry.binding = this->get_decoration(ubo.id, spv::DecorationBinding);
+
+        auto type = this->get_type(ubo.type_id);
+        auto base_type = this->get_type(ubo.base_type_id);
+        auto mask = this->get_buffer_block_flags(ubo.id);
+        entry.readable = !mask.get(spv::DecorationNonReadable);
+        entry.writable = !mask.get(spv::DecorationNonWritable);
+
+        if (!base_type.member_types.empty()) {
+  	      entry.block_size = this->get_declared_struct_size(base_type);
+        }
+
+        entries->emplace(ubo.name, entry);
+      }
+    }
+
+    void populate_inputs(unordered_map<string, rawkit_glsl_reflection_entry_t> *entries) {
+      spirv_cross::ShaderResources res = this->get_shader_resources();
+      for (auto& input : res.stage_inputs) {
+        auto& type = this->get_type(input.type_id);
+        auto& base_type = this->get_type(input.base_type_id);
+
+        size_t size = type.member_types.size();
+        rawkit_glsl_reflection_entry_t entry = {};
+        entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_STAGE_INPUT;
+        entry.location = this->get_decoration(input.id, spv::DecorationLocation);
+        entry.set = -1;
+        entry.binding = -1;
+        entry.readable = true;
+        entry.writable = false;
+
+        entries->emplace(input.name, entry);
+      }
+    }
+
+    void populate_outputs(unordered_map<string, rawkit_glsl_reflection_entry_t>* entries) {
+      spirv_cross::ShaderResources res = this->get_shader_resources();
+      for (auto& output : res.stage_outputs) {
+        auto& type = this->get_type(output.type_id);
+        auto& base_type = this->get_type(output.base_type_id);
+
+        size_t size = type.member_types.size();
+        rawkit_glsl_reflection_entry_t entry = {};
+        entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_STAGE_OUTPUT;
+        entry.location = this->get_decoration(output.id, spv::DecorationLocation);
+        entry.set = -1;
+        entry.binding = -1;
+        entry.readable = false;
+        entry.writable = true;
+
+        entries->emplace(output.name, entry);
+      }
+    }
+
+    void populate_subpass_inputs(unordered_map<string, rawkit_glsl_reflection_entry_t> *entries) {
+      spirv_cross::ShaderResources res = this->get_shader_resources();
+      for (auto& input : res.subpass_inputs) {
+        auto& type = this->get_type(input.type_id);
+        auto& base_type = this->get_type(input.base_type_id);
+
+        size_t size = type.member_types.size();
+        rawkit_glsl_reflection_entry_t entry = {};
+        entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_SUBPASS_INPUT;
+        entry.location = this->get_decoration(input.id, spv::DecorationLocation);
+        entry.set = this->get_decoration(input.id, spv::DecorationDescriptorSet);
+        entry.binding = this->get_decoration(input.id, spv::DecorationBinding);
+        entry.input_attachment_index = this->get_decoration(input.id, spv::DecorationInputAttachmentIndex);
+
+        entry.readable = true;
+        entry.writable = false;
+
+        entries->emplace(input.name, entry);
+      }
+    }
+
+    void populate_acceleration_structures(unordered_map<string, rawkit_glsl_reflection_entry_t> *entries) {
+      spirv_cross::ShaderResources res = this->get_shader_resources();
+      for (auto& acc : res.acceleration_structures) {
+        auto& type = this->get_type(acc.type_id);
+        auto& base_type = this->get_type(acc.base_type_id);
+
+        size_t size = type.member_types.size();
+        rawkit_glsl_reflection_entry_t entry = {};
+        entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_ACCELERATION_STRUCTURE;
+        entry.location = this->get_decoration(acc.id, spv::DecorationLocation);
+        entry.set = this->get_decoration(acc.id, spv::DecorationDescriptorSet);
+        entry.binding = this->get_decoration(acc.id, spv::DecorationBinding);
+        entry.input_attachment_index = this->get_decoration(acc.id, spv::DecorationInputAttachmentIndex);
+
+        entry.readable = true;
+        entry.writable = false;
+
+        entries->emplace(acc.name, entry);
+      }
+    }
+
+    void populate_reflection(unordered_map<string, rawkit_glsl_reflection_entry_t>* entries) {
+      this->populate_push_constants(entries);
+      this->populate_storage_images(entries);
+      this->populate_textures(entries);
+      this->populate_ssbos(entries);
+      this->populate_separate_images(entries);
+      this->populate_separate_samplers(entries);
+      this->populate_uniform_buffers(entries);
+      this->populate_inputs(entries);
+      this->populate_outputs(entries);
+      this->populate_subpass_inputs(entries);
+      this->populate_acceleration_structures(entries);
+      // print_resources(comp, "acceleration structures", res.acceleration_structures);
+    }
+};
+
 
 rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawkit_glsl_paths_t *include_dirs) {
   if (!name || !src) {
@@ -55,6 +424,8 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawk
   if (!ret) {
     return NULL;
   }
+
+  ret->reflection = new unordered_map<string, rawkit_glsl_reflection_entry_t>();
 
 
   glslang::TShader shader(stage);
@@ -80,7 +451,7 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawk
 
   shader.setEnvTarget(
     glslang::EShTargetSpv,
-    glslang::EShTargetSpv_1_3
+    glslang::EShTargetSpv_1_5
   );
 
   shader.setPreamble(
@@ -124,9 +495,8 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawk
     includer
   );
 
-  printf("Debug log for %s\n%s\n", name, shader.getInfoDebugLog());
-
   if (!r) {
+    printf("Debug log for %s\n%s\n", name, shader.getInfoDebugLog());
     printf("glslang: failed to parse shader %s\nLOG: %s",
       name,
       shader.getInfoLog()
@@ -146,34 +516,61 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawk
 
   program.mapIO();
 
-  program.buildReflection(
-    EShReflectionDefault /* |
-    EShReflectionSeparateBuffers |
-    EShReflectionAllBlockVariables |
-    EShReflectionUnwrapIOBlocks*/
-  );
+  //program.buildReflection(
+  //  EShReflectionDefault /* |
+  //  EShReflectionSeparateBuffers |
+  //  EShReflectionAllBlockVariables |
+  //  EShReflectionUnwrapIOBlocks*/
+  //);
   //program.dumpReflection();
 
   glslang::SpvOptions options;
   options.generateDebugInfo = true;
-  options.disableOptimizer = true;
+  options.disableOptimizer = false;
   options.optimizeSize = false;
   options.validate = true;
-
+  options.stripDebugInfo = false;
 
   // Note the call to GlslangToSpv also populates compilation_output_data.
-  std::vector<uint32_t> spirv;
+  std::vector<uint32_t> spirv_binary;
   glslang::GlslangToSpv(
     *program.getIntermediate(stage),
-    spirv,
+    spirv_binary,
     &options
   );
 
-  // spv::Disassemble(std::cout, spirv);
-  ret->len = spirv.size();
+  //spv::Disassemble(std::cout, spirv_binary);
+
+  ret->len = spirv_binary.size();
   ret->bytes = ret->len * sizeof(uint32_t);
   ret->data = (uint32_t *)malloc(ret->bytes);
-  memcpy(ret->data, spirv.data(), ret->bytes);
+  memcpy(ret->data, spirv_binary.data(), ret->bytes);
+
+  RawkitGLSLCompiler comp(std::move(spirv_binary));
+
+  // Store: workgroup_size
+  {
+    auto entries = comp.get_entry_points_and_stages();
+    for (auto &e : entries) {
+      auto &ep =  comp.get_entry_point(e.name, e.execution_model);
+      spirv_cross::SpecializationConstant x, y, z;
+      comp.get_work_group_size_specialization_constants(x, y, z);
+
+      ret->workgroup_size[0] = (x.id != spirv_cross::ID(0)) ? x.constant_id : ep.workgroup_size.x;
+      ret->workgroup_size[1] = (y.id != spirv_cross::ID(0)) ? y.constant_id : ep.workgroup_size.y;
+      ret->workgroup_size[2] = (z.id != spirv_cross::ID(0)) ? z.constant_id : ep.workgroup_size.z;
+      break;
+    }
+  }
+
+  unordered_map<spirv_cross::TypeID, spirv_cross::SPIRType> types;
+
+
+  comp.populate_reflection(ret->reflection);
+
+  // comp.set_format("json");
+  // auto json = comp.compile();
+  // printf("%s reflection:\n%s\n", name, json.c_str());
 
   ret->valid = true;
   return ret;
@@ -200,6 +597,12 @@ void rawkit_glsl_destroy(rawkit_glsl_t *ref) {
     free(ref->data);
     ref->len = 0;
     ref->data = NULL;
+  }
+
+  if (ref->reflection) {
+    ref->reflection->clear();
+    delete ref->reflection;
+    ref->reflection = nullptr;
   }
 
   rawkit_glsl_paths_destroy(&ref->included_files);

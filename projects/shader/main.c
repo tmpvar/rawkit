@@ -1,13 +1,21 @@
+#define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
+#include <rawkit/time.h>
 #include <rawkit/gpu.h>
 #include <rawkit/glsl.h>
 #include <rawkit/vulkan.h>
 
+#include <pull/stream.h>
+
 #include <stdio.h>
 
+#ifdef __cplusplus
 extern "C" {
+#endif
   extern uint32_t rawkit_window_frame_index();
   extern uint32_t rawkit_window_frame_count();
+#ifdef __cplusplus
 }
+#endif
 
 
 #include <vulkan/vulkan.h>
@@ -37,6 +45,153 @@ typedef struct shader_t {
   VkCommandPool command_pool;
 } shader_t;
 
+static float push_constant_f32 = 1.0;
+// SHADER_ARG_COUNT - count the number of VA_ARGS in both c and c++ mode
+#ifdef __cplusplus
+  #include <tuple>
+  #define SHADER_ARG_COUNT(...) (std::tuple_size<decltype(std::make_tuple(__VA_ARGS__))>::value)
+#else
+  #define SHADER_ARG_COUNT(...) ((int)(sizeof((shader_param_t[]){ __VA_ARGS__ })/sizeof(shader_param_t)))
+#endif
+
+#define shader_push_constants(opts, ...) { \
+  opts.push_constants_count = SHADER_ARG_COUNT(__VA_ARGS__); \
+  opts.push_constants = (shader_param_t[]){ \
+    __VA_ARGS__ \
+  }; \
+}
+
+typedef enum {
+  SHADER_PARAM_F32,
+  SHADER_PARAM_I32,
+  SHADER_PARAM_U32,
+
+  SHADER_PARAM_F64,
+  SHADER_PARAM_I64,
+  SHADER_PARAM_U64,
+
+  SHADER_PARAM_PTR,
+  SHADER_PARAM_PULL_STREAM,
+} shader_param_types_t;
+
+#define shader_f32(_name, _value) (shader_param_t){.name = _name, .type = SHADER_PARAM_F32, .f32 = _value, .bytes = 4, }
+#define shader_i32(_name, _value) (shader_param_t){.name = _name, .type = SHADER_PARAM_I32, .i32 = _value, .bytes = 4, }
+#define shader_u32(_name, _value) (shader_param_t){.name = _name, .type = SHADER_PARAM_U32, .u32 = _value, .bytes = 4, }
+
+#define shader_f64(_name, _value) (shader_param_t){.name = _name, .type = SHADER_PARAM_F64, .f64 = _value, .bytes = 8, }
+#define shader_i64(_name, _value) (shader_param_t){.name = _name, .type = SHADER_PARAM_I64, .i64 = _value, .bytes = 8, }
+#define shader_u64(_name, _value) (shader_param_t){.name = _name, .type = SHADER_PARAM_U64, .u64 = _value, .bytes = 8, }
+
+#define shader_array(_name, _len, _value) (shader_param_t){.name = _name, .type = SHADER_PARAM_ARRAY, .ptr = _value, .bytes = _len * sizeof(*_value), }
+#define shader_pull_stream(_name, _ps) (shader_param_t){.name = _name, .type = SHADER_PARAM_PULL_STREAM, .ptr = _ps, .bytes = sizeof(_ps), }
+
+typedef struct shader_param_t {
+  const char *name;
+  uint32_t type;
+  union {
+    uint64_t value;
+    float f32;
+    float i32;
+    float u32;
+    double f64;
+    double i64;
+    double u64;
+    void *ptr;
+    ps_t *pull_stream;
+
+  };
+  uint64_t bytes;
+} shader_param_t;
+
+typedef struct shader_param_value_t {
+  bool should_free;
+  void *buf;
+  uint64_t len;
+} shader_param_value_t;
+
+int shader_param_size(const shader_param_t *param) {
+  switch (param->type) {
+    case SHADER_PARAM_F32: return sizeof(float);
+    case SHADER_PARAM_I32: return sizeof(int32_t);
+    case SHADER_PARAM_U32: return sizeof(uint32_t);
+    case SHADER_PARAM_F64: return sizeof(double);
+    case SHADER_PARAM_I64: return sizeof(int64_t);
+    case SHADER_PARAM_U64: return sizeof(uint64_t);
+    case SHADER_PARAM_PTR: return param->bytes;
+    default:
+      return param->bytes;
+  }
+}
+
+shader_param_value_t shader_param_value(shader_param_t *param) {
+  shader_param_value_t ret = {};
+  ret.len = shader_param_size(param);
+
+  switch (param->type) {
+    case SHADER_PARAM_F32: {
+      ret.buf = &param->f32;
+      break;
+    };
+    case SHADER_PARAM_I32: {
+      ret.buf = &param->i32;
+      break;
+    }
+    case SHADER_PARAM_U32: {
+      ret.buf = &param->u32;
+      break;
+    }
+    case SHADER_PARAM_F64: {
+      ret.buf = &param->f64;
+      break;
+    }
+    case SHADER_PARAM_I64: {
+      ret.buf = &param->i64;
+      break;
+    }
+    case SHADER_PARAM_U64: {
+      ret.buf = &param->u64;
+      break;
+    }
+    case SHADER_PARAM_PTR: {
+      ret.buf = param->ptr;
+      break;
+    }
+
+    case SHADER_PARAM_PULL_STREAM: {
+      if (param->pull_stream && param->pull_stream->fn) {
+        // TODO: we own this memory now
+        ps_val_t *val = param->pull_stream->fn(param->pull_stream, PS_OK);
+
+        if (val) {
+          ret.should_free = true;
+          ret.buf = val->data;
+          ret.len = val->len;
+        }
+      }
+      break;
+    }
+
+    default:
+      printf("ERROR: unhandled case in shader_param_value\n");
+  }
+
+  return ret;
+}
+
+
+typedef struct fill_rect_options_t {
+  uint32_t render_width;
+  uint32_t render_height;
+  uint32_t display_width;
+  uint32_t display_height;
+
+  uint32_t push_constants_count;
+  shader_param_t *push_constants;
+
+} fill_rect_options_t;
+
+
+
 typedef struct fill_rect_state_t {
   uint32_t width;
   uint32_t height;
@@ -59,8 +214,21 @@ static uint32_t find_memory_type(VkMemoryPropertyFlags properties, uint32_t type
 }
 
 
-void fill_rect(const char *path, uint32_t width, uint32_t height) {
+void fill_rect(const char *path, const fill_rect_options_t *options) {
+  // TODO: hash options and compare
+
   VkResult err;
+
+  uint32_t width = options->render_width;
+  uint32_t height = options->render_height;
+  // fall back to provided width/height
+  uint32_t display_width = (options->display_width)
+    ? options->display_width
+    : width;
+
+  uint32_t display_height = (options->display_height)
+    ? options->display_height
+    : height;
 
   char id[4096] = "rawkit::fill_rect::";
   strcat(id, path);
@@ -108,7 +276,6 @@ void fill_rect(const char *path, uint32_t width, uint32_t height) {
     }
 
     for (uint32_t i=0; i<state->texture_count; i++) {
-      printf("LOOP: %u of %u\n", i, state->texture_count);
       texture_t *texture = &state->textures[i];
       // create the image
       {
@@ -382,15 +549,16 @@ void fill_rect(const char *path, uint32_t width, uint32_t height) {
           setLayoutBindings.binding = 0;
           setLayoutBindings.descriptorCount = 1;
 
-          VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo {};
+          VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
           descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
           descriptorSetLayoutCreateInfo.pBindings = &setLayoutBindings;
           descriptorSetLayoutCreateInfo.bindingCount = 1;
 
+
           err = vkCreateDescriptorSetLayout(
             device,
             &descriptorSetLayoutCreateInfo,
-            nullptr,
+            NULL,
             &state->shaders[shader_idx].descriptor_set_layout
           );
 
@@ -399,7 +567,7 @@ void fill_rect(const char *path, uint32_t width, uint32_t height) {
             return;
           }
 
-          VkDescriptorSetAllocateInfo descriptorSetAllocateInfo {};
+          VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {};
           descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
           descriptorSetAllocateInfo.descriptorPool = rawkit_vulkan_descriptor_pool();
           descriptorSetAllocateInfo.pSetLayouts = &state->shaders[shader_idx].descriptor_set_layout;
@@ -436,14 +604,32 @@ void fill_rect(const char *path, uint32_t width, uint32_t height) {
             NULL
           );
 
-          VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
+          VkPushConstantRange *pushConstantRanges = NULL;
+          uint32_t push_constant_offset = 0;
+          if (options->push_constants_count) {
+            pushConstantRanges = (VkPushConstantRange *)calloc(sizeof(VkPushConstantRange), 1);
+
+            // TODO: compute the side of the push buffer contents
+            for (uint32_t i = 0; i<options->push_constants_count; i++) {
+              pushConstantRanges[i].offset = push_constant_offset;
+              pushConstantRanges[i].size = shader_param_size(&options->push_constants[i]);
+              push_constant_offset += pushConstantRanges[i].size;
+            }
+          }
+
+          VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
           pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
           pipelineLayoutCreateInfo.setLayoutCount = 1;
           pipelineLayoutCreateInfo.pSetLayouts = &state->shaders[shader_idx].descriptor_set_layout;
+
+          pipelineLayoutCreateInfo.pushConstantRangeCount = options->push_constants_count;
+          pipelineLayoutCreateInfo.pPushConstantRanges = pushConstantRanges;
+
+
           err = vkCreatePipelineLayout(
             device,
             &pipelineLayoutCreateInfo,
-            nullptr,
+            NULL,
             &state->shaders[shader_idx].pipeline_layout
           );
 
@@ -451,6 +637,8 @@ void fill_rect(const char *path, uint32_t width, uint32_t height) {
             printf("ERROR: unable to create pipeline layout\n");
             return;
           }
+
+          free(pushConstantRanges);
 
           VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo = {};
           pipelineShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -468,7 +656,7 @@ void fill_rect(const char *path, uint32_t width, uint32_t height) {
             pipeline_cache,
             1,
             &computePipelineCreateInfo,
-            nullptr,
+            NULL,
             &state->shaders[shader_idx].pipeline
           );
 
@@ -495,47 +683,6 @@ void fill_rect(const char *path, uint32_t width, uint32_t height) {
               return;
             }
           }
-
-          // record new command buffer
-          {
-            VkCommandBufferBeginInfo info = {};
-            info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            err = vkBeginCommandBuffer(
-              state->shaders[shader_idx].command_buffer,
-              &info
-            );
-
-            if (err != VK_SUCCESS) {
-              printf("ERROR: could not begin command buffer");
-              return;
-            }
-
-            vkCmdBindPipeline(
-              state->shaders[shader_idx].command_buffer,
-              VK_PIPELINE_BIND_POINT_COMPUTE,
-              state->shaders[shader_idx].pipeline
-            );
-
-            vkCmdBindDescriptorSets(
-              state->shaders[shader_idx].command_buffer,
-              VK_PIPELINE_BIND_POINT_COMPUTE,
-              state->shaders[shader_idx].pipeline_layout,
-              0,
-              1,
-              &state->shaders[shader_idx].descriptor_set,
-              0,
-              0
-            );
-
-            vkCmdDispatch(
-              state->shaders[shader_idx].command_buffer,
-              width,
-              height,
-              1
-            );
-
-            vkEndCommandBuffer(state->shaders[shader_idx].command_buffer);
-          }
         }
       }
     }
@@ -547,43 +694,81 @@ void fill_rect(const char *path, uint32_t width, uint32_t height) {
         return;
       }
 
-      VkCommandBufferBeginInfo info = {};
-      info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-      err = vkBeginCommandBuffer(
-        command_buffer,
-        &info
-      );
 
-      if (err != VK_SUCCESS) {
-        printf("ERROR: could not begin command buffer");
-        return;
+      // record new command buffer
+      {
+        VkCommandBufferBeginInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        err = vkBeginCommandBuffer(
+          command_buffer,
+          &info
+        );
+
+        if (err != VK_SUCCESS) {
+          printf("ERROR: could not begin command buffer");
+          return;
+        }
+
+        VkImageSubresourceRange imageSubresourceRange;
+        imageSubresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        imageSubresourceRange.baseMipLevel   = 0;
+        imageSubresourceRange.levelCount     = 1;
+        imageSubresourceRange.baseArrayLayer = 0;
+        imageSubresourceRange.layerCount     = 1;
+
+        VkClearColorValue clearColorValue = { 0.0, 0.0, 0.0, 0.0 };
+        vkCmdClearColorImage(
+          command_buffer,
+          state->textures[idx].image,
+          VK_IMAGE_LAYOUT_GENERAL,
+          &clearColorValue,
+          1,
+          &imageSubresourceRange
+        );
+
+        vkCmdBindPipeline(
+          state->shaders[idx].command_buffer,
+          VK_PIPELINE_BIND_POINT_COMPUTE,
+          state->shaders[idx].pipeline
+        );
+
+        uint32_t offset = 0;
+        for (uint32_t i = 0; i<options->push_constants_count; i++) {
+          shader_param_value_t val = shader_param_value(&options->push_constants[i]);
+          vkCmdPushConstants(
+            state->shaders[idx].command_buffer,
+            state->shaders[idx].pipeline_layout,
+            VK_SHADER_STAGE_COMPUTE_BIT,
+            // TODO: compute the offset from SPIRV-Cross reflection data
+            offset,
+            val.len,
+            val.buf
+          );
+
+          // printf("push constant: %s = %f\n", options->push_constants[i].name, *(float*)&options->push_constants[i].value);
+          offset += val.len;
+        }
+
+        vkCmdBindDescriptorSets(
+          state->shaders[idx].command_buffer,
+          VK_PIPELINE_BIND_POINT_COMPUTE,
+          state->shaders[idx].pipeline_layout,
+          0,
+          1,
+          &state->shaders[idx].descriptor_set,
+          0,
+          0
+        );
+
+        vkCmdDispatch(
+          state->shaders[idx].command_buffer,
+          width,// / 16,
+          height,//t / 16,
+          1
+        );
+
+        vkEndCommandBuffer(state->shaders[idx].command_buffer);
       }
-
-      vkCmdBindPipeline(
-        command_buffer,
-        VK_PIPELINE_BIND_POINT_COMPUTE,
-        state->shaders[idx].pipeline
-      );
-
-      vkCmdBindDescriptorSets(
-        command_buffer,
-        VK_PIPELINE_BIND_POINT_COMPUTE,
-        state->shaders[idx].pipeline_layout,
-        0,
-        1,
-        &state->shaders[idx].descriptor_set,
-        0,
-        0
-      );
-
-      vkCmdDispatch(
-        command_buffer,
-        width,// / 16,
-        height,// / 16,
-        1
-      );
-
-      vkEndCommandBuffer(command_buffer);
 
       // Submit compute commands
       VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
@@ -604,20 +789,20 @@ void fill_rect(const char *path, uint32_t width, uint32_t height) {
         printf("ERROR: unable to submit compute shader\n");
         return;
       }
+
+      // render the actual image
+      texture_t *current_texture = &state->textures[rawkit_window_frame_index()];
+
+      igImage(
+        current_texture->imgui_texture,
+        (ImVec2){ (float)display_width, (float)display_height},
+        (ImVec2){ 0.0f, 0.0f }, // uv0
+        (ImVec2){ 1.0f, 1.0f }, // uv1
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+      );
     }
   }
-
-  // render the actual image
-  texture_t *current_texture = &state->textures[rawkit_window_frame_index()];
-
-  igImage(
-    current_texture->imgui_texture,
-    { (float)state->width, (float)state->height},
-    { 0.0f, 0.0f }, // uv0
-    { 1.0f, 1.0f }, // uv1
-    {1.0f, 1.0f, 1.0f, 1.0f}, // tint color
-    {1.0f, 1.0f, 1.0f, 1.0f} // border color
-  );
 }
 
 
@@ -626,8 +811,40 @@ void setup() {
 }
 
 void loop() {
-  // shader_rect_t *rect = shader_rect("basic.frag", "basic.vert");
-  fill_rect("basic.comp", 400, 400);
+  {
+    fill_rect_options_t options = {0};
+    options.render_width = 400;
+    options.render_height = 400;
 
-   //printf("frame %u\n", rawkit_window_frame_index());
+    shader_push_constants(options,
+      shader_f32("time", (float)rawkit_now())
+    );
+
+    // Note: this is also a viable construction
+    // options.push_constants_count = 1;
+    // options.push_constants = (shader_param_t[]){
+    //   {
+    //     .name = "time",
+    //     .type = SHADER_PARAM_F32,
+    //     .f32 = (float)rawkit_now()
+    //   },
+    // };
+
+    fill_rect("basic.comp", &options);
+  }
+
+  {
+    fill_rect_options_t options = {0};
+    options.render_width = 400;
+    options.render_height = 400;
+    options.display_width = 400;
+    options.display_height = 400;
+
+    shader_push_constants(options,
+      shader_f32("time", (float)rawkit_now()),
+      shader_f32("tx", 0.0f)
+    );
+
+    fill_rect("triangle.comp", &options);
+  }
 }

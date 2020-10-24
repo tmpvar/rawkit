@@ -177,8 +177,6 @@ target_link_libraries(
   rawkit::gpu
 
   glfw
-  # grab this from the vulkan sdk
-  # shaderc
   serial
 )
 
