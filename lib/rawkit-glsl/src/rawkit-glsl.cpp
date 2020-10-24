@@ -124,7 +124,7 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawk
     includer
   );
 
-  // printf("Debug log for %s\n%s\n", name, shader.getInfoDebugLog());
+  printf("Debug log for %s\n%s\n", name, shader.getInfoDebugLog());
 
   if (!r) {
     printf("glslang: failed to parse shader %s\nLOG: %s",
@@ -160,14 +160,20 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawk
   options.optimizeSize = false;
   options.validate = true;
 
+
   // Note the call to GlslangToSpv also populates compilation_output_data.
   std::vector<uint32_t> spirv;
   glslang::GlslangToSpv(
     *program.getIntermediate(stage),
     spirv,
-    &options);
+    &options
+  );
 
   // spv::Disassemble(std::cout, spirv);
+  ret->len = spirv.size();
+  ret->bytes = ret->len * sizeof(uint32_t);
+  ret->data = (uint32_t *)malloc(ret->bytes);
+  memcpy(ret->data, spirv.data(), ret->bytes);
 
   ret->valid = true;
   return ret;

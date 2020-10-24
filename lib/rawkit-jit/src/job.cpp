@@ -4,8 +4,6 @@
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
 
-#include <vector>
-
 using namespace clang;
 using namespace clang::driver;
 using namespace llvm::opt;
@@ -184,6 +182,13 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
   Args.push_back(job->system_include.c_str());
 
+  #if defined(_WIN32)
+    if (true || IsDebuggerPresent()) {
+      // TODO: this assumes cwd is in the build directory
+      Args.push_back("-Iinstall/include");
+    }
+  #endif
+
   /* TODO: only use these when debugging.. maybe
   Args.push_back("-I../deps/");
   Args.push_back("-I../deps/cimgui");
@@ -247,6 +252,8 @@ bool JitJob::rebuild() {
   if (!this->dirty) {
     return false;
   }
+
+  Profiler timeit("JitJob::rebuild");
 
   this->dirty = false;
   std::unique_ptr<CompilerInvocation> invocation(new CompilerInvocation);

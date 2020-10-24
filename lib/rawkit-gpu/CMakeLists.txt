@@ -54,9 +54,9 @@ install(EXPORT ${PROJECT_NAME}Targets
   DESTINATION lib/cmake/rawkit
 )
 
-# Testing
-if (RAWKIT_GPU_BUILD_TESTS)
-  include(CTest)
-  enable_testing()
-  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/test)
-endif()
+# # Testing
+# if (RAWKIT_GPU_BUILD_TESTS)
+#   include(CTest)
+#   enable_testing()
+#   add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/test)
+# endif()

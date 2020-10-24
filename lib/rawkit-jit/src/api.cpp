@@ -84,4 +84,3 @@ void rawkit_jit_call_loop(rawkit_jit_t *jit) {
 
   jit->job->loop();
 }
-

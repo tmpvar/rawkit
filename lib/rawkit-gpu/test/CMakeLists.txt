@@ -1,4 +1,4 @@
-add_executable(rawkit-hot-test
+add_executable(rawkit-gpu-test
   ${CMAKE_CURRENT_LIST_DIR}/rawkit-gpu-test.cpp
   ${CMAKE_CURRENT_LIST_DIR}/test.cpp
 )

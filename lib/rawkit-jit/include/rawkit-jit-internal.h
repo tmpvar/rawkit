@@ -43,6 +43,9 @@
 
 #include <stdio.h>
 #include <iostream>
+#include <chrono>
+#include <vector>
+#include <string>
 using namespace std;
 
 namespace llvm {
@@ -51,6 +54,30 @@ namespace llvm {
   } // end namespace orc
 } // end namespace llvm
 
+
+struct Profiler {
+  std::chrono::time_point<std::chrono::high_resolution_clock> start;
+  bool ended = false;
+  std::string name;
+  Profiler(std::string name) {
+    this->start = std::chrono::high_resolution_clock::now();
+    this->name = name;
+  }
+  ~Profiler() {
+    this->end();
+  }
+
+  void end() {
+    if (this->ended) {
+      return;
+    }
+
+    this->ended = true;
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> diff = end - this->start;
+    std::cout << name << ": " << diff.count() << std::endl;
+  }
+};
 
 typedef int(*rawkit_jit_guest_fn)(...);
 

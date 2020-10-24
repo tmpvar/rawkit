@@ -27,6 +27,7 @@ class IncludeCollector : public DependencyFileGenerator {
 };
 
 Runnable *Runnable::compile(std::unique_ptr<CompilerInvocation> invocation, const llvm::orc::JITSymbolBag &symbols) {
+  Profiler compile_timer("Runnable::compile");
   if (!invocation) {
     printf("failed to create compiler invocation\n");
     return nullptr;
@@ -61,13 +62,14 @@ Runnable *Runnable::compile(std::unique_ptr<CompilerInvocation> invocation, cons
     includes
   ));
 
-
+  Profiler emit_timer("EmitLLVMOnlyAction");
   // Create and execute the frontend to generate an LLVM bitcode module.
   auto action = new EmitLLVMOnlyAction();
   if (!compiler_instance.ExecuteAction(*action)) {
     printf("failed to execute action\n");
     return nullptr;
   }
+  emit_timer.end();
 
   Runnable *run = Runnable::create(action, symbols);
   run->includes = includes;
@@ -167,6 +169,7 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
 
   run->jit.reset(std::move(jit_result.get().release()));
 
+  Profiler symbol_timer("Runnable : export symbols");
   for (auto &it : symbols) {
     std::string mangled_name;
     llvm::raw_string_ostream mangled_name_stream(mangled_name);
@@ -190,6 +193,7 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
       consumeError(std::move(err));
     }
   }
+  symbol_timer.end();
 
   if (!mod_ptr) {
     return nullptr;
@@ -198,6 +202,7 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
   string mangledSetup = "";
   string mangledLoop = "";
 
+  Profiler setup_main_timer("Runnable : search for setup/main");
   for (auto& f : *mod_ptr) {
 
     string mangled = f.getName().str();
@@ -310,6 +315,7 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
       return nullptr;
     }
   }
+  setup_main_timer.end();
 
   if (run->jit->runConstructors()) {
     printf("ERROR: could not run constructors\n");

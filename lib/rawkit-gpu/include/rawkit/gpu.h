@@ -9,6 +9,15 @@
 #endif
 
 
+typedef struct rawkit_gpu_pipeline_t {
+
+} rawkit_gpu_pipeline_t;
+
+rawkit_gpu_pipeline_t *rawkit_gpu_pipeline(
+  const char *name
+);
+
+
 #ifdef __cplusplus
   }
 #endif

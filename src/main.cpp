@@ -95,10 +95,20 @@ static void SetupVulkan(const char** extensions, uint32_t extensions_count)
 
     // Create Vulkan Instance
     {
+        VkApplicationInfo app = {};
+        app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        app.pNext = NULL;
+        app.pApplicationName = "rawkit";
+        app.applicationVersion = 0;
+        app.pEngineName = "rawkit";
+        app.engineVersion = 0;
+        app.apiVersion = VK_API_VERSION_1_2;
+
         VkInstanceCreateInfo create_info = {};
         create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         create_info.enabledExtensionCount = extensions_count;
         create_info.ppEnabledExtensionNames = extensions;
+        create_info.pApplicationInfo = &app;
 
 #ifdef IMGUI_VULKAN_DEBUG_REPORT
         // Enabling multiple validation layers grouped as LunarG standard validation
@@ -374,21 +384,25 @@ VkDevice rawkit_vulkan_device() {
 }
 
 VkPhysicalDevice rawkit_vulkan_physical_device() {
-    return g_PhysicalDevice;
+  return g_PhysicalDevice;
 }
 
 VkCommandBuffer rawkit_vulkan_command_buffer() {
-    ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
-    return wd->Frames[wd->FrameIndex].CommandBuffer;
+  ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+  return wd->Frames[wd->FrameIndex].CommandBuffer;
 }
 
 VkCommandPool rawkit_vulkan_command_pool() {
-    ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
-    return wd->Frames[wd->FrameIndex].CommandPool;
+  ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+  return wd->Frames[wd->FrameIndex].CommandPool;
+}
+
+VkDescriptorPool rawkit_vulkan_descriptor_pool() {
+  return g_DescriptorPool;
 }
 
 ImTextureID rawkit_imgui_add_texture(VkSampler sampler, VkImageView image_view, VkImageLayout image_layout) {
-    return ImGui_ImplVulkan_AddTexture(sampler, image_view, image_layout);
+  return ImGui_ImplVulkan_AddTexture(sampler, image_view, image_layout);
 }
 
 VkQueue rawkit_vulkan_queue() {
@@ -435,6 +449,26 @@ const rawkit_image rawkit_load_image_relative_to_file(const char *from_file, con
   return ret;
 }
 
+uint32_t rawkit_window_frame_index() {
+  return g_MainWindowData.FrameIndex;
+}
+
+uint32_t rawkit_window_frame_count() {
+  return g_MainWindowData.ImageCount;
+}
+
+VkPipelineCache rawkit_vulkan_pipeline_cache() {
+  return g_PipelineCache;
+}
+
+VkRenderPass rawkit_vulkan_renderpass() {
+  return g_MainWindowData.RenderPass;
+}
+
+uint32_t rawkit_vulkan_queue_family() {
+  return g_QueueFamily;
+}
+
 int main(int argc, const char **argv) {
 
     rawkit_jit_t *jit = rawkit_jit_create(argv[1]);
@@ -444,25 +478,32 @@ int main(int argc, const char **argv) {
 
     #if defined(_WIN32)
       // add guest support for dirent.h
-      rawkit_jit_add_export(jit, "FindClose", (void *)&FindClose);
-      rawkit_jit_add_export(jit, "FindFirstFileExW", (void *)&FindFirstFileExW);
-      rawkit_jit_add_export(jit, "FindNextFileW", (void *)&FindNextFileW);
-      rawkit_jit_add_export(jit, "GetFullPathNameW", (void *)&GetFullPathNameW);
-      rawkit_jit_add_export(jit, "GetLastError", (void *)&GetLastError);
-      rawkit_jit_add_export(jit, "_set_errno", (void *)&_set_errno);
-      rawkit_jit_add_export(jit, "setlocale", (void *)&setlocale);
-      rawkit_jit_add_export(jit, "_errno", (void *)&_errno);
+      rawkit_jit_add_export(jit, "FindClose", FindClose);
+      rawkit_jit_add_export(jit, "FindFirstFileExW", FindFirstFileExW);
+      rawkit_jit_add_export(jit, "FindNextFileW", FindNextFileW);
+      rawkit_jit_add_export(jit, "GetFullPathNameW", GetFullPathNameW);
+      rawkit_jit_add_export(jit, "GetLastError", GetLastError);
+      rawkit_jit_add_export(jit, "_set_errno", _set_errno);
+      rawkit_jit_add_export(jit, "setlocale", setlocale);
+      rawkit_jit_add_export(jit, "_errno", _errno);
       rawkit_jit_add_export(jit, "_wassert", rawkit_wassert);
     #endif
 
-    rawkit_jit_add_export(jit, "rawkit_vulkan_device", (void *)&rawkit_vulkan_device);
-    rawkit_jit_add_export(jit, "rawkit_vulkan_physical_device", (void *)&rawkit_vulkan_physical_device);
-    rawkit_jit_add_export(jit, "rawkit_vulkan_command_buffer", (void *)&rawkit_vulkan_command_buffer);
-    rawkit_jit_add_export(jit, "rawkit_vulkan_command_pool", (void *)&rawkit_vulkan_command_pool);
-    rawkit_jit_add_export(jit, "rawkit_imgui_add_texture", (void *)&rawkit_imgui_add_texture);
-    rawkit_jit_add_export(jit, "rawkit_vulkan_queue", (void *)&rawkit_vulkan_queue);
-    rawkit_jit_add_export(jit, "rawkit_randf", (void *)&rawkit_randf);
-    rawkit_jit_add_export(jit, "rawkit_load_image_relative_to_file", (void *)&rawkit_load_image_relative_to_file);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_device", rawkit_vulkan_device);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_physical_device", rawkit_vulkan_physical_device);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_command_buffer", rawkit_vulkan_command_buffer);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_command_pool", rawkit_vulkan_command_pool);
+    rawkit_jit_add_export(jit, "rawkit_imgui_add_texture", rawkit_imgui_add_texture);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_queue", rawkit_vulkan_queue);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_pipeline_cache", rawkit_vulkan_pipeline_cache);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_renderpass", rawkit_vulkan_renderpass);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_descriptor_pool", rawkit_vulkan_descriptor_pool);
+    rawkit_jit_add_export(jit, "rawkit_vulkan_queue_family", rawkit_vulkan_queue_family);
+    rawkit_jit_add_export(jit, "rawkit_randf", rawkit_randf);
+    rawkit_jit_add_export(jit, "rawkit_load_image_relative_to_file", rawkit_load_image_relative_to_file);
+
+    rawkit_jit_add_export(jit, "rawkit_window_frame_index", rawkit_window_frame_index);
+    rawkit_jit_add_export(jit, "rawkit_window_frame_count", rawkit_window_frame_count);
 
     host_hot_init(jit);
 

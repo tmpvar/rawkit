@@ -19,6 +19,7 @@ void rawkit_glsl_paths_destroy(rawkit_glsl_paths_t *paths);
 typedef struct rawkit_glsl_t {
   uint32_t *data;
   uint64_t len;
+  uint64_t bytes;
   bool valid;
   rawkit_glsl_paths_t included_files;
 } rawkit_glsl_t;

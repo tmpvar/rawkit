@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <gb_string.h>
+#include <stdio.h>
 
 #ifndef va_copy
 #define va_copy(dest, src) dest = src
