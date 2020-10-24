@@ -19,6 +19,9 @@ endif()
 # DEP: glslang
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/deps/glslang)
 
+# DEP: SPIRV-Cross
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/deps/SPIRV-Cross)
+
 target_compile_options(${PROJECT_NAME} PRIVATE
   -DUNICODE
   -D_UNICODE
@@ -44,6 +47,8 @@ target_link_libraries(${PROJECT_NAME}
     glslang::glslang
     glslang::SPIRV
   PUBLIC
+    SPIRV::Cross
+
     pull::stream
 )
 
