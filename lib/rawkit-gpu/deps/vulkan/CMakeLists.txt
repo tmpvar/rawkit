@@ -1,38 +1,57 @@
 cmake_minimum_required(VERSION 3.14)
 project(rawkit-vulkan)
 
-if(APPLE)
-    set(MOLTENVK_PATH "$ENV{VULKAN_SDK}")
-    link_directories("${MOLTENVK_PATH}/lib")
-    set(VULKAN_LIBS
-        vulkan
-        "-framework IOSurface"
-        "-framework Metal"
-        "-framework QuartzCore"
-    )
-    set(RAWKIT_GUEST_VULKAN_INCLUDE_DIR ${MOLTENVK_PATH}/include)
-else()
-    find_package(Vulkan)
-    set(VULKAN_LIBS
-        ${Vulkan_LIBRARIES}
-    )
-    set(RAWKIT_GUEST_VULKAN_INCLUDE_DIR ${Vulkan_INCLUDE_DIRS})
-endif()
-
 if(NOT TARGET rawkit::vulkan)
   add_library(${PROJECT_NAME} INTERFACE)
   add_library(rawkit::vulkan ALIAS ${PROJECT_NAME})
 
-  target_link_libraries(${PROJECT_NAME}
-    INTERFACE
-      ${VULKAN_LIBS}
-  )
+  if(APPLE)
+      set(MOLTENVK_PATH "$ENV{VULKAN_SDK}")
+      target_link_directories(${PROJECT_NAME}
+        INTERFACE
+          ${MOLTENVK_PATH}/lib
+      )
 
-  target_include_directories(${PROJECT_NAME}
-    INTERFACE
-      $<BUILD_INTERFACE:${RAWKIT_GUEST_VULKAN_INCLUDE_DIR}>
-      $<INSTALL_INTERFACE:include>
-  )
+      target_link_libraries(${PROJECT_NAME}
+        INTERFACE
+          vulkan
+          "-framework IOSurface"
+          "-framework Metal"
+          "-framework QuartzCore"
+      )
+message(STATUS "molten include dirs: ${MOLTENVK_PATH}/include")
+      target_include_directories(${PROJECT_NAME}
+        INTERFACE
+          ${MOLTENVK_PATH}/include
+      )
+
+      install(
+        DIRECTORY
+          ${MOLTENVK_PATH}/include/vulkan
+        DESTINATION
+          include
+      )
+  else()
+      find_package(Vulkan)
+      target_link_libraries(${PROJECT_NAME}
+        INTERFACE
+          ${Vulkan_LIBRARIES}
+      )
+
+      target_include_directories(${PROJECT_NAME}
+        INTERFACE
+          $<BUILD_INTERFACE:${Vulkan_INCLUDE_DIRS}>
+          $<INSTALL_INTERFACE:include>
+      )
+
+      install(
+        DIRECTORY
+          ${Vulkan_INCLUDE_DIRS}/vulkan
+        DESTINATION
+          include
+      )
+  endif()
+
 
   install(TARGETS ${PROJECT_NAME}
     EXPORT ${PROJECT_NAME}Targets
@@ -44,13 +63,6 @@ if(NOT TARGET rawkit::vulkan)
     FILE ${PROJECT_NAME}Targets.cmake
     NAMESPACE rawkit::
     DESTINATION lib/cmake/rawkit
-  )
-
-  install(
-    DIRECTORY
-      ${RAWKIT_GUEST_VULKAN_INCLUDE_DIR}/vulkan
-    DESTINATION
-      include
   )
 
 endif()
