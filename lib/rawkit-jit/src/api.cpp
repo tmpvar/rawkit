@@ -5,6 +5,7 @@
 
 typedef struct rawkit_jit_t {
   JitJob *job;
+  uint64_t version;
 } rawkit_jit_t;
 
 rawkit_jit_t *rawkit_jit_create(const char *file) {
@@ -66,7 +67,9 @@ bool rawkit_jit_tick(rawkit_jit_t *jit) {
     return false;
   }
 
-  return jit->job->rebuild();
+  bool res = jit->job->rebuild();
+  jit->version++;
+  return res;
 }
 
 void rawkit_jit_call_setup(rawkit_jit_t *jit) {
@@ -83,4 +86,12 @@ void rawkit_jit_call_loop(rawkit_jit_t *jit) {
   }
 
   jit->job->loop();
+}
+
+uint64_t rawkit_jit_version(const rawkit_jit_t *jit) {
+  if (!jit) {
+    return 0;
+  }
+
+  return jit->version;
 }

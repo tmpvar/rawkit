@@ -19,8 +19,10 @@ TEST_CASE("[rawkit/jit/api] noop") {
   rawkit_jit_t *jit = rawkit_jit_create(fixturePath("noop.c"));
   REQUIRE(jit != nullptr);
 
+  CHECK(rawkit_jit_version(jit) == 0);
   CHECK(rawkit_jit_tick(jit) == true);
   CHECK(rawkit_jit_get_status(jit) == RAWKIT_JIT_STATUS_OK);
+  CHECK(rawkit_jit_version(jit) == 1);
 
   rawkit_jit_destroy(jit);
   REQUIRE(jit == nullptr);

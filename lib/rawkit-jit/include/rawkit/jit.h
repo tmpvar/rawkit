@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdbool.h>
+#include <stdint.h>
 
 typedef struct rawkit_jit_t rawkit_jit_t;
 
@@ -25,6 +27,8 @@ bool rawkit_jit_tick(rawkit_jit_t *jit);
 
 void rawkit_jit_call_setup(rawkit_jit_t *jit);
 void rawkit_jit_call_loop(rawkit_jit_t *jit);
+
+uint64_t rawkit_jit_version(const rawkit_jit_t *jit);
 
 #ifdef __cplusplus
 }
