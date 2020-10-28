@@ -34,6 +34,22 @@ bool rawkit_glsl_valid(const rawkit_glsl_t *ref) {
   return ref && ref->valid;
 }
 
+const uint32_t *rawkit_glsl_spirv_data(const rawkit_glsl_t *ref) {
+  if (!ref) {
+    return NULL;
+  }
+
+  return ref->data;
+}
+
+const uint64_t rawkit_glsl_spirv_byte_len(const rawkit_glsl_t *ref) {
+  if (!ref) {
+    return NULL;
+  }
+
+  return ref->bytes;
+}
+
 const uint32_t *rawkit_glsl_workgroup_size(const rawkit_glsl_t *ref) {
   if (!ref) {
     return NULL;
