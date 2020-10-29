@@ -63,9 +63,10 @@ const uint32_t *rawkit_glsl_workgroup_size(const rawkit_glsl_t *ref) {
   return ref->workgroup_size;
 }
 
-const uint32_t rawkit_glsl_reflection_descriptor_set_count(const rawkit_glsl_t* ref) {
+const uint32_t rawkit_glsl_reflection_descriptor_set_max(const rawkit_glsl_t* ref) {
   if (!ref || !ref->bindings_per_set) {
-    return NULL;
+    printf("rawkit_glsl_reflection_descriptor_set_max: null ref\n");
+    return 0;
   }
 
   return static_cast<uint32_t>(ref->bindings_per_set->size());
@@ -151,6 +152,7 @@ static void rawkit_glsl_reflection_add_entry(rawkit_glsl_t* glsl, string name, r
   // descriptor set. This allows us to cleanly separate rawkit-glsl
   // from rawkit-shader and rawkit-gpu.
   {
+    printf("add_entry: %s set: %i, binding: %i\n", name.c_str(), entry.set, entry.binding);
     // skip entries that do not have a valid descriptor set number
     if (entry.set < 0 || entry.binding < 0) {
       return;
@@ -160,11 +162,13 @@ static void rawkit_glsl_reflection_add_entry(rawkit_glsl_t* glsl, string name, r
     auto it = glsl->bindings_per_set->find(set);
 
     if (it == glsl->bindings_per_set->end()) {
+      printf("starting an entry\n");
       glsl->bindings_per_set->emplace(set, 1);
       return;
     }
 
     it->second++;
+    printf("add to an entry\n");
   }
 }
 

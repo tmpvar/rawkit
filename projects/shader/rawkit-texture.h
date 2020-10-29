@@ -143,7 +143,7 @@ void rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
         return;
       }
     }
-    printf("image created\n");
+
     // create the image view
     {
       VkImageViewCreateInfo info = {};
@@ -166,7 +166,6 @@ void rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
         return;
       }
     }
-    printf("image view created\n");
 
     // create the image sampler
     {

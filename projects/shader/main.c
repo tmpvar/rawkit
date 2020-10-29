@@ -130,7 +130,6 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
             &module
           );
 
-          rawkit_glsl_destroy(glsl);
           if (err == VK_SUCCESS) {
             if (state->shader_module != VK_NULL_HANDLE) {
               vkDestroyShaderModule(
@@ -170,6 +169,8 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
             );
           }
         }
+
+        rawkit_glsl_destroy(glsl);
       }
     }
 

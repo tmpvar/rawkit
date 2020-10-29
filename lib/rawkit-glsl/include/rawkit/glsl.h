@@ -124,7 +124,7 @@ const uint64_t rawkit_glsl_spirv_byte_len(const rawkit_glsl_t *ref);
 const rawkit_glsl_reflection_entry_t rawkit_glsl_reflection_entry(const rawkit_glsl_t* ref, const char* name);
 
 const rawkit_glsl_reflection_vector_t rawkit_glsl_reflection_entries(const rawkit_glsl_t* ref);
-const uint32_t rawkit_glsl_reflection_descriptor_set_count(const rawkit_glsl_t* ref);
+const uint32_t rawkit_glsl_reflection_descriptor_set_max(const rawkit_glsl_t* ref);
 const uint32_t rawkit_glsl_reflection_binding_count_for_set(const rawkit_glsl_t* ref, uint32_t set);
 
 
