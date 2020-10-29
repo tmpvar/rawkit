@@ -231,6 +231,9 @@ void rawkit_shader_init(
 
   VkPipelineCache pipeline_cache = rawkit_vulkan_pipeline_cache();
 
+  VkShaderStageFlags stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+  VkShaderStageFlags pipelineStage = VK_SHADER_STAGE_COMPUTE_BIT;
+
   // Create a command pool per shader pipeline.
   // TODO: there may be room here to share a pool, not sure what the best
   //       practice is.
@@ -253,6 +256,7 @@ void rawkit_shader_init(
   }
 
   const rawkit_glsl_reflection_vector_t reflection = rawkit_glsl_reflection_entries(glsl);
+  VkPushConstantRange *pushConstantRanges = NULL;
 
   // compute the descriptor set layouts on the fly
   {
@@ -260,6 +264,17 @@ void rawkit_shader_init(
 
     for (uint32_t entry_idx=0; entry_idx<reflection.len; entry_idx++) {
       const rawkit_glsl_reflection_entry_t *entry = &reflection.entries[entry_idx];
+
+      // compute push constant ranges
+      if (entry->entry_type == RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER) {
+        VkPushConstantRange range = {};
+        range.stageFlags = stageFlags;
+        range.offset = entry->offset;
+        range.size = entry->block_size;
+        sb_push(pushConstantRanges, range);
+        continue;
+      }
+
       if (entry->set < 0 || entry->binding < 0) {
         continue;
       }
@@ -278,7 +293,7 @@ void rawkit_shader_init(
         VkDescriptorSetLayoutBinding setLayoutBindings = {};
         setLayoutBindings.descriptorType = rawkit_glsl_reflection_entry_to_vulkan_descriptor_type(entry);
         // TODO: wire this up
-        setLayoutBindings.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        setLayoutBindings.stageFlags = stageFlags;
         setLayoutBindings.binding = entry->binding;
         setLayoutBindings.descriptorCount = 1;
         sb_push(dslci[entry->set].pBindings, setLayoutBindings);
@@ -289,10 +304,9 @@ void rawkit_shader_init(
     shader->descriptor_set_layout_count = sb_count(dslci);
     if (shader->descriptor_set_layout_count) {
       if (shader->descriptor_set_layouts) {
-          for (uint32_t i=0; i<shader->descriptor_set_layout_count; i++) {
-            if (shader->descriptor_set_layouts[i] != VK_NULL_HANDLE) {
-              vkDestroyDescriptorSetLayout(device, shader->descriptor_set_layouts[i], NULL);
-            }
+        for (uint32_t i=0; i<shader->descriptor_set_layout_count; i++) {
+          if (shader->descriptor_set_layouts[i] != VK_NULL_HANDLE) {
+            vkDestroyDescriptorSetLayout(device, shader->descriptor_set_layouts[i], NULL);
           }
         }
 
@@ -367,29 +381,14 @@ void rawkit_shader_init(
       0,
       NULL
     );
-  }
 
-  VkPushConstantRange *pushConstantRanges = NULL;
-  if (params->count) {
-    uint32_t push_constant_offset = 0;
-    pushConstantRanges = (VkPushConstantRange *)calloc(sizeof(VkPushConstantRange), 1);
-    for (uint32_t i = 0; i<params->count; i++) {
-      // TODO: this should come from SPIRV-cross reflection data
-      pushConstantRanges[i].offset = push_constant_offset;
-      pushConstantRanges[i].size = rawkit_shader_param_size(&params->entries[i]);
-      push_constant_offset += pushConstantRanges[i].size;
-    }
-  }
-
-  {
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutCreateInfo.setLayoutCount = shader->descriptor_set_layout_count;
     pipelineLayoutCreateInfo.pSetLayouts = shader->descriptor_set_layouts;
 
-    pipelineLayoutCreateInfo.pushConstantRangeCount = params->count;
+    pipelineLayoutCreateInfo.pushConstantRangeCount = sb_count(pushConstantRanges);
     pipelineLayoutCreateInfo.pPushConstantRanges = pushConstantRanges;
-
 
     err = vkCreatePipelineLayout(
       device,
@@ -403,11 +402,11 @@ void rawkit_shader_init(
       return;
     }
 
-    free(pushConstantRanges);
+    sb_free(pushConstantRanges);
 
     VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo = {};
     pipelineShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    pipelineShaderStageCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    pipelineShaderStageCreateInfo.stage = pipelineStage;
     pipelineShaderStageCreateInfo.module = shader->shader_module;
     pipelineShaderStageCreateInfo.pName = "main";
 

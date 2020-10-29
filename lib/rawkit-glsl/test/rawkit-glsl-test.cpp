@@ -426,3 +426,37 @@ TEST_CASE("[rawkit/glsl] reflection (frag)") {
     CHECK(entry.binding == 0);
   }
 }
+
+TEST_CASE("[rawkit/glsl] reflection push constant buffer size") {
+
+  rawkit_glsl_t* s = rawkit_glsl_compile(
+    "push_constant_buffer_size.comp",
+    "#version 450\n"
+    "layout(local_size_x = 4, local_size_y = 4) in;\n"
+    "layout (push_constant) uniform BockName1 {\n"
+    "  float var_float;\n"
+    "  int var_int;\n"
+    "} consts;\n"
+    "void main() {\n"
+    "}\n",
+    NULL
+  );
+
+  REQUIRE(s != nullptr);
+  CHECK(rawkit_glsl_valid(s));
+  const uint32_t* workgroup_size = rawkit_glsl_workgroup_size(s);
+  REQUIRE(workgroup_size != nullptr);
+  CHECK(workgroup_size[0] == 4);
+  CHECK(workgroup_size[1] == 4);
+  CHECK(workgroup_size[2] == 1);
+
+  {
+    auto entry = rawkit_glsl_reflection_entry(s, "var_float");
+    CHECK(entry.block_size == 4);
+  }
+
+  {
+    auto entry = rawkit_glsl_reflection_entry(s, "var_int");
+    CHECK(entry.block_size == 4);
+  }
+}

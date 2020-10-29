@@ -180,6 +180,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
 
     void populate_push_constants(rawkit_glsl_t *glsl) {
       spirv_cross::ShaderResources res = this->get_shader_resources();
+      // NOTE: there should only ever be one of these.
       for (auto& buffer : res.push_constant_buffers) {
         auto& type = this->get_type(buffer.type_id);
         auto& base_type = this->get_type(buffer.base_type_id);
@@ -187,6 +188,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         size_t size = type.member_types.size();
         for (uint32_t i = 0; i < size; ++i) {
           string name = this->get_member_name(buffer.base_type_id, i);
+          
           rawkit_glsl_reflection_entry_t entry = {};
           entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER;
           entry.location = -1;
@@ -194,7 +196,11 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
           entry.binding = -1;
           entry.readable = true;
           entry.writable = false;
-
+          entry.block_size = static_cast<uint32_t>(
+            this->get_declared_struct_member_size(base_type, i)
+          );
+          
+          //static_cast<uint32_t>(this->get_declared_struct_size(type));
           entry.offset = this->type_struct_member_offset(base_type, i);
           rawkit_glsl_reflection_add_entry(glsl, name, entry);
         }
