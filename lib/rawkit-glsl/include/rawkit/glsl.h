@@ -106,6 +106,10 @@ typedef struct rawkit_glsl_reflection_entry_t {
   rawkit_glsl_image_format image_format;
 } rawkit_glsl_reflection_entry_t;
 
+typedef struct rawkit_glsl_reflection_vector_t {
+  rawkit_glsl_reflection_entry_t *entries;
+  uint32_t len;
+} rawkit_glsl_reflection_vector_t;
 
 typedef struct rawkit_glsl_t rawkit_glsl_t;
 
@@ -118,7 +122,16 @@ const uint32_t *rawkit_glsl_spirv_data(const rawkit_glsl_t *ref);
 const uint64_t rawkit_glsl_spirv_byte_len(const rawkit_glsl_t *ref);
 
 const rawkit_glsl_reflection_entry_t rawkit_glsl_reflection_entry(const rawkit_glsl_t* ref, const char* name);
+
+const rawkit_glsl_reflection_vector_t rawkit_glsl_reflection_entries(const rawkit_glsl_t* ref);
+const uint32_t rawkit_glsl_reflection_descriptor_set_count(const rawkit_glsl_t* ref);
+const uint32_t rawkit_glsl_reflection_binding_count_for_set(const rawkit_glsl_t* ref, uint32_t set);
+
+
+
 ps_t *rawkit_glsl_compiler(const char *name, const rawkit_glsl_paths_t *includes);
+
+
 
 #ifdef __cplusplus
   }
