@@ -6,6 +6,8 @@
 #include <pull/stream.h>
 
 
+#include "stb_sb.h"
+
 typedef struct rawkit_shader_t {
   VkCommandBuffer command_buffer;
   VkPipelineLayout pipeline_layout;
@@ -159,6 +161,59 @@ rawkit_shader_param_value_t rawkit_shader_param_value(rawkit_shader_param_t *par
   return ret;
 }
 
+static VkDescriptorType rawkit_glsl_reflection_entry_to_vulkan_descriptor_type(const rawkit_glsl_reflection_entry_t *entry) {
+  rawkit_glsl_reflection_entry_type type = entry->entry_type;
+
+  switch (type) {
+    case RAWKIT_GLSL_REFLECTION_ENTRY_SUBPASS_INPUT: return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+    case RAWKIT_GLSL_REFLECTION_ENTRY_STAGE_INPUT: return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+    case RAWKIT_GLSL_REFLECTION_ENTRY_SAMPLED_IMAGE: return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    case RAWKIT_GLSL_REFLECTION_ENTRY_SEPARATE_IMAGE: {
+      if (entry->dims == RAWKIT_GLSL_DIMS_BUFFER) {
+       return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+      }
+
+      return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    }
+
+    case RAWKIT_GLSL_REFLECTION_ENTRY_SEPARATE_SAMPLER: return VK_DESCRIPTOR_TYPE_SAMPLER;
+    case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE: {
+      if (entry->dims == RAWKIT_GLSL_DIMS_BUFFER) {
+        return VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+      }
+
+      return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    }
+
+    // or VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC
+    //   A dynamic storage buffer (VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC) is almost identical to a storage buffer,
+    //   and differs only in how the offset into the buffer is specified. The base offset calculated by the
+    //   VkDescriptorBufferInfo when initially updating the descriptor set is added to a dynamic offset when binding
+    //   the descriptor set.
+    case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_BUFFER: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+    // or VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
+    //   A dynamic uniform buffer (VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) is almost identical to a uniform buffer,
+    //   and differs only in how the offset into the buffer is specified. The base offset calculated by the
+    //   VkDescriptorBufferInfo when initially updating the descriptor set is added to a dynamic offset when binding
+    //   the descriptor set.
+    case RAWKIT_GLSL_REFLECTION_ENTRY_UNIFORM_BUFFER: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    case RAWKIT_GLSL_REFLECTION_ENTRY_ACCELERATION_STRUCTURE: return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    default:
+     return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+  }
+}
+
+// this is a redefinition of VkDescriptorSetLayoutCreateInfo so we can
+// dynamically grow VkDescriptorSetLayoutBinding while processing reflection data.
+typedef struct rawkit_descriptor_set_layout_create_info_t {
+    VkStructureType                        sType;
+    const void*                            pNext;
+    VkDescriptorSetLayoutCreateFlags       flags;
+    uint32_t                               bindingCount;
+    VkDescriptorSetLayoutBinding*    pBindings;
+} rawkit_descriptor_set_layout_create_info_t;
+
 // TODO: output should come thorugh as a param
 void rawkit_shader_init(
   rawkit_glsl_t *glsl,
@@ -197,138 +252,121 @@ void rawkit_shader_init(
     }
   }
 
-  if (shader->descriptor_set_layouts) {
-    for (uint32_t i=0; i<shader->descriptor_set_layout_count; i++) {
-      if (shader->descriptor_set_layouts[i] != VK_NULL_HANDLE) {
-        vkDestroyDescriptorSetLayout(device, shader->descriptor_set_layouts[i], NULL);
-      }
-    }
-
-    free(shader->descriptor_set_layouts);
-    shader->descriptor_set_layout_count = 0;
-  }
-
-
   const rawkit_glsl_reflection_vector_t reflection = rawkit_glsl_reflection_entries(glsl);
 
-  uint32_t *descriptor_set_bindings_max = NULL;
+  // compute the descriptor set layouts on the fly
+  {
+    rawkit_descriptor_set_layout_create_info_t *dslci = NULL;
 
-  uint32_t descriptor_set_len = 0;
-  if (reflection.len) {
-    int32_t descriptor_set_max = -1;
-    for (uint32_t i=0; i<reflection.len; i++) {
-      const rawkit_glsl_reflection_entry_t *entry = &reflection.entries[i];
+    for (uint32_t entry_idx=0; entry_idx<reflection.len; entry_idx++) {
+      const rawkit_glsl_reflection_entry_t *entry = &reflection.entries[entry_idx];
+      if (entry->set < 0 || entry->binding < 0) {
+        continue;
+      }
 
-      if (entry->set > descriptor_set_max) {
-        descriptor_set_max = entry->set;
+      // allow descriptor set layouts to be sparse
+      while (!dslci || entry->set >= sb_count(dslci)) {
+        rawkit_descriptor_set_layout_create_info_t info = {};
+        info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        info.pBindings = NULL;
+        info.bindingCount = 0;
+        sb_push(dslci, info);
+      }
 
+      // add the binding for this entry
+      {
+        VkDescriptorSetLayoutBinding setLayoutBindings = {};
+        setLayoutBindings.descriptorType = rawkit_glsl_reflection_entry_to_vulkan_descriptor_type(entry);
+        // TODO: wire this up
+        setLayoutBindings.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        setLayoutBindings.binding = entry->binding;
+        setLayoutBindings.descriptorCount = 1;
+        sb_push(dslci[entry->set].pBindings, setLayoutBindings);
+        dslci[entry->set].bindingCount = sb_count(dslci[entry->set].pBindings);
       }
     }
-    descriptor_set_len = (uint32_t)(max(descriptor_set_max + 1, 0));
-  }
 
+    shader->descriptor_set_layout_count = sb_count(dslci);
+    if (shader->descriptor_set_layout_count) {
+      if (shader->descriptor_set_layouts) {
+          for (uint32_t i=0; i<shader->descriptor_set_layout_count; i++) {
+            if (shader->descriptor_set_layouts[i] != VK_NULL_HANDLE) {
+              vkDestroyDescriptorSetLayout(device, shader->descriptor_set_layouts[i], NULL);
+            }
+          }
+        }
 
-  // TODO: we need the max value set here and we'll alloc a sparse array
-  //       and only fill the bits that we need.
+        free(shader->descriptor_set_layouts);
+        shader->descriptor_set_layouts = NULL;
+      }
 
-  if (descriptor_set_len > 0) {
-    // Descriptor set layout
-    {
-      shader->descriptor_set_layouts = (VkDescriptorSetLayout *)calloc(
-        sizeof(VkDescriptorSetLayout) * descriptor_set_len,
-        1
+      shader->descriptor_set_layouts = (VkDescriptorSetLayout *)malloc(
+        sizeof(VkDescriptorSetLayout) * shader->descriptor_set_layout_count
       );
 
       if (!shader->descriptor_set_layouts) {
-        printf("Unable to allocate descriptor_set_layouts\n");
+        printf("ERROR: could not allocate descriptor set layouts\n");
         return;
       }
 
-      shader->descriptor_set_layout_count = descriptor_set_len;
-
-
-      // TODO: handle sparse sets
-      for (uint32_t i=0; i<descriptor_set_len; i++) {
-        uint32_t bindings_per_set = rawkit_glsl_reflection_binding_count_for_set(glsl, i);
-        VkDescriptorSetLayoutBinding *setLayoutBindings = ( VkDescriptorSetLayoutBinding *)calloc(
-          bindings_per_set * sizeof(VkDescriptorSetLayoutBinding),
-          1
-        );
-
-        printf("bindings per setllllll: %u\n", bindings_per_set);
-        if (bindings_per_set) {
-          // VkDescriptorSetLayoutBinding setLayoutBindings = {};
-          setLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-          setLayoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-          setLayoutBindings[0].binding = 0;
-          setLayoutBindings[0].descriptorCount = 1;
-
-          // setLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-          // setLayoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-          // setLayoutBindings[1].binding = 1;
-          // setLayoutBindings[1].descriptorCount = 1;
-        }
-
-        VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
-        descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        descriptorSetLayoutCreateInfo.pBindings = setLayoutBindings;
-        descriptorSetLayoutCreateInfo.bindingCount = bindings_per_set;
-
+      for (uint32_t dslci_idx=0; dslci_idx<shader->descriptor_set_layout_count; dslci_idx++) {
         err = vkCreateDescriptorSetLayout(
           device,
-          &descriptorSetLayoutCreateInfo,
+          (VkDescriptorSetLayoutCreateInfo *)&dslci[dslci_idx],
           NULL,
-          &shader->descriptor_set_layouts[i]
+          &shader->descriptor_set_layouts[dslci_idx]
         );
 
-        free(setLayoutBindings);
+        if (err != VK_SUCCESS) {
+          printf("ERROR: could not create descriptor layout [%u]\n", dslci_idx);
+          return;
+        }
+
+        sb_free(dslci[dslci_idx].pBindings);
       }
 
-      if (err != VK_SUCCESS) {
-        printf("ERROR: could note create descriptor set layout\n");
-        return;
-      }
+      sb_free(dslci);
+    }
+  }
+
+  // Descriptor sets from params
+  {
+    VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {};
+    descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descriptorSetAllocateInfo.descriptorPool = rawkit_vulkan_descriptor_pool();
+    descriptorSetAllocateInfo.pSetLayouts = shader->descriptor_set_layouts;
+    descriptorSetAllocateInfo.descriptorSetCount = shader->descriptor_set_layout_count;
+
+    err = vkAllocateDescriptorSets(
+      device,
+      &descriptorSetAllocateInfo,
+      &shader->descriptor_set
+    );
+
+    if (err != VK_SUCCESS) {
+      printf("ERROR: unable to allocate descriptor sets\n");
+      return;
     }
 
-    // Descriptor sets
-    {
-      VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {};
-      descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-      descriptorSetAllocateInfo.descriptorPool = rawkit_vulkan_descriptor_pool();
-      descriptorSetAllocateInfo.pSetLayouts = shader->descriptor_set_layouts;
-      descriptorSetAllocateInfo.descriptorSetCount = shader->descriptor_set_layout_count;
+    VkDescriptorImageInfo imageInfo = {};
+    imageInfo.sampler = output->sampler;
+    imageInfo.imageView = output->image_view;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-      err = vkAllocateDescriptorSets(
-        device,
-        &descriptorSetAllocateInfo,
-        &shader->descriptor_set
-      );
-
-      if (err != VK_SUCCESS) {
-        printf("ERROR: unable to allocate descriptor sets\n");
-        return;
-      }
-
-      VkDescriptorImageInfo imageInfo = {};
-      imageInfo.sampler = output->sampler;
-      imageInfo.imageView = output->image_view;
-      imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-      VkWriteDescriptorSet writeDescriptorSet = {};
-      writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      writeDescriptorSet.dstSet = shader->descriptor_set;
-      writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-      writeDescriptorSet.dstBinding = 0;
-      writeDescriptorSet.pImageInfo = &imageInfo;
-      writeDescriptorSet.descriptorCount = 1;
-      vkUpdateDescriptorSets(
-        device,
-        1,
-        &writeDescriptorSet,
-        0,
-        NULL
-      );
-    }
+    VkWriteDescriptorSet writeDescriptorSet = {};
+    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet.dstSet = shader->descriptor_set;
+    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    writeDescriptorSet.dstBinding = 0;
+    writeDescriptorSet.pImageInfo = &imageInfo;
+    writeDescriptorSet.descriptorCount = 1;
+    vkUpdateDescriptorSets(
+      device,
+      1,
+      &writeDescriptorSet,
+      0,
+      NULL
+    );
   }
 
   VkPushConstantRange *pushConstantRanges = NULL;
