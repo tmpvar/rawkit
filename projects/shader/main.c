@@ -45,6 +45,7 @@ typedef struct fill_rect_state_t {
 
   VkShaderModule shader_module;
   rawkit_shader_t *shaders;
+  rawkit_glsl_t *glsl;
 } fill_rect_state_t;
 
 void fill_rect(const char *path, const fill_rect_options_t *options) {
@@ -140,11 +141,17 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
             }
             state->shader_module = module;
             rawkit_shader_changed = true;
+          } else {
+            rawkit_glsl_destroy(glsl);
           }
         }
 
         // recreate the pipeline if the shader changed
         if (rawkit_shader_changed) {
+          if (state->glsl) {
+            rawkit_glsl_destroy(state->glsl);
+          }
+          state->glsl = glsl;
           // vkQueueWaitIdle(queue);
 
           // allocate a shader per frame buffer
@@ -169,8 +176,6 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
             );
           }
         }
-
-        rawkit_glsl_destroy(glsl);
       }
     }
 
@@ -218,21 +223,23 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
           state->shaders[idx].pipeline
         );
 
-        uint32_t offset = 0;
         for (uint32_t i = 0; i<options->params.count; i++) {
           rawkit_shader_param_value_t val = rawkit_shader_param_value(&options->params.entries[i]);
-          vkCmdPushConstants(
-            state->shaders[idx].command_buffer,
-            state->shaders[idx].pipeline_layout,
-            VK_SHADER_STAGE_COMPUTE_BIT,
-            // TODO: compute the offset from SPIRV-Cross reflection data
-            offset,
-            val.len,
-            val.buf
+          rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(
+            state->glsl,
+            options->params.entries[i].name
           );
 
-          // printf("push constant: %s = %f\n", options->push_constants[i].name, *(float*)&options->push_constants[i].value);
-          offset += val.len;
+          if (entry.entry_type == RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER) {
+            vkCmdPushConstants(
+              state->shaders[idx].command_buffer,
+              state->shaders[idx].pipeline_layout,
+              VK_SHADER_STAGE_COMPUTE_BIT,
+              entry.offset,
+              val.len,
+              val.buf
+            );
+          }
         }
 
         vkCmdBindDescriptorSets(
@@ -246,10 +253,12 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
           0
         );
 
+        const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(state->glsl);
+
         vkCmdDispatch(
           state->shaders[idx].command_buffer,
-          width,// / 16,
-          height,//t / 16,
+          width / workgroup_size[0],
+          height / workgroup_size[1],
           1
         );
 
