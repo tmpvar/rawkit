@@ -43,7 +43,7 @@ float opDiff(float a, float b) {
 
 void main() {
   vec2 pos = gl_GlobalInvocationID.xy;
-  vec2 size = vec2(400, 400);
+ vec2 size = vec2(gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
   vec2 p = (2.0*pos-size.xy)/size.y;
 
   float d = opDiff(
@@ -67,6 +67,5 @@ void main() {
     rawkit_output_image,
     ivec2(gl_GlobalInvocationID.xy),
     vec4(col,1.0)
-    //vec4(0.0)
   );
 }

@@ -218,7 +218,6 @@ void rawkit_shader_init(
 
     shader->descriptor_set_layout_count = sb_count(dslci);
 
-    printf("shader->descriptor_set_layout_count = %i\n", shader->descriptor_set_layout_count);
     if (shader->descriptor_set_layout_count) {
       if (shader->descriptor_set_layouts) {
         for (uint32_t i=0; i<shader->descriptor_set_layout_count; i++) {
@@ -242,8 +241,6 @@ void rawkit_shader_init(
       }
 
       for (uint32_t dslci_idx=0; dslci_idx<shader->descriptor_set_layout_count; dslci_idx++) {
-        printf("dslci_idx = %u; binding_count = %u (%u)\n", dslci_idx, sb_count(dslci[dslci_idx].pBindings), dslci[dslci_idx].bindingCount);
-
         err = vkCreateDescriptorSetLayout(
           device,
           (VkDescriptorSetLayoutCreateInfo *)&dslci[dslci_idx],
@@ -376,13 +373,13 @@ void rawkit_shader_init(
       info.commandPool = shader->command_pool;
       info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
       info.commandBufferCount = 1;
-      printf("HERE\n");
+
       err = vkAllocateCommandBuffers(
         device,
         &info,
         &shader->command_buffer
       );
-      printf("AFTER\n");
+
       if (err != VK_SUCCESS) {
         printf("ERROR: failed to allocate command buffers\n");
         return;

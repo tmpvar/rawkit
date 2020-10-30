@@ -237,6 +237,10 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
 
       // record new command buffer
       {
+        // TODO: we need to wait for the previous use of this command buffer to be complete
+        //       don't use such a sledgehammer.
+        vkQueueWaitIdle(queue);
+
         VkCommandBufferBeginInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         err = vkBeginCommandBuffer(

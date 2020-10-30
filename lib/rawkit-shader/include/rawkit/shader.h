@@ -14,7 +14,6 @@ typedef struct rawkit_shader_t {
   VkDescriptorSet *descriptor_sets;
   uint32_t descriptor_set_count;
 
-  //VkWriteDescriptorSet write_descriptor_set;
   VkCommandPool command_pool;
   VkShaderModule shader_module;
   VkCommandBuffer command_buffer;
