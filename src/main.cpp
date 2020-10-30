@@ -48,7 +48,7 @@ namespace fs = ghc::filesystem;
 using namespace std;
 // #define IMGUI_UNLIMITED_FRAME_RATE
 #ifdef _DEBUG
-#define IMGUI_VULKAN_DEBUG_REPORT
+//#define IMGUI_VULKAN_DEBUG_REPORT
 #endif
 
 static VkAllocationCallbacks*   g_Allocator = NULL;

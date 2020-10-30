@@ -1,96 +1,10 @@
-#pragma once
+#include <stdlib.h>
 
-#include <vulkan/vulkan.h>
+#include <rawkit/vulkan.h>
+#include <rawkit/shader.h>
 #include <rawkit/texture.h>
 
-#include <pull/stream.h>
-
-
-#include "stb_sb.h"
-
-typedef struct rawkit_shader_t {
-  VkCommandBuffer command_buffer;
-  VkPipelineLayout pipeline_layout;
-  VkPipeline pipeline;
-  VkDescriptorSetLayout *descriptor_set_layouts;
-  uint32_t descriptor_set_layout_count;
-  VkDescriptorSet *descriptor_sets;
-  uint32_t descriptor_set_count;
-  VkCommandPool command_pool;
-  VkShaderModule shader_module;
-} rawkit_shader_t;
-
-static float push_constant_f32 = 1.0;
-// RAWKIT_SHADER_ARG_COUNT - count the number of VA_ARGS in both c and c++ mode
-#ifdef __cplusplus
-  #include <tuple>
-  #define RAWKIT_SHADER_ARG_COUNT(...) (std::tuple_size<decltype(std::make_tuple(__VA_ARGS__))>::value)
-#else
-  #define RAWKIT_SHADER_ARG_COUNT(...) ((int)(sizeof((rawkit_shader_param_t[]){ __VA_ARGS__ })/sizeof(rawkit_shader_param_t)))
-#endif
-
-#define rawkit_shader_push_constants(opts, ...) { \
-  opts.count = RAWKIT_SHADER_ARG_COUNT(__VA_ARGS__); \
-  opts.entries = (rawkit_shader_param_t[]){ \
-    __VA_ARGS__ \
-  }; \
-}
-
-typedef enum {
-  RAWKIT_SHADER_PARAM_F32,
-  RAWKIT_SHADER_PARAM_I32,
-  RAWKIT_SHADER_PARAM_U32,
-
-  RAWKIT_SHADER_PARAM_F64,
-  RAWKIT_SHADER_PARAM_I64,
-  RAWKIT_SHADER_PARAM_U64,
-
-  RAWKIT_SHADER_PARAM_PTR,
-  RAWKIT_SHADER_PARAM_TEXTURE_PTR,
-  RAWKIT_SHADER_PARAM_PULL_STREAM,
-} rawkit_shader_param_types_t;
-
-#define rawkit_shader_f32(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_F32, .f32 = _value, .bytes = 4, }
-#define rawkit_shader_i32(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_I32, .i32 = _value, .bytes = 4, }
-#define rawkit_shader_u32(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_U32, .u32 = _value, .bytes = 4, }
-
-#define rawkit_shader_f64(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_F64, .f64 = _value, .bytes = 8, }
-#define rawkit_shader_i64(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_I64, .i64 = _value, .bytes = 8, }
-#define rawkit_shader_u64(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_U64, .u64 = _value, .bytes = 8, }
-
-#define rawkit_shader_array(_name, _len, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_ARRAY, .ptr = _value, .bytes = _len * sizeof(*_value), }
-#define rawkit_shader_pull_stream(_name, _ps) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_PULL_STREAM, .ptr = _ps, .bytes = sizeof(_ps), }
-
-typedef struct rawkit_shader_param_t {
-  const char *name;
-  uint32_t type;
-  union {
-    uint64_t value;
-    float f32;
-    float i32;
-    float u32;
-    double f64;
-    double i64;
-    double u64;
-
-    rawkit_texture_t *texture;
-    void *ptr;
-    ps_t *pull_stream;
-
-  };
-  uint64_t bytes;
-} rawkit_shader_param_t;
-
-typedef struct rawkit_shader_param_value_t {
-  bool should_free;
-  void *buf;
-  uint64_t len;
-} rawkit_shader_param_value_t;
-
-typedef struct rawkit_shader_params_t {
-  uint32_t count;
-  rawkit_shader_param_t *entries;
-} rawkit_shader_params_t;
+#include <stb_sb.h>
 
 int rawkit_shader_param_size(const rawkit_shader_param_t *param) {
   switch (param->type) {
@@ -214,6 +128,7 @@ typedef struct rawkit_descriptor_set_layout_create_info_t {
     VkDescriptorSetLayoutBinding*    pBindings;
 } rawkit_descriptor_set_layout_create_info_t;
 
+
 // TODO: output should come thorugh as a param
 void rawkit_shader_init(
   rawkit_glsl_t *glsl,
@@ -221,7 +136,7 @@ void rawkit_shader_init(
   const rawkit_shader_params_t *params,
   rawkit_texture_t *output
 ) {
-  if (!shader) {
+  if (!shader || !shader->shader_module) {
     return;
   }
 
@@ -232,7 +147,7 @@ void rawkit_shader_init(
   VkPipelineCache pipeline_cache = rawkit_vulkan_pipeline_cache();
 
   VkShaderStageFlags stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-  VkShaderStageFlags pipelineStage = VK_SHADER_STAGE_COMPUTE_BIT;
+  VkShaderStageFlagBits pipelineStage = VK_SHADER_STAGE_COMPUTE_BIT;
 
   // Create a command pool per shader pipeline.
   // TODO: there may be room here to share a pool, not sure what the best
@@ -290,18 +205,20 @@ void rawkit_shader_init(
 
       // add the binding for this entry
       {
-        VkDescriptorSetLayoutBinding setLayoutBindings = {};
-        setLayoutBindings.descriptorType = rawkit_glsl_reflection_entry_to_vulkan_descriptor_type(entry);
+        VkDescriptorSetLayoutBinding binding = {};
+        binding.descriptorType = rawkit_glsl_reflection_entry_to_vulkan_descriptor_type(entry);
         // TODO: wire this up
-        setLayoutBindings.stageFlags = stageFlags;
-        setLayoutBindings.binding = entry->binding;
-        setLayoutBindings.descriptorCount = 1;
-        sb_push(dslci[entry->set].pBindings, setLayoutBindings);
+        binding.stageFlags = stageFlags;
+        binding.binding = entry->binding;
+        binding.descriptorCount = 1;
+        sb_push(dslci[entry->set].pBindings, binding);
         dslci[entry->set].bindingCount = sb_count(dslci[entry->set].pBindings);
       }
     }
 
     shader->descriptor_set_layout_count = sb_count(dslci);
+
+    printf("shader->descriptor_set_layout_count = %i\n", shader->descriptor_set_layout_count);
     if (shader->descriptor_set_layout_count) {
       if (shader->descriptor_set_layouts) {
         for (uint32_t i=0; i<shader->descriptor_set_layout_count; i++) {
@@ -314,8 +231,9 @@ void rawkit_shader_init(
         shader->descriptor_set_layouts = NULL;
       }
 
-      shader->descriptor_set_layouts = (VkDescriptorSetLayout *)malloc(
-        sizeof(VkDescriptorSetLayout) * shader->descriptor_set_layout_count
+      shader->descriptor_set_layouts = (VkDescriptorSetLayout *)calloc(
+        sizeof(VkDescriptorSetLayout) * shader->descriptor_set_layout_count,
+        1
       );
 
       if (!shader->descriptor_set_layouts) {
@@ -324,6 +242,8 @@ void rawkit_shader_init(
       }
 
       for (uint32_t dslci_idx=0; dslci_idx<shader->descriptor_set_layout_count; dslci_idx++) {
+        printf("dslci_idx = %u; binding_count = %u (%u)\n", dslci_idx, sb_count(dslci[dslci_idx].pBindings), dslci[dslci_idx].bindingCount);
+
         err = vkCreateDescriptorSetLayout(
           device,
           (VkDescriptorSetLayoutCreateInfo *)&dslci[dslci_idx],
@@ -347,6 +267,7 @@ void rawkit_shader_init(
   {
     VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {};
     descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    // TODO: this is likely bad.
     descriptorSetAllocateInfo.descriptorPool = rawkit_vulkan_descriptor_pool();
     descriptorSetAllocateInfo.pSetLayouts = shader->descriptor_set_layouts;
     descriptorSetAllocateInfo.descriptorSetCount = shader->descriptor_set_layout_count;
@@ -372,13 +293,34 @@ void rawkit_shader_init(
       return;
     }
 
-    // TODO: properly dispose of the existing sets???
     if (shader->descriptor_sets) {
       free(shader->descriptor_sets);
     }
-
     shader->descriptor_sets = descriptor_sets;
     shader->descriptor_set_count = shader->descriptor_set_layout_count;
+
+    // update the output image binding - do this outside of this function
+    {
+      VkDescriptorImageInfo imageInfo = {};
+      imageInfo.sampler = output->sampler;
+      imageInfo.imageView = output->image_view;
+      imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+      VkWriteDescriptorSet writeDescriptorSet = {};
+      writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+      writeDescriptorSet.dstSet = shader->descriptor_sets[0];
+      writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+      writeDescriptorSet.dstBinding = 0;
+      writeDescriptorSet.pImageInfo = &imageInfo;
+      writeDescriptorSet.descriptorCount = 1;
+      vkUpdateDescriptorSets(
+        device,
+        1,
+        &writeDescriptorSet,
+        0,
+        NULL
+      );
+    }
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -399,7 +341,6 @@ void rawkit_shader_init(
       printf("ERROR: unable to create pipeline layout\n");
       return;
     }
-
     sb_free(pushConstantRanges);
 
     VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo = {};
@@ -422,8 +363,10 @@ void rawkit_shader_init(
       &shader->pipeline
     );
 
+
     if (err != VK_SUCCESS) {
       printf("ERROR: failed to create compute pipelines\n");
+      return;
     }
 
     if (!shader->command_buffer) {
@@ -433,18 +376,18 @@ void rawkit_shader_init(
       info.commandPool = shader->command_pool;
       info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
       info.commandBufferCount = 1;
-
+      printf("HERE\n");
       err = vkAllocateCommandBuffers(
         device,
         &info,
         &shader->command_buffer
       );
-
+      printf("AFTER\n");
       if (err != VK_SUCCESS) {
         printf("ERROR: failed to allocate command buffers\n");
         return;
       }
     }
   }
-}
 
+}

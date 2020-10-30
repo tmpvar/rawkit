@@ -1,22 +1,7 @@
-#pragma once
+#include <stdlib.h>
 
-#include <vulkan/vulkan.h>
+#include <rawkit/texture.h>
 
-typedef struct rawkit_texture_options_t {
-  uint32_t width;
-  uint32_t height;
-  VkFormat format;
-} rawkit_texture_options_t;
-
-typedef struct rawkit_texture_t {
-  uint64_t id;
-  ImTextureID imgui_texture;
-  VkImage image;
-  VkDeviceMemory image_memory;
-  VkImageView image_view;
-  VkSampler sampler;
-  rawkit_texture_options_t options;
-} rawkit_texture_t;
 
 static uint32_t find_memory_type(VkMemoryPropertyFlags properties, uint32_t type_bits) {
     VkPhysicalDeviceMemoryProperties prop;
@@ -261,7 +246,6 @@ void rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     );
   }
 }
-
 
 rawkit_texture_t *rawkit_texture_hot(const char *name, const rawkit_texture_options_t options) {
   char id[4096] = "rawkit/texture::";

@@ -1,13 +1,15 @@
+#include <stdio.h>
+#include <string.h>
+
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
+#include <cimgui.h>
 #include <rawkit/time.h>
 #include <rawkit/file.h>
 #include <rawkit/gpu.h>
 #include <rawkit/hot.h>
 #include <rawkit/glsl.h>
 #include <rawkit/vulkan.h>
-
-
-#include <stdio.h>
+#include <rawkit/texture.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,14 +20,7 @@ extern "C" {
 }
 #endif
 
-
-#include <vulkan/vulkan.h>
-#include <cimgui.h>
-#include <string.h>
-
-
 #include "rawkit-shader.h"
-#include "rawkit-texture.h"
 
 typedef struct fill_rect_options_t {
   uint32_t render_width;
