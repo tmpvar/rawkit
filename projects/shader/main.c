@@ -10,6 +10,7 @@
 #include <rawkit/glsl.h>
 #include <rawkit/vulkan.h>
 #include <rawkit/texture.h>
+#include <rawkit/shader.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,8 +21,7 @@ extern "C" {
 }
 #endif
 
-// #include "rawkit-shader.h"
-#include <rawkit/shader.h>
+
 
 typedef struct fill_rect_options_t {
   uint32_t render_width;
@@ -195,8 +195,7 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
             rawkit_shader_init(
               glsl,
               &state->shaders[idx],
-              &options->params,
-              &state->textures[idx]
+              &options->params
             );
 
             // update descriptor sets

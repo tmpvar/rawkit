@@ -130,12 +130,7 @@ typedef struct rawkit_descriptor_set_layout_create_info_t {
 
 
 // TODO: output should come thorugh as a param
-void rawkit_shader_init(
-  rawkit_glsl_t *glsl,
-  rawkit_shader_t *shader,
-  const rawkit_shader_params_t *params,
-  rawkit_texture_t *output
-) {
+void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawkit_shader_params_t *params) {
   if (!shader || !shader->shader_module) {
     return;
   }
@@ -295,29 +290,6 @@ void rawkit_shader_init(
     }
     shader->descriptor_sets = descriptor_sets;
     shader->descriptor_set_count = shader->descriptor_set_layout_count;
-
-    // update the output image binding - do this outside of this function
-    {
-      VkDescriptorImageInfo imageInfo = {};
-      imageInfo.sampler = output->sampler;
-      imageInfo.imageView = output->image_view;
-      imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-      VkWriteDescriptorSet writeDescriptorSet = {};
-      writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      writeDescriptorSet.dstSet = shader->descriptor_sets[0];
-      writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-      writeDescriptorSet.dstBinding = 0;
-      writeDescriptorSet.pImageInfo = &imageInfo;
-      writeDescriptorSet.descriptorCount = 1;
-      vkUpdateDescriptorSets(
-        device,
-        1,
-        &writeDescriptorSet,
-        0,
-        NULL
-      );
-    }
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

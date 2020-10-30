@@ -104,8 +104,7 @@ extern "C" {
   void rawkit_shader_init(
     rawkit_glsl_t *glsl,
     rawkit_shader_t *shader,
-    const rawkit_shader_params_t *params,
-    rawkit_texture_t *output
+    const rawkit_shader_params_t *params
   );
 
 #ifdef __cplusplus
