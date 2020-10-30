@@ -89,8 +89,8 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-file)
 # LIB: rawkit-gpu
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-gpu)
 
-# # LIB: rawkit-shader
-# add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-shader)
+# LIB: rawkit-shader
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-shader)
 
 # LIB: rawkit-texture
 if (NOT TARGET rawkit::texture)
@@ -184,7 +184,7 @@ target_link_libraries(
   rawkit::gcode::parser
   rawkit::gpu
 
-  # rawkit::shader
+  rawkit::shader
   rawkit::texture
 
   glfw

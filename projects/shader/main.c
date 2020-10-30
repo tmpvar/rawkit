@@ -20,7 +20,8 @@ extern "C" {
 }
 #endif
 
-#include "rawkit-shader.h"
+// #include "rawkit-shader.h"
+#include <rawkit/shader.h>
 
 typedef struct fill_rect_options_t {
   uint32_t render_width;
