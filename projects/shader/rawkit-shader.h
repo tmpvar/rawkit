@@ -14,8 +14,8 @@ typedef struct rawkit_shader_t {
   VkPipeline pipeline;
   VkDescriptorSetLayout *descriptor_set_layouts;
   uint32_t descriptor_set_layout_count;
-  VkDescriptorSet descriptor_set;
-  VkWriteDescriptorSet write_descriptor_set;
+  VkDescriptorSet *descriptor_sets;
+  uint32_t descriptor_set_count;
   VkCommandPool command_pool;
   VkShaderModule shader_module;
 } rawkit_shader_t;
@@ -351,36 +351,34 @@ void rawkit_shader_init(
     descriptorSetAllocateInfo.pSetLayouts = shader->descriptor_set_layouts;
     descriptorSetAllocateInfo.descriptorSetCount = shader->descriptor_set_layout_count;
 
+    VkDescriptorSet *descriptor_sets = (VkDescriptorSet *)malloc(
+      sizeof(VkDescriptorSet) * shader->descriptor_set_layout_count
+    );
+
+    if (!descriptor_sets) {
+      printf("ERROR: unable to allocate memory for descriptor set pointers\n");
+      return;
+    }
+
     err = vkAllocateDescriptorSets(
       device,
       &descriptorSetAllocateInfo,
-      &shader->descriptor_set
+      descriptor_sets
     );
 
     if (err != VK_SUCCESS) {
       printf("ERROR: unable to allocate descriptor sets\n");
+      free(descriptor_sets);
       return;
     }
 
-    VkDescriptorImageInfo imageInfo = {};
-    imageInfo.sampler = output->sampler;
-    imageInfo.imageView = output->image_view;
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    // TODO: properly dispose of the existing sets???
+    if (shader->descriptor_sets) {
+      free(shader->descriptor_sets);
+    }
 
-    VkWriteDescriptorSet writeDescriptorSet = {};
-    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSet.dstSet = shader->descriptor_set;
-    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.pImageInfo = &imageInfo;
-    writeDescriptorSet.descriptorCount = 1;
-    vkUpdateDescriptorSets(
-      device,
-      1,
-      &writeDescriptorSet,
-      0,
-      NULL
-    );
+    shader->descriptor_sets = descriptor_sets;
+    shader->descriptor_set_count = shader->descriptor_set_layout_count;
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

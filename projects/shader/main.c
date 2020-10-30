@@ -49,7 +49,8 @@ typedef struct fill_rect_state_t {
 } fill_rect_state_t;
 
 void fill_rect(const char *path, const fill_rect_options_t *options) {
-  if (rawkit_vulkan_device() == VK_NULL_HANDLE) {
+  VkDevice device = rawkit_vulkan_device();
+  if (device == VK_NULL_HANDLE) {
     printf("invalid vulkan device\n");
     return;
   }
@@ -100,8 +101,35 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
       .format = VK_FORMAT_R32G32B32A32_SFLOAT,
     };
 
-    for (uint32_t i=0; i<state->texture_count; i++) {
-      rawkit_texture_init(&state->textures[i], texture_options);
+    for (uint32_t idx=0; idx<state->texture_count; idx++) {
+      rawkit_texture_init(&state->textures[idx], texture_options);
+
+      if (state->shaders) {
+        // update descriptor sets
+        {
+          VkDescriptorImageInfo imageInfo = {};
+          imageInfo.sampler = state->textures[idx].sampler;
+          imageInfo.imageView = state->textures[idx].image_view;
+          imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+          rawkit_glsl_reflection_entry_t e = rawkit_glsl_reflection_entry(state->glsl, "rawkit_output_image");
+
+          VkWriteDescriptorSet writeDescriptorSet = {};
+          writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+          writeDescriptorSet.dstSet = state->shaders[idx].descriptor_sets[e.set];
+          writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+          writeDescriptorSet.dstBinding = 0;
+          writeDescriptorSet.pImageInfo = &imageInfo;
+          writeDescriptorSet.descriptorCount = 1;
+          vkUpdateDescriptorSets(
+            device,
+            1,
+            &writeDescriptorSet,
+            0,
+            NULL
+          );
+        }
+      }
     }
   }
 
@@ -174,6 +202,31 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
               &options->params,
               &state->textures[idx]
             );
+
+            // update descriptor sets
+            {
+              VkDescriptorImageInfo imageInfo = {};
+              imageInfo.sampler = state->textures[idx].sampler;
+              imageInfo.imageView = state->textures[idx].image_view;
+              imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+              rawkit_glsl_reflection_entry_t e = rawkit_glsl_reflection_entry(state->glsl, "rawkit_output_image");
+
+              VkWriteDescriptorSet writeDescriptorSet = {};
+              writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+              writeDescriptorSet.dstSet = state->shaders[idx].descriptor_sets[e.set];
+              writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+              writeDescriptorSet.dstBinding = 0;
+              writeDescriptorSet.pImageInfo = &imageInfo;
+              writeDescriptorSet.descriptorCount = 1;
+              vkUpdateDescriptorSets(
+                device,
+                1,
+                &writeDescriptorSet,
+                0,
+                NULL
+              );
+            }
           }
         }
       }
@@ -207,15 +260,15 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         imageSubresourceRange.baseArrayLayer = 0;
         imageSubresourceRange.layerCount     = 1;
 
-        VkClearColorValue clearColorValue = { 0.0, 0.0, 0.0, 0.0 };
-        vkCmdClearColorImage(
-          command_buffer,
-          state->textures[idx].image,
-          VK_IMAGE_LAYOUT_GENERAL,
-          &clearColorValue,
-          1,
-          &imageSubresourceRange
-        );
+        // VkClearColorValue clearColorValue = { 0.0, 0.0, 0.0, 0.0 };
+        // vkCmdClearColorImage(
+        //   command_buffer,
+        //   state->textures[idx].image,
+        //   VK_IMAGE_LAYOUT_GENERAL,
+        //   &clearColorValue,
+        //   1,
+        //   &imageSubresourceRange
+        // );
 
         vkCmdBindPipeline(
           state->shaders[idx].command_buffer,
@@ -247,8 +300,8 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
           VK_PIPELINE_BIND_POINT_COMPUTE,
           state->shaders[idx].pipeline_layout,
           0,
-          1,
-          &state->shaders[idx].descriptor_set,
+          state->shaders[idx].descriptor_set_count,
+          state->shaders[idx].descriptor_sets,
           0,
           0
         );
