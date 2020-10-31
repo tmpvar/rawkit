@@ -107,16 +107,16 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
     "  float var_float;\n"
     "  int var_int;\n"
     "} consts;"
-    "uniform sampler2D texture_no_layout;\n"
+    "layout (binding = 2) uniform sampler2D texture_no_layout;\n"
     "layout (location = 3, binding = 2, set = 1) uniform sampler2D texture_with_layout;\n"
-    "layout (std430) buffer ssbo_buffer {  float ssbo_buffer_floats[]; };\n"
-    "layout (std430) readonly buffer ssbo_buffer_ro {  float ssbo_buffer_floats_ro[]; };\n"
-    "layout (std430) writeonly buffer ssbo_buffer_wo {  float ssbo_buffer_floats_wo[]; };\n"
+    "layout (binding = 3, std430) buffer ssbo_buffer {  float ssbo_buffer_floats[]; };\n"
+    "layout (binding = 4, std430) readonly buffer ssbo_buffer_ro {  float ssbo_buffer_floats_ro[]; };\n"
+    "layout (binding = 5,std430) writeonly buffer ssbo_buffer_wo {  float ssbo_buffer_floats_wo[]; };\n"
     "struct ssbo_struct { float a; int b; };\n"
-    "layout (std430) buffer ssbo_buffer_sized {  ssbo_struct block_sized_struct;  };\n"
-    "uniform sampler separate_sampler;\n"
-    "uniform texture2D separate_image;\n"
-    "layout (std430) uniform ubo { float ubo_float; };\n"
+    "layout (binding = 6, std430) buffer ssbo_buffer_sized {  ssbo_struct block_sized_struct;  };\n"
+    "layout (binding = 7) uniform sampler separate_sampler;\n"
+    "layout (binding = 8) uniform texture2D separate_image;\n"
+    "layout (binding = 9, std430) uniform ubo { float ubo_float; };\n"
     "void main() {\n"
     "  imageStore(writable_image, ivec2(0, 0), vec4(ssbo_buffer_floats[0]));\n"
     "  ssbo_buffer_floats_wo[0] = ssbo_buffer_floats[0] + ssbo_buffer_floats_ro[0];\n"
@@ -184,7 +184,7 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
     CHECK(entry.dims == RAWKIT_GLSL_DIMS_2D);
     CHECK(entry.location == 2);
     CHECK(entry.set == 0);
-    CHECK(entry.binding == 0);
+    CHECK(entry.binding == 2);
     CHECK(entry.readable == true);
     CHECK(entry.writable == false);
   }
@@ -203,7 +203,7 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
     CHECK(entry.writable == false);
   }
 
-  // SSBO: ssbo_layout
+  // SSBO: ssbo_buffer
   {
     rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(s, "ssbo_buffer");
     REQUIRE(entry.entry_type == RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_BUFFER);
@@ -212,7 +212,7 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
     CHECK(entry.dims == RAWKIT_GLSL_DIMS_BUFFER);
     CHECK(entry.location == 0);
     CHECK(entry.set == 0);
-    CHECK(entry.binding == 2);
+    CHECK(entry.binding == 3);
     CHECK(entry.block_size == 0);
     CHECK(entry.readable == true);
     CHECK(entry.writable == true);
@@ -227,7 +227,7 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
     CHECK(entry.dims == RAWKIT_GLSL_DIMS_BUFFER);
     CHECK(entry.location == 0);
     CHECK(entry.set == 0);
-    CHECK(entry.binding == 3);
+    CHECK(entry.binding == 4);
     CHECK(entry.block_size == 0);
     CHECK(entry.readable == true);
     CHECK(entry.writable == false);
@@ -242,7 +242,7 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
     CHECK(entry.dims == RAWKIT_GLSL_DIMS_BUFFER);
     CHECK(entry.location == 0);
     CHECK(entry.set == 0);
-    CHECK(entry.binding == 4);
+    CHECK(entry.binding == 5);
     CHECK(entry.block_size == 0);
     CHECK(entry.readable == false);
     CHECK(entry.writable == true);
@@ -257,22 +257,8 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
     CHECK(entry.dims == RAWKIT_GLSL_DIMS_BUFFER);
     CHECK(entry.location == 0);
     CHECK(entry.set == 0);
-    CHECK(entry.binding == 5);
+    CHECK(entry.binding == 6);
     CHECK(entry.block_size == 8);
-    CHECK(entry.readable == true);
-    CHECK(entry.writable == true);
-  }
-
-  // Separate Images: separate_image (aka texture2D)
-  {
-    rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(s, "separate_image");
-    REQUIRE(entry.entry_type == RAWKIT_GLSL_REFLECTION_ENTRY_SEPARATE_IMAGE);
-    CHECK(entry.offset == -1);
-    CHECK(entry.image_format == RAWKIT_GLSL_IMAGE_FORMAT_UNKNOWN);
-    CHECK(entry.dims == RAWKIT_GLSL_DIMS_2D);
-    CHECK(entry.location == 4);
-    CHECK(entry.set == 0);
-    CHECK(entry.binding == 0);
     CHECK(entry.readable == true);
     CHECK(entry.writable == true);
   }
@@ -286,7 +272,21 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
     CHECK(entry.dims == RAWKIT_GLSL_DIMS_1D);
     CHECK(entry.location == 3);
     CHECK(entry.set == 0);
-    CHECK(entry.binding == 0);
+    CHECK(entry.binding == 7);
+    CHECK(entry.readable == true);
+    CHECK(entry.writable == true);
+  }
+
+  // Separate Images: separate_image (aka texture2D)
+  {
+    rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(s, "separate_image");
+    REQUIRE(entry.entry_type == RAWKIT_GLSL_REFLECTION_ENTRY_SEPARATE_IMAGE);
+    CHECK(entry.offset == -1);
+    CHECK(entry.image_format == RAWKIT_GLSL_IMAGE_FORMAT_UNKNOWN);
+    CHECK(entry.dims == RAWKIT_GLSL_DIMS_2D);
+    CHECK(entry.location == 4);
+    CHECK(entry.set == 0);
+    CHECK(entry.binding == 8);
     CHECK(entry.readable == true);
     CHECK(entry.writable == true);
   }
@@ -300,7 +300,7 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
     CHECK(entry.dims == RAWKIT_GLSL_DIMS_BUFFER);
     CHECK(entry.location == 0);
     CHECK(entry.set == 0);
-    CHECK(entry.binding == 0);
+    CHECK(entry.binding == 9);
     CHECK(entry.block_size == 4);
     CHECK(entry.readable == true);
     CHECK(entry.writable == true);
@@ -326,7 +326,7 @@ TEST_CASE("[rawkit/glsl] reflection (frag)") {
     "out float out_float;\n"
     "layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput inputColor;\n"
     "layout (input_attachment_index = 1, set = 1, binding = 1) uniform subpassInput inputDepth;\n"
-    "layout(binding = 0, set = 0) uniform accelerationStructureEXT acc;\n"
+    "layout(binding = 1, set = 0) uniform accelerationStructureEXT acc;\n"
     "void main() {\n"
     "  out_color = in_color;\n"
     "  out_float = in_float;\n"
@@ -423,7 +423,7 @@ TEST_CASE("[rawkit/glsl] reflection (frag)") {
     CHECK(entry.offset == 0);
     CHECK(entry.location == 2);
     CHECK(entry.set == 0);
-    CHECK(entry.binding == 0);
+    CHECK(entry.binding == 1);
   }
 }
 
@@ -459,4 +459,20 @@ TEST_CASE("[rawkit/glsl] reflection push constant buffer size") {
     auto entry = rawkit_glsl_reflection_entry(s, "var_int");
     CHECK(entry.block_size == 4);
   }
+}
+
+TEST_CASE("[rawkit/glsl] bindings cannot be shared") {
+  rawkit_glsl_t *s = rawkit_glsl_compile(
+    "reflection.comp",
+    "#version 450\n"
+    "layout(local_size_x = 4, local_size_y = 4) in;\n"
+    "layout (rgba8) uniform writeonly image2D writable_image;\n"
+    "layout (std430) uniform ubo { float ubo_float; };\n"
+    "void main() {\n"
+    "}\n",
+    NULL
+  );
+
+  REQUIRE(s != nullptr);
+  CHECK(rawkit_glsl_valid(s) == false);
 }
