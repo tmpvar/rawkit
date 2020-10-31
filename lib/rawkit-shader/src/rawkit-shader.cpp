@@ -56,10 +56,12 @@ rawkit_shader_param_value_t rawkit_shader_param_value(rawkit_shader_param_t *par
 
     case RAWKIT_SHADER_PARAM_PULL_STREAM: {
       if (param->pull_stream && param->pull_stream->fn) {
-        // TODO: we own this memory now
+        // Note: we own this memory now
         ps_val_t *val = param->pull_stream->fn(param->pull_stream, PS_OK);
 
         if (val) {
+          // TODO: this should probably be a destroy_fn(void *) like in pull-stream because the
+          //       thing that created it likely knows how to destroy it properly.
           ret.should_free = true;
           ret.buf = val->data;
           ret.len = val->len;
@@ -174,7 +176,7 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
   pushConstantRange.size = 0;
 
 
-  // compute the descriptor set layouts on the fly
+  // compute the descriptor set layouts from reflection data
   {
     rawkit_descriptor_set_layout_create_info_t *dslci = NULL;
 
