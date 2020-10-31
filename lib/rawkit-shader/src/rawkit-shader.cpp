@@ -166,7 +166,13 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
   }
 
   const rawkit_glsl_reflection_vector_t reflection = rawkit_glsl_reflection_entries(glsl);
-  VkPushConstantRange *pushConstantRanges = NULL;
+  VkPushConstantRange pushConstantRange = {};
+  // TODO: there can only be one push constant buffer per stage, so when this changes we'll need
+  //       to use another mechanism to track
+  pushConstantRange.stageFlags = stageFlags;
+  pushConstantRange.offset = 0;
+  pushConstantRange.size = 0;
+
 
   // compute the descriptor set layouts on the fly
   {
@@ -177,11 +183,7 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
 
       // compute push constant ranges
       if (entry->entry_type == RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER) {
-        VkPushConstantRange range = {};
-        range.stageFlags = stageFlags;
-        range.offset = entry->offset;
-        range.size = entry->block_size;
-        sb_push(pushConstantRanges, range);
+        pushConstantRange.size += entry->block_size;
         continue;
       }
 
@@ -296,8 +298,10 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
     pipelineLayoutCreateInfo.setLayoutCount = shader->descriptor_set_layout_count;
     pipelineLayoutCreateInfo.pSetLayouts = shader->descriptor_set_layouts;
 
-    pipelineLayoutCreateInfo.pushConstantRangeCount = sb_count(pushConstantRanges);
-    pipelineLayoutCreateInfo.pPushConstantRanges = pushConstantRanges;
+    if (pushConstantRange.size > 0) {
+      pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+      pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
+    }
 
     err = vkCreatePipelineLayout(
       device,
@@ -310,7 +314,6 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
       printf("ERROR: unable to create pipeline layout\n");
       return;
     }
-    sb_free(pushConstantRanges);
 
     VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo = {};
     pipelineShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
