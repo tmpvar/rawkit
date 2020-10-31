@@ -316,15 +316,27 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
           0
         );
 
-        const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(state->glsl);
+        {
+          const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(state->glsl);
+          float local[3] = {
+            (float)workgroup_size[0],
+            (float)workgroup_size[1],
+            (float)workgroup_size[2],
+          };
 
-        vkCmdDispatch(
-          state->shaders[idx].command_buffer,
-          width / workgroup_size[0],
-          height / workgroup_size[1],
-          1
-        );
+          float global[3] = {
+            (float)width,
+            (float)height,
+            1,
+          };
 
+          vkCmdDispatch(
+            state->shaders[idx].command_buffer,
+            (uint32_t)max(ceilf(global[0] / local[0]), 1.0),
+            (uint32_t)max(ceilf(global[1] / local[1]), 1.0),
+            (uint32_t)max(ceilf(global[2] / local[2]), 1.0)
+          );
+        }
         vkEndCommandBuffer(state->shaders[idx].command_buffer);
       }
 
