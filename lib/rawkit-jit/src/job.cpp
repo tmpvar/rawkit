@@ -167,7 +167,10 @@ JitJob *JitJob::create(int argc, const char **argv) {
   #endif
 
   #ifdef __APPLE__
-    Args.push_back("-I/usr/local/opt/llvm/Toolchains/LLVM10.0.0.xctoolchain/usr/lib/clang/10.0.0/include");
+    Args.push_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/");
+    Args.push_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/");
+    Args.push_back("-Wno-nullability-completeness");
+    Args.push_back("-Wno-expansion-to-defined");
   #endif
 
   Args.push_back("-fsyntax-only");
