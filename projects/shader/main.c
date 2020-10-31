@@ -21,8 +21,6 @@ extern "C" {
 }
 #endif
 
-
-
 typedef struct fill_rect_options_t {
   uint32_t render_width;
   uint32_t render_height;
@@ -43,46 +41,6 @@ typedef struct fill_rect_state_t {
   rawkit_shader_t *shaders;
   rawkit_glsl_t *glsl;
 } fill_rect_state_t;
-
-
-void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_glsl_t *glsl, rawkit_shader_param_t param) {
-  // TODO: cache by name + hash of the param data (maybe?)
-  VkDevice device = rawkit_vulkan_device();
-
-  const rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(glsl, param.name);
-  switch (entry.entry_type) {
-    case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE: {
-      if (!param.texture || !param.texture->sampler || !param.texture->image_view) {
-        return;
-      }
-
-      VkDescriptorImageInfo imageInfo = {};
-      imageInfo.sampler = param.texture->sampler;
-      imageInfo.imageView = param.texture->image_view;
-      imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-      VkWriteDescriptorSet writeDescriptorSet = {};
-      writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      writeDescriptorSet.dstSet = shader->descriptor_sets[entry.set];
-      writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-      writeDescriptorSet.dstBinding = 0;
-      writeDescriptorSet.pImageInfo = &imageInfo;
-      writeDescriptorSet.descriptorCount = 1;
-      vkUpdateDescriptorSets(
-        device,
-        1,
-        &writeDescriptorSet,
-        0,
-        NULL
-      );
-
-      break;
-    }
-    default:
-      printf("ERROR: unhandled entry type %i\n", entry.entry_type);
-  }
-
-}
 
 void fill_rect(const char *path, const fill_rect_options_t *options) {
   VkDevice device = rawkit_vulkan_device();
@@ -192,6 +150,8 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
             rawkit_shader_changed = true;
           } else {
             rawkit_glsl_destroy(glsl);
+            printf("ERROR: failed to create shader module\n");
+            return;
           }
         }
 
@@ -232,12 +192,10 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
                 &state->textures[idx]
               )
             );
-
           }
         }
       }
     }
-
     if (state->shaders) {
       uint32_t idx = rawkit_window_frame_index();
       VkCommandBuffer command_buffer = state->shaders[idx].command_buffer;
@@ -374,6 +332,7 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         );
       }
     }
+
   }
 }
 

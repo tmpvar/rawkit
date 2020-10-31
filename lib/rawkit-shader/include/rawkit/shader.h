@@ -108,6 +108,8 @@ extern "C" {
     const rawkit_shader_params_t *params
   );
 
+  void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_glsl_t *glsl, rawkit_shader_param_t param);
+
 #ifdef __cplusplus
 }
 #endif

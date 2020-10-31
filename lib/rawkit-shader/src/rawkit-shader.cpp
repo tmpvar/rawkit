@@ -363,5 +363,42 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
       }
     }
   }
+}
 
+void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_glsl_t *glsl, rawkit_shader_param_t param) {
+  // TODO: cache by name + hash of the param data (maybe?)
+  VkDevice device = rawkit_vulkan_device();
+
+  const rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(glsl, param.name);
+  switch (entry.entry_type) {
+    case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE: {
+      if (false || !param.texture || !param.texture->sampler || !param.texture->image_view) {
+        return;
+      }
+
+      VkDescriptorImageInfo imageInfo = {};
+      imageInfo.sampler = param.texture->sampler;
+      imageInfo.imageView = param.texture->image_view;
+      imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+      VkWriteDescriptorSet writeDescriptorSet = {};
+      writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+      writeDescriptorSet.dstSet = shader->descriptor_sets[entry.set];
+      writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+      writeDescriptorSet.dstBinding = 0;
+      writeDescriptorSet.pImageInfo = &imageInfo;
+      writeDescriptorSet.descriptorCount = 1;
+      vkUpdateDescriptorSets(
+        device,
+        1,
+        &writeDescriptorSet,
+        0,
+        NULL
+      );
+
+      break;
+    }
+    default:
+      printf("ERROR: unhandled entry type %i\n", entry.entry_type);
+  }
 }
