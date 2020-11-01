@@ -8,6 +8,16 @@
 
 #include <rawkit/texture.h>
 
+
+typedef struct rawkit_shader_uniform_buffer_t {
+  rawkit_glsl_reflection_entry_t *entry;
+  VkBuffer handle;
+  VkDeviceMemory memory;
+  uint64_t size;
+  uint32_t set;
+} rawkit_shader_uniform_buffer_t;
+
+
 typedef struct rawkit_shader_t {
   VkDescriptorSetLayout *descriptor_set_layouts;
   uint32_t descriptor_set_layout_count;
@@ -19,6 +29,12 @@ typedef struct rawkit_shader_t {
   VkCommandBuffer command_buffer;
   VkPipelineLayout pipeline_layout;
   VkPipeline pipeline;
+
+  VkPhysicalDevice physical_device;
+
+  rawkit_shader_uniform_buffer_t *ubos;
+
+  rawkit_glsl_t *glsl;
 } rawkit_shader_t;
 
 
@@ -30,7 +46,7 @@ typedef struct rawkit_shader_t {
   #define RAWKIT_SHADER_ARG_COUNT(...) ((int)(sizeof((rawkit_shader_param_t[]){ __VA_ARGS__ })/sizeof(rawkit_shader_param_t)))
 #endif
 
-#define rawkit_shader_push_constants(opts, ...) { \
+#define rawkit_shader_params(opts, ...) { \
   opts.count = RAWKIT_SHADER_ARG_COUNT(__VA_ARGS__); \
   opts.entries = (rawkit_shader_param_t[]){ \
     __VA_ARGS__ \
@@ -49,6 +65,8 @@ typedef enum {
   RAWKIT_SHADER_PARAM_PTR,
   RAWKIT_SHADER_PARAM_TEXTURE_PTR,
   RAWKIT_SHADER_PARAM_PULL_STREAM,
+
+  RAWKIT_SHADER_PARAM_UNIFORM_BUFFER,
 } rawkit_shader_param_types_t;
 
 #define rawkit_shader_f32(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_F32, .f32 = _value, .bytes = 4, }
@@ -62,6 +80,8 @@ typedef enum {
 #define rawkit_shader_texture(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_TEXTURE_PTR, .ptr = _value, .bytes = sizeof(*_value), }
 #define rawkit_shader_array(_name, _len, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_ARRAY, .ptr = _value, .bytes = _len * sizeof(*_value), }
 #define rawkit_shader_pull_stream(_name, _ps) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_PULL_STREAM, .ptr = _ps, .bytes = sizeof(_ps), }
+
+#define rawkit_shader_ubo(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_UNIFORM_BUFFER, .ptr = _value, .bytes = sizeof(*_value) }
 
 typedef struct rawkit_shader_param_t {
   const char *name;
@@ -108,7 +128,8 @@ extern "C" {
     const rawkit_shader_params_t *params
   );
 
-  void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_glsl_t *glsl, rawkit_shader_param_t param);
+  void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_shader_param_t param);
+  void rawkit_shader_update_ubo(rawkit_shader_t *shader, const char *name, uint32_t len, void *value);
 
 #ifdef __cplusplus
 }

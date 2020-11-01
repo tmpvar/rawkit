@@ -116,6 +116,10 @@ const rawkit_glsl_reflection_entry_t rawkit_glsl_reflection_entry(const rawkit_g
 
   auto it = ref->reflection_name_to_index->find(name);
   if (it == ref->reflection_name_to_index->end()) {
+    printf("ENTRIES:\n");
+    for (auto &val : *ref->reflection_name_to_index) {
+      printf("  %s\n", val.first.c_str());
+    }
     return entry;
   }
 

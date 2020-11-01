@@ -104,6 +104,7 @@ typedef struct rawkit_glsl_reflection_entry_t {
   int32_t input_attachment_index;
   rawkit_glsl_dims dims;
   rawkit_glsl_image_format image_format;
+  uint32_t user_index;
 } rawkit_glsl_reflection_entry_t;
 
 typedef struct rawkit_glsl_reflection_vector_t {

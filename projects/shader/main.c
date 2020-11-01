@@ -102,7 +102,6 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         // update descriptor sets
         rawkit_shader_set_param(
           &state->shaders[idx],
-          state->glsl,
           rawkit_shader_texture(
             "rawkit_output_image",
             &state->textures[idx]
@@ -176,6 +175,7 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
           //       we will need to heap allocate some space for the incoming
           //       shader params as well as the output texture.
           for (uint32_t idx=0; idx < state->texture_count; idx++) {
+            state->shaders[idx].physical_device = rawkit_vulkan_physical_device();
             state->shaders[idx].shader_module = state->shader_module;
             rawkit_shader_init(
               glsl,
@@ -186,7 +186,6 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
             // update descriptor sets
             rawkit_shader_set_param(
               &state->shaders[idx],
-              state->glsl,
               rawkit_shader_texture(
                 "rawkit_output_image",
                 &state->textures[idx]
@@ -203,11 +202,13 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         return;
       }
 
+
+
       // record new command buffer
       {
         // TODO: we need to wait for the previous use of this command buffer to be complete
         //       don't use such a sledgehammer.
-        vkQueueWaitIdle(queue);
+        // vkQueueWaitIdle(queue);
 
         VkCommandBufferBeginInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -245,21 +246,40 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         );
 
         for (uint32_t i = 0; i<options->params.count; i++) {
-          rawkit_shader_param_value_t val = rawkit_shader_param_value(&options->params.entries[i]);
+          rawkit_shader_param_t *param = &options->params.entries[i];
+          rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
           rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(
             state->glsl,
-            options->params.entries[i].name
+            param->name
           );
 
-          if (entry.entry_type == RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER) {
-            vkCmdPushConstants(
-              state->shaders[idx].command_buffer,
-              state->shaders[idx].pipeline_layout,
-              VK_SHADER_STAGE_COMPUTE_BIT,
-              entry.offset,
-              val.len,
-              val.buf
-            );
+          switch (entry.entry_type) {
+            case RAWKIT_GLSL_REFLECTION_ENTRY_UNIFORM_BUFFER: {
+              rawkit_shader_update_ubo(
+                &state->shaders[idx],
+                param->name,
+                val.len,
+                val.buf
+              );
+
+              break;
+            }
+
+            case RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER: {
+              vkCmdPushConstants(
+                state->shaders[idx].command_buffer,
+                state->shaders[idx].pipeline_layout,
+                VK_SHADER_STAGE_COMPUTE_BIT,
+                entry.offset,
+                val.len,
+                val.buf
+              );
+              break;
+            }
+
+            default:
+              printf("ERROR: unhandled entry type (%i) while setting shader params\n", entry.entry_type);
+              break;
           }
         }
 
@@ -295,7 +315,12 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
             (uint32_t)max(ceilf(global[2] / local[2]), 1.0)
           );
         }
-        vkEndCommandBuffer(state->shaders[idx].command_buffer);
+        err = vkEndCommandBuffer(state->shaders[idx].command_buffer);
+        if (err != VK_SUCCESS) {
+          printf("ERROR: vkEndCommandBuffer: failed %i\n", err);
+          return;
+        }
+
       }
 
       // Submit compute commands
@@ -341,13 +366,18 @@ void setup() {
   printf("setup %u\n", rawkit_window_frame_count());
 }
 
+struct triangle_uniforms {
+  float color[4];
+  float time;
+};
+
 void loop() {
   {
     fill_rect_options_t options = {0};
     options.render_width = 400;
     options.render_height = 400;
 
-    rawkit_shader_push_constants(options.params,
+    rawkit_shader_params(options.params,
       rawkit_shader_f32("time", (float)rawkit_now())
     );
 
@@ -371,9 +401,19 @@ void loop() {
     options.display_width = 400;
     options.display_height = 400;
 
-    rawkit_shader_push_constants(options.params,
-      rawkit_shader_f32("time", (float)rawkit_now()),
-      rawkit_shader_f32("tx", 0.0f)
+    float time = (float)rawkit_now();
+
+    struct triangle_uniforms ubo = {};
+    ubo.time = time;
+    ubo.color[0] = 1.0;
+    ubo.color[1] = 0.0;
+    ubo.color[2] = 1.0;
+    ubo.color[3] = 1.0;
+
+    rawkit_shader_params(options.params,
+      rawkit_shader_f32("time", time),
+      rawkit_shader_f32("tx", 0.0f),
+      rawkit_shader_ubo("UBO", &ubo)
     );
 
     fill_rect("triangle.comp", &options);

@@ -7,6 +7,12 @@ layout (push_constant) uniform TimeBlock {
   float tx;
   float time;
 } consts;
+
+layout (std430, binding = 1) uniform UBO {
+  vec4 ubo_color;
+  float ubo_time;
+} uniforms;
+
 // signed distance to a 2D triangle
 float sdTriangle( in vec2 p0, in vec2 p1, in vec2 p2, in vec2 p) {
 	vec2 e0 = p1 - p0;
@@ -37,13 +43,14 @@ void main() {
   vec2 pos = gl_GlobalInvocationID.xy;
   vec2 size = vec2(gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
   vec2 p = (2.0*pos-size.xy)/size.y;
+  float t = uniforms.ubo_time;
 
   p.x += consts.tx;
 
   float d = sdTriangle(
-    vec2(-0.75, sin(consts.time) * 0.20 - 0.75),
-    vec2( sin(consts.time)*0.15-0.75, 0.90),
-    vec2(cos(consts.time) * 0.15 + 0.75,  sin(consts.time) * 0.15 + 0.75),
+    vec2(-0.75, sin(t) * 0.20 - 0.75),
+    vec2( sin(t)*0.15-0.75, 0.90),
+    vec2(cos(t) * 0.15 + 0.75,  sin(t) * 0.15 + 0.75),
     p
   );
 
@@ -57,7 +64,8 @@ void main() {
   imageStore(
     rawkit_output_image,
     ivec2(gl_GlobalInvocationID.xy),
-    vec4(col,1.0)
+    vec4(col,1.0) * uniforms.ubo_color
+    // uniforms.ubo_color
     // vec4(consts.tx, col)
   );
 }

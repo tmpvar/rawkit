@@ -7,6 +7,10 @@ layout (push_constant) uniform TimeBlock {
   	layout (offset = 0) float time;
 } consts;
 
+layout (std140, binding = 1) uniform UBO {
+  float ubo_time;
+} uniforms;
+
 float sdCircle( in vec2 p, in float r ) {
   return length(p)-r;
 }
