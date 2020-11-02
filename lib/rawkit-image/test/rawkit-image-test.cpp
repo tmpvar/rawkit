@@ -1,6 +1,6 @@
 #include <doctest.h>
 
-#include <stsring.h>
+#include <string.h>
 #include <rawkit/image.h>
 
 TEST_CASE("[rawkit/image] load missing image") {
