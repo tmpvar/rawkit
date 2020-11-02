@@ -102,6 +102,11 @@ if (NOT TARGET rawkit::image)
   add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-image)
 endif()
 
+# LIB: rawkit-mesh
+if (NOT TARGET rawkit::mesh)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-mesh)
+endif()
+
 add_executable(
   rawkit
   ${SRC_DIR}/main.cpp
