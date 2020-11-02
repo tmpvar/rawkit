@@ -197,6 +197,7 @@ target_link_libraries(
   rawkit::shader
   rawkit::texture
   rawkit::image
+  rawkit::mesh
 
   glfw
   serial
