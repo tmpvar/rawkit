@@ -1,5 +1,6 @@
 #include <doctest.h>
 
+#include <stsring.h>
 #include <rawkit/image.h>
 
 TEST_CASE("[rawkit/image] load missing image") {
@@ -8,7 +9,7 @@ TEST_CASE("[rawkit/image] load missing image") {
   rawkit_diskwatcher_t* watcher = rawkit_diskwatcher_ex(&loop);
 
   int s = 100000;
-  
+
   while (s--) {
     const rawkit_image_t* img = rawkit_image_ex(
       "fixtures/enoent.png",
@@ -50,7 +51,7 @@ TEST_CASE("[rawkit/image] load image") {
       CHECK(img->width == 2);
       CHECK(img->height == 2);
       CHECK(img->channels == 4);
-      
+
       uint8_t expect[16] = {
         255,   0, 255, 255,
         255, 255, 255, 255,
@@ -59,7 +60,7 @@ TEST_CASE("[rawkit/image] load image") {
       };
 
       CHECK(memcmp(&expect, img->data, 16) == 0);
-      
+
       break;
     }
 
