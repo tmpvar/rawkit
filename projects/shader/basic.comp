@@ -1,75 +1,23 @@
 // adapted from https://www.shadertoy.com/view/XsXSz4 which is MIT licensed
 #version 450
-layout(local_size_x = 16, local_size_y = 16) in;
+layout(local_size_x = 10, local_size_y = 10) in;
 layout (binding = 0, rgba8) uniform writeonly image2D rawkit_output_image;
-layout (set=4, binding = 0, rgba8) uniform readonly image2D img2;
-layout (push_constant) uniform TimeBlock {
-  	layout (offset = 0) float time;
-} consts;
-
-layout (std140, binding = 1) uniform UBO {
-  float ubo_time;
-} uniforms;
-
-float sdCircle( in vec2 p, in float r ) {
-  return length(p)-r;
-}
-
-// signed distance to a 2D triangle
-float sdTriangle( in vec2 p0, in vec2 p1, in vec2 p2, in vec2 p) {
-	vec2 e0 = p1 - p0;
-	vec2 e1 = p2 - p1;
-	vec2 e2 = p0 - p2;
-
-	vec2 v0 = p - p0;
-	vec2 v1 = p - p1;
-	vec2 v2 = p - p2;
-
-	vec2 pq0 = v0 - e0*clamp( dot(v0,e0)/dot(e0,e0), 0.0, 1.0 );
-	vec2 pq1 = v1 - e1*clamp( dot(v1,e1)/dot(e1,e1), 0.0, 1.0 );
-	vec2 pq2 = v2 - e2*clamp( dot(v2,e2)/dot(e2,e2), 0.0, 1.0 );
-
-    float s = sign( e0.x*e2.y - e0.y*e2.x );
-    vec2 d = min(
-      min(
-        vec2( dot( pq0, pq0 ), s*(v0.x*e0.y-v0.y*e0.x) ),
-        vec2( dot( pq1, pq1 ), s*(v1.x*e1.y-v1.y*e1.x) )
-      ),
-      vec2( dot( pq2, pq2 ), s*(v2.x*e2.y-v2.y*e2.x) )
-    );
-
-	return -sqrt(d.x)*sign(d.y);
-}
-
-float opDiff(float a, float b) {
-  return max(-b, a);
-}
+layout (binding = 1, rgba8) uniform readonly image2D input_image;
 
 void main() {
   vec2 pos = gl_GlobalInvocationID.xy;
- vec2 size = vec2(gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
-  vec2 p = (2.0*pos-size.xy)/size.y;
 
-  float d = opDiff(
-    sdTriangle(
-      vec2(-0.75, -0.75),
-      vec2(0.0, 0.90),
-      vec2(0.75, -0.75),
-      p
-    ),
-    sdCircle(p,0.2 + abs(sin(consts.time * 2) * 0.5))
+  vec2 size = vec2(gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
+  vec2 uv = (2.0*pos-size.xy)/size.y;
+
+  vec4 c = imageLoad(
+    input_image,
+    ivec2(gl_GlobalInvocationID.xy)
   );
 
-  // coloring
-  vec3 col = vec3(1.0) - sign(d)*vec3(0.1,0.4,0.7);
-  col *= 1.0 - exp(-3.0*abs(d));
-  col *= 0.8 + 0.2*cos(150.0*d);
-  col = mix( col, vec3(1.0), 1.0-smoothstep(0.0,0.01,abs(d)) );
-
-  vec2 uv = pos/size;
   imageStore(
     rawkit_output_image,
     ivec2(gl_GlobalInvocationID.xy),
-    vec4(col,1.0)
+    c
   );
 }

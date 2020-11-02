@@ -38,6 +38,12 @@ install(
   DESTINATION include/rawkit
 )
 
+install(
+  FILES
+    ${CMAKE_CURRENT_LIST_DIR}/include/stb_image.h
+  DESTINATION include
+)
+
 install(TARGETS ${PROJECT_NAME}
   EXPORT ${PROJECT_NAME}Targets
   LIBRARY DESTINATION lib

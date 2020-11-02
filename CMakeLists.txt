@@ -97,6 +97,11 @@ if (NOT TARGET rawkit::texture)
   add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-texture)
 endif()
 
+# LIB: rawkit-image
+if (NOT TARGET rawkit::image)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-image)
+endif()
+
 add_executable(
   rawkit
   ${SRC_DIR}/main.cpp
@@ -186,6 +191,7 @@ target_link_libraries(
 
   rawkit::shader
   rawkit::texture
+  rawkit::image
 
   glfw
   serial

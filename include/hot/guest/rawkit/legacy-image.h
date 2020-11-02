@@ -13,8 +13,6 @@ typedef struct rawkit_image {
 extern "C" {
 #endif
 
-  const rawkit_image rawkit_load_image_relative_to_file(const char *from_file, const char *path);
-  #define rawkit_load_image(path) rawkit_load_image_relative_to_file(__FILE__, path)
 
 #ifdef __cplusplus
 }

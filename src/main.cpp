@@ -32,9 +32,9 @@
 #include <locale.h>
 
 #include <hot/host/hot.h>
-#include <hot/guest/rawkit/image.h>
+#include <hot/guest/rawkit/legacy-image.h>
 
-#define STB_IMAGE_IMPLEMENTATION
+// implmentation is defined in rawkit-image
 #include <stb_image.h>
 
 #include "imgui/imgui_impl_glfw.h"

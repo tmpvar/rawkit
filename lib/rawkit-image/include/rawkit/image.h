@@ -16,7 +16,6 @@ typedef struct rawkit_image_t {
   uint8_t channels;
 } rawkit_image_t;
 
-
 const rawkit_image_t *_rawkit_image_ex(const char *from_file, const char *path, uv_loop_t *loop, rawkit_diskwatcher_t *watcher);
 
 #define rawkit_image_ex(path, loop, diskwatcher) _rawkit_image_ex(__FILE__, path, loop, diskwatcher)

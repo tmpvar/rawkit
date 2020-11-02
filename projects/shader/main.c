@@ -202,8 +202,6 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         return;
       }
 
-
-
       // record new command buffer
       {
         // TODO: we need to wait for the previous use of this command buffer to be complete
@@ -247,7 +245,6 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
 
         for (uint32_t i = 0; i<options->params.count; i++) {
           rawkit_shader_param_t *param = &options->params.entries[i];
-          rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
           rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(
             state->glsl,
             param->name
@@ -255,6 +252,7 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
 
           switch (entry.entry_type) {
             case RAWKIT_GLSL_REFLECTION_ENTRY_UNIFORM_BUFFER: {
+              rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
               rawkit_shader_update_ubo(
                 &state->shaders[idx],
                 param->name,
@@ -266,6 +264,7 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
             }
 
             case RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER: {
+              rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
               vkCmdPushConstants(
                 state->shaders[idx].command_buffer,
                 state->shaders[idx].pipeline_layout,
@@ -276,6 +275,24 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
               );
               break;
             }
+
+            case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE: {
+              // TODO: this is a nasty hack to get hot reloading textures working. The issue is that
+              //       we need to update the texture descriptor for all shaders .. including the one
+              //       that is currently in flight.
+
+              // update descriptor sets
+              rawkit_shader_set_param(
+                &state->shaders[idx],
+                rawkit_shader_texture(
+                  param->name,
+                  param->texture
+                )
+              );
+
+              break;
+            }
+
 
             default:
               printf("ERROR: unhandled entry type (%i) while setting shader params\n", entry.entry_type);
@@ -374,22 +391,14 @@ struct triangle_uniforms {
 void loop() {
   {
     fill_rect_options_t options = {0};
-    options.render_width = 400;
-    options.render_height = 400;
+    options.render_width = 128;
+    options.render_height = 64;
+    options.display_width = 512;
+    options.display_height = 256;
 
     rawkit_shader_params(options.params,
-      rawkit_shader_f32("time", (float)rawkit_now())
+      rawkit_shader_texture("input_image", rawkit_texture("box-gradient.png"))
     );
-
-    // Note: this is also a viable construction
-    // options.push_constants_count = 1;
-    // options.push_constants = (rawkit_shader_param_t[]){
-    //   {
-    //     .name = "time",
-    //     .type = SHADER_PARAM_F32,
-    //     .f32 = (float)rawkit_now()
-    //   },
-    // };
 
     fill_rect("basic.comp", &options);
   }
@@ -398,8 +407,7 @@ void loop() {
     fill_rect_options_t options = {0};
     options.render_width = 400;
     options.render_height = 400;
-    options.display_width = 400;
-    options.display_height = 400;
+
 
     float time = (float)rawkit_now();
 
@@ -411,8 +419,6 @@ void loop() {
     ubo.color[3] = 1.0;
 
     rawkit_shader_params(options.params,
-      rawkit_shader_f32("time", time),
-      rawkit_shader_f32("tx", 0.0f),
       rawkit_shader_ubo("UBO", &ubo)
     );
 

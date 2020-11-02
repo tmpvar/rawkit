@@ -19,6 +19,11 @@ if (NOT TARGET rawkit::hot)
   add_subdirectory(../rawkit-hot deps/rawkit-hot)
 endif()
 
+# DEP: rawkit-hot (sibling)
+if (NOT TARGET rawkit::image)
+  add_subdirectory(../rawkit-image deps/rawkit-image)
+endif()
+
 add_library(${PROJECT_NAME} STATIC
   src/rawkit-texture.cpp
 )
@@ -36,6 +41,7 @@ target_link_libraries(${PROJECT_NAME}
     pull::stream
     rawkit::gpu
     rawkit::hot
+    rawkit::image
 )
 
 # Install

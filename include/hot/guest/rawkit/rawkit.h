@@ -1,7 +1,7 @@
 #pragma once
 
 #include "time.h"
-#include "image.h"
+#include "legacy-image.h"
 #include "serial.h"
 #include "string.h"
 #include "vulkan.h"

@@ -68,6 +68,11 @@ rawkit_shader_param_value_t rawkit_shader_param_value(rawkit_shader_param_t *par
       break;
     }
 
+    case RAWKIT_SHADER_PARAM_TEXTURE_PTR: {
+
+      break;
+    }
+
     case RAWKIT_SHADER_PARAM_PULL_STREAM: {
       if (param->pull_stream && param->pull_stream->fn) {
         // Note: we own this memory now
@@ -515,7 +520,7 @@ void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_shader_param_t para
   const rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(shader->glsl, param.name);
   switch (entry.entry_type) {
     case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE: {
-      if (false || !param.texture || !param.texture->sampler || !param.texture->image_view) {
+      if (!param.texture || !param.texture->sampler || !param.texture->image_view) {
         return;
       }
 
@@ -528,7 +533,7 @@ void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_shader_param_t para
       writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
       writeDescriptorSet.dstSet = shader->descriptor_sets[entry.set];
       writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-      writeDescriptorSet.dstBinding = 0;
+      writeDescriptorSet.dstBinding = entry.binding;
       writeDescriptorSet.pImageInfo = &imageInfo;
       writeDescriptorSet.descriptorCount = 1;
       vkUpdateDescriptorSets(
