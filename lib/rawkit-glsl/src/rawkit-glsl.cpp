@@ -21,12 +21,18 @@ using namespace std;
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
 
+class RawkitStage {
+  public:
+    RawkitStage() {}
+    uint32_t *data = nullptr;
+    uint64_t len = 0;
+    uint64_t bytes = 0;
+    uint32_t workgroup_size[3] = {0, 0, 0};
+    rawkit_glsl_stage_mask mask = RAWKIT_GLSL_STAGE_NONE_BIT;
+};
+
 typedef struct rawkit_glsl_t {
   const char *name;
-  uint32_t *data;
-  uint64_t len;
-  uint64_t bytes;
-  uint32_t workgroup_size[3];
   bool valid;
   rawkit_glsl_paths_t included_files;
 
@@ -36,34 +42,54 @@ typedef struct rawkit_glsl_t {
 
   // the number of bindings per descriptor set
   unordered_map<uint32_t, uint32_t> *bindings_per_set;
+  vector<RawkitStage *> *stages;
 } rawkit_glsl_t;
 
 bool rawkit_glsl_valid(const rawkit_glsl_t *ref) {
   return ref && ref->valid;
 }
 
-const uint32_t *rawkit_glsl_spirv_data(const rawkit_glsl_t *ref) {
-  if (!ref) {
+static const RawkitStage *get_stage(const rawkit_glsl_t *ref, uint8_t index) {
+  if (!ref || !ref->stages || index >= ref->stages->size()) {
     return NULL;
   }
 
-  return ref->data;
+  return (*ref->stages)[index];
 }
 
-const uint64_t rawkit_glsl_spirv_byte_len(const rawkit_glsl_t *ref) {
-  if (!ref) {
+const uint32_t *rawkit_glsl_spirv_data(const rawkit_glsl_t *ref, uint8_t index) {
+  const RawkitStage *stage = get_stage(ref, index);
+  if (!stage) {
     return NULL;
   }
-
-  return ref->bytes;
+  return stage->data;
 }
 
-const uint32_t *rawkit_glsl_workgroup_size(const rawkit_glsl_t *ref) {
-  if (!ref) {
+const uint64_t rawkit_glsl_spirv_byte_len(const rawkit_glsl_t *ref,uint8_t index) {
+  const RawkitStage *stage = get_stage(ref, index);
+  if (!stage) {
     return NULL;
   }
-  return ref->workgroup_size;
+  return stage->bytes;
 }
+
+const uint32_t *rawkit_glsl_workgroup_size(const rawkit_glsl_t *ref, uint8_t index) {
+  const RawkitStage *stage = get_stage(ref, index);
+  if (!stage) {
+    return NULL;
+  }
+  return stage->workgroup_size;
+}
+
+rawkit_glsl_stage_mask rawkit_glsl_stage_at_index(const rawkit_glsl_t *ref, uint8_t index) {
+  const RawkitStage *stage = get_stage(ref, index);
+  if (!stage) {
+    return RAWKIT_GLSL_STAGE_NONE_BIT;
+  }
+  return stage->mask;
+}
+
+
 
 const uint32_t rawkit_glsl_reflection_descriptor_set_max(const rawkit_glsl_t* ref) {
   if (!ref || !ref->bindings_per_set) {
@@ -143,6 +169,7 @@ const rawkit_glsl_reflection_vector_t rawkit_glsl_reflection_entries(const rawki
 
 static bool rawkit_glsl_reflection_add_entry(rawkit_glsl_t* glsl, string name, rawkit_glsl_reflection_entry_t entry) {
   if (!glsl) {
+    printf("ERROR: glsl was null\n");
     return false;
   }
 
@@ -173,6 +200,8 @@ static bool rawkit_glsl_reflection_add_entry(rawkit_glsl_t* glsl, string name, r
           name.c_str(),
           it->second.c_str()
         );
+
+        glsl->valid = false;
         return false;
       }
     }
@@ -221,7 +250,6 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
           //static_cast<uint32_t>(this->get_declared_struct_size(type));
           entry.offset = this->type_struct_member_offset(base_type, i);
           if (!rawkit_glsl_reflection_add_entry(glsl, name, entry)) {
-            glsl->valid = false;
             return;
           }
         }
@@ -309,7 +337,6 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         entry.dims = RawkitGLSLCompiler::get_image_dims(type);
 
         if (!rawkit_glsl_reflection_add_entry(glsl, image.name, entry)) {
-          glsl->valid = false;
           return;
         }
       }
@@ -332,7 +359,6 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         entry.dims = RawkitGLSLCompiler::get_image_dims(type);
 
         if (!rawkit_glsl_reflection_add_entry(glsl, texture.name, entry)) {
-          glsl->valid = false;
           return;
         }
       }
@@ -362,7 +388,6 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         }
 
         if (!rawkit_glsl_reflection_add_entry(glsl, ssbo.name, entry)) {
-          glsl->valid = false;
           return;
         }
       }
@@ -387,7 +412,6 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         entry.dims = RawkitGLSLCompiler::get_image_dims(type);
 
         if (!rawkit_glsl_reflection_add_entry(glsl, image.name, entry)) {
-          glsl->valid = false;
           return;
         }
       }
@@ -412,7 +436,6 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         entry.dims = RawkitGLSLCompiler::get_image_dims(type);
 
         if (!rawkit_glsl_reflection_add_entry(glsl, sampler.name, entry)) {
-          glsl->valid = false;
           return;
         }
       }
@@ -442,7 +465,6 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         }
 
         if (!rawkit_glsl_reflection_add_entry(glsl, ubo.name, entry)) {
-          glsl->valid = false;
           return;
         }
       }
@@ -464,7 +486,6 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         entry.writable = false;
 
         if (!rawkit_glsl_reflection_add_entry(glsl, input.name, entry)) {
-          glsl->valid = false;
           return;
         }
       }
@@ -486,7 +507,6 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         entry.writable = true;
 
         if (!rawkit_glsl_reflection_add_entry(glsl, output.name, entry)) {
-          glsl->valid = false;
           return;
         }
       }
@@ -510,7 +530,6 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         entry.writable = false;
 
         if (!rawkit_glsl_reflection_add_entry(glsl, input.name, entry)) {
-          glsl->valid = false;
           return;
         }
       }
@@ -555,15 +574,25 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
     }
 };
 
-
-// rawkit_glsl_t *rawkit_glsl_compile(const char *name, const rawkit_glsl_paths_t *sources, const rawkit_glsl_paths_t *include_dirs) {
-//   if (!name || !sources || !sources->count) {
-//     return NULL;
-//   }
-
-//   return NULL;
-// }
-
+static rawkit_glsl_stage_mask glsl_language_to_stage_mask(EShLanguage lang) {
+  switch (lang) {
+    case EShLangVertex: return RAWKIT_GLSL_STAGE_VERTEX_BIT;
+    case EShLangTessControl: return RAWKIT_GLSL_STAGE_TESSELLATION_CONTROL_BIT ;
+    case EShLangTessEvaluation: return RAWKIT_GLSL_STAGE_TESSELLATION_EVALUATION_BIT;
+    case EShLangGeometry: return RAWKIT_GLSL_STAGE_GEOMETRY_BIT;
+    case EShLangFragment: return RAWKIT_GLSL_STAGE_FRAGMENT_BIT;
+    case EShLangCompute: return RAWKIT_GLSL_STAGE_COMPUTE_BIT;
+    case EShLangRayGen: return RAWKIT_GLSL_STAGE_RAYGEN_BIT;
+    case EShLangIntersect: return RAWKIT_GLSL_STAGE_INTERSECTION_BIT;
+    case EShLangAnyHit: return RAWKIT_GLSL_STAGE_ANY_HIT_BIT;
+    case EShLangClosestHit: return RAWKIT_GLSL_STAGE_CLOSEST_HIT_BIT;
+    case EShLangMiss: return RAWKIT_GLSL_STAGE_MISS_BIT;
+    case EShLangCallable: return RAWKIT_GLSL_STAGE_CALLABLE_BIT;
+    case EShLangCount: return RAWKIT_GLSL_STAGE_ALL;
+    default:
+      return RAWKIT_GLSL_STAGE_NONE_BIT;
+  }
+}
 
 static bool compile_shader(glslang::TShader* shader, const char *name, const char* src, GLSLIncluder &includer) {
   if (!shader || !name || !src) {
@@ -660,6 +689,7 @@ rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *s
   ret->reflection_name_to_index = new unordered_map<string, uint64_t>();
   ret->bindings_per_set = new unordered_map<uint32_t, uint32_t>();
   ret->binding_offset = new unordered_map<uint64_t, string>();
+  ret->stages = new vector<RawkitStage *>();
   // TODO: prune this
   // ret->name = strdup(name);
 
@@ -677,7 +707,7 @@ rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *s
   glslang::TProgram program;
 
   // compile all of the provided sources
-  vector<EShLanguage> stages;
+  vector<EShLanguage> stage_masks;
   vector<glslang::TShader *> shaders;
   {
     for (uint8_t i=0; i<source_count; i++) {
@@ -695,7 +725,7 @@ rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *s
       }
 
       program.addShader(shader);
-      stages.push_back(stage);
+      stage_masks.push_back(stage);
       shaders.push_back(shader);
     }
   }
@@ -717,47 +747,51 @@ rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *s
   options.validate = true;
   options.stripDebugInfo = false;
 
-  // Note the call to GlslangToSpv also populates compilation_output_data.
-  std::vector<uint32_t> spirv_binary;
-  glslang::GlslangToSpv(
-    // TODO: compute spirv for each stage
-    *program.getIntermediate(stages[0]),
-    spirv_binary,
-    &options
-  );
+  for (auto &stage_mask : stage_masks) {
+    // Note the call to GlslangToSpv also populates compilation_output_data.
+    std::vector<uint32_t> spirv_binary;
+    glslang::GlslangToSpv(
+      // TODO: compute spirv for each stage
+      *program.getIntermediate(stage_mask),
+      spirv_binary,
+      &options
+    );
 
-  // spv::Disassemble(std::cout, spirv_binary);
+    RawkitStage *stage = new RawkitStage();
+    ret->stages->push_back(stage);
+    // spv::Disassemble(std::cout, spirv_binary);
 
-  ret->len = spirv_binary.size();
-  ret->bytes = ret->len * sizeof(uint32_t);
-  ret->data = (uint32_t *)malloc(ret->bytes);
-  memcpy(ret->data, spirv_binary.data(), ret->bytes);
+    stage->mask = glsl_language_to_stage_mask(stage_mask);
+    stage->len = spirv_binary.size();
+    stage->bytes = stage->len * sizeof(uint32_t);
+    stage->data = (uint32_t *)malloc(stage->bytes);
+    memcpy(stage->data, spirv_binary.data(), stage->bytes);
 
-  RawkitGLSLCompiler comp(std::move(spirv_binary));
+    RawkitGLSLCompiler comp(std::move(spirv_binary));
 
-  // Store: workgroup_size
-  {
-    auto entries = comp.get_entry_points_and_stages();
-    for (auto &e : entries) {
-      auto &ep =  comp.get_entry_point(e.name, e.execution_model);
-      spirv_cross::SpecializationConstant x, y, z;
-      comp.get_work_group_size_specialization_constants(x, y, z);
+    // Store: workgroup_size
+    {
+      auto entries = comp.get_entry_points_and_stages();
+      for (auto &e : entries) {
+        auto &ep =  comp.get_entry_point(e.name, e.execution_model);
+        spirv_cross::SpecializationConstant x, y, z;
+        comp.get_work_group_size_specialization_constants(x, y, z);
 
-      ret->workgroup_size[0] = (x.id != spirv_cross::ID(0)) ? x.constant_id : ep.workgroup_size.x;
-      ret->workgroup_size[1] = (y.id != spirv_cross::ID(0)) ? y.constant_id : ep.workgroup_size.y;
-      ret->workgroup_size[2] = (z.id != spirv_cross::ID(0)) ? z.constant_id : ep.workgroup_size.z;
-      break;
+        stage->workgroup_size[0] = (x.id != spirv_cross::ID(0)) ? x.constant_id : ep.workgroup_size.x;
+        stage->workgroup_size[1] = (y.id != spirv_cross::ID(0)) ? y.constant_id : ep.workgroup_size.y;
+        stage->workgroup_size[2] = (z.id != spirv_cross::ID(0)) ? z.constant_id : ep.workgroup_size.z;
+        break;
+      }
     }
+
+    unordered_map<spirv_cross::TypeID, spirv_cross::SPIRType> types;
+
+    comp.populate_reflection(ret);
+
+    // comp.set_format("json");
+    // auto json = comp.compile();
+    // printf("%s reflection:\n%s\n", name, json.c_str());
   }
-
-  unordered_map<spirv_cross::TypeID, spirv_cross::SPIRType> types;
-
-  comp.populate_reflection(ret);
-
-  // comp.set_format("json");
-  // auto json = comp.compile();
-  // printf("%s reflection:\n%s\n", name, json.c_str());
-
   return ret;
 }
 
@@ -778,10 +812,8 @@ void rawkit_glsl_destroy(rawkit_glsl_t *ref) {
     return;
   }
 
-  if (ref->len && ref->data) {
-    free(ref->data);
-    ref->len = 0;
-    ref->data = NULL;
+  if (ref->stages) {
+    ref->stages->clear();
   }
 
   if (ref->reflection_name_to_index) {

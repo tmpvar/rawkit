@@ -147,9 +147,11 @@ rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *s
 void rawkit_glsl_destroy(rawkit_glsl_t *ref);
 
 bool rawkit_glsl_valid(const rawkit_glsl_t *ref);
-const uint32_t *rawkit_glsl_workgroup_size(const rawkit_glsl_t *ref);
-const uint32_t *rawkit_glsl_spirv_data(const rawkit_glsl_t *ref);
-const uint64_t rawkit_glsl_spirv_byte_len(const rawkit_glsl_t *ref);
+const uint32_t *rawkit_glsl_workgroup_size(const rawkit_glsl_t *ref, uint8_t index);
+
+rawkit_glsl_stage_mask rawkit_glsl_stage_at_index(const rawkit_glsl_t *ref, uint8_t index);
+const uint32_t *rawkit_glsl_spirv_data(const rawkit_glsl_t *ref, uint8_t index);
+const uint64_t rawkit_glsl_spirv_byte_len(const rawkit_glsl_t *ref, uint8_t index);
 
 const rawkit_glsl_reflection_entry_t rawkit_glsl_reflection_entry(const rawkit_glsl_t* ref, const char* name);
 

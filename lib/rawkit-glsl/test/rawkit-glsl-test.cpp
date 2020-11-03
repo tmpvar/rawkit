@@ -137,7 +137,7 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
-  const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(s);
+  const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(s, 0);
   REQUIRE(workgroup_size != nullptr);
   CHECK(workgroup_size[0] == 4);
   CHECK(workgroup_size[1] == 4);
@@ -346,7 +346,7 @@ TEST_CASE("[rawkit/glsl] reflection (frag)") {
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
-  const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(s);
+  const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(s, 0);
   REQUIRE(workgroup_size != nullptr);
   CHECK(workgroup_size[0] == 0);
   CHECK(workgroup_size[1] == 0);
@@ -454,7 +454,7 @@ TEST_CASE("[rawkit/glsl] reflection push constant buffer size") {
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
-  const uint32_t* workgroup_size = rawkit_glsl_workgroup_size(s);
+  const uint32_t* workgroup_size = rawkit_glsl_workgroup_size(s, 0);
   REQUIRE(workgroup_size != nullptr);
   CHECK(workgroup_size[0] == 4);
   CHECK(workgroup_size[1] == 4);
@@ -486,4 +486,41 @@ TEST_CASE("[rawkit/glsl] bindings cannot be shared") {
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s) == false);
+}
+
+TEST_CASE("[rawkit/glsl] multiple stages") {
+  rawkit_glsl_source_t sources[2] = {
+    {
+      "basic.vert",
+      "#version 450\n"
+      "layout(location = 0) in vec2 inPosition;\n"
+      "void main() {\n"
+      "  gl_Position = vec4(inPosition, 0.0, 1.0);"
+      "}\n",
+    },
+    {
+      "basic.frag",
+      "#version 450\n"
+      "layout(location = 0) out vec3 fragColor;\n"
+      "void main() {\n"
+      "  fragColor = vec3(1.0, 0.0, 1.0);\n"
+      "}\n",
+    },
+  };
+
+  rawkit_glsl_t *s = rawkit_glsl_compile(2, sources, NULL);
+
+  REQUIRE(s != nullptr);
+  CHECK(rawkit_glsl_valid(s) == true);
+
+  CHECK(rawkit_glsl_stage_at_index(s, 0) == RAWKIT_GLSL_STAGE_VERTEX_BIT);
+  CHECK(rawkit_glsl_stage_at_index(s, 1) == RAWKIT_GLSL_STAGE_FRAGMENT_BIT);
+
+  CHECK(rawkit_glsl_spirv_data(s, 0) != nullptr);
+  CHECK(rawkit_glsl_spirv_byte_len(s, 0) != 0);
+
+  CHECK(rawkit_glsl_spirv_data(s, 1) != nullptr);
+  CHECK(rawkit_glsl_spirv_byte_len(s, 1) != 0);
+
+  CHECK(rawkit_glsl_spirv_data(s, 0) != rawkit_glsl_spirv_data(s, 1));
 }
