@@ -116,9 +116,15 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
   {
     const rawkit_file_t *rawkit_shader_file = rawkit_file(path);
     if (rawkit_shader_file) {
-      rawkit_glsl_t *glsl = rawkit_glsl_compile(
+
+      rawkit_glsl_source_t source = {
         path,
         (const char *)rawkit_shader_file->data,
+      };
+
+      rawkit_glsl_t *glsl = rawkit_glsl_compile(
+        1,
+        &source,
         NULL
       );
 
@@ -127,8 +133,8 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         if (rawkit_glsl_valid(glsl)) {
           VkShaderModuleCreateInfo info = {};
           info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-          info.codeSize = rawkit_glsl_spirv_byte_len(glsl);
-          info.pCode = rawkit_glsl_spirv_data(glsl);
+          info.codeSize = rawkit_glsl_spirv_byte_len(glsl, 0);
+          info.pCode = rawkit_glsl_spirv_data(glsl, 0);
           VkShaderModule module = VK_NULL_HANDLE;
           err = vkCreateShaderModule(
             rawkit_vulkan_device(),
@@ -312,7 +318,7 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         );
 
         {
-          const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(state->glsl);
+          const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(state->glsl, 0);
           float local[3] = {
             (float)workgroup_size[0],
             (float)workgroup_size[1],
