@@ -566,7 +566,9 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
 
 
 static bool compile_shader(glslang::TShader* shader, const char *name, const char* src, GLSLIncluder &includer) {
-
+  if (!shader || !name || !src) {
+    return false;
+  }
 
   int length = static_cast<int>(strlen(src));
   shader->setStringsWithLengths(
@@ -636,13 +638,8 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
 
 }
 
-rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawkit_glsl_paths_t *include_dirs) {
-  if (!name || !src) {
-    return NULL;
-  }
-
-  EShLanguage stage = filename_to_stage(name);
-  if (stage == EShLanguage::EShLangCount) {
+rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *sources, const rawkit_glsl_paths_t *include_dirs) {
+  if (!sources || !source_count) {
     return NULL;
   }
 
@@ -663,8 +660,8 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawk
   ret->reflection_name_to_index = new unordered_map<string, uint64_t>();
   ret->bindings_per_set = new unordered_map<uint32_t, uint32_t>();
   ret->binding_offset = new unordered_map<uint64_t, string>();
-  ret->name = strdup(name);
-
+  // TODO: prune this
+  // ret->name = strdup(name);
 
   GLSLIncluder includer;
 
@@ -677,19 +674,37 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawk
     }
   }
 
-  glslang::TShader shader(stage);
+  glslang::TProgram program;
 
-  if (!compile_shader(&shader, name, src, includer)) {
-    ret->valid = false;
-    return ret;
+  // compile all of the provided sources
+  vector<EShLanguage> stages;
+  vector<glslang::TShader *> shaders;
+  {
+    for (uint8_t i=0; i<source_count; i++) {
+      EShLanguage stage = filename_to_stage(sources[i].filename);
+      if (stage == EShLanguage::EShLangCount) {
+        printf("ERROR: invalid stage language\n");
+        return NULL;
+      }
+
+      glslang::TShader *shader = new glslang::TShader(stage);
+
+      if (!compile_shader(shader, sources[i].filename, sources[i].data, includer)) {
+        ret->valid = false;
+        return ret;
+      }
+
+      program.addShader(shader);
+      stages.push_back(stage);
+      shaders.push_back(shader);
+    }
   }
 
-  glslang::TProgram program;
-  program.addShader(&shader);
   if (!program.link(EShMsgDefault)) {
     printf("glslang: unable to link\nLOG:%s\n",
       program.getInfoLog()
     );
+
     return ret;
   }
 
@@ -705,12 +720,13 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawk
   // Note the call to GlslangToSpv also populates compilation_output_data.
   std::vector<uint32_t> spirv_binary;
   glslang::GlslangToSpv(
-    *program.getIntermediate(stage),
+    // TODO: compute spirv for each stage
+    *program.getIntermediate(stages[0]),
     spirv_binary,
     &options
   );
 
-  //spv::Disassemble(std::cout, spirv_binary);
+  // spv::Disassemble(std::cout, spirv_binary);
 
   ret->len = spirv_binary.size();
   ret->bytes = ret->len * sizeof(uint32_t);
@@ -846,9 +862,11 @@ static ps_val_t *rawkit_glsl_read_fn(ps_t *base, ps_stream_status status) {
   }
 
   ps_rawkit_glsl_t *s = (ps_rawkit_glsl_t *)base;
+
+  rawkit_glsl_source_t source = { s->name, (const char *)input->data };
   rawkit_glsl_t *r = rawkit_glsl_compile(
-    s->name,
-    (const char *)input->data,
+    1,
+    &source,
     &s->include_dirs
   );
 

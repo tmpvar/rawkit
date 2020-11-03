@@ -7,21 +7,25 @@
 using namespace std;
 
 TEST_CASE("[rawkit/glsl] invalid args") {
-  REQUIRE(rawkit_glsl_compile(nullptr, nullptr, nullptr) == nullptr);
-  REQUIRE(rawkit_glsl_compile("BLAH", nullptr, nullptr) == nullptr);
-  REQUIRE(rawkit_glsl_compile(nullptr, "BLAH", nullptr) == nullptr);
-  REQUIRE(rawkit_glsl_compile("invalid.extension", "BLAH", nullptr) == nullptr);
+  REQUIRE(rawkit_glsl_compile(0, nullptr, nullptr) == nullptr);
+  REQUIRE(rawkit_glsl_compile(1, nullptr, nullptr) == nullptr);
+
+  rawkit_glsl_source_t source = {"invalid.extension", "BLAH"};
+  REQUIRE(rawkit_glsl_compile(0, &source, nullptr) == nullptr);
+  REQUIRE(rawkit_glsl_compile(1, &source, nullptr) == nullptr);
 }
 
 TEST_CASE("[rawkit/glsl] compile glsl into spirv") {
-  rawkit_glsl_t *s = rawkit_glsl_compile("simple.frag",
+  rawkit_glsl_source_t source = {
+    "simple.frag",
     "#version 450\n"
     "out float outF;"
     "void main() {\n"
     "  float outF = 1.23456 * 5.678;\n"
     "}\n",
-    nullptr
-  );
+  };
+
+  rawkit_glsl_t *s = rawkit_glsl_compile(1, &source, nullptr);
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
 }
@@ -43,7 +47,8 @@ TEST_CASE("[rawkit/glsl] compile glsl into spirv (absolute include)") {
     include.c_str()
   );
 
-  rawkit_glsl_t *s = rawkit_glsl_compile("simple.frag", src, nullptr);
+  rawkit_glsl_source_t source = {"simple.frag", src};
+  rawkit_glsl_t *s = rawkit_glsl_compile(1, &source, nullptr);
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
 }
@@ -65,7 +70,8 @@ TEST_CASE("[rawkit/glsl] compile glsl into spirv (relative include)") {
     include.c_str()
   );
 
-  rawkit_glsl_t *s = rawkit_glsl_compile("simple.frag", src, nullptr);
+  rawkit_glsl_source_t source = {"simple.frag", src};
+  rawkit_glsl_t *s = rawkit_glsl_compile(1, &source, nullptr);
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
 }
@@ -77,14 +83,19 @@ TEST_CASE("[rawkit/glsl] compile glsl into spirv (system include)") {
     1
   };
 
-  rawkit_glsl_t *s = rawkit_glsl_compile(
+  rawkit_glsl_source_t source = {
     "simple.frag",
     "#version 450\n"
     "#include <system.glsl>\n"
     "out float outF;"
     "void main() {\n"
     "  float outF = system();\n"
-    "}\n",
+    "}\n"
+  };
+
+  rawkit_glsl_t *s = rawkit_glsl_compile(
+    1,
+    &source,
     &includes
   );
 
@@ -96,8 +107,7 @@ TEST_CASE("[rawkit/glsl] compile glsl into spirv (system include)") {
 }
 
 TEST_CASE("[rawkit/glsl] reflection (compute)") {
-
-  rawkit_glsl_t *s = rawkit_glsl_compile(
+  rawkit_glsl_source_t source = {
     "reflection.comp",
     "#version 450\n"
     "layout(local_size_x = 4, local_size_y = 4) in;\n"
@@ -122,8 +132,8 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
     "  ssbo_buffer_floats_wo[0] = ssbo_buffer_floats[0] + ssbo_buffer_floats_ro[0];\n"
     "  block_sized_struct.a = ssbo_buffer_floats[0] + ssbo_buffer_floats_ro[0];\n"
     "}\n",
-    NULL
-  );
+  };
+  rawkit_glsl_t *s = rawkit_glsl_compile(1, &source, NULL);
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
@@ -315,8 +325,7 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
 }
 
 TEST_CASE("[rawkit/glsl] reflection (frag)") {
-
-  rawkit_glsl_t *s = rawkit_glsl_compile(
+  rawkit_glsl_source_t source = {
     "reflection.frag",
     "#version 450\n"
     "#extension GL_EXT_ray_tracing : require\n"
@@ -331,8 +340,9 @@ TEST_CASE("[rawkit/glsl] reflection (frag)") {
     "  out_color = in_color;\n"
     "  out_float = in_float;\n"
     "}\n",
-    NULL
-  );
+  };
+
+  rawkit_glsl_t *s = rawkit_glsl_compile(1, &source, NULL);
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
@@ -428,8 +438,7 @@ TEST_CASE("[rawkit/glsl] reflection (frag)") {
 }
 
 TEST_CASE("[rawkit/glsl] reflection push constant buffer size") {
-
-  rawkit_glsl_t* s = rawkit_glsl_compile(
+  rawkit_glsl_source_t source = {
     "push_constant_buffer_size.comp",
     "#version 450\n"
     "layout(local_size_x = 4, local_size_y = 4) in;\n"
@@ -439,8 +448,9 @@ TEST_CASE("[rawkit/glsl] reflection push constant buffer size") {
     "} consts;\n"
     "void main() {\n"
     "}\n",
-    NULL
-  );
+  };
+
+  rawkit_glsl_t* s = rawkit_glsl_compile(1, &source, NULL);
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
@@ -462,7 +472,7 @@ TEST_CASE("[rawkit/glsl] reflection push constant buffer size") {
 }
 
 TEST_CASE("[rawkit/glsl] bindings cannot be shared") {
-  rawkit_glsl_t *s = rawkit_glsl_compile(
+  rawkit_glsl_source_t source = {
     "reflection.comp",
     "#version 450\n"
     "layout(local_size_x = 4, local_size_y = 4) in;\n"
@@ -470,8 +480,9 @@ TEST_CASE("[rawkit/glsl] bindings cannot be shared") {
     "layout (std430) uniform ubo { float ubo_float; };\n"
     "void main() {\n"
     "}\n",
-    NULL
-  );
+  };
+
+  rawkit_glsl_t *s = rawkit_glsl_compile(1, &source, NULL);
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s) == false);

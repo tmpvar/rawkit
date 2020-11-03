@@ -138,7 +138,12 @@ typedef struct rawkit_glsl_reflection_vector_t {
 
 typedef struct rawkit_glsl_t rawkit_glsl_t;
 
-rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawkit_glsl_paths_t *include_dirs);
+typedef struct rawkit_glsl_source_t {
+  const char *filename;
+  const char *data;
+} rawkit_glsl_source_t;
+
+rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *sources, const rawkit_glsl_paths_t *include_dirs);
 void rawkit_glsl_destroy(rawkit_glsl_t *ref);
 
 bool rawkit_glsl_valid(const rawkit_glsl_t *ref);
