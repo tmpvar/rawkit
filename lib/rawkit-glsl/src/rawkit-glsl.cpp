@@ -90,6 +90,14 @@ rawkit_glsl_stage_mask rawkit_glsl_stage_at_index(const rawkit_glsl_t *ref, uint
 }
 
 
+uint8_t rawkit_glsl_stage_count(const rawkit_glsl_t *ref) {
+  if (!ref || !ref->stages) {
+    return 0;
+  }
+
+  return static_cast<uint8_t>(ref->stages->size());
+}
+
 
 const uint32_t rawkit_glsl_reflection_descriptor_set_max(const rawkit_glsl_t* ref) {
   if (!ref || !ref->bindings_per_set) {
@@ -173,6 +181,18 @@ static bool rawkit_glsl_reflection_add_entry(rawkit_glsl_t* glsl, string name, r
     return false;
   }
 
+  auto it = glsl->reflection_name_to_index->find(name);
+  if (it != glsl->reflection_name_to_index->end()) {
+    if (it->second >= glsl->reflection_entries->size()) {
+      printf("ERROR: reflection name map pointed to entry that is out of range\n");
+      return false;
+    }
+
+    // TODO: if any of the other fields differ we have a problem
+    (*glsl->reflection_entries)[it->second].stage |= entry.stage;
+    return true;
+  }
+
   uint64_t idx = glsl->reflection_entries->size();
   glsl->reflection_name_to_index->emplace(name, idx);
   glsl->reflection_entries->push_back(entry);
@@ -220,8 +240,13 @@ static bool rawkit_glsl_reflection_add_entry(rawkit_glsl_t* glsl, string name, r
 }
 
 class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
+  rawkit_glsl_stage_mask stage_mask = RAWKIT_GLSL_STAGE_NONE_BIT;
+
   public:
-    RawkitGLSLCompiler(std::vector<uint32_t> ir) : CompilerReflection(ir) {
+    RawkitGLSLCompiler(std::vector<uint32_t> ir, rawkit_glsl_stage_mask stage_mask)
+      : CompilerReflection(ir),
+        stage_mask(stage_mask)
+    {
 
     }
 
@@ -238,6 +263,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
 
           rawkit_glsl_reflection_entry_t entry = {};
           entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER;
+          entry.stage = this->stage_mask;
           entry.location = -1;
           entry.set = -1;
           entry.binding = -1;
@@ -323,6 +349,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       for (auto& image : res.storage_images) {
         rawkit_glsl_reflection_entry_t entry = {};
         entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE;
+        entry.stage = this->stage_mask;
         entry.location = this->get_decoration(image.id, spv::DecorationLocation);
         entry.set = this->get_decoration(image.id, spv::DecorationDescriptorSet);
         entry.binding = this->get_decoration(image.id, spv::DecorationBinding);
@@ -347,6 +374,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       for (auto& texture : res.sampled_images) {
         rawkit_glsl_reflection_entry_t entry = {};
         entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_SAMPLED_IMAGE;
+        entry.stage = this->stage_mask;
         entry.image_format = RAWKIT_GLSL_IMAGE_FORMAT_UNKNOWN;
         entry.offset = -1;
         entry.readable = true;
@@ -369,6 +397,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       for (auto& ssbo : res.storage_buffers) {
         rawkit_glsl_reflection_entry_t entry = {};
         entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_BUFFER;
+        entry.stage = this->stage_mask;
         entry.image_format = RAWKIT_GLSL_IMAGE_FORMAT_UNKNOWN;
         entry.dims = RAWKIT_GLSL_DIMS_BUFFER;
         entry.offset = -1;
@@ -398,6 +427,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       for (auto& image : res.separate_images) {
         rawkit_glsl_reflection_entry_t entry = {};
         entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_SEPARATE_IMAGE;
+        entry.stage = this->stage_mask;
         entry.location = this->get_decoration(image.id, spv::DecorationLocation);
         entry.set = this->get_decoration(image.id, spv::DecorationDescriptorSet);
         entry.binding = this->get_decoration(image.id, spv::DecorationBinding);
@@ -422,6 +452,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       for (auto& sampler : res.separate_samplers) {
         rawkit_glsl_reflection_entry_t entry = {};
         entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_SEPARATE_SAMPLER;
+        entry.stage = this->stage_mask;
         entry.location = this->get_decoration(sampler.id, spv::DecorationLocation);
         entry.set = this->get_decoration(sampler.id, spv::DecorationDescriptorSet);
         entry.binding = this->get_decoration(sampler.id, spv::DecorationBinding);
@@ -446,6 +477,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       for (auto& ubo : res.uniform_buffers) {
         rawkit_glsl_reflection_entry_t entry = {};
         entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_UNIFORM_BUFFER;
+        entry.stage = this->stage_mask;
         entry.image_format = RAWKIT_GLSL_IMAGE_FORMAT_UNKNOWN;
         entry.dims = RAWKIT_GLSL_DIMS_BUFFER;
         entry.offset = -1;
@@ -479,6 +511,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         size_t size = type.member_types.size();
         rawkit_glsl_reflection_entry_t entry = {};
         entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_STAGE_INPUT;
+        entry.stage = this->stage_mask;
         entry.location = this->get_decoration(input.id, spv::DecorationLocation);
         entry.set = -1;
         entry.binding = -1;
@@ -500,6 +533,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         size_t size = type.member_types.size();
         rawkit_glsl_reflection_entry_t entry = {};
         entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_STAGE_OUTPUT;
+        entry.stage = this->stage_mask;
         entry.location = this->get_decoration(output.id, spv::DecorationLocation);
         entry.set = -1;
         entry.binding = -1;
@@ -544,6 +578,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         size_t size = type.member_types.size();
         rawkit_glsl_reflection_entry_t entry = {};
         entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_ACCELERATION_STRUCTURE;
+        entry.stage = this->stage_mask;
         entry.location = this->get_decoration(acc.id, spv::DecorationLocation);
         entry.set = this->get_decoration(acc.id, spv::DecorationDescriptorSet);
         entry.binding = this->get_decoration(acc.id, spv::DecorationBinding);
@@ -747,12 +782,12 @@ rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *s
   options.validate = true;
   options.stripDebugInfo = false;
 
-  for (auto &stage_mask : stage_masks) {
+  for (auto &glslang_stage : stage_masks) {
     // Note the call to GlslangToSpv also populates compilation_output_data.
     std::vector<uint32_t> spirv_binary;
     glslang::GlslangToSpv(
       // TODO: compute spirv for each stage
-      *program.getIntermediate(stage_mask),
+      *program.getIntermediate(glslang_stage),
       spirv_binary,
       &options
     );
@@ -761,13 +796,13 @@ rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *s
     ret->stages->push_back(stage);
     // spv::Disassemble(std::cout, spirv_binary);
 
-    stage->mask = glsl_language_to_stage_mask(stage_mask);
+    stage->mask = glsl_language_to_stage_mask(glslang_stage);
     stage->len = spirv_binary.size();
     stage->bytes = stage->len * sizeof(uint32_t);
     stage->data = (uint32_t *)malloc(stage->bytes);
     memcpy(stage->data, spirv_binary.data(), stage->bytes);
 
-    RawkitGLSLCompiler comp(std::move(spirv_binary));
+    RawkitGLSLCompiler comp(std::move(spirv_binary), stage->mask);
 
     // Store: workgroup_size
     {

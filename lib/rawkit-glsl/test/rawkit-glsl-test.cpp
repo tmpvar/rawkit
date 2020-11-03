@@ -494,6 +494,7 @@ TEST_CASE("[rawkit/glsl] multiple stages") {
       "basic.vert",
       "#version 450\n"
       "layout(location = 0) in vec2 inPosition;\n"
+      "layout (std430) uniform ubo { float ubo_float; };\n"
       "void main() {\n"
       "  gl_Position = vec4(inPosition, 0.0, 1.0);"
       "}\n",
@@ -502,6 +503,7 @@ TEST_CASE("[rawkit/glsl] multiple stages") {
       "basic.frag",
       "#version 450\n"
       "layout(location = 0) out vec3 fragColor;\n"
+      "layout (std430) uniform ubo { float ubo_float; };\n"
       "void main() {\n"
       "  fragColor = vec3(1.0, 0.0, 1.0);\n"
       "}\n",
@@ -512,7 +514,7 @@ TEST_CASE("[rawkit/glsl] multiple stages") {
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s) == true);
-
+  CHECK(rawkit_glsl_stage_count(s) == 2);
   CHECK(rawkit_glsl_stage_at_index(s, 0) == RAWKIT_GLSL_STAGE_VERTEX_BIT);
   CHECK(rawkit_glsl_stage_at_index(s, 1) == RAWKIT_GLSL_STAGE_FRAGMENT_BIT);
 
@@ -523,4 +525,13 @@ TEST_CASE("[rawkit/glsl] multiple stages") {
   CHECK(rawkit_glsl_spirv_byte_len(s, 1) != 0);
 
   CHECK(rawkit_glsl_spirv_data(s, 0) != rawkit_glsl_spirv_data(s, 1));
+
+  const rawkit_glsl_reflection_entry_t ubo = rawkit_glsl_reflection_entry(s, "ubo");
+  CHECK(ubo.stage == (RAWKIT_GLSL_STAGE_FRAGMENT_BIT | RAWKIT_GLSL_STAGE_VERTEX_BIT));
+
+  const rawkit_glsl_reflection_entry_t fragColor = rawkit_glsl_reflection_entry(s, "fragColor");
+  CHECK(fragColor.stage == (RAWKIT_GLSL_STAGE_FRAGMENT_BIT));
+
+  const rawkit_glsl_reflection_entry_t inPosition = rawkit_glsl_reflection_entry(s, "inPosition");
+  CHECK(inPosition.stage == (RAWKIT_GLSL_STAGE_VERTEX_BIT));
 }

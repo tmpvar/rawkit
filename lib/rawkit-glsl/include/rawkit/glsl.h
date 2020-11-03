@@ -114,6 +114,8 @@ typedef enum {
   RAWKIT_GLSL_STAGE_ALL = 0xFFFFFFFF,
 } rawkit_glsl_stage_mask;
 
+typedef uint32_t rawkit_glsl_stage_mask_t;
+
 typedef struct rawkit_glsl_reflection_entry_t {
   rawkit_glsl_reflection_entry_type entry_type;
   bool readable;
@@ -126,7 +128,7 @@ typedef struct rawkit_glsl_reflection_entry_t {
   int32_t input_attachment_index;
   rawkit_glsl_dims dims;
   rawkit_glsl_image_format image_format;
-  rawkit_glsl_stage_mask stage;
+  rawkit_glsl_stage_mask_t stage;
 
   uint32_t user_index;
 } rawkit_glsl_reflection_entry_t;
@@ -159,7 +161,7 @@ const rawkit_glsl_reflection_vector_t rawkit_glsl_reflection_entries(const rawki
 const uint32_t rawkit_glsl_reflection_descriptor_set_max(const rawkit_glsl_t* ref);
 const uint32_t rawkit_glsl_reflection_binding_count_for_set(const rawkit_glsl_t* ref, uint32_t set);
 
-
+uint8_t rawkit_glsl_stage_count(const rawkit_glsl_t *ref);
 
 ps_t *rawkit_glsl_compiler(const char *name, const rawkit_glsl_paths_t *includes);
 
