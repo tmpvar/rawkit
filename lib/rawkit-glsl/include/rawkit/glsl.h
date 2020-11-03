@@ -92,6 +92,28 @@ typedef enum {
   RAWKIT_GLSL_DIMS_MAX = 0x7fffffff,
 } rawkit_glsl_dims;
 
+typedef enum {
+  RAWKIT_GLSL_STAGE_NONE_BIT = 0,
+
+  RAWKIT_GLSL_STAGE_VERTEX_BIT = (0<<1),
+  RAWKIT_GLSL_STAGE_TESSELLATION_CONTROL_BIT = (1<<2),
+  RAWKIT_GLSL_STAGE_TESSELLATION_EVALUATION_BIT = (1<<3),
+  RAWKIT_GLSL_STAGE_GEOMETRY_BIT = (1<<4),
+  RAWKIT_GLSL_STAGE_FRAGMENT_BIT = (1<<5),
+  RAWKIT_GLSL_STAGE_COMPUTE_BIT = (1<<6),
+  RAWKIT_GLSL_STAGE_ALL_GRAPHICS = (1<<7),
+
+  // Raytracing extension
+  RAWKIT_GLSL_STAGE_RAYGEN_BIT = (1<<9),
+  RAWKIT_GLSL_STAGE_ANY_HIT_BIT = (1<<10),
+  RAWKIT_GLSL_STAGE_CLOSEST_HIT_BIT = (1<<11),
+  RAWKIT_GLSL_STAGE_MISS_BIT = (1<<12),
+  RAWKIT_GLSL_STAGE_INTERSECTION_BIT = (1<<13),
+  RAWKIT_GLSL_STAGE_CALLABLE_BIT = (1<<14),
+
+  RAWKIT_GLSL_STAGE_ALL = 0xFFFFFFFF,
+} rawkit_glsl_stage_mask;
+
 typedef struct rawkit_glsl_reflection_entry_t {
   rawkit_glsl_reflection_entry_type entry_type;
   bool readable;
@@ -104,6 +126,8 @@ typedef struct rawkit_glsl_reflection_entry_t {
   int32_t input_attachment_index;
   rawkit_glsl_dims dims;
   rawkit_glsl_image_format image_format;
+  rawkit_glsl_stage_mask stage;
+
   uint32_t user_index;
 } rawkit_glsl_reflection_entry_t;
 

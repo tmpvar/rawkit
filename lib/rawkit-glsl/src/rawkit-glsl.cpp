@@ -556,6 +556,86 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
 };
 
 
+// rawkit_glsl_t *rawkit_glsl_compile(const char *name, const rawkit_glsl_paths_t *sources, const rawkit_glsl_paths_t *include_dirs) {
+//   if (!name || !sources || !sources->count) {
+//     return NULL;
+//   }
+
+//   return NULL;
+// }
+
+
+static bool compile_shader(glslang::TShader* shader, const char *name, const char* src, GLSLIncluder &includer) {
+
+
+  int length = static_cast<int>(strlen(src));
+  shader->setStringsWithLengths(
+    &src,
+    &length,
+    1
+  );
+
+  shader->setEnvInput(
+    glslang::EShSourceGlsl,
+    shader->getStage(),
+    glslang::EShClientOpenGL,
+    450
+  );
+
+  shader->setEnvClient(
+    glslang::EShClientVulkan,
+    glslang::EShTargetVulkan_1_2
+  );
+
+  shader->setEnvTarget(
+    glslang::EShTargetSpv,
+    glslang::EShTargetSpv_1_5
+  );
+
+  shader->setPreamble(
+    "\n#extension GL_GOOGLE_include_directive: enable\n"
+  );
+
+  shader->setAutoMapBindings(true);
+  shader->setAutoMapLocations(true);
+  shader->setEntryPoint("main");
+
+  string output;
+
+
+  TBuiltInResource resource_limits = get_default_resource_limits();
+
+  shader->preprocess(
+    &resource_limits,
+    110,
+    ENoProfile,
+    false,
+    false,
+    EShMsgDefault,
+    &output,
+    includer
+  );
+
+  int r = shader->parse(
+    &resource_limits,
+    450,
+    false,
+    EShMsgRelaxedErrors,
+    includer
+  );
+
+  if (!r) {
+    printf("Debug log for %s\n%s\n", name, shader->getInfoDebugLog());
+    printf("glslang: failed to parse shader %s\nLOG: %s",
+      name,
+      shader->getInfoLog()
+    );
+
+    return false;
+  }
+
+}
+
 rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawkit_glsl_paths_t *include_dirs) {
   if (!name || !src) {
     return NULL;
@@ -585,80 +665,22 @@ rawkit_glsl_t *rawkit_glsl_compile(const char *name, const char *src, const rawk
   ret->binding_offset = new unordered_map<uint64_t, string>();
   ret->name = strdup(name);
 
-  glslang::TShader shader(stage);
 
-  int length = static_cast<int>(strlen(src));
-  shader.setStringsWithLengths(
-    &src,
-    &length,
-    1
-  );
-
-  shader.setEnvInput(
-    glslang::EShSourceGlsl,
-    stage,
-    glslang::EShClientOpenGL,
-    450
-  );
-
-  shader.setEnvClient(
-    glslang::EShClientVulkan,
-    glslang::EShTargetVulkan_1_2
-  );
-
-  shader.setEnvTarget(
-    glslang::EShTargetSpv,
-    glslang::EShTargetSpv_1_5
-  );
-
-  shader.setPreamble(
-    "\n#extension GL_GOOGLE_include_directive: enable\n"
-  );
-
-  shader.setAutoMapBindings(true);
-  shader.setAutoMapLocations(true);
-  shader.setEntryPoint("main");
-
-  string output;
   GLSLIncluder includer;
 
   if (include_dirs && include_dirs->count) {
-    for (uint32_t i=0; i<include_dirs->count; i++) {
-      const char *include = include_dirs->entry[i];
+    for (uint32_t i = 0; i < include_dirs->count; i++) {
+      const char* include = include_dirs->entry[i];
       if (include != nullptr) {
         includer.pushExternalLocalDirectory(include);
       }
     }
   }
 
-  TBuiltInResource resource_limits = get_default_resource_limits();
+  glslang::TShader shader(stage);
 
-  shader.preprocess(
-    &resource_limits,
-    110,
-    ENoProfile,
-    false,
-    false,
-    EShMsgDefault,
-    &output,
-    includer
-  );
-
-  int r = shader.parse(
-    &resource_limits,
-    450,
-    false,
-    EShMsgRelaxedErrors,
-    includer
-  );
-
-  if (!r) {
-    printf("Debug log for %s\n%s\n", name, shader.getInfoDebugLog());
-    printf("glslang: failed to parse shader %s\nLOG: %s",
-      name,
-      shader.getInfoLog()
-    );
-
+  if (!compile_shader(&shader, name, src, includer)) {
+    ret->valid = false;
     return ret;
   }
 
