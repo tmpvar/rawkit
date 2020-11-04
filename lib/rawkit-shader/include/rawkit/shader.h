@@ -8,7 +8,6 @@
 
 #include <rawkit/texture.h>
 
-
 typedef struct rawkit_shader_uniform_buffer_t {
   rawkit_glsl_reflection_entry_t *entry;
   VkBuffer handle;
@@ -17,7 +16,6 @@ typedef struct rawkit_shader_uniform_buffer_t {
   uint32_t set;
 } rawkit_shader_uniform_buffer_t;
 
-
 typedef struct rawkit_shader_t {
   VkDescriptorSetLayout *descriptor_set_layouts;
   uint32_t descriptor_set_layout_count;
@@ -25,16 +23,21 @@ typedef struct rawkit_shader_t {
   uint32_t descriptor_set_count;
 
   VkCommandPool command_pool;
-  VkShaderModule shader_module;
+
   VkCommandBuffer command_buffer;
   VkPipelineLayout pipeline_layout;
   VkPipeline pipeline;
 
   VkPhysicalDevice physical_device;
 
-  rawkit_shader_uniform_buffer_t *ubos;
-
   rawkit_glsl_t *glsl;
+
+  // for graphics pipelines
+  VkRenderPass render_pass;
+
+  // managed by stb_sb internally
+  VkShaderModule *modules;
+  rawkit_shader_uniform_buffer_t *ubos;
 } rawkit_shader_t;
 
 
@@ -122,10 +125,9 @@ extern "C" {
   rawkit_shader_param_value_t rawkit_shader_param_value(rawkit_shader_param_t *param);
 
   // TODO: output should come thorugh as a param
-  void rawkit_shader_init(
+  VkResult rawkit_shader_init(
     rawkit_glsl_t *glsl,
-    rawkit_shader_t *shader,
-    const rawkit_shader_params_t *params
+    rawkit_shader_t *shader
   );
 
   void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_shader_param_t param);

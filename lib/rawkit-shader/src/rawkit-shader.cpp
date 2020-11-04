@@ -6,6 +6,9 @@
 
 #include <stb_sb.h>
 
+#include <vector>
+using namespace std;
+
 inline int32_t memory_type_index(VkPhysicalDevice dev, uint32_t filter, VkMemoryPropertyFlags flags) {
   VkPhysicalDeviceMemoryProperties props;
   vkGetPhysicalDeviceMemoryProperties(dev, &props);
@@ -155,22 +158,154 @@ typedef struct rawkit_descriptor_set_layout_create_info_t {
 } rawkit_descriptor_set_layout_create_info_t;
 
 
-// TODO: output should come thorugh as a param
-void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawkit_shader_params_t *params) {
-  if (!shader || !shader->shader_module || !glsl) {
-    return;
+static VkShaderStageFlagBits stage_flags(rawkit_glsl_stage_mask_t stage) {
+  switch (stage) {
+    case RAWKIT_GLSL_STAGE_VERTEX_BIT: return VK_SHADER_STAGE_VERTEX_BIT;
+    case RAWKIT_GLSL_STAGE_TESSELLATION_CONTROL_BIT: return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    case RAWKIT_GLSL_STAGE_TESSELLATION_EVALUATION_BIT: return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    case RAWKIT_GLSL_STAGE_GEOMETRY_BIT: return VK_SHADER_STAGE_GEOMETRY_BIT;
+    case RAWKIT_GLSL_STAGE_FRAGMENT_BIT: return VK_SHADER_STAGE_FRAGMENT_BIT;
+    case RAWKIT_GLSL_STAGE_COMPUTE_BIT: return VK_SHADER_STAGE_COMPUTE_BIT;
+    case RAWKIT_GLSL_STAGE_RAYGEN_BIT: return VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    case RAWKIT_GLSL_STAGE_ANY_HIT_BIT: return VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    case RAWKIT_GLSL_STAGE_CLOSEST_HIT_BIT: return VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    case RAWKIT_GLSL_STAGE_MISS_BIT: return VK_SHADER_STAGE_MISS_BIT_KHR;
+    case RAWKIT_GLSL_STAGE_INTERSECTION_BIT: return VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    case RAWKIT_GLSL_STAGE_CALLABLE_BIT: return VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+
+    default: return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+  }
+}
+
+static VkShaderStageFlagBits stage_flags_at_index(rawkit_glsl_t *glsl, uint8_t stage_idx) {
+  return stage_flags(rawkit_glsl_stage_at_index(glsl, stage_idx));
+}
+
+static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *shader) {
+  const uint8_t stage_count = rawkit_glsl_stage_count(glsl);
+  vector<VkPipelineShaderStageCreateInfo> pipelineShaderStageCreateInfos(stage_count);
+  const char *entry_point = "main";
+  for (uint8_t stage_idx=0; stage_idx<stage_count; stage_idx++) {
+    pipelineShaderStageCreateInfos[stage_idx].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    pipelineShaderStageCreateInfos[stage_idx].stage = stage_flags_at_index(glsl, stage_idx);
+    pipelineShaderStageCreateInfos[stage_idx].module = shader->modules[stage_idx];
+    pipelineShaderStageCreateInfos[stage_idx].pName = entry_point;
   }
 
-  shader->glsl = glsl;
+  VkGraphicsPipelineCreateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+
+  info.stageCount = pipelineShaderStageCreateInfos.size();
+  info.pStages = pipelineShaderStageCreateInfos.data();
+  info.subpass = 0;
+  info.layout = shader->pipeline_layout;
+  info.renderPass = rawkit_vulkan_renderpass();
+
+  VkPipelineVertexInputStateCreateInfo      pVertexInputState = {};
+  pVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  pVertexInputState.vertexBindingDescriptionCount = 0;
+  pVertexInputState.vertexAttributeDescriptionCount = 0;
+
+  VkPipelineInputAssemblyStateCreateInfo    pInputAssemblyState = {};
+  pInputAssemblyState.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+  pInputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+  VkPipelineTessellationStateCreateInfo     pTessellationState = {};
+  pTessellationState.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
+
+  VkPipelineViewportStateCreateInfo         pViewportState = {};
+  pViewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+
+  VkRect2D scissor = {};
+  scissor.extent.height = 400;
+  scissor.extent.width = 400;
+  scissor.offset.x = 0;
+  scissor.offset.y = 0;
+  pViewportState.scissorCount = 1;
+  pViewportState.pScissors = &scissor;
+  pViewportState.viewportCount = 1;
+
+  VkViewport viewport = {};
+  viewport.height = 400;
+  viewport.width = 400;
+  viewport.x = 0;
+  viewport.y = 0;
+  viewport.minDepth = 0.0f;
+  viewport.maxDepth = 1.0f;
+  pViewportState.pViewports = &viewport;
+
+  VkPipelineRasterizationStateCreateInfo    pRasterizationState = {};
+  pRasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+  pRasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
+  pRasterizationState.lineWidth = 1.0f;
+  pRasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+  pRasterizationState.cullMode = VK_CULL_MODE_NONE;
+
+  VkPipelineMultisampleStateCreateInfo      pMultisampleState = {};
+  pMultisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+  pMultisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  pMultisampleState.minSampleShading = 1.0f;
+
+  VkPipelineDepthStencilStateCreateInfo     pDepthStencilState = {};
+  pDepthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+
+  VkPipelineColorBlendStateCreateInfo       pColorBlendState = {};
+  pColorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+
+  VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+  colorBlendAttachment.colorWriteMask = (
+    VK_COLOR_COMPONENT_R_BIT |
+    VK_COLOR_COMPONENT_G_BIT |
+    VK_COLOR_COMPONENT_B_BIT |
+    VK_COLOR_COMPONENT_A_BIT
+  );
+  colorBlendAttachment.blendEnable = VK_FALSE;
+  pColorBlendState.attachmentCount = 1;
+  pColorBlendState.pAttachments = &colorBlendAttachment;
+
+
+  VkPipelineDynamicStateCreateInfo          pDynamicState = {};
+  pDynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+
+  info.pVertexInputState = &pVertexInputState;
+  info.pInputAssemblyState = &pInputAssemblyState;
+  info.pTessellationState = &pTessellationState;
+  info.pViewportState = &pViewportState;
+  info.pRasterizationState = &pRasterizationState;
+  info.pMultisampleState = &pMultisampleState;
+  info.pDepthStencilState = &pDepthStencilState;
+  info.pColorBlendState = &pColorBlendState;
+  info.pDynamicState = &pDynamicState;
+
+  VkPipeline pipeline;
+  VkResult err = vkCreateGraphicsPipelines(
+    rawkit_vulkan_device(),
+    rawkit_vulkan_pipeline_cache(),
+    1,
+    &info,
+    NULL,
+    &pipeline
+  );
+  if (err) {
+    printf("ERROR: could not create graphics pipeline (%i)\n", err);
+    return err;
+  }
+
+
+  return VK_SUCCESS;
+}
+
+// TODO: output should come through as a param
+VkResult rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader) {
+  if (!shader || !glsl || !rawkit_glsl_valid(glsl)) {
+    return VK_INCOMPLETE;
+  }
 
   VkResult err = VK_SUCCESS;
 
   VkDevice device = rawkit_vulkan_device();
 
   VkPipelineCache pipeline_cache = rawkit_vulkan_pipeline_cache();
-
-  VkShaderStageFlags stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-  VkShaderStageFlagBits pipelineStage = VK_SHADER_STAGE_COMPUTE_BIT;
 
   // Create a command pool per shader pipeline.
   // TODO: there may be room here to share a pool, not sure what the best
@@ -187,17 +322,57 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
       &shader->command_pool
     );
 
-    if (err != VK_SUCCESS) {
+    if (err) {
       printf("ERROR: could not create command pool\n");
-      return;
+      return err;
     }
   }
 
-  const rawkit_glsl_reflection_vector_t reflection = rawkit_glsl_reflection_entries(shader->glsl);
+  // create the appropriate shader modules
+  VkShaderModule *modules = NULL;
+  {
+    const uint8_t stage_count = rawkit_glsl_stage_count(glsl);
+    for (uint8_t stage_idx=0; stage_idx<stage_count; stage_idx++) {
+      VkShaderModuleCreateInfo info = {};
+      info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+      info.codeSize = rawkit_glsl_spirv_byte_len(glsl, stage_idx);
+      info.pCode = rawkit_glsl_spirv_data(glsl, stage_idx);
+      VkShaderModule module = VK_NULL_HANDLE;
+      VkResult err = vkCreateShaderModule(
+        device,
+        &info,
+        NULL, //NULL /* v->Allocator */,
+        &module
+      );
+
+      if (err) {
+        rawkit_glsl_destroy(glsl);
+        printf("ERROR: failed to create shader module\n");
+        return err;
+      }
+
+      sb_push(modules, module);
+    }
+
+    const uint32_t prev_module_count = sb_count(shader->modules);
+    for (uint32_t i=0; i<prev_module_count; i++) {
+      if (shader->modules[i] != VK_NULL_HANDLE) {
+        vkDestroyShaderModule(
+          rawkit_vulkan_device(),
+          shader->modules[i],
+          NULL
+        );
+      }
+    }
+    sb_free(shader->modules);
+    shader->modules = modules;
+  }
+
+  const rawkit_glsl_reflection_vector_t reflection = rawkit_glsl_reflection_entries(glsl);
   VkPushConstantRange pushConstantRange = {};
   // TODO: there can only be one push constant buffer per stage, so when this changes we'll need
   //       to use another mechanism to track
-  pushConstantRange.stageFlags = stageFlags;
+  pushConstantRange.stageFlags = VK_SHADER_STAGE_ALL;
   pushConstantRange.offset = 0;
   pushConstantRange.size = 0;
 
@@ -219,7 +394,6 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
         continue;
       }
 
-
       // setup ubos
       if (entry->entry_type == RAWKIT_GLSL_REFLECTION_ENTRY_UNIFORM_BUFFER) {
         rawkit_shader_uniform_buffer_t ubo = {};
@@ -234,10 +408,10 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
           create.size = ubo.size;
           create.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
           create.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-          if (vkCreateBuffer(device, &create, nullptr, &ubo.handle) != VK_SUCCESS) {
+          err = vkCreateBuffer(device, &create, nullptr, &ubo.handle);
+          if (err != VK_SUCCESS) {
             printf("ERROR: unable to create UBO buffer\n");
-            return;
+            return err;
           }
         }
 
@@ -257,7 +431,7 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
 
           if (memory_idx < 0) {
             printf("ERROR: could not locate the appropriate memory type for UBO\n");
-            return;
+            return VK_ERROR_UNKNOWN;
           }
 
           info.memoryTypeIndex = static_cast<uint32_t>(memory_idx);
@@ -265,7 +439,7 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
           err = vkAllocateMemory(device, &info, nullptr, &ubo.memory);
           if (err != VK_SUCCESS) {
             printf("ERROR: could not allocate memory for UBO\n");
-            return;
+            return err;
           }
         }
 
@@ -289,8 +463,7 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
       {
         VkDescriptorSetLayoutBinding binding = {};
         binding.descriptorType = rawkit_glsl_reflection_entry_to_vulkan_descriptor_type(entry);
-        // TODO: wire this up
-        binding.stageFlags = stageFlags;
+        binding.stageFlags = stage_flags(entry->stage);
         binding.binding = entry->binding;
         binding.descriptorCount = 1;
         sb_push(dslci[entry->set].pBindings, binding);
@@ -319,7 +492,7 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
 
       if (!shader->descriptor_set_layouts) {
         printf("ERROR: could not allocate descriptor set layouts\n");
-        return;
+        return VK_ERROR_UNKNOWN;
       }
 
       for (uint32_t dslci_idx=0; dslci_idx<shader->descriptor_set_layout_count; dslci_idx++) {
@@ -332,7 +505,7 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
 
         if (err != VK_SUCCESS) {
           printf("ERROR: could not create descriptor layout [%u]\n", dslci_idx);
-          return;
+          return err;
         }
 
         sb_free(dslci[dslci_idx].pBindings);
@@ -343,7 +516,7 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
   }
 
   // create descriptor sets from layouts
-  {
+  if (shader->descriptor_set_layout_count) {
     VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {};
     descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     // TODO: this is likely bad.
@@ -357,7 +530,7 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
 
     if (!descriptor_sets) {
       printf("ERROR: unable to allocate memory for descriptor set pointers\n");
-      return;
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
     }
 
     err = vkAllocateDescriptorSets(
@@ -369,7 +542,7 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
     if (err != VK_SUCCESS) {
       printf("ERROR: unable to allocate descriptor sets\n");
       free(descriptor_sets);
-      return;
+      return err;
     }
 
     if (shader->descriptor_sets) {
@@ -377,7 +550,9 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
     }
     shader->descriptor_sets = descriptor_sets;
     shader->descriptor_set_count = shader->descriptor_set_layout_count;
+  }
 
+  {
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutCreateInfo.setLayoutCount = shader->descriptor_set_layout_count;
@@ -397,33 +572,50 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
 
     if (err != VK_SUCCESS) {
       printf("ERROR: unable to create pipeline layout\n");
-      return;
+      return err;
     }
 
-    VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo = {};
-    pipelineShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    pipelineShaderStageCreateInfo.stage = pipelineStage;
-    pipelineShaderStageCreateInfo.module = shader->shader_module;
-    pipelineShaderStageCreateInfo.pName = "main";
+    if (rawkit_glsl_is_compute(glsl)){
+      if (!sb_count(shader->modules)) {
+        printf("ERROR: shader->modules has len 0 when trying to build compute shader pipeline\n");;
+        return VK_INCOMPLETE;
+      }
 
-    VkComputePipelineCreateInfo computePipelineCreateInfo = {};
-    computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    computePipelineCreateInfo.layout = shader->pipeline_layout;
-    computePipelineCreateInfo.stage = pipelineShaderStageCreateInfo;
+      VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo = {};
+      pipelineShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+      pipelineShaderStageCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+      pipelineShaderStageCreateInfo.module = shader->modules[0];
+      pipelineShaderStageCreateInfo.pName = "main";
 
-    err = vkCreateComputePipelines(
-      device,
-      pipeline_cache,
-      1,
-      &computePipelineCreateInfo,
-      NULL,
-      &shader->pipeline
-    );
+      VkComputePipelineCreateInfo computePipelineCreateInfo = {};
+      computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+      computePipelineCreateInfo.layout = shader->pipeline_layout;
+      computePipelineCreateInfo.stage = pipelineShaderStageCreateInfo;
+
+      err = vkCreateComputePipelines(
+        device,
+        pipeline_cache,
+        1,
+        &computePipelineCreateInfo,
+        NULL,
+        &shader->pipeline
+      );
 
 
-    if (err != VK_SUCCESS) {
-      printf("ERROR: failed to create compute pipelines\n");
-      return;
+      if (err != VK_SUCCESS) {
+        printf("ERROR: failed to create compute pipelines\n");
+        return err;
+      }
+    } else {
+      err = create_graphics_pipeline(
+        glsl,
+        shader
+      );
+
+      if (err != VK_SUCCESS) {
+        printf("ERROR: failed to create graphics pipeline\n");
+        return err;
+      }
     }
 
     if (!shader->command_buffer) {
@@ -442,7 +634,7 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
 
       if (err != VK_SUCCESS) {
         printf("ERROR: failed to allocate command buffers\n");
-        return;
+        return err;
       }
     }
   }
@@ -461,7 +653,7 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
 
       if (set_idx >= descriptor_set_count) {
         printf("ERROR: descriptor set out of range\n");
-        return;
+        return VK_ERROR_UNKNOWN;
       }
 
       VkWriteDescriptorSet write = {};
@@ -479,6 +671,10 @@ void rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader, const rawk
       shader->ubos[i].entry->user_index = i;
     }
   }
+
+  shader->glsl = glsl;
+
+  return VK_SUCCESS;
 }
 
 void rawkit_shader_update_ubo(rawkit_shader_t *shader, const char *name, uint32_t len, void *value) {

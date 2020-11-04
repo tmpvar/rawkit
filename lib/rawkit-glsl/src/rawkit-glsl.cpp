@@ -32,7 +32,6 @@ class RawkitStage {
 };
 
 typedef struct rawkit_glsl_t {
-  const char *name;
   bool valid;
   bool compute;
   rawkit_glsl_paths_t included_files;
@@ -214,8 +213,8 @@ static bool rawkit_glsl_reflection_add_entry(rawkit_glsl_t* glsl, string name, r
         glsl->binding_offset->emplace(key, name);
       } else {
         // TODO: this is not an error if the resource is an array
-        printf("ERROR: %s :: set(%u) && binding(%u) combination for '%s' already specified for '%s'\n",
-          glsl->name,
+        // TODO: add the shader file name(s) where this occurred
+        printf("ERROR: set(%u) && binding(%u) combination for '%s' already specified for '%s'\n",
           entry.set,
           entry.binding,
           name.c_str(),
@@ -734,8 +733,6 @@ rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *s
   ret->bindings_per_set = new unordered_map<uint32_t, uint32_t>();
   ret->binding_offset = new unordered_map<uint64_t, string>();
   ret->stages = new vector<RawkitStage *>();
-  // TODO: prune this
-  // ret->name = strdup(name);
 
   GLSLIncluder includer;
 
@@ -838,7 +835,7 @@ rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *s
 
     // comp.set_format("json");
     // auto json = comp.compile();
-    // printf("%s reflection:\n%s\n", name, json.c_str());
+    // printf("reflection:\n%s\n", json.c_str());
   }
   return ret;
 }

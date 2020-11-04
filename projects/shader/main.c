@@ -1,25 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
-#include <cimgui.h>
-#include <rawkit/time.h>
-#include <rawkit/file.h>
-#include <rawkit/gpu.h>
-#include <rawkit/hot.h>
-#include <rawkit/glsl.h>
-#include <rawkit/vulkan.h>
-#include <rawkit/texture.h>
-#include <rawkit/shader.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-  extern uint32_t rawkit_window_frame_index();
-  extern uint32_t rawkit_window_frame_count();
-#ifdef __cplusplus
-}
-#endif
+#include <rawkit/rawkit.h>
 
 typedef struct fill_rect_options_t {
   uint32_t render_width;
@@ -36,9 +19,8 @@ typedef struct fill_rect_state_t {
   VkFormat format;
   rawkit_texture_t *textures;
   uint32_t texture_count;
-
-  VkShaderModule shader_module;
   rawkit_shader_t *shaders;
+
   rawkit_glsl_t *glsl;
 } fill_rect_state_t;
 
@@ -128,82 +110,58 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         NULL
       );
 
+      // recreate the pipeline if the shader changed and the new code compiled
       if (glsl) {
-        bool rawkit_shader_changed = false;
-        if (rawkit_glsl_valid(glsl)) {
-          VkShaderModuleCreateInfo info = {};
-          info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-          info.codeSize = rawkit_glsl_spirv_byte_len(glsl, 0);
-          info.pCode = rawkit_glsl_spirv_data(glsl, 0);
-          VkShaderModule module = VK_NULL_HANDLE;
-          err = vkCreateShaderModule(
-            rawkit_vulkan_device(),
-            &info,
-            NULL, //NULL /* v->Allocator */,
-            &module
-          );
+        // vkQueueWaitIdle(queue);
 
-          if (err == VK_SUCCESS) {
-            if (state->shader_module != VK_NULL_HANDLE) {
-              vkDestroyShaderModule(
-                rawkit_vulkan_device(),
-                state->shader_module,
-                NULL
-              );
-            }
-            state->shader_module = module;
-            rawkit_shader_changed = true;
-          } else {
-            rawkit_glsl_destroy(glsl);
-            printf("ERROR: failed to create shader module\n");
+        // allocate a shader per frame buffer
+        if (!state->shaders) {
+          state->shaders = (rawkit_shader_t *)calloc(
+            state->texture_count * sizeof(rawkit_shader_t),
+            1
+          );
+        }
+
+        // TODO: initialization of this type of shader (fill_rect) requires
+        //       an output image per framebuffer. In order to make this work
+        //       we will need to heap allocate some space for the incoming
+        //       shader params as well as the output texture.
+        for (uint32_t idx=0; idx < state->texture_count; idx++) {
+          state->shaders[idx].physical_device = rawkit_vulkan_physical_device();
+          VkResult err = rawkit_shader_init(glsl, &state->shaders[idx]);
+
+          if (err != VK_SUCCESS) {
+            printf("ERROR: rawkit_shader_init failed (%i)\n", err);
             return;
           }
+
+          // update descriptor sets
+          rawkit_shader_set_param(
+            &state->shaders[idx],
+            rawkit_shader_texture(
+              "rawkit_output_image",
+              &state->textures[idx]
+            )
+          );
         }
 
-        // recreate the pipeline if the shader changed
-        if (rawkit_shader_changed) {
-          if (state->glsl) {
-            rawkit_glsl_destroy(state->glsl);
-          }
-          state->glsl = glsl;
-          // vkQueueWaitIdle(queue);
-
-          // allocate a shader per frame buffer
-          if (!state->shaders) {
-            state->shaders = (rawkit_shader_t *)calloc(
-              state->texture_count * sizeof(rawkit_shader_t),
-              1
-            );
-          }
-
-          // TODO: initialization of this type of shader (fill_rect) requires
-          //       an output image per framebuffer. In order to make this work
-          //       we will need to heap allocate some space for the incoming
-          //       shader params as well as the output texture.
-          for (uint32_t idx=0; idx < state->texture_count; idx++) {
-            state->shaders[idx].physical_device = rawkit_vulkan_physical_device();
-            state->shaders[idx].shader_module = state->shader_module;
-            rawkit_shader_init(
-              glsl,
-              &state->shaders[idx],
-              &options->params
-            );
-
-            // update descriptor sets
-            rawkit_shader_set_param(
-              &state->shaders[idx],
-              rawkit_shader_texture(
-                "rawkit_output_image",
-                &state->textures[idx]
-              )
-            );
-          }
+        if (state->glsl) {
+          rawkit_glsl_destroy(state->glsl);
+          state->glsl = NULL;
         }
+        state->glsl = glsl;
       }
     }
+
     if (state->shaders) {
       uint32_t idx = rawkit_window_frame_index();
-      VkCommandBuffer command_buffer = state->shaders[idx].command_buffer;
+
+      rawkit_shader_t *shader = &state->shaders[idx];
+      if (!shader || !shader->glsl) {
+        return;
+      }
+
+      VkCommandBuffer command_buffer = shader->command_buffer;
       if (!command_buffer) {
         return;
       }
@@ -244,15 +202,15 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         // );
 
         vkCmdBindPipeline(
-          state->shaders[idx].command_buffer,
+          shader->command_buffer,
           VK_PIPELINE_BIND_POINT_COMPUTE,
-          state->shaders[idx].pipeline
+          shader->pipeline
         );
 
         for (uint32_t i = 0; i<options->params.count; i++) {
           rawkit_shader_param_t *param = &options->params.entries[i];
           rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(
-            state->glsl,
+            shader->glsl,
             param->name
           );
 
@@ -260,7 +218,7 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
             case RAWKIT_GLSL_REFLECTION_ENTRY_UNIFORM_BUFFER: {
               rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
               rawkit_shader_update_ubo(
-                &state->shaders[idx],
+                shader,
                 param->name,
                 val.len,
                 val.buf
@@ -272,8 +230,8 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
             case RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER: {
               rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
               vkCmdPushConstants(
-                state->shaders[idx].command_buffer,
-                state->shaders[idx].pipeline_layout,
+                shader->command_buffer,
+                shader->pipeline_layout,
                 VK_SHADER_STAGE_COMPUTE_BIT,
                 entry.offset,
                 val.len,
@@ -307,18 +265,18 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         }
 
         vkCmdBindDescriptorSets(
-          state->shaders[idx].command_buffer,
+          shader->command_buffer,
           VK_PIPELINE_BIND_POINT_COMPUTE,
-          state->shaders[idx].pipeline_layout,
+          shader->pipeline_layout,
           0,
-          state->shaders[idx].descriptor_set_count,
-          state->shaders[idx].descriptor_sets,
+          shader->descriptor_set_count,
+          shader->descriptor_sets,
           0,
           0
         );
 
         {
-          const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(state->glsl, 0);
+          const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(shader->glsl, 0);
           float local[3] = {
             (float)workgroup_size[0],
             (float)workgroup_size[1],
@@ -332,13 +290,13 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
           };
 
           vkCmdDispatch(
-            state->shaders[idx].command_buffer,
+            shader->command_buffer,
             (uint32_t)max(ceilf(global[0] / local[0]), 1.0),
             (uint32_t)max(ceilf(global[1] / local[1]), 1.0),
             (uint32_t)max(ceilf(global[2] / local[2]), 1.0)
           );
         }
-        err = vkEndCommandBuffer(state->shaders[idx].command_buffer);
+        err = vkEndCommandBuffer(shader->command_buffer);
         if (err != VK_SUCCESS) {
           printf("ERROR: vkEndCommandBuffer: failed %i\n", err);
           return;
