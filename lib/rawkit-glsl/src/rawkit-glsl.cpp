@@ -34,6 +34,7 @@ class RawkitStage {
 typedef struct rawkit_glsl_t {
   const char *name;
   bool valid;
+  bool compute;
   rawkit_glsl_paths_t included_files;
 
   vector<rawkit_glsl_reflection_entry_t> *reflection_entries;
@@ -702,6 +703,14 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
 
 }
 
+bool rawkit_glsl_is_compute(const rawkit_glsl_t *ref) {
+  if (!ref) {
+    return false;
+  }
+
+  return ref->compute;
+}
+
 rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *sources, const rawkit_glsl_paths_t *include_dirs) {
   if (!sources || !source_count) {
     return NULL;
@@ -750,6 +759,10 @@ rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *s
       if (stage == EShLanguage::EShLangCount) {
         printf("ERROR: invalid stage language\n");
         return NULL;
+      }
+
+      if (stage == EShLanguage::EShLangCompute) {
+        ret->compute = true;
       }
 
       glslang::TShader *shader = new glslang::TShader(stage);

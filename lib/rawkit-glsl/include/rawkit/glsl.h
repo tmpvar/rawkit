@@ -177,7 +177,7 @@ const uint32_t rawkit_glsl_reflection_descriptor_set_max(const rawkit_glsl_t* re
 const uint32_t rawkit_glsl_reflection_binding_count_for_set(const rawkit_glsl_t* ref, uint32_t set);
 
 uint8_t rawkit_glsl_stage_count(const rawkit_glsl_t *ref);
-
+bool rawkit_glsl_is_compute(const rawkit_glsl_t *ref);
 ps_t *rawkit_glsl_compiler(const char *name, const rawkit_glsl_paths_t *includes);
 
 
