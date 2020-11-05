@@ -11,6 +11,7 @@
 #include <hot/host/croaring.h>
 #include <hot/host/tinyfiledialogs.h>
 #include <hot/host/rawkit-glsl.h>
+#include <hot/host/rawkit-gpu.h>
 #include <hot/host/rawkit-hash.h>
 #include <hot/host/rawkit-hot.h>
 #include <hot/host/rawkit-file.h>
@@ -49,6 +50,7 @@ void host_hot_init(rawkit_jit_t *jit) {
   #endif
 
   host_init_rawkit_glsl(jit);
+  host_init_rawkit_gpu(jit);
   host_init_rawkit_hash(jit);
   host_init_rawkit_hot(jit);
   host_init_rawkit_file(jit);

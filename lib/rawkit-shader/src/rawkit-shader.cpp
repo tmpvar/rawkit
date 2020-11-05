@@ -721,7 +721,6 @@ void rawkit_shader_update_ubo(rawkit_shader_t *shader, const char *name, uint32_
   vkMapMemory(device, ubo->memory, 0, ubo->size, 0, &dst);
   memcpy(dst, value, len);
   vkUnmapMemory(device, ubo->memory);
-
 }
 
 void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_shader_param_t param) {
