@@ -494,6 +494,8 @@ TEST_CASE("[rawkit/glsl] multiple stages") {
       "basic.vert",
       "#version 450\n"
       "layout(location = 0) in vec2 inPosition;\n"
+      "layout(location = 1) in mat4 inMat4;\n"
+      "layout(location = 5) in vec4 inColor;\n"
       "layout (std430) uniform ubo { float ubo_float; };\n"
       "void main() {\n"
       "  gl_Position = vec4(inPosition, 0.0, 1.0);"

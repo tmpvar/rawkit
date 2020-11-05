@@ -514,9 +514,22 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         entry.stage = this->stage_mask;
         entry.location = this->get_decoration(input.id, spv::DecorationLocation);
         entry.set = -1;
-        entry.binding = -1;
+        entry.binding = this->get_decoration(input.id, spv::DecorationBinding);
+        entry.offset = this->get_decoration(input.id, spv::DecorationOffset);
+        entry.input_attachment_index = this->get_decoration(input.id, spv::DecorationInputAttachmentIndex);
         entry.readable = true;
         entry.writable = false;
+
+        entry.base_type = (rawkit_glsl_base_type)type.basetype;
+        entry.columns = type.columns;
+        entry.vecsize = type.vecsize;
+
+        if (!base_type.member_types.empty()) {
+          entry.block_size = this->get_declared_struct_size(base_type);
+        } else {
+          // compute the block size from the bit width and component count
+          entry.block_size = (type.width / 8) * type.vecsize * type.columns;
+        }
 
         if (!rawkit_glsl_reflection_add_entry(glsl, input.name, entry)) {
           return;

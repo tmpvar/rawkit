@@ -131,6 +131,30 @@ typedef enum {
 
 typedef uint32_t rawkit_glsl_stage_mask_t;
 
+typedef enum {
+  RAWKIT_GLSL_BASE_TYPE_UNKNOWN,
+  RAWKIT_GLSL_BASE_TYPE_VOID,
+  RAWKIT_GLSL_BASE_TYPE_BOOLEAN,
+  RAWKIT_GLSL_BASE_TYPE_SBYTE,
+  RAWKIT_GLSL_BASE_TYPE_UBYTE,
+  RAWKIT_GLSL_BASE_TYPE_SHORT,
+  RAWKIT_GLSL_BASE_TYPE_USHORT,
+  RAWKIT_GLSL_BASE_TYPE_INT,
+  RAWKIT_GLSL_BASE_TYPE_UINT,
+  RAWKIT_GLSL_BASE_TYPE_INT64,
+  RAWKIT_GLSL_BASE_TYPE_UINT64,
+  RAWKIT_GLSL_BASE_TYPE_ATOMICCOUNTER,
+  RAWKIT_GLSL_BASE_TYPE_HALF,
+  RAWKIT_GLSL_BASE_TYPE_FLOAT,
+  RAWKIT_GLSL_BASE_TYPE_DOUBLE,
+  RAWKIT_GLSL_BASE_TYPE_STRUCT,
+  RAWKIT_GLSL_BASE_TYPE_IMAGE,
+  RAWKIT_GLSL_BASE_TYPE_SAMPLEDIMAGE,
+  RAWKIT_GLSL_BASE_TYPE_SAMPLER,
+  RAWKIT_GLSL_BASE_TYPE_ACCELERATIONSTRUCTURE,
+  RAWKIT_GLSL_BASE_TYPE_RAYQUERY,
+} rawkit_glsl_base_type;
+
 typedef struct rawkit_glsl_reflection_entry_t {
   rawkit_glsl_reflection_entry_type entry_type;
   bool readable;
@@ -144,6 +168,11 @@ typedef struct rawkit_glsl_reflection_entry_t {
   rawkit_glsl_dims dims;
   rawkit_glsl_image_format image_format;
   rawkit_glsl_stage_mask_t stage;
+
+  rawkit_glsl_base_type base_type;
+  uint32_t vecsize;
+  uint32_t columns;
+
 
   uint32_t user_index;
 } rawkit_glsl_reflection_entry_t;

@@ -181,6 +181,74 @@ static VkShaderStageFlagBits stage_flags_at_index(rawkit_glsl_t *glsl, uint8_t s
   return stage_flags(rawkit_glsl_stage_at_index(glsl, stage_idx));
 }
 
+static VkFormat type_and_count_to_format(rawkit_glsl_base_type type, uint32_t count) {
+  switch (type) {
+    case RAWKIT_GLSL_BASE_TYPE_INT: {
+      switch (count) {
+        case 1: return VK_FORMAT_R32_SINT;
+        case 2: return VK_FORMAT_R32G32_SINT;
+        case 3: return VK_FORMAT_R32G32B32_SINT;
+        case 4: return VK_FORMAT_R32G32B32A32_SINT;
+      }
+      break;
+    }
+
+    case RAWKIT_GLSL_BASE_TYPE_UINT: {
+      switch (count) {
+        case 1: return VK_FORMAT_R32_UINT;
+        case 2: return VK_FORMAT_R32G32_UINT;
+        case 3: return VK_FORMAT_R32G32B32_UINT;
+        case 4: return VK_FORMAT_R32G32B32A32_UINT;
+      }
+      break;
+    }
+
+    case RAWKIT_GLSL_BASE_TYPE_INT64: {
+      switch (count) {
+        case 1: return VK_FORMAT_R64_SINT;
+        case 2: return VK_FORMAT_R64G64_SINT;
+        case 3: return VK_FORMAT_R64G64B64_SINT;
+        case 4: return VK_FORMAT_R64G64B64A64_SINT;
+      }
+      break;
+    }
+
+    case RAWKIT_GLSL_BASE_TYPE_UINT64: {
+      switch (count) {
+        case 1: return VK_FORMAT_R64_UINT;
+        case 2: return VK_FORMAT_R64G64_UINT;
+        case 3: return VK_FORMAT_R64G64B64_UINT;
+        case 4: return VK_FORMAT_R64G64B64A64_UINT;
+      }
+      break;
+    }
+
+    case RAWKIT_GLSL_BASE_TYPE_FLOAT: {
+      switch (count) {
+        case 1: return VK_FORMAT_R32_SFLOAT;
+        case 2: return VK_FORMAT_R32G32_SFLOAT;
+        case 3: return VK_FORMAT_R32G32B32_SFLOAT;
+        case 4: return VK_FORMAT_R32G32B32A32_SFLOAT;
+      }
+      break;
+    }
+
+    case RAWKIT_GLSL_BASE_TYPE_DOUBLE: {
+      switch (count) {
+        case 1: return VK_FORMAT_R64_SFLOAT;
+        case 2: return VK_FORMAT_R64G64_SFLOAT;
+        case 3: return VK_FORMAT_R64G64B64_SFLOAT;
+        case 4: return VK_FORMAT_R64G64B64A64_SFLOAT;
+      }
+      break;
+    }
+
+    default:
+      printf("ERROR: unhandled base type %i", type);
+      return VK_FORMAT_UNDEFINED;
+  }
+}
+
 static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *shader) {
   const uint8_t stage_count = rawkit_glsl_stage_count(glsl);
   vector<VkPipelineShaderStageCreateInfo> pipelineShaderStageCreateInfos(stage_count);
@@ -201,22 +269,50 @@ static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *s
   info.layout = shader->pipeline_layout;
   info.renderPass = rawkit_vulkan_renderpass();
 
-  VkVertexInputBindingDescription vertex_input_binding = {};
-  vertex_input_binding.binding = 0;
-  vertex_input_binding.stride = sizeof(float) * 3;
-  vertex_input_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-  vector<VkVertexInputAttributeDescription> vertex_input_attributes(1);
-  vertex_input_attributes[0].binding = 0;
-  vertex_input_attributes[0].location = 0;
-  vertex_input_attributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-  vertex_input_attributes[0].offset = 0;
+  const rawkit_glsl_reflection_vector_t reflection = rawkit_glsl_reflection_entries(glsl);
+  vector<VkVertexInputAttributeDescription> vertex_input_attributes;
+  vector<VkVertexInputBindingDescription> vertex_input_bindings;
+
+  {
+    uint32_t binding = 0;
+    for (uint32_t entry_idx=0; entry_idx<reflection.len; entry_idx++) {
+      rawkit_glsl_reflection_entry_t *entry = &reflection.entries[entry_idx];
+      if (entry->entry_type != RAWKIT_GLSL_REFLECTION_ENTRY_STAGE_INPUT) {
+        continue;
+      }
+
+      // bindings
+      {
+        VkVertexInputBindingDescription desc = {};
+        desc.binding = binding++;
+        desc.stride = entry->block_size;
+        // TODO: this should be configurable, but how?
+        desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        vertex_input_bindings.push_back(desc);
+      }
+
+      // attachments
+      {
+        VkFormat format = type_and_count_to_format(entry->base_type, entry->vecsize);
+        for (uint32_t loc = 0; loc < entry->columns; loc++) {
+          VkVertexInputAttributeDescription desc = {};
+          desc.binding = entry->binding;
+          desc.location = entry->location + loc;
+          desc.format = format;
+          desc.offset = entry->offset;
+          vertex_input_attributes.push_back(desc);
+        }
+      }
+    }
+  }
+
 
   VkPipelineVertexInputStateCreateInfo      pVertexInputState = {};
   pVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  pVertexInputState.vertexBindingDescriptionCount = 1;
-  pVertexInputState.pVertexBindingDescriptions = &vertex_input_binding;
-  pVertexInputState.vertexAttributeDescriptionCount = 1;
+  pVertexInputState.vertexBindingDescriptionCount = vertex_input_bindings.size();
+  pVertexInputState.pVertexBindingDescriptions = vertex_input_bindings.data();
+  pVertexInputState.vertexAttributeDescriptionCount = vertex_input_attributes.size();
   pVertexInputState.pVertexAttributeDescriptions = vertex_input_attributes.data();
 
   VkPipelineInputAssemblyStateCreateInfo    pInputAssemblyState = {};
