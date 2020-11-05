@@ -3,24 +3,12 @@
 #include <rawkit/gpu.h>
 #include <rawkit/shader.h>
 #include <rawkit/texture.h>
+#include <rawkit/file.h>
 
 #include <stb_sb.h>
 
 #include <vector>
 using namespace std;
-
-inline int32_t memory_type_index(VkPhysicalDevice dev, uint32_t filter, VkMemoryPropertyFlags flags) {
-  VkPhysicalDeviceMemoryProperties props;
-  vkGetPhysicalDeviceMemoryProperties(dev, &props);
-
-  for (int32_t i = 0; i < props.memoryTypeCount; i++) {
-    if ((filter & (1 << i)) && (props.memoryTypes[i].propertyFlags & flags) == flags) {
-      return i;
-    }
-  }
-
-  return -1;
-}
 
 int rawkit_shader_param_size(const rawkit_shader_param_t *param) {
   switch (param->type) {
@@ -534,10 +522,10 @@ VkResult rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader) {
           VkMemoryAllocateInfo info = {};
           info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
           info.allocationSize = memRequirements.size;
-          int32_t memory_idx = memory_type_index(
+          int32_t memory_idx = rawkit_vulkan_find_memory_type(
             shader->physical_device,
-            memRequirements.memoryTypeBits,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            memRequirements.memoryTypeBits
           );
 
           if (memory_idx < 0) {
@@ -856,3 +844,125 @@ void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_shader_param_t para
       printf("ERROR: unhandled entry type %i\n", entry.entry_type);
   }
 }
+
+
+static VkResult build_shaders(VkPhysicalDevice physical_device, uint8_t shader_count, rawkit_shader_t **shaders_ptr, rawkit_glsl_t *glsl) {
+  if (!shaders_ptr) {
+    return VK_INCOMPLETE;
+  }
+
+  if (*shaders_ptr == NULL) {
+    *shaders_ptr = (rawkit_shader_t *)calloc(
+      shader_count * sizeof(rawkit_shader_t),
+      1
+    );
+  }
+
+  rawkit_shader_t *shaders = *shaders_ptr;
+
+  for (uint32_t idx=0; idx < shader_count; idx++) {
+    shaders[idx].physical_device = physical_device;
+    VkResult err = rawkit_shader_init(glsl, &shaders[idx]);
+
+    if (err != VK_SUCCESS) {
+      printf("ERROR: rawkit_shader_init failed (%i)\n", err);
+      return err;
+    }
+  }
+
+  return VK_SUCCESS;
+}
+
+typedef struct rawkit_shader_pipeline_state_t {
+  rawkit_shader_t *shaders;
+  rawkit_glsl_source_t sources[RAWKIT_GLSL_STAGE_COUNT];
+  rawkit_glsl_t *glsl;
+} rawkit_shader_pipeline_state_t;
+
+rawkit_shader_t *_rawkit_shader_ex(
+    const char *from_file,
+    uv_loop_t *loop,
+    rawkit_diskwatcher_t *watcher,
+
+    VkPhysicalDevice physical_device,
+    uint32_t shader_copies,
+    uint8_t source_count,
+    const char **source_files
+) {
+  VkResult err;
+
+  char id[4096] = "rawkit::shader::pipeline ";
+  for (uint8_t i=0; i<source_count; i++) {
+    strcat(id, source_files[i]);
+    strcat(id, " ");
+  }
+
+  rawkit_shader_pipeline_state_t *state = rawkit_hot_state(id, rawkit_shader_pipeline_state_t);
+
+  // rebuild the pipeline if any of the shaders changed
+  {
+    rawkit_glsl_source_t sources[RAWKIT_GLSL_STAGE_COUNT];
+
+    bool changed = false;
+    bool ready = true;
+    for (uint8_t i=0; i<source_count; i++) {
+      const rawkit_file_t *file = _rawkit_file_ex(
+        from_file,
+        source_files[i],
+        loop,
+        watcher
+      );
+
+      if (!file) {
+        if (!state->sources[i].data) {
+          ready = false;
+          continue;
+        }
+
+        sources[i] = state->sources[i];
+        continue;
+      }
+      sources[i].filename = source_files[i];
+      sources[i].data = (const char *)file->data;
+      changed = true;
+    }
+
+    if (!ready) {
+      // we're still waiting for the shader sources to load off of disk..
+      return NULL;
+    }
+
+    if (changed) {
+      rawkit_glsl_t *glsl = rawkit_glsl_compile(
+        source_count,
+        sources,
+        NULL
+      );
+
+      if (!rawkit_glsl_valid(glsl)) {
+        printf("ERROR: glsl failed to compile\n");
+        return state->shaders;
+      }
+
+      memcpy(state->sources, sources, sizeof(sources));
+
+      rawkit_glsl_destroy(state->glsl);
+      state->glsl = glsl;
+
+      err = build_shaders(
+        physical_device,
+        shader_copies,
+        &state->shaders,
+        glsl
+      );
+
+      if (err) {
+        printf("ERROR: could not build shaders\n");
+        return state->shaders;
+      }
+    }
+  }
+
+  return state->shaders;
+}
+

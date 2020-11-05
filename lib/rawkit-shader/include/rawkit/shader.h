@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include <vulkan/vulkan.h>
+#include <uv.h>
 #include <pull/stream.h>
 #include <rawkit/glsl.h>
 
@@ -132,6 +133,20 @@ extern "C" {
 
   void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_shader_param_t param);
   void rawkit_shader_update_ubo(rawkit_shader_t *shader, const char *name, uint32_t len, void *value);
+
+  rawkit_shader_t *_rawkit_shader_ex(
+    const char *from_file,
+    uv_loop_t *loop,
+    rawkit_diskwatcher_t *watcher,
+
+    VkPhysicalDevice physical_device,
+    uint32_t shader_copies,
+    uint8_t source_count,
+    const char **source_files
+  );
+
+  #define rawkit_shader_ex(physical_device, shader_copies, source_count, source_files, loop, diskwatcher) _rawkit_shader_ex(__FILE__, loop, diskwatcher, physical_device, shader_copies, source_count, source_files)
+  #define rawkit_shader(physical_device, shader_copies, source_count, source_files) _rawkit_shader_ex(__FILE__, uv_default_loop(), rawkit_default_diskwatcher(), physical_device, shader_copies, source_count, source_files)
 
 #ifdef __cplusplus
 }

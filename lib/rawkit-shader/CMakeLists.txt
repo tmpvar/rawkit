@@ -9,6 +9,11 @@ if (NOT TARGET pull::stream)
   add_subdirectory(../pull-stream deps/pull-stream)
 endif()
 
+# DEP: rawkit-file (sibling)
+if (NOT TARGET rawkit::glsl)
+  add_subdirectory(../rawkit-file deps/rawkit-file)
+endif()
+
 # DEP: rawkit-glsl (sibling)
 if (NOT TARGET rawkit::glsl)
   add_subdirectory(../rawkit-glsl deps/rawkit-glsl)

@@ -7,42 +7,9 @@
 #include <rawkit/mesh.h>
 
 typedef struct render_mesh_state_t {
-  rawkit_shader_t *shaders;
-  rawkit_glsl_t *glsl;
-  uint32_t source_count;
-  rawkit_glsl_source_t sources[RAWKIT_GLSL_STAGE_COUNT];
-
   rawkit_mesh_t *mesh;
   rawkit_gpu_vertex_buffer_t *vertex_buffer;
 } render_mesh_state_t;
-
-VkResult build_shaders(render_mesh_state_t *state, rawkit_glsl_t *glsl) {
-  if (!state) {
-    return VK_INCOMPLETE;
-  }
-
-  // TODO: this can change between frames
-  uint32_t fb_count = rawkit_window_frame_count();
-
-  if (state->shaders == NULL) {
-    state->shaders = (rawkit_shader_t *)calloc(
-      fb_count * sizeof(rawkit_shader_t),
-      1
-    );
-  }
-
-  for (uint32_t idx=0; idx < fb_count; idx++) {
-    state->shaders[idx].physical_device = rawkit_vulkan_physical_device();
-    VkResult err = rawkit_shader_init(glsl, &state->shaders[idx]);
-
-    if (err != VK_SUCCESS) {
-      printf("ERROR: rawkit_shader_init failed (%i)\n", err);
-      return err;
-    }
-  }
-
-  return VK_SUCCESS;
-}
 
 void render_mesh_file(const char *mesh_file, uint8_t source_count, const char **source_files) {
   if (source_count > RAWKIT_GLSL_STAGE_COUNT) {
@@ -72,60 +39,14 @@ void render_mesh_file(const char *mesh_file, uint8_t source_count, const char **
     return;
   }
 
-  // rebuild the pipeline if any of the shaders changed
-  {
-    rawkit_glsl_source_t sources[RAWKIT_GLSL_STAGE_COUNT];
+  rawkit_shader_t *shaders = rawkit_shader(
+    rawkit_vulkan_physical_device(),
+    rawkit_window_frame_count(),
+    source_count,
+    source_files
+  );
 
-    bool changed = false;
-    bool ready = true;
-    for (uint8_t i=0; i<source_count; i++) {
-      const rawkit_file_t *file = rawkit_file(source_files[i]);
-
-      if (!file) {
-        if (!state->sources[i].data) {
-          ready = false;
-          continue;
-        }
-
-        sources[i] = state->sources[i];
-        continue;
-      }
-      sources[i].filename = source_files[i];
-      sources[i].data = (const char *)file->data;
-
-      printf("CHANGED: %s\n", source_files[i]);
-      changed = true;
-    }
-
-    if (!ready) {
-      return;
-    }
-
-    if (changed) {
-      rawkit_glsl_t *glsl = rawkit_glsl_compile(
-        source_count,
-        sources,
-        NULL
-      );
-
-      if (!rawkit_glsl_valid(glsl)) {
-        return;
-      }
-
-      memcpy(state->sources, sources, sizeof(sources));
-
-      rawkit_glsl_destroy(state->glsl);
-      state->glsl = glsl;
-
-      err = build_shaders(state, glsl);
-      if (err) {
-        printf("ERROR: could not build shaders\n");
-        return;
-      }
-    }
-  }
-
-  if (!state->shaders) {
+  if (!shaders) {
     return;
   }
 
@@ -162,7 +83,7 @@ void render_mesh_file(const char *mesh_file, uint8_t source_count, const char **
 
   // render the mesh
   {
-    rawkit_shader_t *shader = &state->shaders[rawkit_window_frame_index()];
+    rawkit_shader_t *shader = &shaders[rawkit_window_frame_index()];
     VkCommandBuffer command_buffer = rawkit_vulkan_command_buffer();
     if (!command_buffer) {
       return;
