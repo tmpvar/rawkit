@@ -201,10 +201,23 @@ static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *s
   info.layout = shader->pipeline_layout;
   info.renderPass = rawkit_vulkan_renderpass();
 
+  VkVertexInputBindingDescription vertex_input_binding = {};
+  vertex_input_binding.binding = 0;
+  vertex_input_binding.stride = sizeof(float) * 3;
+  vertex_input_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+  vector<VkVertexInputAttributeDescription> vertex_input_attributes(1);
+  vertex_input_attributes[0].binding = 0;
+  vertex_input_attributes[0].location = 0;
+  vertex_input_attributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+  vertex_input_attributes[0].offset = 0;
+
   VkPipelineVertexInputStateCreateInfo      pVertexInputState = {};
   pVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  pVertexInputState.vertexBindingDescriptionCount = 0;
-  pVertexInputState.vertexAttributeDescriptionCount = 0;
+  pVertexInputState.vertexBindingDescriptionCount = 1;
+  pVertexInputState.pVertexBindingDescriptions = &vertex_input_binding;
+  pVertexInputState.vertexAttributeDescriptionCount = 1;
+  pVertexInputState.pVertexAttributeDescriptions = vertex_input_attributes.data();
 
   VkPipelineInputAssemblyStateCreateInfo    pInputAssemblyState = {};
   pInputAssemblyState.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
