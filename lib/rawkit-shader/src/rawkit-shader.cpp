@@ -291,6 +291,8 @@ static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *s
     return err;
   }
 
+  shader->pipeline = pipeline;
+
 
   return VK_SUCCESS;
 }

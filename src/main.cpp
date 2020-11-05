@@ -283,6 +283,72 @@ static void CleanupVulkanWindow()
     ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData, g_Allocator);
 }
 
+static void BeginMainRenderPass(ImGui_ImplVulkanH_Window* wd) {
+    VkResult err;
+
+    VkSemaphore image_acquired_semaphore  = wd->FrameSemaphores[wd->SemaphoreIndex].ImageAcquiredSemaphore;
+    VkSemaphore render_complete_semaphore = wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
+    err = vkAcquireNextImageKHR(g_Device, wd->Swapchain, UINT64_MAX, image_acquired_semaphore, VK_NULL_HANDLE, &wd->FrameIndex);
+    check_vk_result(err);
+
+    ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
+    {
+        err = vkWaitForFences(g_Device, 1, &fd->Fence, VK_TRUE, UINT64_MAX);    // wait indefinitely instead of periodically checking
+        check_vk_result(err);
+
+        err = vkResetFences(g_Device, 1, &fd->Fence);
+        check_vk_result(err);
+    }
+    {
+        err = vkResetCommandPool(g_Device, fd->CommandPool, 0);
+        check_vk_result(err);
+        VkCommandBufferBeginInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        err = vkBeginCommandBuffer(fd->CommandBuffer, &info);
+        check_vk_result(err);
+    }
+    {
+        VkRenderPassBeginInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        info.renderPass = wd->RenderPass;
+        info.framebuffer = fd->Framebuffer;
+        info.renderArea.extent.width = wd->Width;
+        info.renderArea.extent.height = wd->Height;
+        info.clearValueCount = 1;
+        info.pClearValues = &wd->ClearValue;
+        vkCmdBeginRenderPass(fd->CommandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
+    }
+}
+
+
+
+static void EndMainRenderPass(ImGui_ImplVulkanH_Window* wd) {
+  VkResult err;
+  VkSemaphore image_acquired_semaphore  = wd->FrameSemaphores[wd->SemaphoreIndex].ImageAcquiredSemaphore;
+  VkSemaphore render_complete_semaphore = wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
+  ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
+  // Submit command buffer
+  vkCmdEndRenderPass(fd->CommandBuffer);
+  {
+    VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkSubmitInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    info.waitSemaphoreCount = 1;
+    info.pWaitSemaphores = &image_acquired_semaphore;
+    info.pWaitDstStageMask = &wait_stage;
+    info.commandBufferCount = 1;
+    info.pCommandBuffers = &fd->CommandBuffer;
+    info.signalSemaphoreCount = 1;
+    info.pSignalSemaphores = &render_complete_semaphore;
+
+    err = vkEndCommandBuffer(fd->CommandBuffer);
+    check_vk_result(err);
+    err = vkQueueSubmit(g_Queue, 1, &info, fd->Fence);
+    check_vk_result(err);
+  }
+}
+
 static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data)
 {
     VkResult err;
@@ -409,6 +475,12 @@ VkQueue rawkit_vulkan_queue() {
     return g_Queue;
 }
 
+VkFramebuffer rawkit_current_framebuffer() {
+  ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+  VkFramebuffer fb = wd->Frames[wd->FrameIndex].Framebuffer;
+  return fb;
+}
+
 std::random_device rd;
 std::mt19937 gen(rd());
 std::uniform_real_distribution<> dis(0.0, 1.0);
@@ -499,6 +571,7 @@ int main(int argc, const char **argv) {
     rawkit_jit_add_export(jit, "rawkit_vulkan_renderpass", rawkit_vulkan_renderpass);
     rawkit_jit_add_export(jit, "rawkit_vulkan_descriptor_pool", rawkit_vulkan_descriptor_pool);
     rawkit_jit_add_export(jit, "rawkit_vulkan_queue_family", rawkit_vulkan_queue_family);
+    rawkit_jit_add_export(jit, "rawkit_current_framebuffer", rawkit_current_framebuffer);
     rawkit_jit_add_export(jit, "rawkit_randf", rawkit_randf);
     rawkit_jit_add_export(jit, "rawkit_load_image_relative_to_file", rawkit_load_image_relative_to_file);
 
@@ -676,16 +749,23 @@ int main(int argc, const char **argv) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        BeginMainRenderPass(wd);
+
         rawkit_jit_call_loop(jit);
 
-        // Rendering
+        // Render ImGui
         ImGui::Render();
         ImDrawData* draw_data = ImGui::GetDrawData();
+
+        ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
+        // Record dear imgui primitives into command buffer
+        ImGui_ImplVulkan_RenderDrawData(draw_data, fd->CommandBuffer);
+
+        // TODO: this is silly. use glfwGetWindowAttrib(window, GLFW_ICONIFIED);
         const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
-        if (!is_minimized)
-        {
-            FrameRender(wd, draw_data);
-            FramePresent(wd);
+        if (!is_minimized) {
+          EndMainRenderPass(wd);
+          FramePresent(wd);
         }
     }
 

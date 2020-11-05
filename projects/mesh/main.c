@@ -88,35 +88,59 @@ void render_mesh(uint8_t source_count, const char **source_files) {
     changed = true;
   }
 
-  if (!changed || !ready) {
+  if (!ready) {
     return;
   }
 
-  rawkit_glsl_t *glsl = rawkit_glsl_compile(
-    source_count,
-    sources,
-    NULL
-  );
+  if (changed) {
+    rawkit_glsl_t *glsl = rawkit_glsl_compile(
+      source_count,
+      sources,
+      NULL
+    );
 
-  if (!rawkit_glsl_valid(glsl)) {
+    if (!rawkit_glsl_valid(glsl)) {
+      return;
+    }
+
+    memcpy(state->sources, sources, sizeof(sources));
+
+    rawkit_glsl_destroy(state->glsl);
+    state->glsl = glsl;
+
+    err = build_shaders(state, glsl);
+    if (err) {
+      printf("ERROR: could not build shaders\n");
+      return;
+    }
+  }
+
+  if (!state->shaders) {
     return;
   }
 
-  memcpy(state->sources, sources, sizeof(sources));
+  // render the mesh
+  {
+    rawkit_shader_t *shader = &state->shaders[rawkit_window_frame_index()];
+    VkCommandBuffer command_buffer = rawkit_vulkan_command_buffer();
+    if (!command_buffer) {
+      return;
+    }
 
-  rawkit_glsl_destroy(state->glsl);
-  state->glsl = glsl;
+    vkCmdBindPipeline(
+      command_buffer,
+      VK_PIPELINE_BIND_POINT_GRAPHICS,
+      shader->pipeline
+    );
 
-  err = build_shaders(state, glsl);
-  if (err) {
-    printf("ERROR: could not build shaders\n");
-    return;
+    vkCmdDraw(command_buffer, 3, 1, 0, 0);
   }
 
-  printf("built shaders!\n");
 }
 
 void loop() {
+  igShowDemoWindow(NULL);
+
   const char *sources[] = {
     "mesh.vert",
     "mesh.frag"
