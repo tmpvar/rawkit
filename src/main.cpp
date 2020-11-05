@@ -472,8 +472,19 @@ ImTextureID rawkit_imgui_add_texture(VkSampler sampler, VkImageView image_view, 
 }
 
 VkQueue rawkit_vulkan_queue() {
-    return g_Queue;
+  return g_Queue;
 }
+
+uint32_t rawkit_window_width() {
+  ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+  return wd->Width;
+}
+
+uint32_t rawkit_window_height() {
+  ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+  return wd->Height;
+}
+
 
 VkFramebuffer rawkit_current_framebuffer() {
   ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
@@ -577,6 +588,8 @@ int main(int argc, const char **argv) {
 
     rawkit_jit_add_export(jit, "rawkit_window_frame_index", rawkit_window_frame_index);
     rawkit_jit_add_export(jit, "rawkit_window_frame_count", rawkit_window_frame_count);
+    rawkit_jit_add_export(jit, "rawkit_window_width", rawkit_window_width);
+    rawkit_jit_add_export(jit, "rawkit_window_height", rawkit_window_height);
 
     host_hot_init(jit);
 

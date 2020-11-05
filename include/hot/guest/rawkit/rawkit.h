@@ -27,6 +27,8 @@ extern "C" {
 
   uint32_t rawkit_window_frame_index();
   uint32_t rawkit_window_frame_count();
+  uint32_t rawkit_window_width();
+  uint32_t rawkit_window_height();
 
 #ifdef __cplusplus
 }
