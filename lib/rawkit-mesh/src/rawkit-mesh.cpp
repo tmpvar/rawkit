@@ -41,29 +41,22 @@ rawkit_mesh_t *_rawkit_mesh_ex(
   rawkit_diskwatcher_t *watcher
 ) {
   string id = string("file+rawkit-mesh://") + path + " from " + from_file;
-  rawkit_mesh_t *mesh = rawkit_hot_state(id.c_str(), rawkit_mesh_t);
-  if (!mesh) {
-    return NULL;
-  }
 
   const rawkit_file_t *file = _rawkit_file_ex(from_file, path, loop, watcher);
 
-  if (!file) {
-    if (mesh->vertex_data) {
-      return mesh;
-    } else {
-      return NULL;
-    }
+  if (!file || file->error) {
+    return NULL;
   }
 
-  if (file->error) {
-    return mesh;
+  rawkit_mesh_t *mesh = (rawkit_mesh_t *)calloc(sizeof(rawkit_mesh_t), 1);
+  if (!mesh) {
+    return NULL;
   }
 
   fs::path p(path);
   if (p.extension() == ".stl") {
     if (file->len < 80) {
-      return mesh;
+      return NULL;
     }
 
     // Note: this does not account for degenerate cases where someone

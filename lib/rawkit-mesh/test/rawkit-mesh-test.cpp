@@ -8,7 +8,7 @@ TEST_CASE("[rawkit/mesh] load missing mesh") {
   uv_loop_init(&loop);
   rawkit_diskwatcher_t* watcher = rawkit_diskwatcher_ex(&loop);
 
-  int s = 100000;
+  int s = 1000;
 
   while (s--) {
     const rawkit_mesh_t* mesh = rawkit_mesh_ex(
@@ -31,7 +31,7 @@ TEST_CASE("[rawkit/mesh] load missing mesh") {
     uv_run(&loop, UV_RUN_NOWAIT);
   }
 
-  CHECK(s > 0);
+  CHECK(s < 0);
 }
 
 TEST_CASE("[rawkit/mesh] binary stl") {
