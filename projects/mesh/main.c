@@ -1,3 +1,5 @@
+
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -5,6 +7,8 @@
 #include <rawkit/rawkit.h>
 
 #include <rawkit/mesh.h>
+
+#include <cglm/cglm.h>
 
 typedef struct render_mesh_state_t {
   rawkit_mesh_t *mesh;
@@ -110,6 +114,17 @@ void render_mesh_file(
       shader->pipeline
     );
 
+    vkCmdBindDescriptorSets(
+      command_buffer,
+      VK_PIPELINE_BIND_POINT_GRAPHICS,
+      shader->pipeline_layout,
+      0,
+      shader->descriptor_set_count,
+      shader->descriptor_sets,
+      0,
+      0
+    );
+
     VkViewport viewport = {};
     viewport.width = rawkit_window_width();
     viewport.height = rawkit_window_height();
@@ -144,8 +159,44 @@ void render_mesh_file(
 
 void setup() {}
 
+typedef struct ubo_t {
+  float color[4];
+  mat4 mvp;
+} ubo_t;
+
 void loop() {
   rawkit_shader_params_t params = {};
+
+  ubo_t ubo = {};
+
+  ubo.color[0] = 1.0f;
+  ubo.color[2] = 1.0f;
+  ubo.color[3] = 1.0f;
+
+  float aspect = (float)rawkit_window_width() / (float)rawkit_window_height();
+  mat4 proj;
+  glm_perspective(90.0f, aspect, 0.1f, 1000.0f, proj);
+
+  vec3 eye = {};
+  eye[1] = -5.0;
+  float now = (float)rawkit_now();
+  eye[0] = sin(now) * 5.0f;
+  eye[2] = cos(now) * 5.0f;
+
+  mat4 view;
+  glm_lookat(
+    eye,
+    (vec3){ 0.0f, 0.0f, 0.0f},
+    (vec3){ 0.0f, 1.0f, 0.0f},
+    view
+  );
+
+  glm_mat4_mul(proj, view, ubo.mvp);
+
+
+  rawkit_shader_params(params,
+    rawkit_shader_ubo("UBO", &ubo)
+  );
 
   render_mesh_file(
     "cube.stl",
