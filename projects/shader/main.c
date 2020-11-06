@@ -22,6 +22,8 @@ typedef struct fill_rect_state_t {
   rawkit_shader_t *shaders;
 
   rawkit_glsl_t *glsl;
+
+  VkCommandBuffer command_buffer;
 } fill_rect_state_t;
 
 void fill_rect(const char *path, const fill_rect_options_t *options) {
@@ -54,6 +56,27 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
     return;
   }
 
+  if (!state->command_buffer) {
+    // Create a command buffer for compute operations
+    VkCommandBufferAllocateInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    info.commandPool = rawkit_vulkan_command_pool();
+    info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    info.commandBufferCount = 1;
+
+    err = vkAllocateCommandBuffers(
+      device,
+      &info,
+      &state->command_buffer
+    );
+
+    if (err != VK_SUCCESS) {
+      printf("ERROR: failed to allocate command buffers\n");
+      return;
+    }
+  }
+
+
   // rebuild the images if the user requests a resize
   if (state->width != width || state->height != height) {
     state->width = width;
@@ -76,7 +99,6 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
       .height = height,
       .format = VK_FORMAT_R32G32B32A32_SFLOAT,
     };
-
     for (uint32_t idx=0; idx<state->texture_count; idx++) {
       rawkit_texture_init(&state->textures[idx], texture_options);
 
@@ -202,7 +224,7 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         // );
 
         vkCmdBindPipeline(
-          shader->command_buffer,
+          command_buffer,
           VK_PIPELINE_BIND_POINT_COMPUTE,
           shader->pipeline
         );
@@ -230,7 +252,7 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
             case RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER: {
               rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
               vkCmdPushConstants(
-                shader->command_buffer,
+                command_buffer,
                 shader->pipeline_layout,
                 VK_SHADER_STAGE_COMPUTE_BIT,
                 entry.offset,
@@ -265,7 +287,7 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         }
 
         vkCmdBindDescriptorSets(
-          shader->command_buffer,
+          command_buffer,
           VK_PIPELINE_BIND_POINT_COMPUTE,
           shader->pipeline_layout,
           0,
@@ -290,13 +312,13 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
           };
 
           vkCmdDispatch(
-            shader->command_buffer,
+            command_buffer,
             (uint32_t)max(ceilf(global[0] / local[0]), 1.0),
             (uint32_t)max(ceilf(global[1] / local[1]), 1.0),
             (uint32_t)max(ceilf(global[2] / local[2]), 1.0)
           );
         }
-        err = vkEndCommandBuffer(shader->command_buffer);
+        err = vkEndCommandBuffer(command_buffer);
         if (err != VK_SUCCESS) {
           printf("ERROR: vkEndCommandBuffer: failed %i\n", err);
           return;

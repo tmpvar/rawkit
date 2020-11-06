@@ -27,6 +27,8 @@ typedef struct rawkit_texture_t {
   uint64_t source_version;
   VkBuffer source_cpu_buffer;
   VkDeviceMemory source_cpu_buffer_memory;
+
+  VkCommandBuffer command_buffer;
 } rawkit_texture_t;
 
 #ifdef __cplusplus
