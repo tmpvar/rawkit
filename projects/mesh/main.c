@@ -11,7 +11,12 @@ typedef struct render_mesh_state_t {
   rawkit_gpu_vertex_buffer_t *vertex_buffer;
 } render_mesh_state_t;
 
-void render_mesh_file(const char *mesh_file, uint8_t source_count, const char **source_files) {
+void render_mesh_file(
+  const char *mesh_file,
+  uint8_t source_count,
+  const char **source_files,
+  rawkit_shader_params_t params
+) {
   if (source_count > RAWKIT_GLSL_STAGE_COUNT) {
     printf("ERROR: source count greater than the number of stages\n");
     return;
@@ -74,6 +79,7 @@ void render_mesh_file(const char *mesh_file, uint8_t source_count, const char **
     }
 
     state->vertex_buffer = vb;
+    state->mesh = mesh;
   }
 
   // ensure we have a vertex buffer
@@ -104,21 +110,47 @@ void render_mesh_file(const char *mesh_file, uint8_t source_count, const char **
       shader->pipeline
     );
 
-    vkCmdDraw(command_buffer, 3, 1, 0, 0);
+    VkViewport viewport = {};
+    viewport.width = rawkit_window_width();
+    viewport.height = rawkit_window_height();
+    vkCmdSetViewport(
+      command_buffer,
+      0,
+      1,
+      &viewport
+    );
+
+    VkRect2D scissor = {};
+    scissor.extent.width = rawkit_window_width();
+    scissor.extent.height = rawkit_window_height();
+    vkCmdSetScissor(
+      command_buffer,
+      0,
+      1,
+      &scissor
+    );
+
+    rawkit_shader_apply_params(shader, command_buffer, params);
+
+    vkCmdDraw(
+      command_buffer,
+      rawkit_mesh_vertex_count(state->mesh),
+      1,
+      0,
+      0
+    );
   }
 }
 
 void setup() {}
 
 void loop() {
-  const char *sources[] = {
-    "mesh.vert",
-    "mesh.frag"
-  };
+  rawkit_shader_params_t params = {};
 
   render_mesh_file(
     "cube.stl",
     2,
-    sources
+    (const char *[]){ "mesh.vert", "mesh.frag" },
+    params
   );
 }
