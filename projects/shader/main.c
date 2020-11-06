@@ -115,13 +115,15 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
   }
 
   for (uint32_t idx=0; idx < state->texture_count; idx++) {
+    rawkit_shader_param_t texture = rawkit_shader_texture(
+      "rawkit_output_image",
+      &state->textures[idx]
+    );
+
     // update descriptor sets
     rawkit_shader_set_param(
       &shaders[idx],
-      rawkit_shader_texture(
-        "rawkit_output_image",
-        &state->textures[idx]
-      )
+      &texture
     );
   }
 
@@ -179,62 +181,7 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
         shader->pipeline
       );
 
-      for (uint32_t i = 0; i<options->params.count; i++) {
-        rawkit_shader_param_t *param = &options->params.entries[i];
-        rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(
-          shader->glsl,
-          param->name
-        );
-
-        switch (entry.entry_type) {
-          case RAWKIT_GLSL_REFLECTION_ENTRY_UNIFORM_BUFFER: {
-            rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
-            rawkit_shader_update_ubo(
-              shader,
-              param->name,
-              val.len,
-              val.buf
-            );
-
-            break;
-          }
-
-          case RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER: {
-            rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
-            vkCmdPushConstants(
-              command_buffer,
-              shader->pipeline_layout,
-              VK_SHADER_STAGE_COMPUTE_BIT,
-              entry.offset,
-              val.len,
-              val.buf
-            );
-            break;
-          }
-
-          case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE: {
-            // TODO: this is a nasty hack to get hot reloading textures working. The issue is that
-            //       we need to update the texture descriptor for all shaders .. including the one
-            //       that is currently in flight.
-
-            // update descriptor sets
-            rawkit_shader_set_param(
-              shader,
-              rawkit_shader_texture(
-                param->name,
-                param->texture
-              )
-            );
-
-            break;
-          }
-
-
-          default:
-            printf("ERROR: unhandled entry type (%i) while setting shader params\n", entry.entry_type);
-            break;
-        }
-      }
+      rawkit_shader_apply_params(shader, command_buffer, options->params);
 
       vkCmdBindDescriptorSets(
         command_buffer,
@@ -357,5 +304,36 @@ void loop() {
     );
 
     fill_rect("triangle.comp", &options);
+  }
+
+  {
+    const char *sources[2] = {
+      "fullscreen.vert",
+      "fullscreen.frag"
+    };
+
+    rawkit_shader_t *shaders = rawkit_shader(
+      rawkit_vulkan_physical_device(),
+      rawkit_window_frame_count(),
+      2,
+      sources
+    );
+
+
+    if (shaders) {
+      rawkit_shader_t *shader = &shaders[rawkit_window_frame_index()];
+      VkCommandBuffer command_buffer = rawkit_vulkan_command_buffer();
+      if (!command_buffer) {
+        return;
+      }
+
+      vkCmdBindPipeline(
+        command_buffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        shader->pipeline
+      );
+
+      vkCmdDraw(command_buffer, 3, 1, 0, 0);
+    }
   }
 }
