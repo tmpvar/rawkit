@@ -145,7 +145,6 @@ typedef struct rawkit_descriptor_set_layout_create_info_t {
     VkDescriptorSetLayoutBinding*    pBindings;
 } rawkit_descriptor_set_layout_create_info_t;
 
-
 static VkShaderStageFlagBits stage_flags(rawkit_glsl_stage_mask_t stage) {
   switch (stage) {
     case RAWKIT_GLSL_STAGE_VERTEX_BIT: return VK_SHADER_STAGE_VERTEX_BIT;
@@ -247,16 +246,6 @@ static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *s
     pipelineShaderStageCreateInfos[stage_idx].module = shader->modules[stage_idx];
     pipelineShaderStageCreateInfos[stage_idx].pName = entry_point;
   }
-
-  VkGraphicsPipelineCreateInfo info = {};
-  info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-
-  info.stageCount = pipelineShaderStageCreateInfos.size();
-  info.pStages = pipelineShaderStageCreateInfos.data();
-  info.subpass = 0;
-  info.layout = shader->pipeline_layout;
-  info.renderPass = rawkit_vulkan_renderpass();
-
 
   const rawkit_glsl_reflection_vector_t reflection = rawkit_glsl_reflection_entries(glsl);
   vector<VkVertexInputAttributeDescription> vertex_input_attributes;
@@ -370,6 +359,14 @@ static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *s
   pDynamicState.dynamicStateCount = dynamicStates.size();
   pDynamicState.pDynamicStates = dynamicStates.data();
 
+  VkGraphicsPipelineCreateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+
+  info.stageCount = pipelineShaderStageCreateInfos.size();
+  info.pStages = pipelineShaderStageCreateInfos.data();
+  info.subpass = 0;
+  info.layout = shader->pipeline_layout;
+  info.renderPass = rawkit_vulkan_renderpass();
   info.pVertexInputState = &pVertexInputState;
   info.pInputAssemblyState = &pInputAssemblyState;
   info.pTessellationState = &pTessellationState;
@@ -482,14 +479,14 @@ VkResult rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader) {
   pushConstantRange.size = 0;
 
 
-  // compute the descriptor set layouts from reflection data
+  // aggregate the descriptor set layouts from reflection data
   {
     rawkit_descriptor_set_layout_create_info_t *dslci = NULL;
 
     for (uint32_t entry_idx=0; entry_idx<reflection.len; entry_idx++) {
       rawkit_glsl_reflection_entry_t *entry = &reflection.entries[entry_idx];
 
-      // compute push constant ranges
+      // push constant ranges
       if (entry->entry_type == RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER) {
         pushConstantRange.size += entry->block_size;
         continue;

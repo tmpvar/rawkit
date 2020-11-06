@@ -115,15 +115,13 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
   }
 
   for (uint32_t idx=0; idx < state->texture_count; idx++) {
-    rawkit_shader_param_t texture = rawkit_shader_texture(
-      "rawkit_output_image",
-      &state->textures[idx]
-    );
-
     // update descriptor sets
     rawkit_shader_set_param(
       &shaders[idx],
-      &texture
+      &rawkit_shader_texture(
+        "rawkit_output_image",
+        &state->textures[idx]
+      )
     );
   }
 
@@ -307,18 +305,12 @@ void loop() {
   }
 
   {
-    const char *sources[2] = {
-      "fullscreen.vert",
-      "fullscreen.frag"
-    };
-
     rawkit_shader_t *shaders = rawkit_shader(
       rawkit_vulkan_physical_device(),
       rawkit_window_frame_count(),
       2,
-      sources
+      ((const char *[]){ "fullscreen.vert", "fullscreen.frag" })
     );
-
 
     if (shaders) {
       rawkit_shader_t *shader = &shaders[rawkit_window_frame_index()];
