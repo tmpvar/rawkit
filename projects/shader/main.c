@@ -19,7 +19,6 @@ typedef struct fill_rect_state_t {
   VkFormat format;
   rawkit_texture_t *textures;
   uint32_t texture_count;
-  rawkit_shader_t *shaders;
 
   rawkit_glsl_t *glsl;
 
@@ -27,6 +26,7 @@ typedef struct fill_rect_state_t {
 } fill_rect_state_t;
 
 void fill_rect(const char *path, const fill_rect_options_t *options) {
+  VkQueue queue = rawkit_vulkan_queue();
   VkDevice device = rawkit_vulkan_device();
   if (device == VK_NULL_HANDLE) {
     printf("invalid vulkan device\n");
@@ -76,6 +76,12 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
     }
   }
 
+  rawkit_shader_t *shaders = rawkit_shader(
+    rawkit_vulkan_physical_device(),
+    rawkit_window_frame_count(),
+    1,
+    &path
+  );
 
   // rebuild the images if the user requests a resize
   if (state->width != width || state->height != height) {
@@ -101,266 +107,208 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
     };
     for (uint32_t idx=0; idx<state->texture_count; idx++) {
       rawkit_texture_init(&state->textures[idx], texture_options);
-
-      if (state->shaders) {
-        // update descriptor sets
-        rawkit_shader_set_param(
-          &state->shaders[idx],
-          rawkit_shader_texture(
-            "rawkit_output_image",
-            &state->textures[idx]
-          )
-        );
-      }
     }
   }
 
-  VkQueue queue = rawkit_vulkan_queue();
-  // rebuild the actual shader if it changed
-  {
-    const rawkit_file_t *rawkit_shader_file = rawkit_file(path);
-    if (rawkit_shader_file) {
+  if (!shaders || !state->textures) {
+    return;
+  }
 
-      rawkit_glsl_source_t source = {
-        path,
-        (const char *)rawkit_shader_file->data,
-      };
+  for (uint32_t idx=0; idx < state->texture_count; idx++) {
+    // update descriptor sets
+    rawkit_shader_set_param(
+      &shaders[idx],
+      rawkit_shader_texture(
+        "rawkit_output_image",
+        &state->textures[idx]
+      )
+    );
+  }
 
-      rawkit_glsl_t *glsl = rawkit_glsl_compile(
-        1,
-        &source,
-        NULL
+  if (shaders) {
+    uint32_t idx = rawkit_window_frame_index();
+
+    rawkit_shader_t *shader = &shaders[idx];
+    if (!shader || !shader->glsl) {
+      return;
+    }
+
+    VkCommandBuffer command_buffer = shader->command_buffer;
+    if (!command_buffer) {
+      return;
+    }
+
+    // record new command buffer
+    {
+      // TODO: we need to wait for the previous use of this command buffer to be complete
+      //       don't use such a sledgehammer.
+      // vkQueueWaitIdle(queue);
+
+      VkCommandBufferBeginInfo info = {};
+      info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+      err = vkBeginCommandBuffer(
+        command_buffer,
+        &info
       );
 
-      // recreate the pipeline if the shader changed and the new code compiled
-      if (glsl) {
-        // vkQueueWaitIdle(queue);
+      if (err != VK_SUCCESS) {
+        printf("ERROR: could not begin command buffer");
+        return;
+      }
 
-        // allocate a shader per frame buffer
-        if (!state->shaders) {
-          state->shaders = (rawkit_shader_t *)calloc(
-            state->texture_count * sizeof(rawkit_shader_t),
-            1
-          );
-        }
+      VkImageSubresourceRange imageSubresourceRange;
+      imageSubresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+      imageSubresourceRange.baseMipLevel   = 0;
+      imageSubresourceRange.levelCount     = 1;
+      imageSubresourceRange.baseArrayLayer = 0;
+      imageSubresourceRange.layerCount     = 1;
 
-        // TODO: initialization of this type of shader (fill_rect) requires
-        //       an output image per framebuffer. In order to make this work
-        //       we will need to heap allocate some space for the incoming
-        //       shader params as well as the output texture.
-        for (uint32_t idx=0; idx < state->texture_count; idx++) {
-          state->shaders[idx].physical_device = rawkit_vulkan_physical_device();
-          VkResult err = rawkit_shader_init(glsl, &state->shaders[idx]);
+      // VkClearColorValue clearColorValue = { 0.0, 0.0, 0.0, 0.0 };
+      // vkCmdClearColorImage(
+      //   command_buffer,
+      //   state->textures[idx].image,
+      //   VK_IMAGE_LAYOUT_GENERAL,
+      //   &clearColorValue,
+      //   1,
+      //   &imageSubresourceRange
+      // );
 
-          if (err != VK_SUCCESS) {
-            printf("ERROR: rawkit_shader_init failed (%i)\n", err);
-            return;
+      vkCmdBindPipeline(
+        command_buffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        shader->pipeline
+      );
+
+      for (uint32_t i = 0; i<options->params.count; i++) {
+        rawkit_shader_param_t *param = &options->params.entries[i];
+        rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(
+          shader->glsl,
+          param->name
+        );
+
+        switch (entry.entry_type) {
+          case RAWKIT_GLSL_REFLECTION_ENTRY_UNIFORM_BUFFER: {
+            rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
+            rawkit_shader_update_ubo(
+              shader,
+              param->name,
+              val.len,
+              val.buf
+            );
+
+            break;
           }
 
-          // update descriptor sets
-          rawkit_shader_set_param(
-            &state->shaders[idx],
-            rawkit_shader_texture(
-              "rawkit_output_image",
-              &state->textures[idx]
-            )
-          );
-        }
+          case RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER: {
+            rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
+            vkCmdPushConstants(
+              command_buffer,
+              shader->pipeline_layout,
+              VK_SHADER_STAGE_COMPUTE_BIT,
+              entry.offset,
+              val.len,
+              val.buf
+            );
+            break;
+          }
 
-        if (state->glsl) {
-          rawkit_glsl_destroy(state->glsl);
-          state->glsl = NULL;
-        }
-        state->glsl = glsl;
-      }
-    }
+          case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE: {
+            // TODO: this is a nasty hack to get hot reloading textures working. The issue is that
+            //       we need to update the texture descriptor for all shaders .. including the one
+            //       that is currently in flight.
 
-    if (state->shaders) {
-      uint32_t idx = rawkit_window_frame_index();
-
-      rawkit_shader_t *shader = &state->shaders[idx];
-      if (!shader || !shader->glsl) {
-        return;
-      }
-
-      VkCommandBuffer command_buffer = shader->command_buffer;
-      if (!command_buffer) {
-        return;
-      }
-
-      // record new command buffer
-      {
-        // TODO: we need to wait for the previous use of this command buffer to be complete
-        //       don't use such a sledgehammer.
-        // vkQueueWaitIdle(queue);
-
-        VkCommandBufferBeginInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        err = vkBeginCommandBuffer(
-          command_buffer,
-          &info
-        );
-
-        if (err != VK_SUCCESS) {
-          printf("ERROR: could not begin command buffer");
-          return;
-        }
-
-        VkImageSubresourceRange imageSubresourceRange;
-        imageSubresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageSubresourceRange.baseMipLevel   = 0;
-        imageSubresourceRange.levelCount     = 1;
-        imageSubresourceRange.baseArrayLayer = 0;
-        imageSubresourceRange.layerCount     = 1;
-
-        // VkClearColorValue clearColorValue = { 0.0, 0.0, 0.0, 0.0 };
-        // vkCmdClearColorImage(
-        //   command_buffer,
-        //   state->textures[idx].image,
-        //   VK_IMAGE_LAYOUT_GENERAL,
-        //   &clearColorValue,
-        //   1,
-        //   &imageSubresourceRange
-        // );
-
-        vkCmdBindPipeline(
-          command_buffer,
-          VK_PIPELINE_BIND_POINT_COMPUTE,
-          shader->pipeline
-        );
-
-        for (uint32_t i = 0; i<options->params.count; i++) {
-          rawkit_shader_param_t *param = &options->params.entries[i];
-          rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(
-            shader->glsl,
-            param->name
-          );
-
-          switch (entry.entry_type) {
-            case RAWKIT_GLSL_REFLECTION_ENTRY_UNIFORM_BUFFER: {
-              rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
-              rawkit_shader_update_ubo(
-                shader,
+            // update descriptor sets
+            rawkit_shader_set_param(
+              shader,
+              rawkit_shader_texture(
                 param->name,
-                val.len,
-                val.buf
-              );
+                param->texture
+              )
+            );
 
-              break;
-            }
-
-            case RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER: {
-              rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
-              vkCmdPushConstants(
-                command_buffer,
-                shader->pipeline_layout,
-                VK_SHADER_STAGE_COMPUTE_BIT,
-                entry.offset,
-                val.len,
-                val.buf
-              );
-              break;
-            }
-
-            case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE: {
-              // TODO: this is a nasty hack to get hot reloading textures working. The issue is that
-              //       we need to update the texture descriptor for all shaders .. including the one
-              //       that is currently in flight.
-
-              // update descriptor sets
-              rawkit_shader_set_param(
-                &state->shaders[idx],
-                rawkit_shader_texture(
-                  param->name,
-                  param->texture
-                )
-              );
-
-              break;
-            }
-
-
-            default:
-              printf("ERROR: unhandled entry type (%i) while setting shader params\n", entry.entry_type);
-              break;
+            break;
           }
+
+
+          default:
+            printf("ERROR: unhandled entry type (%i) while setting shader params\n", entry.entry_type);
+            break;
         }
-
-        vkCmdBindDescriptorSets(
-          command_buffer,
-          VK_PIPELINE_BIND_POINT_COMPUTE,
-          shader->pipeline_layout,
-          0,
-          shader->descriptor_set_count,
-          shader->descriptor_sets,
-          0,
-          0
-        );
-
-        {
-          const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(shader->glsl, 0);
-          float local[3] = {
-            (float)workgroup_size[0],
-            (float)workgroup_size[1],
-            (float)workgroup_size[2],
-          };
-
-          float global[3] = {
-            (float)width,
-            (float)height,
-            1,
-          };
-
-          vkCmdDispatch(
-            command_buffer,
-            (uint32_t)max(ceilf(global[0] / local[0]), 1.0),
-            (uint32_t)max(ceilf(global[1] / local[1]), 1.0),
-            (uint32_t)max(ceilf(global[2] / local[2]), 1.0)
-          );
-        }
-        err = vkEndCommandBuffer(command_buffer);
-        if (err != VK_SUCCESS) {
-          printf("ERROR: vkEndCommandBuffer: failed %i\n", err);
-          return;
-        }
-
       }
 
-      // Submit compute commands
+      vkCmdBindDescriptorSets(
+        command_buffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        shader->pipeline_layout,
+        0,
+        shader->descriptor_set_count,
+        shader->descriptor_sets,
+        0,
+        0
+      );
+
       {
-        VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        VkSubmitInfo computeSubmitInfo = {};
-        computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        computeSubmitInfo.commandBufferCount = 1;
-        computeSubmitInfo.pCommandBuffers = &command_buffer;
-        computeSubmitInfo.pWaitDstStageMask = &waitStageMask;
+        const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(shader->glsl, 0);
+        float local[3] = {
+          (float)workgroup_size[0],
+          (float)workgroup_size[1],
+          (float)workgroup_size[2],
+        };
 
-        err = vkQueueSubmit(
-          queue,
+        float global[3] = {
+          (float)width,
+          (float)height,
           1,
-          &computeSubmitInfo,
-          VK_NULL_HANDLE
-        );
+        };
 
-        if (err != VK_SUCCESS) {
-          printf("ERROR: unable to submit compute shader\n");
-          return;
-        }
-
-        // render the actual image
-        rawkit_texture_t *current_texture = &state->textures[idx];
-
-        igImage(
-          current_texture->imgui_texture,
-          (ImVec2){ (float)display_width, (float)display_height},
-          (ImVec2){ 0.0f, 0.0f }, // uv0
-          (ImVec2){ 1.0f, 1.0f }, // uv1
-          (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
-          (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+        vkCmdDispatch(
+          command_buffer,
+          (uint32_t)max(ceilf(global[0] / local[0]), 1.0),
+          (uint32_t)max(ceilf(global[1] / local[1]), 1.0),
+          (uint32_t)max(ceilf(global[2] / local[2]), 1.0)
         );
       }
+      err = vkEndCommandBuffer(command_buffer);
+      if (err != VK_SUCCESS) {
+        printf("ERROR: vkEndCommandBuffer: failed %i\n", err);
+        return;
+      }
+
     }
 
+    // Submit compute commands
+    {
+      VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+      VkSubmitInfo computeSubmitInfo = {};
+      computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+      computeSubmitInfo.commandBufferCount = 1;
+      computeSubmitInfo.pCommandBuffers = &command_buffer;
+      computeSubmitInfo.pWaitDstStageMask = &waitStageMask;
+
+      err = vkQueueSubmit(
+        queue,
+        1,
+        &computeSubmitInfo,
+        VK_NULL_HANDLE
+      );
+
+      if (err != VK_SUCCESS) {
+        printf("ERROR: unable to submit compute shader\n");
+        return;
+      }
+
+      // render the actual image
+      rawkit_texture_t *current_texture = &state->textures[idx];
+
+      igImage(
+        current_texture->imgui_texture,
+        (ImVec2){ (float)display_width, (float)display_height},
+        (ImVec2){ 0.0f, 0.0f }, // uv0
+        (ImVec2){ 1.0f, 1.0f }, // uv1
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+      );
+    }
   }
 }
 
