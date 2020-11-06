@@ -995,7 +995,7 @@ void rawkit_shader_apply_params(rawkit_shader_t *shader, VkCommandBuffer command
         vkCmdPushConstants(
           command_buffer,
           shader->pipeline_layout,
-          VK_SHADER_STAGE_COMPUTE_BIT,
+          rawkit_glsl_is_compute(shader->glsl) ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_ALL_GRAPHICS,
           entry.offset,
           val.len,
           val.buf
