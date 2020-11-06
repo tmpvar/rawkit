@@ -310,17 +310,11 @@ static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *s
   VkPipelineTessellationStateCreateInfo     pTessellationState = {};
   pTessellationState.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
 
-  VkPipelineViewportStateCreateInfo         pViewportState = {};
-  pViewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-
   VkRect2D scissor = {};
   scissor.extent.height = 400;
   scissor.extent.width = 400;
   scissor.offset.x = 0;
   scissor.offset.y = 0;
-  pViewportState.scissorCount = 1;
-  pViewportState.pScissors = &scissor;
-  pViewportState.viewportCount = 1;
 
   VkViewport viewport = {};
   viewport.height = 400;
@@ -329,7 +323,13 @@ static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *s
   viewport.y = 0;
   viewport.minDepth = 0.0f;
   viewport.maxDepth = 1.0f;
-  pViewportState.pViewports = &viewport;
+
+  VkPipelineViewportStateCreateInfo         pViewportState = {};
+  pViewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+  pViewportState.scissorCount = 0;
+  // pViewportState.pScissors = &scissor;
+  pViewportState.viewportCount = 0;
+  // pViewportState.pViewports = &viewport;
 
   VkPipelineRasterizationStateCreateInfo    pRasterizationState = {};
   pRasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -360,9 +360,15 @@ static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *s
   pColorBlendState.attachmentCount = 1;
   pColorBlendState.pAttachments = &colorBlendAttachment;
 
+  vector<VkDynamicState> dynamicStates = {
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR
+  };
 
-  VkPipelineDynamicStateCreateInfo          pDynamicState = {};
+  VkPipelineDynamicStateCreateInfo pDynamicState = {};
   pDynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+  pDynamicState.dynamicStateCount = dynamicStates.size();
+  pDynamicState.pDynamicStates = dynamicStates.data();
 
   info.pVertexInputState = &pVertexInputState;
   info.pInputAssemblyState = &pInputAssemblyState;
@@ -807,20 +813,20 @@ void rawkit_shader_update_ubo(rawkit_shader_t *shader, const char *name, uint32_
   vkUnmapMemory(device, ubo->memory);
 }
 
-void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_shader_param_t param) {
+void rawkit_shader_set_param(rawkit_shader_t *shader, const rawkit_shader_param_t *param) {
   // TODO: cache by name + hash of the param data (maybe?)
   VkDevice device = rawkit_vulkan_device();
 
-  const rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(shader->glsl, param.name);
+  const rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(shader->glsl, param->name);
   switch (entry.entry_type) {
     case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE: {
-      if (!param.texture || !param.texture->sampler || !param.texture->image_view) {
+      if (!param->texture || !param->texture->sampler || !param->texture->image_view) {
         return;
       }
 
       VkDescriptorImageInfo imageInfo = {};
-      imageInfo.sampler = param.texture->sampler;
-      imageInfo.imageView = param.texture->image_view;
+      imageInfo.sampler = param->texture->sampler;
+      imageInfo.imageView = param->texture->image_view;
       imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
       VkWriteDescriptorSet writeDescriptorSet = {};
@@ -966,3 +972,62 @@ rawkit_shader_t *_rawkit_shader_ex(
   return state->shaders;
 }
 
+void rawkit_shader_apply_params(rawkit_shader_t *shader, VkCommandBuffer command_buffer, rawkit_shader_params_t params) {
+  for (uint32_t i = 0; i<params.count; i++) {
+    rawkit_shader_param_t *param = &params.entries[i];
+    rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(
+      shader->glsl,
+      param->name
+    );
+
+    switch (entry.entry_type) {
+      case RAWKIT_GLSL_REFLECTION_ENTRY_UNIFORM_BUFFER: {
+        rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
+        rawkit_shader_update_ubo(
+          shader,
+          param->name,
+          val.len,
+          val.buf
+        );
+
+        break;
+      }
+
+      case RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER: {
+        rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
+        vkCmdPushConstants(
+          command_buffer,
+          shader->pipeline_layout,
+          VK_SHADER_STAGE_COMPUTE_BIT,
+          entry.offset,
+          val.len,
+          val.buf
+        );
+        break;
+      }
+
+      case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE: {
+        // TODO: this is a nasty hack to get hot reloading textures working. The issue is that
+        //       we need to update the texture descriptor for all shaders .. including the one
+        //       that is currently in flight.
+
+        // update descriptor sets
+        // rawkit_shader_param_t texture = {};
+        // texture.name = param->name;
+        // texture.type = RAWKIT_SHADER_PARAM_TEXTURE_PTR;
+        // texture.ptr = param->texture,
+        // textyre.bytes = sizeof(*param->texture) }
+        rawkit_shader_set_param(
+          shader,
+          param
+        );
+
+        break;
+      }
+
+      default:
+        printf("ERROR: unhandled entry type (%i) while setting shader params\n", entry.entry_type);
+        break;
+    }
+  }
+}

@@ -131,7 +131,8 @@ extern "C" {
     rawkit_shader_t *shader
   );
 
-  void rawkit_shader_set_param(rawkit_shader_t *shader, rawkit_shader_param_t param);
+  void rawkit_shader_apply_params(rawkit_shader_t *shader, VkCommandBuffer command_buffer, rawkit_shader_params_t params);
+  void rawkit_shader_set_param(rawkit_shader_t *shader, const rawkit_shader_param_t *param);
   void rawkit_shader_update_ubo(rawkit_shader_t *shader, const char *name, uint32_t len, void *value);
 
   rawkit_shader_t *_rawkit_shader_ex(
