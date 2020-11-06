@@ -216,6 +216,12 @@ install(
 )
 
 
+install(
+  DIRECTORY
+    ${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/cglm
+  DESTINATION include
+)
+
 file(GLOB SHARED_GUEST_INCLUDE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/*.h")
 install(
   FILES
