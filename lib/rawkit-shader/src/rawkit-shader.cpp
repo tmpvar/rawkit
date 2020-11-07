@@ -8,6 +8,7 @@
 #include <stb_sb.h>
 
 #include <vector>
+#include <array>
 using namespace std;
 
 int rawkit_shader_param_size(const rawkit_shader_param_t *param) {
@@ -234,6 +235,8 @@ static VkFormat type_and_count_to_format(rawkit_glsl_base_type type, uint32_t co
       printf("ERROR: unhandled base type %i", type);
       return VK_FORMAT_UNDEFINED;
   }
+
+  return VK_FORMAT_UNDEFINED;
 }
 
 static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *shader) {
@@ -338,7 +341,7 @@ static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *s
   pColorBlendState.attachmentCount = 1;
   pColorBlendState.pAttachments = &colorBlendAttachment;
 
-  vector<VkDynamicState> dynamicStates = {
+  array<VkDynamicState, 2> dynamicStates = {
     VK_DYNAMIC_STATE_VIEWPORT,
     VK_DYNAMIC_STATE_SCISSOR
   };

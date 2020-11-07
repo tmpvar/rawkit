@@ -68,7 +68,7 @@ const uint32_t *rawkit_glsl_spirv_data(const rawkit_glsl_t *ref, uint8_t index) 
 const uint64_t rawkit_glsl_spirv_byte_len(const rawkit_glsl_t *ref,uint8_t index) {
   const RawkitStage *stage = get_stage(ref, index);
   if (!stage) {
-    return NULL;
+    return 0;
   }
   return stage->bytes;
 }
@@ -110,7 +110,7 @@ const uint32_t rawkit_glsl_reflection_descriptor_set_max(const rawkit_glsl_t* re
 
 const uint32_t rawkit_glsl_reflection_binding_count_for_set(const rawkit_glsl_t* ref, uint32_t set) {
   if (!ref || !ref->bindings_per_set) {
-    return NULL;
+    return 0;
   }
 
   auto it = ref->bindings_per_set->find(set);
@@ -712,6 +712,7 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
     return false;
   }
 
+  return true;
 }
 
 bool rawkit_glsl_is_compute(const rawkit_glsl_t *ref) {

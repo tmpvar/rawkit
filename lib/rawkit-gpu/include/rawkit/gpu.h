@@ -9,17 +9,6 @@
   extern "C" {
 #endif
 
-
-typedef struct rawkit_gpu_pipeline_t {
-
-} rawkit_gpu_pipeline_t;
-
-rawkit_gpu_pipeline_t *rawkit_gpu_pipeline(
-  const char *name
-);
-
-
-
 typedef struct rawkit_gpu_buffer_t {
   VkDeviceMemory memory;
   VkBuffer handle;
