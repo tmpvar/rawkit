@@ -150,13 +150,32 @@ void render_mesh_file(
 
     rawkit_shader_apply_params(shader, command_buffer, params);
 
-    vkCmdDraw(
-      command_buffer,
-      rawkit_mesh_vertex_count(state->mesh),
-      instances,
-      0,
-      0
-    );
+    uint32_t index_count = rawkit_mesh_index_count(state->mesh);
+    if (index_count > 0) {
+      vkCmdBindIndexBuffer(
+        command_buffer,
+        state->vertex_buffer->indices->handle,
+        0,
+        VK_INDEX_TYPE_UINT32
+      );
+
+      vkCmdDrawIndexed(
+        command_buffer,
+        index_count,
+        instances,
+        0,
+        0,
+        0
+      );
+    } else {
+      vkCmdDraw(
+        command_buffer,
+        rawkit_mesh_vertex_count(state->mesh),
+        instances,
+        0,
+        0
+      );
+    }
   }
 }
 
