@@ -601,7 +601,6 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
         entry.writable = false;
 
         if (!rawkit_glsl_reflection_add_entry(glsl, acc.name, entry)) {
-          glsl->valid = false;
           return;
         }
       }
