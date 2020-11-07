@@ -10,6 +10,6 @@ layout (std430, binding = 0) uniform UBO {
 } uniforms;
 
 void main() {
-  vColor = vec4(float(gl_VertexIndex) / 6.0);
-	gl_Position = uniforms.mvp * vec4(aPosition, 1.0);
+  vColor = vec4(1.0);
+	gl_Position = uniforms.mvp * vec4(aPosition , 1.0);
 }

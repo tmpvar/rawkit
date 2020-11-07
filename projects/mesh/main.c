@@ -17,6 +17,7 @@ typedef struct render_mesh_state_t {
 
 void render_mesh_file(
   const char *mesh_file,
+  uint32_t instances,
   uint8_t source_count,
   const char **source_files,
   rawkit_shader_params_t params
@@ -150,7 +151,7 @@ void render_mesh_file(
     vkCmdDraw(
       command_buffer,
       rawkit_mesh_vertex_count(state->mesh),
-      1,
+      instances,
       0,
       0
     );
@@ -165,13 +166,7 @@ typedef struct ubo_t {
 } ubo_t;
 
 void loop() {
-  rawkit_shader_params_t params = {};
-
   ubo_t ubo = {};
-
-  ubo.color[0] = 1.0f;
-  ubo.color[2] = 1.0f;
-  ubo.color[3] = 1.0f;
 
   float aspect = (float)rawkit_window_width() / (float)rawkit_window_height();
   mat4 proj;
@@ -193,15 +188,45 @@ void loop() {
 
   glm_mat4_mul(proj, view, ubo.mvp);
 
+  // single instance
+  {
+    rawkit_shader_params_t params = {};
+    rawkit_shader_params(params,
+      rawkit_shader_ubo("UBO", &ubo)
+    );
 
-  rawkit_shader_params(params,
-    rawkit_shader_ubo("UBO", &ubo)
-  );
+    render_mesh_file(
+      "cube.stl",
+      1,
+      2,
+      (const char *[]){ "mesh.vert", "mesh.frag" },
+      params
+    );
+  }
 
-  render_mesh_file(
-    "cube.stl",
-    2,
-    (const char *[]){ "mesh.vert", "mesh.frag" },
-    params
-  );
+  {
+
+     float offsets[40] = {};
+     for (int i=0; i<40; i+=4) {
+       offsets[i] = (float)i * 0.75;
+       offsets[i+1] = 3;
+     }
+
+    rawkit_shader_params_t params = {};
+    rawkit_shader_params(params,
+      rawkit_shader_ubo("UBO", &ubo),
+      rawkit_shader_ubo("Offsets", &offsets)
+    );
+
+    render_mesh_file(
+      "cube2.stl",
+      10,
+      2,
+      (const char *[]){ "mesh-instanced.vert", "mesh-instanced.frag" },
+      params
+    );
+
+  }
+
+
 }
