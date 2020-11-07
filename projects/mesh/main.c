@@ -71,7 +71,9 @@ void render_mesh_file(
       rawkit_vulkan_queue(),
       rawkit_vulkan_command_pool(),
       rawkit_mesh_vertex_count(mesh),
-      mesh->vertex_data
+      mesh->vertex_data,
+      rawkit_mesh_index_count(mesh),
+      mesh->index_data
     );
 
     if (!vb) {
