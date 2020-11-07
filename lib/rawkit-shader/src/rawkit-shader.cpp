@@ -750,7 +750,7 @@ VkResult rawkit_shader_init(rawkit_glsl_t *glsl, rawkit_shader_t *shader) {
       VkWriteDescriptorSet write = {};
       write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
       write.dstSet = shader->descriptor_sets[set_idx];
-      write.dstBinding = 0;
+      write.dstBinding = shader->ubos[i].entry->binding;
       write.dstArrayElement = 0;
       write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
       write.descriptorCount = 1;
