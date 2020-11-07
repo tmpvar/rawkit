@@ -110,7 +110,7 @@ static void SetupVulkan(const char** extensions, uint32_t extensions_count)
         create_info.ppEnabledExtensionNames = extensions;
         create_info.pApplicationInfo = &app;
 
-#ifdef IMGUI_VULKAN_DEBUG_REPORT
+      #ifdef IMGUI_VULKAN_DEBUG_REPORT
         // Enabling multiple validation layers grouped as LunarG standard validation
         const char* layers[] = { "VK_LAYER_LUNARG_standard_validation" };
         create_info.enabledLayerCount = 1;
@@ -140,12 +140,12 @@ static void SetupVulkan(const char** extensions, uint32_t extensions_count)
         debug_report_ci.pUserData = NULL;
         err = vkCreateDebugReportCallbackEXT(g_Instance, &debug_report_ci, g_Allocator, &g_DebugReport);
         check_vk_result(err);
-#else
+      #else
         // Create Vulkan Instance without any debug feature
         err = vkCreateInstance(&create_info, g_Allocator, &g_Instance);
         check_vk_result(err);
         IM_UNUSED(g_DebugReport);
-#endif
+      #endif
     }
 
     // Select GPU
@@ -251,11 +251,11 @@ static void SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface
     wd->SurfaceFormat = ImGui_ImplVulkanH_SelectSurfaceFormat(g_PhysicalDevice, wd->Surface, requestSurfaceImageFormat, (size_t)IM_ARRAYSIZE(requestSurfaceImageFormat), requestSurfaceColorSpace);
 
     // Select Present Mode
-#ifdef IMGUI_UNLIMITED_FRAME_RATE
+  #ifdef IMGUI_UNLIMITED_FRAME_RATE
     VkPresentModeKHR present_modes[] = { VK_PRESENT_MODE_MAILBOX_KHR, VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_FIFO_KHR };
-#else
+  #else
     VkPresentModeKHR present_modes[] = { VK_PRESENT_MODE_FIFO_KHR };
-#endif
+  #endif
     wd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(g_PhysicalDevice, wd->Surface, &present_modes[0], IM_ARRAYSIZE(present_modes));
     //printf("[vulkan] Selected PresentMode = %d\n", wd->PresentMode);
 
@@ -268,11 +268,11 @@ static void CleanupVulkan()
 {
     vkDestroyDescriptorPool(g_Device, g_DescriptorPool, g_Allocator);
 
-#ifdef IMGUI_VULKAN_DEBUG_REPORT
+  #ifdef IMGUI_VULKAN_DEBUG_REPORT
     // Remove the debug report callback
     auto vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(g_Instance, "vkDestroyDebugReportCallbackEXT");
     vkDestroyDebugReportCallbackEXT(g_Instance, g_DebugReport, g_Allocator);
-#endif // IMGUI_VULKAN_DEBUG_REPORT
+  #endif // IMGUI_VULKAN_DEBUG_REPORT
 
     vkDestroyDevice(g_Device, g_Allocator);
     vkDestroyInstance(g_Instance, g_Allocator);
@@ -315,8 +315,8 @@ static void BeginMainRenderPass(ImGui_ImplVulkanH_Window* wd) {
         info.framebuffer = fd->Framebuffer;
         info.renderArea.extent.width = wd->Width;
         info.renderArea.extent.height = wd->Height;
-        info.clearValueCount = 1;
-        info.pClearValues = &wd->ClearValue;
+        info.clearValueCount = 2;
+        info.pClearValues = wd->ClearValue;
         vkCmdBeginRenderPass(fd->CommandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
     }
 }
@@ -382,8 +382,8 @@ static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data)
         info.framebuffer = fd->Framebuffer;
         info.renderArea.extent.width = wd->Width;
         info.renderArea.extent.height = wd->Height;
-        info.clearValueCount = 1;
-        info.pClearValues = &wd->ClearValue;
+        info.clearValueCount = 2;
+        info.pClearValues = wd->ClearValue;
         vkCmdBeginRenderPass(fd->CommandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
     }
 

@@ -299,33 +299,16 @@ static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *s
   VkPipelineTessellationStateCreateInfo     pTessellationState = {};
   pTessellationState.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
 
-  VkRect2D scissor = {};
-  scissor.extent.height = 400;
-  scissor.extent.width = 400;
-  scissor.offset.x = 0;
-  scissor.offset.y = 0;
-
-  VkViewport viewport = {};
-  viewport.height = 400;
-  viewport.width = 400;
-  viewport.x = 0;
-  viewport.y = 0;
-  viewport.minDepth = 0.0f;
-  viewport.maxDepth = 1.0f;
 
   VkPipelineViewportStateCreateInfo         pViewportState = {};
   pViewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-  pViewportState.scissorCount = 0;
-  // pViewportState.pScissors = &scissor;
-  pViewportState.viewportCount = 0;
-  // pViewportState.pViewports = &viewport;
 
   VkPipelineRasterizationStateCreateInfo    pRasterizationState = {};
   pRasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
   pRasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
   pRasterizationState.lineWidth = 1.0f;
-  pRasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
-  pRasterizationState.cullMode = VK_CULL_MODE_NONE;
+  pRasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+  pRasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
 
   VkPipelineMultisampleStateCreateInfo      pMultisampleState = {};
   pMultisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -334,6 +317,12 @@ static VkResult create_graphics_pipeline(rawkit_glsl_t *glsl, rawkit_shader_t *s
 
   VkPipelineDepthStencilStateCreateInfo     pDepthStencilState = {};
   pDepthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+  pDepthStencilState.depthTestEnable = VK_TRUE;
+  pDepthStencilState.depthWriteEnable = VK_TRUE;
+  pDepthStencilState.depthBoundsTestEnable = VK_FALSE;
+  pDepthStencilState.minDepthBounds = 0.0f;
+  pDepthStencilState.maxDepthBounds = 1.0f;
+  pDepthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
 
   VkPipelineColorBlendStateCreateInfo       pColorBlendState = {};
   pColorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;

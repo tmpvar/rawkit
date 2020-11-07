@@ -211,14 +211,22 @@ static uint32_t __glsl_shader_frag_spv[] =
 // FUNCTIONS
 //-----------------------------------------------------------------------------
 
-static uint32_t ImGui_ImplVulkan_MemoryType(VkMemoryPropertyFlags properties, uint32_t type_bits)
+static uint32_t ImGui_ImplVulkan_MemoryType(VkMemoryPropertyFlags properties, uint32_t type_bits, VkPhysicalDevice physical_device = nullptr)
 {
     ImGui_ImplVulkan_InitInfo* v = &g_VulkanInitInfo;
+
+    // g_VulkanInitInfo is setup after swapchain creation, which is a problem for depth buffers
+    if (!physical_device) {
+      physical_device = v->PhysicalDevice;
+    }
+
     VkPhysicalDeviceMemoryProperties prop;
-    vkGetPhysicalDeviceMemoryProperties(v->PhysicalDevice, &prop);
-    for (uint32_t i = 0; i < prop.memoryTypeCount; i++)
-        if ((prop.memoryTypes[i].propertyFlags & properties) == properties && type_bits & (1<<i))
+    vkGetPhysicalDeviceMemoryProperties(physical_device, &prop);
+    for (uint32_t i = 0; i < prop.memoryTypeCount; i++) {
+        if ((prop.memoryTypes[i].propertyFlags & properties) == properties && type_bits & (1<<i)) {
             return i;
+        }
+    }
     return 0xFFFFFFFF; // Unable to find memoryType
 }
 
@@ -1003,7 +1011,7 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
         info.imageFormat = wd->SurfaceFormat.format;
         info.imageColorSpace = wd->SurfaceFormat.colorSpace;
         info.imageArrayLayers = 1;
-        info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;           // Assume that graphics family == present family
         info.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
         info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -1049,24 +1057,122 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
     if (old_swapchain)
         vkDestroySwapchainKHR(device, old_swapchain, allocator);
 
+    // create the depth buffers
+    VkFormat depth_format = VK_FORMAT_D32_SFLOAT;
+    {
+      for (uint32_t i = 0; i < wd->ImageCount; i++) {
+        ImGui_ImplVulkanH_Frame *frame = &wd->Frames[i];
+
+        vkDestroyImage(device, frame->Depthbuffer, allocator);
+        vkDestroyImageView(device, frame->DepthbufferView, allocator);
+        vkFreeMemory(device, frame->DepthbufferMemory, allocator);
+
+        // Create the image
+        {
+          VkImageCreateInfo info = { };
+          info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+          info.pNext = nullptr;
+          info.imageType = VK_IMAGE_TYPE_2D;
+          info.format = depth_format;
+          info.extent.width = wd->Width;
+          info.extent.height = wd->Height;
+          info.extent.depth = 1;
+          info.mipLevels = 1;
+          info.arrayLayers = 1;
+          info.samples = VK_SAMPLE_COUNT_1_BIT;
+          info.tiling = VK_IMAGE_TILING_OPTIMAL;
+          info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+          err = vkCreateImage(
+            device,
+            &info,
+            allocator,
+            &frame->Depthbuffer
+          );
+          check_vk_result(err);
+        }
+        
+        // Create the depth image memory
+        {
+          VkMemoryRequirements req;
+          vkGetImageMemoryRequirements(device, frame->Depthbuffer, &req);
+
+          VkMemoryAllocateInfo alloc_info = {};
+          alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+          alloc_info.allocationSize = req.size;
+          alloc_info.memoryTypeIndex = ImGui_ImplVulkan_MemoryType(
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            req.memoryTypeBits,
+            physical_device
+          );
+
+          err = vkAllocateMemory(device, &alloc_info, allocator, &frame->DepthbufferMemory);
+          check_vk_result(err);
+          err = vkBindImageMemory(device, frame->Depthbuffer, frame->DepthbufferMemory, 0);
+          check_vk_result(err);
+        }
+
+        // Create the depth image view
+        {
+          VkImageViewCreateInfo info = {};
+          info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+          info.pNext = nullptr;
+
+          info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+          info.image = frame->Depthbuffer;
+          info.format = depth_format;
+         
+          info.subresourceRange.baseMipLevel = 0;
+          info.subresourceRange.levelCount = 1;
+          info.subresourceRange.baseArrayLayer = 0;
+          info.subresourceRange.layerCount = 1;
+          info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+          err = vkCreateImageView(
+            device,
+            &info,
+            NULL,
+            &frame->DepthbufferView
+          );
+          check_vk_result(err);
+        }
+      }
+    }
+
+
     // Create the Render Pass
     {
-        VkAttachmentDescription attachment = {};
-        attachment.format = wd->SurfaceFormat.format;
-        attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        attachment.loadOp = wd->ClearEnable ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        VkAttachmentReference color_attachment = {};
-        color_attachment.attachment = 0;
-        color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        VkAttachmentDescription color_attachment = {};
+        color_attachment.format = wd->SurfaceFormat.format;
+        color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        color_attachment.loadOp = wd->ClearEnable ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        VkAttachmentReference color_attachment_ref = {};
+        color_attachment_ref.attachment = 0;
+        color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        VkAttachmentDescription depth_attachment = {};
+        depth_attachment.format = depth_format;
+        depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        VkAttachmentReference depth_attachment_ref = {};
+        depth_attachment_ref.attachment = 1;
+        depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
         VkSubpassDescription subpass = {};
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &color_attachment;
+        subpass.pColorAttachments = &color_attachment_ref;
+        subpass.pDepthStencilAttachment = &depth_attachment_ref;
+
         VkSubpassDependency dependency = {};
         dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
         dependency.dstSubpass = 0;
@@ -1074,10 +1180,13 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
         dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         dependency.srcAccessMask = 0;
         dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+
+        VkAttachmentDescription attachments[2] = { color_attachment, depth_attachment };
         VkRenderPassCreateInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        info.attachmentCount = 1;
-        info.pAttachments = &attachment;
+        info.attachmentCount = 2;
+        info.pAttachments = attachments;
         info.subpassCount = 1;
         info.pSubpasses = &subpass;
         info.dependencyCount = 1;
@@ -1109,19 +1218,20 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
 
     // Create Framebuffer
     {
-        VkImageView attachment[1];
+        VkImageView attachments[2];
         VkFramebufferCreateInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         info.renderPass = wd->RenderPass;
-        info.attachmentCount = 1;
-        info.pAttachments = attachment;
+        info.attachmentCount = 2;
+        info.pAttachments = attachments;
         info.width = wd->Width;
         info.height = wd->Height;
         info.layers = 1;
         for (uint32_t i = 0; i < wd->ImageCount; i++)
         {
             ImGui_ImplVulkanH_Frame* fd = &wd->Frames[i];
-            attachment[0] = fd->BackbufferView;
+            attachments[0] = fd->BackbufferView;
+            attachments[1] = fd->DepthbufferView;
             err = vkCreateFramebuffer(device, &info, allocator, &fd->Framebuffer);
             check_vk_result(err);
         }
