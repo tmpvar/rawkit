@@ -60,37 +60,62 @@ include(CTest)
 enable_testing()
 
 # LIB: pull-stream
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream)
+if (NOT TARGET pull::stream)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream)
+endif()
+
+# LIB: rawkit-core
+if (NOT TARGET rawkit::core)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-core)
+endif()
 
 # LIB: gcode-parser
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser)
+if (NOT TARGET rawkit::gcode::parser)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/gcode-parser)
+endif()
 
 # LIB: grbl-parser
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser)
+if (NOT TARGET rawkit::grbl::parser)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/grbl-parser)
+endif()
 
 # LIB: rawkit-jit
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-jit)
 
 # LIB: rawkit-glsl
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-glsl)
+if (NOT TARGET rawkit::glsl)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-glsl)
+endif()
 
 # LIB: rawkit-hash
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-hash)
+if (NOT TARGET rawkit::glsl)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-hash)
+endif()
 
 # LIB: rawkit-hot
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-hot)
+if (NOT TARGET rawkit::hot)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-hot)
+endif()
 
 # LIB: rawkit-diskwatcher
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-diskwatcher)
+if (NOT TARGET rawkit::diskwatcher)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-diskwatcher)
+endif()
 
 # LIB: rawkit-file
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-file)
+if (NOT TARGET rawkit::file)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-file)
+endif()
 
 # LIB: rawkit-gpu
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-gpu)
+if (NOT TARGET rawkit::gpu)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-gpu)
+endif()
 
 # LIB: rawkit-shader
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-shader)
+if (NOT TARGET rawkit::shader)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-shader)
+endif()
 
 # LIB: rawkit-texture
 if (NOT TARGET rawkit::texture)
@@ -183,6 +208,7 @@ target_compile_features(${PROJECT_NAME}
 
 target_link_libraries(
   rawkit
+  rawkit::core
   rawkit::jit
   rawkit::glsl
   rawkit::hash
