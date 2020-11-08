@@ -4,6 +4,11 @@ project(rawkit-hot)
 option(RAWKIT_HOT_BUILD_TESTS "Build the rawkit-hot test programs" ON)
 option(RAWKIT_HOT_TEST_COVERAGE "Add coverage information for tests run against librawkit-hot" OFF)
 
+# DEP: rawkit-core (sibling)
+if (NOT TARGET rawkit::core)
+  add_subdirectory(../rawkit-core deps/rawkit-core)
+endif()
+
 # DEP: rawkit-hash (sibling)
 if (NOT TARGET rawkit::hash)
   add_subdirectory(../rawkit-hash deps/rawkit-hash)
@@ -17,6 +22,7 @@ add_library(rawkit::hot ALIAS ${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
+    rawkit::core
     rawkit::hash
 )
 
