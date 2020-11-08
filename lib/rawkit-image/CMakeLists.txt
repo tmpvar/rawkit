@@ -4,6 +4,11 @@ project(rawkit-image)
 option(RAWKIT_IMAGE_BUILD_TESTS "Build the rawkit-image test programs" ON)
 option(RAWKIT_IMAGE_TEST_COVERAGE "Add coverage information for tests run against rawkit-image" OFF)
 
+# DEP: rawkit-core (sibling)
+if (NOT TARGET rawkit::core)
+  add_subdirectory(../rawkit-core deps/rawkit-core)
+endif()
+
 # DEP: rawkit-file (sibling)
 if (NOT TARGET rawkit::file)
   add_subdirectory(../rawkit-file deps/rawkit-file)
@@ -28,6 +33,7 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
+    rawkit::core
     rawkit::file
 )
 

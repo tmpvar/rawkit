@@ -1,6 +1,7 @@
 #pragma once
 
 #include <uv.h>
+#include <rawkit/core.h>
 #include <rawkit/diskwatcher.h>
 
 #ifdef __cplusplus
@@ -8,7 +9,8 @@
 #endif
 
 typedef struct rawkit_image_t {
-  uint32_t version;
+  RAWKIT_RESOURCE_FIELDS
+
   uint8_t *data;
   uint64_t len;
   uint32_t width;

@@ -45,7 +45,7 @@ TEST_CASE("[rawkit/image] load image") {
       watcher
     );
 
-    if (img != NULL) {
+    if (img->resource_version) {
       CHECK(img->len == 16);
       CHECK(img->data != nullptr);
       CHECK(img->width == 2);

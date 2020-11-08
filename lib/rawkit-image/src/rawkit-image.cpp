@@ -19,10 +19,8 @@ const rawkit_image_t *_rawkit_image_ex(
 
   const rawkit_file_t* f = _rawkit_file_ex(from_file, path, loop, watcher);
 
-  if (f == NULL) {
-    if (!image->len) {
-      return NULL;
-    }
+  bool dirty = rawkit_resource_sources(image, f);
+  if (!dirty) {
     return image;
   }
 
@@ -53,7 +51,7 @@ const rawkit_image_t *_rawkit_image_ex(
     static_cast<uint64_t>(channels);
 
   image->channels = channels;
-  image->version++;
+  image->resource_version++;
 
   return image;
 }
