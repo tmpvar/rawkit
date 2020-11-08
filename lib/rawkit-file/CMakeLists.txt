@@ -9,6 +9,11 @@ if (NOT TARGET pull::stream)
   add_subdirectory(../pull-stream deps/pull-stream)
 endif()
 
+# DEP: rawkit-core (sibling)
+if (NOT TARGET rawkit::core)
+  add_subdirectory(../rawkit-core deps/rawkit-core)
+endif()
+
 # DEP: rawkit-hot (sibling)
 if (NOT TARGET rawkit::hot)
   add_subdirectory(../rawkit-hot deps/rawkit-hot)
@@ -26,6 +31,7 @@ add_library(${PROJECT_NAME} STATIC
 add_library(rawkit::file ALIAS ${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
+  rawkit::core
   rawkit::hot
   rawkit::diskwatcher
 )

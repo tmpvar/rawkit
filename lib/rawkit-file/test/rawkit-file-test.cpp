@@ -9,7 +9,9 @@ TEST_CASE("[rawkit/file] non-existent") {
   uv_loop_init(&loop);
   {
     const rawkit_file_t *f = rawkit_file_ex("/path/to/nowhere.txt", &loop, NULL);
-    REQUIRE(f == nullptr);
+    REQUIRE(f != nullptr);
+    CHECK(f->resource_version == 0);
+    CHECK(f->resource_flags == 0);
   }
 
   uv_run(&loop, UV_RUN_DEFAULT);
@@ -17,6 +19,8 @@ TEST_CASE("[rawkit/file] non-existent") {
   {
     const rawkit_file_t *f = rawkit_file_ex("/path/to/nowhere.txt", &loop, NULL);
     REQUIRE(f != nullptr);
+    CHECK(f->resource_version == 0);
+    CHECK(f->resource_flags == 0);
     CHECK(f->error == RAWKIT_FILE_NOT_FOUND);
   }
 }
@@ -27,14 +31,16 @@ TEST_CASE("[rawkit/file] load existing file (absolute)") {
   uv_loop_init(&loop);
   {
     const rawkit_file_t* f = rawkit_file_ex(path, &loop, NULL);
-    REQUIRE(f == nullptr);
+    REQUIRE(f != nullptr);
+    CHECK(f->resource_version == 0);
+    CHECK(f->resource_flags == 0);
   }
 
   int64_t i = 1000;
   while(i--) {
     uv_run(&loop, UV_RUN_ONCE);
     const rawkit_file_t* f = rawkit_file_ex(path, &loop, NULL);
-    if (f != NULL) {
+    if (f->resource_version > 0) {
       CHECK(f->error == RAWKIT_FILE_ERROR_NONE);
       CHECK(strstr((char *)f->data, "FIND THIS STRING") != nullptr);
       break;
@@ -50,14 +56,16 @@ TEST_CASE("[rawkit/file] load existing file (relative)") {
   uv_loop_init(&loop);
   {
     const rawkit_file_t* f = rawkit_file_ex(path, &loop, NULL);
-    REQUIRE(f == nullptr);
+    REQUIRE(f != nullptr);
+    CHECK(f->resource_version == 0);
+    CHECK(f->resource_flags == 0);
   }
 
   int64_t i = 1000;
   while(i--) {
     uv_run(&loop, UV_RUN_ONCE);
     const rawkit_file_t* f = rawkit_file_ex(path, &loop, NULL);
-    if (f != NULL) {
+    if (f->resource_version > 0) {
       CHECK(f->error == RAWKIT_FILE_ERROR_NONE);
       CHECK(strstr((char *)f->data, "this file contains a string") != nullptr);
       break;
@@ -80,17 +88,15 @@ TEST_CASE("[rawkit/file] reload file") {
   while(i--) {
     uv_run(&loop, UV_RUN_NOWAIT);
     const rawkit_file_t* f = rawkit_file_ex(path, &loop, watcher);
-    if (f != NULL) {
+    if (f->resource_version > 0) {
       loaded_count++;
       CHECK(f->error == RAWKIT_FILE_ERROR_NONE);
       if (loaded_count == 1) {
         CHECK(strstr((char *)f->data, "first write") != nullptr);
         write_file(path, "one more time");
-      } else if (loaded_count == 2) {
+      } else if (f->resource_version == 2) {
         CHECK(strstr((char *)f->data, "one more time") != nullptr);
         break;
-      } else {
-        REQUIRE(false);
       }
     }
   }

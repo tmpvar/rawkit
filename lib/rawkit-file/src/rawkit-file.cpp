@@ -18,52 +18,61 @@ enum file_status {
 };
 
 typedef struct file_state_t {
-  uint64_t version;
+  uint64_t diskwatcher_version;
   file_status status;
-  rawkit_file_t file;
   ps_t *stream;
   ps_val_t *value;
 } file_state_t;
 
-static const rawkit_file_t OOM = { 0, RAWKIT_FILE_OOM, 0, NULL };
+static const rawkit_file_t ERR = {};
 
 const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv_loop_t *loop, rawkit_diskwatcher_t *watcher) {
   fs::path rel_dir = fs::path(from_file).remove_filename();
-  string id = string("file://") + path + " from " + rel_dir.string();
-
-  file_state_t *f = rawkit_hot_state(id.c_str(), file_state_t);
-
-  if (!f) {
-    return (const rawkit_file_t *)&OOM;
-  }
 
   fs::path full_path(path);
   if (!fs::exists(full_path)) {
     full_path = rel_dir / full_path;
   }
 
-  if (watcher) {
-    uint64_t version = rawkit_diskwatcher_file_version(watcher, full_path.string().c_str());
-    if (version != f->version) {
-      ps_destroy(f->value);
-      ps_destroy(f->stream);
-      f->version = version;
-      f->status = INIT;
+  string id = full_path.string();
+
+  rawkit_file_t *f = rawkit_hot_resource(id.c_str(), rawkit_file_t);
+
+  if (!f) {
+    return (const rawkit_file_t *)&ERR;
+  }
+
+  if (!f->_state) {
+    f->_state = (file_state_t *)calloc(sizeof(file_state_t), 1);
+    if (!f->_state) {
+      return (const rawkit_file_t*)&ERR;
     }
   }
 
-  switch (f->status) {
+  file_state_t *state = (file_state_t *)f->_state;
+
+  if (watcher) {
+    uint64_t version = rawkit_diskwatcher_file_version(watcher, full_path.string().c_str());
+
+    if (version != state->diskwatcher_version) {
+      state->diskwatcher_version = version;
+      state->status = INIT;
+    }
+  }
+
+  switch (state->status) {
     case INIT: {
 
       if (!fs::exists(full_path)) {
-        f->file.error = RAWKIT_FILE_NOT_FOUND;
-        f->status = NOT_FOUND;
+        f->error = RAWKIT_FILE_NOT_FOUND;
+        state->status = NOT_FOUND;
         break;
       }
 
 
-      f->status = RUNNING;
-      f->stream = ps_pipeline(
+      state->status = RUNNING;
+      ps_destroy(state->stream);
+      state->stream = ps_pipeline(
         create_file_source(full_path.string().c_str(), loop),
         create_collector()
       );
@@ -72,18 +81,19 @@ const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv
     }
 
     case NOT_FOUND:
-      return &f->file;
+      return f;
 
     default: {
-      ps_val_t *v = f->stream->fn(f->stream, PS_OK);
+      ps_val_t *v = state->stream->fn(state->stream, PS_OK);
 
       if (v) {
-        ps_destroy(f->value);
-        f->value = v;
-        f->file.data = (uint8_t *)v->data;
-        f->file.len = v->len;
-        f->status = DONE;
-        return &f->file;
+        ps_destroy(state->value);
+        state->value = v;
+        f->data = (uint8_t *)v->data;
+        f->len = v->len;
+        state->status = DONE;
+        f->resource_version++;
+        return f;
       }
 
       break;
@@ -91,5 +101,5 @@ const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv
 
   }
 
-  return NULL;
+  return f;
 }

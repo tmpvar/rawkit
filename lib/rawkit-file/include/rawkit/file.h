@@ -3,7 +3,7 @@
 
 #include <rawkit/hot.h>
 #include <rawkit/diskwatcher.h>
-
+#include <rawkit/core.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -17,10 +17,14 @@
   } rawkit_file_error;
 
   typedef struct rawkit_file_t {
-    uint64_t version;
+    RAWKIT_RESOURCE_FIELDS
+
     rawkit_file_error error;
     uint8_t *data;
     uint64_t len;
+
+    // internal state tracking
+    void *_state;
   } rawkit_file_t;
 
   const rawkit_file_t *_rawkit_file_ex(
