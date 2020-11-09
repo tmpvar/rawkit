@@ -4,17 +4,8 @@
 #include <stdbool.h>
 
 #include <pull/stream.h>
-
-#ifdef __cplusplus
-  extern "C" {
-#endif
-
-typedef struct rawkit_glsl_paths_t {
-  char **entry;
-  uint32_t count;
-} rawkit_glsl_paths_t;
-
-void rawkit_glsl_paths_destroy(rawkit_glsl_paths_t *paths);
+#include <rawkit/core.h>
+#include <rawkit/file.h>
 
 typedef enum  {
   RAWKIT_GLSL_REFLECTION_ENTRY_NOT_FOUND = -1,
@@ -163,7 +154,7 @@ typedef struct rawkit_glsl_reflection_entry_t {
   int32_t set;
   int32_t binding;
   int32_t offset;
-  uint32_t block_size;
+  uint64_t block_size;
   int32_t input_attachment_index;
   rawkit_glsl_dims dims;
   rawkit_glsl_image_format image_format;
@@ -182,15 +173,24 @@ typedef struct rawkit_glsl_reflection_vector_t {
   uint32_t len;
 } rawkit_glsl_reflection_vector_t;
 
-typedef struct rawkit_glsl_t rawkit_glsl_t;
 
-typedef struct rawkit_glsl_source_t {
-  const char *filename;
-  const char *data;
-} rawkit_glsl_source_t;
 
-rawkit_glsl_t *rawkit_glsl_compile(uint8_t source_count, rawkit_glsl_source_t *sources, const rawkit_glsl_paths_t *include_dirs);
-void rawkit_glsl_destroy(rawkit_glsl_t *ref);
+typedef struct rawkit_glsl_t {
+  RAWKIT_RESOURCE_FIELDS
+
+  // internal
+  void *_state;
+} rawkit_glsl_t;
+
+#ifdef __cplusplus
+  extern "C" {
+#endif
+
+const rawkit_glsl_t *_rawkit_glsl_file_array(uint8_t file_count, rawkit_file_t **files);
+const rawkit_glsl_t *_rawkit_glsl_va(uint8_t file_count, ...);
+
+
+#define rawkit_glsl(...) _rawkit_glsl_va(RAWKIT_RESOURCE_ARG_COUNT(__VA_ARGS__), __VA_ARGS__)
 
 bool rawkit_glsl_valid(const rawkit_glsl_t *ref);
 const uint32_t *rawkit_glsl_workgroup_size(const rawkit_glsl_t *ref, uint8_t index);
@@ -207,9 +207,6 @@ const uint32_t rawkit_glsl_reflection_binding_count_for_set(const rawkit_glsl_t*
 
 uint8_t rawkit_glsl_stage_count(const rawkit_glsl_t *ref);
 bool rawkit_glsl_is_compute(const rawkit_glsl_t *ref);
-ps_t *rawkit_glsl_compiler(const char *name, const rawkit_glsl_paths_t *includes);
-
-
 
 #ifdef __cplusplus
   }

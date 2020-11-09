@@ -1,142 +1,81 @@
 #include <doctest.h>
-
+#include <uv.h>
 #include <rawkit/glsl.h>
 #include "util.h"
 
 #include <string>
 using namespace std;
 
-TEST_CASE("[rawkit/glsl] invalid args") {
-  REQUIRE(rawkit_glsl_compile(0, nullptr, nullptr) == nullptr);
-  REQUIRE(rawkit_glsl_compile(1, nullptr, nullptr) == nullptr);
 
-  rawkit_glsl_source_t source = {"invalid.extension", "BLAH"};
-  REQUIRE(rawkit_glsl_compile(0, &source, nullptr) == nullptr);
-  REQUIRE(rawkit_glsl_compile(1, &source, nullptr) == nullptr);
+// TEST_CASE("[rawkit/glsl] invalid args") {
+//   REQUIRE(rawkit_glsl_compile(0, nullptr, nullptr) == nullptr);
+//   REQUIRE(rawkit_glsl_compile(1, nullptr, nullptr) == nullptr);
+
+//   rawkit_glsl_source_t source = {"invalid.extension", "BLAH"};
+//   REQUIRE(rawkit_glsl_compile(0, &source, nullptr) == nullptr);
+//   REQUIRE(rawkit_glsl_compile(1, &source, nullptr) == nullptr);
+// }
+
+static const rawkit_file_t* load_file(uv_loop_t *loop, const char *path, bool should_fail = false) {
+
+  int16_t c = 10000;
+
+  while(c--) {
+    const rawkit_file_t* f = _rawkit_file_ex(
+      __FILE__,
+      path,
+      loop,
+      rawkit_default_diskwatcher()
+    );
+
+    uv_run(loop, UV_RUN_NOWAIT);
+
+    if (f && f->resource_version > 0) {
+      return f;
+    }
+  }
+
+  if (should_fail) {
+    FAIL("could not load file");
+  }
+
+  return nullptr;
 }
 
 TEST_CASE("[rawkit/glsl] compile glsl into spirv") {
-  rawkit_glsl_source_t source = {
-    "simple.frag",
-    "#version 450\n"
-    "out float outF;"
-    "void main() {\n"
-    "  float outF = 1.23456 * 5.678;\n"
-    "}\n",
-  };
-
-  rawkit_glsl_t *s = rawkit_glsl_compile(1, &source, nullptr);
-  REQUIRE(s != nullptr);
-  CHECK(rawkit_glsl_valid(s));
-}
-
-TEST_CASE("[rawkit/glsl] compile glsl into spirv (absolute include)") {
-  char src[4096] = {0};
-  string include;
-  include.assign(fixturePath("multiply.glsl"));
-  std::replace( include.begin(), include.end(), '\\', '/');
-
-  sprintf(
-    src,
-    "#version 450\n"
-    "#include \"%s\"\n"
-    "out float outF;"
-    "void main() {\n"
-    "  float outF = multiply(1.23456, 5.678);\n"
-    "}\n",
-    include.c_str()
+  uv_loop_t loop;
+  uv_loop_init(&loop);
+  const rawkit_glsl_t *s = rawkit_glsl(
+    load_file(&loop, "fixtures/simple.frag")
   );
-
-  rawkit_glsl_source_t source = {"simple.frag", src};
-  rawkit_glsl_t *s = rawkit_glsl_compile(1, &source, nullptr);
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
+  uv_loop_close(&loop);
 }
+
 
 TEST_CASE("[rawkit/glsl] compile glsl into spirv (relative include)") {
-  char src[4096] = {0};
-  string include;
-  include.assign(fixturePath("nested.glsl"));
-  std::replace( include.begin(), include.end(), '\\', '/');
-
-  sprintf(
-    src,
-    "#version 450\n"
-    "#include \"%s\"\n"
-    "out float outF;"
-    "void main() {\n"
-    "  float outF = nested(1.23456);\n"
-    "}\n",
-    include.c_str()
-  );
-
-  rawkit_glsl_source_t source = {"simple.frag", src};
-  rawkit_glsl_t *s = rawkit_glsl_compile(1, &source, nullptr);
-  REQUIRE(s != nullptr);
-  CHECK(rawkit_glsl_valid(s));
-}
-
-TEST_CASE("[rawkit/glsl] compile glsl into spirv (system include)") {
-  char *paths[] = { strdup(fixturePath("")) };
-  rawkit_glsl_paths_t includes = {
-    paths,
-    1
-  };
-
-  rawkit_glsl_source_t source = {
-    "simple.frag",
-    "#version 450\n"
-    "#include <system.glsl>\n"
-    "out float outF;"
-    "void main() {\n"
-    "  float outF = system();\n"
-    "}\n"
-  };
-
-  rawkit_glsl_t *s = rawkit_glsl_compile(
-    1,
-    &source,
-    &includes
+  uv_loop_t loop;
+  uv_loop_init(&loop);
+  const rawkit_glsl_t* s = rawkit_glsl(
+    load_file(&loop, "fixtures/top-level-nester.frag")
   );
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
-
-  free(paths[0]);
-  free(s);
 }
 
 TEST_CASE("[rawkit/glsl] reflection (compute)") {
-  rawkit_glsl_source_t source = {
-    "reflection.comp",
-    "#version 450\n"
-    "layout(local_size_x = 4, local_size_y = 4) in;\n"
-    "layout (binding = 0, rgba8) uniform writeonly image2D writable_image;\n"
-    "layout (binding = 1, r32f) uniform readonly image3D readable_image;\n"
-    "layout (push_constant) uniform BockName {\n"
-    "  float var_float;\n"
-    "  int var_int;\n"
-    "} consts;"
-    "layout (binding = 2) uniform sampler2D texture_no_layout;\n"
-    "layout (location = 3, binding = 2, set = 1) uniform sampler2D texture_with_layout;\n"
-    "layout (binding = 3, std430) buffer ssbo_buffer {  float ssbo_buffer_floats[]; };\n"
-    "layout (binding = 4, std430) readonly buffer ssbo_buffer_ro {  float ssbo_buffer_floats_ro[]; };\n"
-    "layout (binding = 5,std430) writeonly buffer ssbo_buffer_wo {  float ssbo_buffer_floats_wo[]; };\n"
-    "struct ssbo_struct { float a; int b; };\n"
-    "layout (binding = 6, std430) buffer ssbo_buffer_sized {  ssbo_struct block_sized_struct;  };\n"
-    "layout (binding = 7) uniform sampler separate_sampler;\n"
-    "layout (binding = 8) uniform texture2D separate_image;\n"
-    "layout (binding = 9, std430) uniform ubo { float ubo_float; };\n"
-    "void main() {\n"
-    "  imageStore(writable_image, ivec2(0, 0), vec4(ssbo_buffer_floats[0]));\n"
-    "  ssbo_buffer_floats_wo[0] = ssbo_buffer_floats[0] + ssbo_buffer_floats_ro[0];\n"
-    "  block_sized_struct.a = ssbo_buffer_floats[0] + ssbo_buffer_floats_ro[0];\n"
-    "}\n",
-  };
-  rawkit_glsl_t *s = rawkit_glsl_compile(1, &source, NULL);
+  uv_loop_t loop;
+  uv_loop_init(&loop);
+  const rawkit_glsl_t* s = rawkit_glsl(
+    load_file(&loop, "fixtures/reflection.comp")
+  );
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
+  uv_loop_close(&loop);
+
   const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(s, 0);
   REQUIRE(workgroup_size != nullptr);
   CHECK(workgroup_size[0] == 4);
@@ -320,32 +259,19 @@ TEST_CASE("[rawkit/glsl] reflection (compute)") {
     rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(s, "doesn't exist");
     REQUIRE(entry.entry_type == RAWKIT_GLSL_REFLECTION_ENTRY_NOT_FOUND);
   }
-
-  rawkit_glsl_destroy(s);
 }
 
 TEST_CASE("[rawkit/glsl] reflection (frag)") {
-  rawkit_glsl_source_t source = {
-    "reflection.frag",
-    "#version 450\n"
-    "#extension GL_EXT_ray_tracing : require\n"
-    "in vec4 in_color;\n"
-    "in float in_float;\n"
-    "out vec4 out_color;\n"
-    "out float out_float;\n"
-    "layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput inputColor;\n"
-    "layout (input_attachment_index = 1, set = 1, binding = 1) uniform subpassInput inputDepth;\n"
-    "layout(binding = 1, set = 0) uniform accelerationStructureEXT acc;\n"
-    "void main() {\n"
-    "  out_color = in_color;\n"
-    "  out_float = in_float;\n"
-    "}\n",
-  };
 
-  rawkit_glsl_t *s = rawkit_glsl_compile(1, &source, NULL);
-
+  uv_loop_t loop;
+  uv_loop_init(&loop);
+  const rawkit_glsl_t* s = rawkit_glsl(
+    load_file(&loop, "fixtures/reflection.frag")
+  );
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
+  uv_loop_close(&loop);
+
   const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(s, 0);
   REQUIRE(workgroup_size != nullptr);
   CHECK(workgroup_size[0] == 0);
@@ -438,22 +364,15 @@ TEST_CASE("[rawkit/glsl] reflection (frag)") {
 }
 
 TEST_CASE("[rawkit/glsl] reflection push constant buffer size") {
-  rawkit_glsl_source_t source = {
-    "push_constant_buffer_size.comp",
-    "#version 450\n"
-    "layout(local_size_x = 4, local_size_y = 4) in;\n"
-    "layout (push_constant) uniform BockName1 {\n"
-    "  float var_float;\n"
-    "  int var_int;\n"
-    "} consts;\n"
-    "void main() {\n"
-    "}\n",
-  };
-
-  rawkit_glsl_t* s = rawkit_glsl_compile(1, &source, NULL);
-
+  uv_loop_t loop;
+  uv_loop_init(&loop);
+  const rawkit_glsl_t* s = rawkit_glsl(
+    load_file(&loop, "fixtures/push_constant_buffer_size.comp")
+  );
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s));
+  uv_loop_close(&loop);
+
   const uint32_t* workgroup_size = rawkit_glsl_workgroup_size(s, 0);
   REQUIRE(workgroup_size != nullptr);
   CHECK(workgroup_size[0] == 4);
@@ -472,48 +391,24 @@ TEST_CASE("[rawkit/glsl] reflection push constant buffer size") {
 }
 
 TEST_CASE("[rawkit/glsl] bindings cannot be shared") {
-  rawkit_glsl_source_t source = {
-    "reflection.comp",
-    "#version 450\n"
-    "layout(local_size_x = 4, local_size_y = 4) in;\n"
-    "layout (rgba8) uniform writeonly image2D writable_image;\n"
-    "layout (std430) uniform ubo { float ubo_float; };\n"
-    "void main() {\n"
-    "}\n",
-  };
-
-  rawkit_glsl_t *s = rawkit_glsl_compile(1, &source, NULL);
-
+  uv_loop_t loop;
+  uv_loop_init(&loop);
+  const rawkit_glsl_t* s = rawkit_glsl(
+    load_file(&loop, "fixtures/binding-sharing.comp")
+  );
+  uv_loop_close(&loop);
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s) == false);
 }
 
 TEST_CASE("[rawkit/glsl] multiple stages") {
-  rawkit_glsl_source_t sources[2] = {
-    {
-      "basic.vert",
-      "#version 450\n"
-      "layout(location = 0) in vec2 inPosition;\n"
-      "layout(location = 1) in mat4 inMat4;\n"
-      "layout(location = 5) in vec4 inColor;\n"
-      "layout (std430) uniform ubo { float ubo_float; };\n"
-      "void main() {\n"
-      "  gl_Position = vec4(inPosition, 0.0, 1.0);"
-      "}\n",
-    },
-    {
-      "basic.frag",
-      "#version 450\n"
-      "layout(location = 0) out vec3 fragColor;\n"
-      "layout (std430) uniform ubo { float ubo_float; };\n"
-      "layout (std430, binding = 1) uniform UBO2 { float ubo_float; } ubo2;\n"
-      "void main() {\n"
-      "  fragColor = vec3(1.0, 0.0, 1.0);\n"
-      "}\n",
-    },
-  };
-
-  rawkit_glsl_t *s = rawkit_glsl_compile(2, sources, NULL);
+  uv_loop_t loop;
+  uv_loop_init(&loop);
+  const rawkit_glsl_t* s = rawkit_glsl(
+    load_file(&loop, "fixtures/multi-stage/basic.vert"),
+    load_file(&loop, "fixtures/multi-stage/basic.frag")
+  );
+  uv_loop_close(&loop);
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s) == true);
@@ -544,28 +439,13 @@ TEST_CASE("[rawkit/glsl] multiple stages") {
 
 
 TEST_CASE("[rawkit/glsl] overlapping uniforms (set and binding)") {
-  rawkit_glsl_source_t sources[2] = {
-    {
-      "basic.vert",
-      "#version 450\n"
-      "layout(location = 0) in vec2 inPosition;\n"
-      "layout (std430) uniform UBO { vec4 color;  mat4 mvp; } uniforms;\n"
-      "layout (std430) uniform Offsets { vec4 vec[10]; } offsets;\n"
-      "void main() {\n"
-      "  gl_Position = vec4(inPosition, 0.0, 1.0);"
-      "}\n",
-    },
-    {
-      "basic.frag",
-      "#version 450\n"
-      "layout(location = 0) out vec3 fragColor;\n"
-      "void main() {\n"
-      "  fragColor = vec3(1.0, 0.0, 1.0);\n"
-      "}\n",
-    },
-  };
-
-  rawkit_glsl_t *s = rawkit_glsl_compile(2, sources, NULL);
+  uv_loop_t loop;
+  uv_loop_init(&loop);
+  const rawkit_glsl_t* s = rawkit_glsl(
+    load_file(&loop, "fixtures/multi-stage/overlap-uniforms.vert"),
+    load_file(&loop, "fixtures/multi-stage/overlap-uniforms.frag")
+  );
+  uv_loop_close(&loop);
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s) == false);
@@ -573,28 +453,13 @@ TEST_CASE("[rawkit/glsl] overlapping uniforms (set and binding)") {
 
 
 TEST_CASE("[rawkit/glsl] overlapping uniforms (set)") {
-  rawkit_glsl_source_t sources[2] = {
-    {
-      "basic.vert",
-      "#version 450\n"
-      "layout(location = 0) in vec2 inPosition;\n"
-      "layout (std430) uniform UBO { vec4 color;  mat4 mvp; } uniforms;\n"
-      "layout (std430, binding = 1) uniform Offsets { vec4 vec[10]; } offsets;\n"
-      "void main() {\n"
-      "  gl_Position = vec4(inPosition, 0.0, 1.0);"
-      "}\n",
-    },
-    {
-      "basic.frag",
-      "#version 450\n"
-      "layout(location = 0) out vec3 fragColor;\n"
-      "void main() {\n"
-      "  fragColor = vec3(1.0, 0.0, 1.0);\n"
-      "}\n",
-    },
-  };
-
-  rawkit_glsl_t *s = rawkit_glsl_compile(2, sources, NULL);
+  uv_loop_t loop;
+  uv_loop_init(&loop);
+  const rawkit_glsl_t* s = rawkit_glsl(
+    load_file(&loop, "fixtures/multi-stage/overlap-uniforms-set.vert"),
+    load_file(&loop, "fixtures/multi-stage/overlap-uniforms-set.frag")
+  );
+  uv_loop_close(&loop);
 
   REQUIRE(s != nullptr);
   CHECK(rawkit_glsl_valid(s) == true);
