@@ -1,6 +1,8 @@
 #include <rawkit/hot.h>
 #include <rawkit/core.h>
 
+#include <string.h>
+
 #include <unordered_map>
 using namespace std;
 
@@ -11,7 +13,7 @@ typedef struct entry_t {
 
 static unordered_map<uint64_t, entry_t> state_registry;
 
-void *_rawkit_hot_state(uint64_t id, uint64_t len, void *data, uint8_t is_resource) {
+void *_rawkit_hot_state(const char *name, uint64_t id, uint64_t len, void *data, uint8_t is_resource) {
   auto it = state_registry.find(id);
   if (it != state_registry.end()) {
     // TODO: check if len is the same as the entry. When should we memset 0 vs resize?
@@ -30,6 +32,7 @@ void *_rawkit_hot_state(uint64_t id, uint64_t len, void *data, uint8_t is_resour
   if (is_resource) {
     rawkit_resource_t* res = (rawkit_resource_t *)data;
     res->resource_id = id;
+    res->resource_name = strdup(name);
   }
 
   entry.data = data;
