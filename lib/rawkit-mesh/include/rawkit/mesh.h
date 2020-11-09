@@ -1,6 +1,7 @@
 #pragma once
 
 #include <uv.h>
+#include <rawkit/core.h>
 #include <rawkit/diskwatcher.h>
 
 #ifdef __cplusplus
@@ -8,6 +9,8 @@ extern "C" {
 #endif
 
 typedef struct rawkit_mesh_t {
+  RAWKIT_RESOURCE_FIELDS
+
   uint32_t *normal_data;
   uint32_t *index_data;
   float *vertex_data;

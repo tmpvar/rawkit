@@ -7,7 +7,7 @@ TEST_CASE("[rawkit/mesh] load missing mesh") {
   uv_loop_t loop;
   uv_loop_init(&loop);
   rawkit_diskwatcher_t* watcher = rawkit_diskwatcher_ex(&loop);
-
+  REQUIRE(watcher != nullptr);
   int s = 1000;
 
   while (s--) {
@@ -16,8 +16,9 @@ TEST_CASE("[rawkit/mesh] load missing mesh") {
       &loop,
       watcher
     );
+    REQUIRE(mesh != nullptr);
 
-    if (mesh != NULL) {
+    if (mesh->resource_version) {
       CHECK(mesh->normal_data == nullptr);
       CHECK(mesh->index_data == nullptr);
       CHECK(mesh->vertex_data == nullptr);
@@ -38,7 +39,7 @@ TEST_CASE("[rawkit/mesh] binary stl") {
   uv_loop_t loop;
   uv_loop_init(&loop);
   rawkit_diskwatcher_t* watcher = rawkit_diskwatcher_ex(&loop);
-
+  REQUIRE(watcher != nullptr);
   int s = 100000;
 
   while (s--) {
@@ -47,8 +48,9 @@ TEST_CASE("[rawkit/mesh] binary stl") {
       &loop,
       watcher
     );
+    REQUIRE(mesh != nullptr);
 
-    if (mesh != NULL) {
+    if (mesh->resource_version != NULL) {
       REQUIRE(mesh->normal_data != nullptr);
       REQUIRE(mesh->vertex_data != nullptr);
       REQUIRE(mesh->index_data != nullptr);
@@ -69,7 +71,7 @@ TEST_CASE("[rawkit/mesh] ascii stl") {
   uv_loop_t loop;
   uv_loop_init(&loop);
   rawkit_diskwatcher_t* watcher = rawkit_diskwatcher_ex(&loop);
-
+  REQUIRE(watcher != nullptr);
   int s = 100000;
 
   while (s--) {
@@ -78,8 +80,9 @@ TEST_CASE("[rawkit/mesh] ascii stl") {
       &loop,
       watcher
     );
+    REQUIRE(mesh != nullptr);
 
-    if (mesh != NULL) {
+    if (mesh->resource_version > 0) {
       REQUIRE(mesh->normal_data != nullptr);
       REQUIRE(mesh->vertex_data != nullptr);
       REQUIRE(mesh->index_data != nullptr);

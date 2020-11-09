@@ -44,13 +44,19 @@ rawkit_mesh_t *_rawkit_mesh_ex(
 
   const rawkit_file_t *file = _rawkit_file_ex(from_file, path, loop, watcher);
 
-  if (!file || file->error) {
+
+  rawkit_mesh_t *mesh = rawkit_hot_state(id.c_str(), rawkit_mesh_t);
+  if (!mesh) {
     return NULL;
   }
 
-  rawkit_mesh_t *mesh = (rawkit_mesh_t *)calloc(sizeof(rawkit_mesh_t), 1);
-  if (!mesh) {
-    return NULL;
+  if (!file || file->error) {
+    return mesh;
+  }
+
+  bool dirty = rawkit_resource_sources(mesh, file);
+  if (!dirty) {
+    return mesh;
   }
 
   fs::path p(path);
@@ -66,10 +72,12 @@ rawkit_mesh_t *_rawkit_mesh_ex(
     } else {
       stl_binary_init(file, mesh);
     }
+
+    mesh->resource_version++;
     return mesh;
   }
 
   printf("ERROR: unhandled extension (%s)\n", p.extension().string().c_str());
-  return NULL;
+  return mesh;
 }
 
