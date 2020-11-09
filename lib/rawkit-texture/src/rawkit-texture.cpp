@@ -145,7 +145,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     );
 
     if (alloc_err != VK_SUCCESS) {
-      printf("ERROR: SharedTexture: could not allocate image memory\n");
+      printf("ERROR: rawkit-texture: could not allocate image memory\n");
       return false;
     }
 
@@ -156,7 +156,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
       0
     );
     if (bind_err != VK_SUCCESS) {
-      printf("ERROR: SharedTexture: could not bind image to image memory\n");
+      printf("ERROR: rawkit-texture: could not bind image to image memory\n");
       return false;
     }
   }
@@ -179,7 +179,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     );
 
     if (err != VK_SUCCESS) {
-      printf("ERROR: SharedTexture: could not create image view\n");
+      printf("ERROR: rawkit-texture: could not create image view\n");
       return false;
     }
   }
@@ -204,7 +204,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
       &texture->sampler
     );
     if (create_result != VK_SUCCESS) {
-      printf("ERROR: SharedTexture: unable to create sampler\n");
+      printf("ERROR: rawkit-texture: unable to create sampler\n");
       return false;
     }
   }
@@ -250,13 +250,13 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
       end_info.pCommandBuffers = &texture->command_buffer;
       VkResult end_result = vkEndCommandBuffer(texture->command_buffer);
       if (end_result != VK_SUCCESS) {
-        printf("ERROR: SharedTexture: could not end command buffer");
+        printf("ERROR: rawkit-texture: could not end command buffer");
         return false;
       }
 
       VkResult submit_result = vkQueueSubmit(queue, 1, &end_info, VK_NULL_HANDLE);
       if (submit_result != VK_SUCCESS) {
-        printf("ERROR: SharedTexture: could not submit command buffer");
+        printf("ERROR: rawkit-texture: could not submit command buffer");
         return false;
       }
     }
@@ -319,7 +319,7 @@ rawkit_texture_t *_rawkit_texture_ex(
     );
 
     if (create_result != VK_SUCCESS) {
-      printf("ERROR: SharedTexture: could not create upload buffer\n");
+      printf("ERROR: rawkit-texture: could not create upload buffer\n");
       return texture;
     }
 
@@ -346,7 +346,7 @@ rawkit_texture_t *_rawkit_texture_ex(
     );
 
     if (alloc_result != VK_SUCCESS) {
-      printf("ERROR: SharedTexture: could not allocate cpu buffer\n");
+      printf("ERROR: rawkit-texture: could not allocate cpu buffer\n");
       return texture;
     }
 
@@ -358,15 +358,15 @@ rawkit_texture_t *_rawkit_texture_ex(
     );
 
     if (bind_result != VK_SUCCESS) {
-      printf("ERROR: SharedTexture: could not bind cpu buffer memory\n");
+      printf("ERROR: rawkit-texture: could not bind cpu buffer memory\n");
       return texture;
     }
   }
 
-  // upload the new image data
-  if (texture->source_version != img->version && texture->source_cpu_buffer_memory) {
-    texture->source_version = img->version;
+  bool dirty = rawkit_resource_sources(texture, img);
 
+  // upload the new image data
+  if (dirty && texture->source_cpu_buffer_memory) {
     // copy the new data into the source_cpu memory
     {
       size_t size = static_cast<size_t>(img->len);
@@ -476,16 +476,18 @@ rawkit_texture_t *_rawkit_texture_ex(
       end_info.pCommandBuffers = &texture->command_buffer;
       VkResult end_result = vkEndCommandBuffer(texture->command_buffer);
       if (end_result != VK_SUCCESS) {
-        printf("ERROR: SharedTexture: could not end command buffer");
+        printf("ERROR: rawkit-texture: could not end command buffer");
         return texture;
       }
 
       VkResult submit_result = vkQueueSubmit(queue, 1, &end_info, VK_NULL_HANDLE);
       if (submit_result != VK_SUCCESS) {
-        printf("ERROR: SharedTexture: could not submit command buffer");
+        printf("ERROR: rawkit-texture: could not submit command buffer");
         return texture;
       }
     }
+
+    texture->resource_version++;
   }
 
 

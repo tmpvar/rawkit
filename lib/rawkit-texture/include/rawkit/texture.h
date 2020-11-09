@@ -1,9 +1,9 @@
 #pragma once
 
-#include <rawkit/vulkan.h>
-
+#include <rawkit/core.h>
 #include <rawkit/hot.h>
 #include <rawkit/image.h>
+#include <rawkit/vulkan.h>
 
 typedef struct rawkit_texture_options_t {
   uint32_t width;
@@ -16,7 +16,8 @@ typedef struct rawkit_texture_options_t {
 typedef void* ImTextureID;
 
 typedef struct rawkit_texture_t {
-  uint64_t id;
+  RAWKIT_RESOURCE_FIELDS
+
   ImTextureID imgui_texture;
   VkImage image;
   VkDeviceMemory image_memory;
@@ -24,7 +25,6 @@ typedef struct rawkit_texture_t {
   VkSampler sampler;
   rawkit_texture_options_t options;
 
-  uint64_t source_version;
   VkBuffer source_cpu_buffer;
   VkDeviceMemory source_cpu_buffer_memory;
 

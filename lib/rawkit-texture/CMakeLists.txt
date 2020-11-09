@@ -9,6 +9,11 @@ if (NOT TARGET pull::stream)
   add_subdirectory(../pull-stream deps/pull-stream)
 endif()
 
+# DEP: rawkit-core (sibling)
+if (NOT TARGET rawkit::core)
+  add_subdirectory(../rawkit-core deps/rawkit-core)
+endif()
+
 # DEP: rawkit-gpu (sibling)
 if (NOT TARGET rawkit::gpu)
   add_subdirectory(../rawkit-gpu deps/rawkit-gpu)
@@ -39,6 +44,7 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     pull::stream
+    rawkit::core
     rawkit::gpu
     rawkit::hot
     rawkit::image
