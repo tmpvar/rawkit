@@ -1,3 +1,4 @@
+#include <rawkit/core.h>
 #include <rawkit/hash.h>
 
 #include "meow_hash.h"
@@ -8,6 +9,34 @@ uint64_t rawkit_hash(uint64_t len, void *data) {
   }
 
   meow_u128 hash = MeowHash(MeowDefaultSeed, len, data);
+  return MeowU64From(hash, 0);
+}
+
+uint64_t rawkit_hash_resources(const char *name, uint32_t resource_count, rawkit_resource_t **resources) {
+  if (!name || !resource_count || !resources) {
+    return 0;
+  }
+
+  meow_state state;
+  MeowBegin(&state, MeowDefaultSeed);
+
+  const char *null_str = "<null>";
+  uint32_t null_len = 6;
+
+  uint64_t name_len = strlen(name);
+  MeowAbsorb(&state, name_len, (void *)name);
+
+  for (uint32_t i=0; i<resource_count; i++) {
+    rawkit_resource_t *res = resources[i];
+    if (!res) {
+      MeowAbsorb(&state, null_len, (void *)null_str);
+      continue;
+    }
+
+    MeowAbsorb(&state, sizeof(res->resource_id), (void *)&res->resource_id);
+  }
+
+  meow_u128 hash = MeowEnd(&state, NULL);
   return MeowU64From(hash, 0);
 }
 

@@ -9,6 +9,12 @@ if (NOT TARGET pull::stream)
   add_subdirectory(../pull-stream deps/pull-stream)
 endif()
 
+# DEP: rawkit-core (sibling)
+if (NOT TARGET rawkit::core)
+  add_subdirectory(../rawkit-core deps/rawkit-core)
+endif()
+
+
 add_library(rawkit-hash STATIC
   ${CMAKE_CURRENT_LIST_DIR}/src/rawkit-hash.cpp
 )
@@ -18,6 +24,7 @@ add_library(rawkit::hash ALIAS ${PROJECT_NAME})
 
 target_link_libraries(rawkit-hash PUBLIC
   pull::stream
+  rawkit::core
 )
 
 target_compile_options(rawkit-hash
