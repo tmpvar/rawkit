@@ -2,43 +2,16 @@
 
 #include <stdint.h>
 
-#include <vulkan/vulkan.h>
-#include <uv.h>
-#include <pull/stream.h>
-#include <rawkit/glsl.h>
-
+#include <rawkit/core.h>
+#include <rawkit/file.h>
+#include <rawkit/gpu.h>
 #include <rawkit/texture.h>
 
-typedef struct rawkit_shader_uniform_buffer_t {
-  rawkit_glsl_reflection_entry_t *entry;
-  VkBuffer handle;
-  VkDeviceMemory memory;
-  uint64_t size;
-  uint32_t set;
-} rawkit_shader_uniform_buffer_t;
-
 typedef struct rawkit_shader_t {
-  VkDescriptorSetLayout *descriptor_set_layouts;
-  uint32_t descriptor_set_layout_count;
-  VkDescriptorSet *descriptor_sets;
-  uint32_t descriptor_set_count;
+  RAWKIT_RESOURCE_FIELDS
 
-  VkCommandPool command_pool;
-
-  VkCommandBuffer command_buffer;
-  VkPipelineLayout pipeline_layout;
-  VkPipeline pipeline;
-
-  VkPhysicalDevice physical_device;
-
-  rawkit_glsl_t *glsl;
-
-  // for graphics pipelines
-  VkRenderPass render_pass;
-
-  // managed by stb_sb internally
-  VkShaderModule *modules;
-  rawkit_shader_uniform_buffer_t *ubos;
+  // internal
+  void *_state;
 } rawkit_shader_t;
 
 
@@ -118,36 +91,43 @@ typedef struct rawkit_shader_params_t {
   rawkit_shader_param_t *entries;
 } rawkit_shader_params_t;
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-  int rawkit_shader_param_size(const rawkit_shader_param_t *param);
-  rawkit_shader_param_value_t rawkit_shader_param_value(rawkit_shader_param_t *param);
+// TODO: we can't make this nicer to use until all of the vulkan bits migrate to rawkit-gpu.
+//       I'm thinking there is a `rawkit_gpu_set_current()` or similar to control which gpu
+//       `rawkit_gpu_current()` returns.
 
-  // TODO: output should come thorugh as a param
-  VkResult rawkit_shader_init(
-    rawkit_glsl_t *glsl,
-    rawkit_shader_t *shader
-  );
+rawkit_shader_t *rawkit_shader_ex(
+  rawkit_gpu_t *gpu,
+  uint8_t concurrency,
+  VkRenderPass render_pass,
+  uint8_t file_count,
+  const rawkit_file_t **files
+);
 
-  void rawkit_shader_apply_params(rawkit_shader_t *shader, VkCommandBuffer command_buffer, rawkit_shader_params_t params);
-  void rawkit_shader_set_param(rawkit_shader_t *shader, const rawkit_shader_param_t *param);
-  void rawkit_shader_update_ubo(rawkit_shader_t *shader, const char *name, uint32_t len, void *value);
 
-  rawkit_shader_t *_rawkit_shader_ex(
-    const char *from_file,
-    uv_loop_t *loop,
-    rawkit_diskwatcher_t *watcher,
+void rawkit_shader_apply_params(
+  rawkit_shader_t *shader,
+  uint8_t concurrency_index,
+  VkCommandBuffer command_buffer,
+  rawkit_shader_params_t params
+);
+int rawkit_shader_param_size(const rawkit_shader_param_t *param);
+rawkit_shader_param_value_t rawkit_shader_param_value(rawkit_shader_param_t *param);
 
-    VkPhysicalDevice physical_device,
-    uint32_t shader_copies,
-    uint8_t source_count,
-    const char **source_files
-  );
+void rawkit_shader_bind(
+  rawkit_shader_t *shader,
+  uint8_t concurrency_index,
+  VkCommandBuffer command_buffer,
+  rawkit_shader_params_t params
+);
 
-  #define rawkit_shader_ex(physical_device, shader_copies, source_count, source_files, loop, diskwatcher) _rawkit_shader_ex(__FILE__, loop, diskwatcher, physical_device, shader_copies, source_count, source_files)
-  #define rawkit_shader(physical_device, shader_copies, source_count, source_files) _rawkit_shader_ex(__FILE__, uv_default_loop(), rawkit_default_diskwatcher(), physical_device, shader_copies, source_count, source_files)
+VkCommandBuffer rawkit_shader_command_buffer(rawkit_shader_t *shader, uint8_t concurrency_index);
+
+const rawkit_glsl_t *rawkit_shader_glsl(rawkit_shader_t *shader);
 
 #ifdef __cplusplus
 }

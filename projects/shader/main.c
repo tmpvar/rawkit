@@ -25,7 +25,7 @@ typedef struct fill_rect_state_t {
   VkCommandBuffer command_buffer;
 } fill_rect_state_t;
 
-void fill_rect(const char *path, const fill_rect_options_t *options) {
+void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *options) {
   VkQueue queue = rawkit_vulkan_queue();
   VkDevice device = rawkit_vulkan_device();
   if (device == VK_NULL_HANDLE) {
@@ -56,31 +56,14 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
     return;
   }
 
-  if (!state->command_buffer) {
-    // Create a command buffer for compute operations
-    VkCommandBufferAllocateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    info.commandPool = rawkit_vulkan_command_pool();
-    info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    info.commandBufferCount = 1;
+  const rawkit_file_t *file = rawkit_file(path);
 
-    err = vkAllocateCommandBuffers(
-      device,
-      &info,
-      &state->command_buffer
-    );
-
-    if (err != VK_SUCCESS) {
-      printf("ERROR: failed to allocate command buffers\n");
-      return;
-    }
-  }
-
-  rawkit_shader_t *shaders = rawkit_shader(
-    rawkit_vulkan_physical_device(),
+  rawkit_shader_t *shader = rawkit_shader_ex(
+    gpu,
     rawkit_window_frame_count(),
+    rawkit_vulkan_renderpass(),
     1,
-    &path
+    &file
   );
 
   // rebuild the images if the user requests a resize
@@ -110,150 +93,116 @@ void fill_rect(const char *path, const fill_rect_options_t *options) {
     }
   }
 
-  if (!shaders || !state->textures) {
+  if (!shader || !shader->resource_version || !state->textures) {
     return;
   }
 
-  for (uint32_t idx=0; idx < state->texture_count; idx++) {
-    // update descriptor sets
-    rawkit_shader_set_param(
-      &shaders[idx],
-      &rawkit_shader_texture(
-        "rawkit_output_image",
-        &state->textures[idx]
-      )
+  uint32_t idx = rawkit_window_frame_index();
+  VkCommandBuffer command_buffer = rawkit_shader_command_buffer(shader, idx);
+  if (!command_buffer) {
+    return;
+  }
+
+  // TODO: maybe only do this when the shader changes?
+  {
+    rawkit_shader_params_t p = {};
+    rawkit_shader_params(p,
+      rawkit_shader_texture("rawkit_output_image", &state->textures[idx])
+    );
+    rawkit_shader_apply_params(
+      shader,
+      idx,
+      command_buffer,
+      p
     );
   }
 
-  if (shaders) {
-    uint32_t idx = rawkit_window_frame_index();
+  // record new command buffer
+  {
+    // TODO: we need to wait for the previous use of this command buffer to be complete
+    //       don't use such a sledgehammer.
+    // vkQueueWaitIdle(queue);
 
-    rawkit_shader_t *shader = &shaders[idx];
-    if (!shader || !shader->glsl) {
+    VkCommandBufferBeginInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    err = vkBeginCommandBuffer(
+      command_buffer,
+      &info
+    );
+
+    if (err != VK_SUCCESS) {
+      printf("ERROR: could not begin command buffer");
       return;
     }
 
-    VkCommandBuffer command_buffer = shader->command_buffer;
-    if (!command_buffer) {
-      return;
-    }
+    rawkit_shader_bind(
+      shader,
+      idx,
+      command_buffer,
+      options->params
+    );
 
-    // record new command buffer
     {
-      // TODO: we need to wait for the previous use of this command buffer to be complete
-      //       don't use such a sledgehammer.
-      // vkQueueWaitIdle(queue);
+      const rawkit_glsl_t *glsl = rawkit_shader_glsl(shader);
+      const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(glsl, 0);
+      float local[3] = {
+        (float)workgroup_size[0],
+        (float)workgroup_size[1],
+        (float)workgroup_size[2],
+      };
 
-      VkCommandBufferBeginInfo info = {};
-      info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-      err = vkBeginCommandBuffer(
-        command_buffer,
-        &info
-      );
-
-      if (err != VK_SUCCESS) {
-        printf("ERROR: could not begin command buffer");
-        return;
-      }
-
-      VkImageSubresourceRange imageSubresourceRange;
-      imageSubresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-      imageSubresourceRange.baseMipLevel   = 0;
-      imageSubresourceRange.levelCount     = 1;
-      imageSubresourceRange.baseArrayLayer = 0;
-      imageSubresourceRange.layerCount     = 1;
-
-      // VkClearColorValue clearColorValue = { 0.0, 0.0, 0.0, 0.0 };
-      // vkCmdClearColorImage(
-      //   command_buffer,
-      //   state->textures[idx].image,
-      //   VK_IMAGE_LAYOUT_GENERAL,
-      //   &clearColorValue,
-      //   1,
-      //   &imageSubresourceRange
-      // );
-
-      vkCmdBindPipeline(
-        command_buffer,
-        VK_PIPELINE_BIND_POINT_COMPUTE,
-        shader->pipeline
-      );
-
-      rawkit_shader_apply_params(shader, command_buffer, options->params);
-
-      vkCmdBindDescriptorSets(
-        command_buffer,
-        VK_PIPELINE_BIND_POINT_COMPUTE,
-        shader->pipeline_layout,
-        0,
-        shader->descriptor_set_count,
-        shader->descriptor_sets,
-        0,
-        0
-      );
-
-      {
-        const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(shader->glsl, 0);
-        float local[3] = {
-          (float)workgroup_size[0],
-          (float)workgroup_size[1],
-          (float)workgroup_size[2],
-        };
-
-        float global[3] = {
-          (float)width,
-          (float)height,
-          1,
-        };
-
-        vkCmdDispatch(
-          command_buffer,
-          (uint32_t)max(ceilf(global[0] / local[0]), 1.0),
-          (uint32_t)max(ceilf(global[1] / local[1]), 1.0),
-          (uint32_t)max(ceilf(global[2] / local[2]), 1.0)
-        );
-      }
-      err = vkEndCommandBuffer(command_buffer);
-      if (err != VK_SUCCESS) {
-        printf("ERROR: vkEndCommandBuffer: failed %i\n", err);
-        return;
-      }
-
-    }
-
-    // Submit compute commands
-    {
-      VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-      VkSubmitInfo computeSubmitInfo = {};
-      computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-      computeSubmitInfo.commandBufferCount = 1;
-      computeSubmitInfo.pCommandBuffers = &command_buffer;
-      computeSubmitInfo.pWaitDstStageMask = &waitStageMask;
-
-      err = vkQueueSubmit(
-        queue,
+      float global[3] = {
+        (float)width,
+        (float)height,
         1,
-        &computeSubmitInfo,
-        VK_NULL_HANDLE
-      );
+      };
 
-      if (err != VK_SUCCESS) {
-        printf("ERROR: unable to submit compute shader\n");
-        return;
-      }
-
-      // render the actual image
-      rawkit_texture_t *current_texture = &state->textures[idx];
-
-      igImage(
-        current_texture->imgui_texture,
-        (ImVec2){ (float)display_width, (float)display_height},
-        (ImVec2){ 0.0f, 0.0f }, // uv0
-        (ImVec2){ 1.0f, 1.0f }, // uv1
-        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
-        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+      vkCmdDispatch(
+        command_buffer,
+        (uint32_t)max(ceilf(global[0] / local[0]), 1.0),
+        (uint32_t)max(ceilf(global[1] / local[1]), 1.0),
+        (uint32_t)max(ceilf(global[2] / local[2]), 1.0)
       );
     }
+    err = vkEndCommandBuffer(command_buffer);
+    if (err != VK_SUCCESS) {
+      printf("ERROR: vkEndCommandBuffer: failed %i\n", err);
+      return;
+    }
+  }
+
+  // Submit compute commands
+  {
+    VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+    VkSubmitInfo computeSubmitInfo = {};
+    computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    computeSubmitInfo.commandBufferCount = 1;
+    computeSubmitInfo.pCommandBuffers = &command_buffer;
+    computeSubmitInfo.pWaitDstStageMask = &waitStageMask;
+
+    err = vkQueueSubmit(
+      queue,
+      1,
+      &computeSubmitInfo,
+      VK_NULL_HANDLE
+    );
+
+    if (err != VK_SUCCESS) {
+      printf("ERROR: unable to submit compute shader\n");
+      return;
+    }
+
+    // render the actual image
+    rawkit_texture_t *current_texture = &state->textures[idx];
+
+    igImage(
+      current_texture->imgui_texture,
+      (ImVec2){ (float)display_width, (float)display_height},
+      (ImVec2){ 0.0f, 0.0f }, // uv0
+      (ImVec2){ 1.0f, 1.0f }, // uv1
+      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
+      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+    );
   }
 }
 
@@ -268,6 +217,12 @@ struct triangle_uniforms {
 };
 
 void loop() {
+  // TODO: this should be exposed some where
+  rawkit_gpu_t gpu = {};
+  gpu.physical_device = rawkit_vulkan_physical_device();
+  gpu.device = rawkit_vulkan_device();
+  gpu.pipeline_cache = rawkit_vulkan_pipeline_cache();
+
   {
     fill_rect_options_t options = {0};
     options.render_width = 128;
@@ -279,7 +234,7 @@ void loop() {
       rawkit_shader_texture("input_image", rawkit_texture("box-gradient.png"))
     );
 
-    fill_rect("basic.comp", &options);
+    fill_rect(&gpu, "basic.comp", &options);
   }
 
   {
@@ -301,28 +256,57 @@ void loop() {
       rawkit_shader_ubo("UBO", &ubo)
     );
 
-    fill_rect("triangle.comp", &options);
+    fill_rect(&gpu, "triangle.comp", &options);
   }
 
   {
-    rawkit_shader_t *shaders = rawkit_shader(
-      rawkit_vulkan_physical_device(),
+    rawkit_shader_t *shader = rawkit_shader_ex(
+      &gpu,
       rawkit_window_frame_count(),
+      rawkit_vulkan_renderpass(),
       2,
-      ((const char *[]){ "fullscreen.vert", "fullscreen.frag" })
+      ((const rawkit_file_t *[]){
+        rawkit_file("fullscreen.vert"),
+        rawkit_file("fullscreen.frag")
+      })
     );
 
-    if (shaders) {
-      rawkit_shader_t *shader = &shaders[rawkit_window_frame_index()];
+    if (shader && shader->resource_version > 0) {
       VkCommandBuffer command_buffer = rawkit_vulkan_command_buffer();
       if (!command_buffer) {
         return;
       }
 
-      vkCmdBindPipeline(
+      rawkit_shader_params_t params = {};
+      rawkit_shader_bind(
+        shader,
+        rawkit_window_frame_index(),
         command_buffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        shader->pipeline
+        params
+      );
+
+      VkViewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = (float)rawkit_window_width(),
+        .height = (float)rawkit_window_height()
+      };
+
+      vkCmdSetViewport(
+        command_buffer,
+        0,
+        1,
+        &viewport
+      );
+
+      VkRect2D scissor = {};
+      scissor.extent.width = viewport.width;
+      scissor.extent.height = viewport.height;
+      vkCmdSetScissor(
+        command_buffer,
+        0,
+        1,
+        &scissor
       );
 
       vkCmdDraw(command_buffer, 3, 1, 0, 0);

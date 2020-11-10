@@ -34,18 +34,18 @@ uint32_t rawkit_mesh_vertex_count(const rawkit_mesh_t *mesh) {
   return sb_count(mesh->vertex_data) / 3;
 }
 
+static const char *resource_name = "rawkit::mesh";
+
 rawkit_mesh_t *_rawkit_mesh_ex(
   const char *from_file,
   const char *path,
   uv_loop_t *loop,
   rawkit_diskwatcher_t *watcher
 ) {
-  string id = string("file+rawkit-mesh://") + path + " from " + from_file;
-
   const rawkit_file_t *file = _rawkit_file_ex(from_file, path, loop, watcher);
 
-
-  rawkit_mesh_t *mesh = rawkit_hot_state(id.c_str(), rawkit_mesh_t);
+  uint64_t id = rawkit_hash_resources(resource_name, 1, (const rawkit_resource_t **)&file);
+  rawkit_mesh_t *mesh = rawkit_hot_resource_id(resource_name, id, rawkit_mesh_t);
   if (!mesh) {
     return NULL;
   }

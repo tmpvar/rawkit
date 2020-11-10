@@ -18,6 +18,7 @@
 #include <hot/host/rawkit-diskwatcher.h>
 #include <hot/host/rawkit-shader.h>
 #include <hot/host/rawkit-texture.h>
+#include <hot/host/rawkit-image.h>
 #include <hot/host/rawkit-mesh.h>
 #include <hot/host/uv.h>
 
@@ -57,6 +58,7 @@ void host_hot_init(rawkit_jit_t *jit) {
   host_init_rawkit_diskwatcher(jit);
   host_init_rawkit_shader(jit);
   host_init_rawkit_texture(jit);
+  host_init_rawkit_image(jit);
   host_init_rawkit_mesh(jit);
   host_init_uv(jit);
 

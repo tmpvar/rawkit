@@ -39,6 +39,12 @@ class State {
     // the number of bindings per descriptor set
     unordered_map<uint32_t, uint32_t> bindings_per_set;
     vector<RawkitStage *> stages;
+
+    ~State() {
+      for (auto &entry : this->reflection_entries) {
+        free(entry.name);
+      }
+    }
 };
 
 
@@ -87,6 +93,8 @@ static bool rawkit_glsl_reflection_add_entry(State *state, string name, rawkit_g
     printf("ERROR: glsl was null\n");
     return false;
   }
+
+  entry.name = strdup(name.c_str());
 
   auto it = state->reflection_name_to_index.find(name);
   if (it != state->reflection_name_to_index.end()) {

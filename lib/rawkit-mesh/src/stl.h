@@ -61,7 +61,9 @@ static void stl_ascii_init(const rawkit_file_t *file, rawkit_mesh_t *target) {
       sb_free(target->vertex_data);
       sb_free(target->normal_data);
 
-      memcpy(target, &mesh, sizeof(mesh));
+      target->index_data = mesh.index_data;
+      target->vertex_data = mesh.vertex_data;
+      target->normal_data = mesh.normal_data;
 
       return;
     }

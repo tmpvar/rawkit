@@ -12,7 +12,7 @@ uint64_t rawkit_hash(uint64_t len, void *data) {
   return MeowU64From(hash, 0);
 }
 
-uint64_t rawkit_hash_resources(const char *name, uint32_t resource_count, rawkit_resource_t **resources) {
+uint64_t rawkit_hash_resources(const char *name, uint32_t resource_count, const rawkit_resource_t **resources) {
   if (!name || !resource_count || !resources) {
     return 0;
   }
@@ -27,7 +27,7 @@ uint64_t rawkit_hash_resources(const char *name, uint32_t resource_count, rawkit
   MeowAbsorb(&state, name_len, (void *)name);
 
   for (uint32_t i=0; i<resource_count; i++) {
-    rawkit_resource_t *res = resources[i];
+    const rawkit_resource_t *res = resources[i];
     if (!res) {
       MeowAbsorb(&state, null_len, (void *)null_str);
       continue;

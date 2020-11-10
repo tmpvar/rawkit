@@ -19,11 +19,6 @@ if (NOT TARGET rawkit::file)
   add_subdirectory(../rawkit-file deps/rawkit-file)
 endif()
 
-# DEP: rawkit-gpu (sibling)
-if (NOT TARGET rawkit::gpu)
-  add_subdirectory(../rawkit-gpu deps/rawkit-gpu)
-endif()
-
 # DEP: rawkit-hot (sibling)
 if (NOT TARGET rawkit::hot)
   add_subdirectory(../rawkit-hot deps/rawkit-hot)
@@ -45,7 +40,6 @@ target_link_libraries(${PROJECT_NAME}
   PUBLIC
     pull::stream
     rawkit::core
-    rawkit::gpu
     rawkit::hot
     rawkit::file
 )

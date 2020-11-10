@@ -1,10 +1,30 @@
 #include <rawkit/gpu.h>
 
+uint32_t rawkit_vulkan_find_queue_family(rawkit_gpu_t *gpu, VkQueueFlags flags) {
+  if (!gpu->queues) {
+    vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical_device, &gpu->queue_count, NULL);
+    gpu->queues = (VkQueueFamilyProperties*)malloc(sizeof(VkQueueFamilyProperties) * gpu->queue_count);
+    if (!gpu->queues) {
+      printf("ERROR: rawkit_vulkan_find_queue_family failed - out of memory\n");
+      return 0;
+    }
+    vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical_device, &gpu->queue_count, gpu->queues);
+  }
+
+  for (uint32_t i = 0; i < gpu->queue_count; i++) {
+    if (gpu->queues[i].queueFlags & flags) {
+      return i;
+    }
+  }
+
+  printf("ERROR: rawkit_vulkan_find_queue_family failed - could not locate queue (%i)\n", flags);
+  return 0;
+}
 
 
-uint32_t rawkit_vulkan_find_memory_type(VkPhysicalDevice physical_device, VkMemoryPropertyFlags properties, uint32_t type_bits) {
+uint32_t rawkit_vulkan_find_memory_type(rawkit_gpu_t *gpu, VkMemoryPropertyFlags properties, uint32_t type_bits) {
   VkPhysicalDeviceMemoryProperties prop;
-  vkGetPhysicalDeviceMemoryProperties(physical_device, &prop);
+  vkGetPhysicalDeviceMemoryProperties(gpu->physical_device, &prop);
   for (uint32_t i = 0; i < prop.memoryTypeCount; i++) {
     if (
       (prop.memoryTypes[i].propertyFlags & properties) == properties &&
@@ -16,19 +36,22 @@ uint32_t rawkit_vulkan_find_memory_type(VkPhysicalDevice physical_device, VkMemo
   return 0xFFFFFFFF; // Unable to find memoryType
 }
 
-VkResult rawkit_gpu_buffer_destroy(VkDevice device, rawkit_gpu_buffer_t *buf) {
-  vkFreeMemory(device, buf->memory, NULL);
-  vkDestroyBuffer(device, buf->handle, NULL);
+VkResult rawkit_gpu_buffer_destroy(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *buf) {
+  vkFreeMemory(gpu->device, buf->memory, NULL);
+  vkDestroyBuffer(gpu->device, buf->handle, NULL);
   return VK_SUCCESS;
 }
 
 rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
-  VkPhysicalDevice physical_device,
-  VkDevice device,
+  rawkit_gpu_t *gpu,
   VkDeviceSize size,
   VkMemoryPropertyFlags memory_flags,
   VkBufferUsageFlags buffer_usage_flags
 ) {
+  if (!gpu) {
+    return NULL;
+  }
+
   rawkit_gpu_buffer_t *buf = (rawkit_gpu_buffer_t *)calloc(sizeof(rawkit_gpu_buffer_t), 1);
   VkResult err;
 
@@ -45,9 +68,9 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
     info.usage = buffer_usage_flags;
 
     err = vkCreateBuffer(
-      device,
+      gpu->device,
       &info,
-      NULL,
+      gpu->allocator,
       &buf->handle
     );
 
@@ -61,7 +84,7 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
   VkMemoryRequirements req;
   {
     vkGetBufferMemoryRequirements(
-      device,
+      gpu->device,
       buf->handle,
       &req
     );
@@ -70,15 +93,15 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
     info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     info.allocationSize = req.size;
     info.memoryTypeIndex = rawkit_vulkan_find_memory_type(
-      physical_device,
+      gpu,
       memory_flags,
       req.memoryTypeBits
     );
 
     err = vkAllocateMemory(
-      device,
+      gpu->device,
       &info,
-      NULL,
+      gpu->allocator,
       &buf->memory
     );
 
@@ -91,7 +114,7 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
   // bind buffer to memory
   {
     err = vkBindBufferMemory(
-      device,
+      gpu->device,
       buf->handle,
       buf->memory,
       0
@@ -106,12 +129,12 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
   return buf;
 }
 
-VkResult rawkit_gpu_vertex_buffer_destroy(VkDevice device, rawkit_gpu_vertex_buffer_t *buf) {
+VkResult rawkit_gpu_vertex_buffer_destroy(rawkit_gpu_t *gpu, rawkit_gpu_vertex_buffer_t *buf) {
   if (!buf) {
     return VK_SUCCESS;
   }
 
-  rawkit_gpu_buffer_destroy(device, buf->vertices);
+  rawkit_gpu_buffer_destroy(gpu, buf->vertices);
   buf->vertices = NULL;
 
   free(buf);
@@ -121,7 +144,7 @@ VkResult rawkit_gpu_vertex_buffer_destroy(VkDevice device, rawkit_gpu_vertex_buf
 
 
 VkResult rawkit_gpu_copy_buffer(
-  VkDevice device,
+  rawkit_gpu_t *gpu,
   VkQueue queue,
   VkCommandPool pool,
   rawkit_gpu_buffer_t *src,
@@ -138,7 +161,7 @@ VkResult rawkit_gpu_copy_buffer(
     info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     info.commandBufferCount = 1;
 
-    err = vkAllocateCommandBuffers(device, &info, &command_buffer);
+    err = vkAllocateCommandBuffers(gpu->device, &info, &command_buffer);
     if (err) {
       printf("ERROR: could not allocate command buffers while setting up a vertex buffer (%i)\n", err);
       return err;
@@ -175,7 +198,7 @@ VkResult rawkit_gpu_copy_buffer(
     VkFenceCreateInfo create = {};
     create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     create.flags = 0;
-    err = vkCreateFence(device, &create, NULL, &fence);
+    err = vkCreateFence(gpu->device, &create, NULL, &fence);
     if (err) {
       printf("ERROR: create fence failed while setting up vertex buffer (%i)\n", err);
       return err;
@@ -195,22 +218,21 @@ VkResult rawkit_gpu_copy_buffer(
     }
 
     uint64_t timeout_ns = 100000000000;
-    err = vkWaitForFences(device, 1, &fence, VK_TRUE, timeout_ns);
+    err = vkWaitForFences(gpu->device, 1, &fence, VK_TRUE, timeout_ns);
     if (err) {
       printf("ERROR: unable to wait for queue while setting up vertex buffer (%i)\n", err);
       return err;
     }
 
-    vkDestroyFence(device, fence, NULL);
-    vkFreeCommandBuffers(device, pool, 1, &command_buffer);
+    vkDestroyFence(gpu->device, fence, NULL);
+    vkFreeCommandBuffers(gpu->device, pool, 1, &command_buffer);
   }
 
   return VK_SUCCESS;
 }
 
-
-VkResult rawkit_gpu_update_buffer(
-  VkDevice device,
+VkResult rawkit_gpu_buffer_update(
+  rawkit_gpu_t *gpu,
   rawkit_gpu_buffer_t *dst,
   void *src,
   VkDeviceSize size
@@ -221,7 +243,7 @@ VkResult rawkit_gpu_update_buffer(
 
   void *ptr;
   VkResult err = vkMapMemory(
-    device,
+    gpu->device,
     dst->memory,
     0,
     size,
@@ -236,38 +258,43 @@ VkResult rawkit_gpu_update_buffer(
 
   memcpy(ptr, src, size);
 
-  vkUnmapMemory(device, dst->memory);
+  vkUnmapMemory(gpu->device, dst->memory);
   return VK_SUCCESS;
 }
 
 rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
-  VkPhysicalDevice physical_device,
-  VkDevice device,
+  rawkit_gpu_t *gpu,
   VkQueue queue,
   VkCommandPool pool,
-  uint32_t vertex_count,
-  float *vertices,
-  uint32_t index_count,
-  uint32_t *indices
+  rawkit_mesh_t *mesh
 ) {
-  rawkit_gpu_vertex_buffer_t *vb = (rawkit_gpu_vertex_buffer_t *)calloc(
-    sizeof(rawkit_gpu_vertex_buffer_t),
-    1
-  );
+  if (!gpu || !mesh) {
+    return NULL;
+  }
+  const char *resource_name = "rawkit::gpu::vertex-buffer";
+  uint64_t id = rawkit_hash_resources(resource_name, 1, (const rawkit_resource_t **)&mesh);
+  rawkit_gpu_vertex_buffer_t *vb = rawkit_hot_resource_id(resource_name, id, rawkit_gpu_vertex_buffer_t);
+  bool dirty = rawkit_resource_sources(vb, mesh);
 
-  if (!vb || !vertex_count || !vertices) {
+  if (!dirty) {
+    return vb;
+  }
+
+  uint32_t vertex_count = rawkit_mesh_vertex_count(mesh);
+
+  if (!vb || !vertex_count || !mesh->vertex_data) {
     return NULL;
   }
 
+
   VkDeviceSize vertices_size = vertex_count * 3 * sizeof(float);
-  VkDeviceSize indices_size = index_count * sizeof(uint32_t);
   VkResult err;
 
   // setup vertices
+  rawkit_gpu_buffer_t *vertices = NULL;
   {
-    vb->vertices = rawkit_gpu_buffer_create(
-      physical_device,
-      device,
+    vertices = rawkit_gpu_buffer_create(
+      gpu,
       vertices_size,
       (
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
@@ -276,8 +303,7 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
     );
     rawkit_gpu_buffer_t *vertices_staging = rawkit_gpu_buffer_create(
-      physical_device,
-      device,
+      gpu,
       vertices_size,
       (
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
@@ -287,99 +313,109 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
     );
 
-    err = rawkit_gpu_update_buffer(
-      device,
+    err = rawkit_gpu_buffer_update(
+      gpu,
       vertices_staging,
-      vertices,
+      mesh->vertex_data,
       vertices_size
     );
     if (err) {
       printf("ERROR: unable to upload new vertex data to gpu buffer\n");
       free(vb);
-      rawkit_gpu_buffer_destroy(device, vertices_staging);
+      rawkit_gpu_buffer_destroy(gpu, vertices_staging);
       return NULL;
     }
 
     err = rawkit_gpu_copy_buffer(
-      device,
+      gpu,
       queue,
       pool,
       vertices_staging,
-      vb->vertices,
+      vertices,
       vertices_size
     );
 
     if (err) {
       printf("ERROR: unable to copy buffer `vertices_staging` to `vb->vertices`\n");
       free(vb);
-      rawkit_gpu_buffer_destroy(device, vertices_staging);
+      rawkit_gpu_buffer_destroy(gpu, vertices_staging);
       return NULL;
     }
 
-    rawkit_gpu_buffer_destroy(device, vertices_staging);
+    rawkit_gpu_buffer_destroy(gpu, vertices_staging);
   }
 
-  if (!index_count || !indices) {
-    return vb;
-  }
 
   // setup the index buffer
-  {
-    vb->indices = rawkit_gpu_buffer_create(
-        physical_device,
-        device,
-        indices_size,
-        (
-          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-          VK_BUFFER_USAGE_TRANSFER_DST_BIT
-        ),
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT
-      );
+  uint32_t index_count = rawkit_mesh_index_count(mesh);
+  VkDeviceSize indices_size = index_count * sizeof(uint32_t);
+  rawkit_gpu_buffer_t *indices = NULL;
+  if (index_count && mesh->index_data) {
+    indices = rawkit_gpu_buffer_create(
+      gpu,
+      indices_size,
+      (
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT
+      ),
+      VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+    );
 
-      rawkit_gpu_buffer_t *staging = rawkit_gpu_buffer_create(
-        physical_device,
-        device,
-        indices_size,
-        (
-          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
-          VK_BUFFER_USAGE_TRANSFER_SRC_BIT
-        ),
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT
-      );
+    rawkit_gpu_buffer_t *staging = rawkit_gpu_buffer_create(
+      gpu,
+      indices_size,
+      (
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+      ),
+      VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+    );
 
-      err = rawkit_gpu_update_buffer(
-        device,
-        staging,
-        indices,
-        indices_size
-      );
-      if (err) {
-        printf("ERROR: unable to upload new vertex data to gpu buffer\n");
+    err = rawkit_gpu_buffer_update(
+      gpu,
+      staging,
+      mesh->index_data,
+      indices_size
+    );
+    if (err) {
+      printf("ERROR: unable to upload new vertex data to gpu buffer\n");
 
-        rawkit_gpu_buffer_destroy(device, staging);
-        rawkit_gpu_buffer_destroy(device, vb->indices);
-        return NULL;
-      }
+      rawkit_gpu_buffer_destroy(gpu, staging);
+      rawkit_gpu_buffer_destroy(gpu, vb->indices);
+      return NULL;
+    }
 
-      err = rawkit_gpu_copy_buffer(
-        device,
-        queue,
-        pool,
-        staging,
-        vb->indices,
-        indices_size
-      );
+    err = rawkit_gpu_copy_buffer(
+      gpu,
+      queue,
+      pool,
+      staging,
+      indices,
+      indices_size
+    );
 
-      if (err) {
-        printf("ERROR: unable to copy buffer `indices_staging` to `ib->indices`\n");
+    if (err) {
+      printf("ERROR: unable to copy buffer `indices_staging` to `ib->indices`\n");
 
-        rawkit_gpu_buffer_destroy(device, vb->indices);
-        rawkit_gpu_buffer_destroy(device, staging);
-        return NULL;
-      }
-      rawkit_gpu_buffer_destroy(device, staging);
+      rawkit_gpu_buffer_destroy(gpu, vb->indices);
+      rawkit_gpu_buffer_destroy(gpu, staging);
+      return NULL;
+    }
+    rawkit_gpu_buffer_destroy(gpu, staging);
   }
+
+  if (vb->vertices) {
+    rawkit_gpu_buffer_destroy(gpu, vb->vertices);
+  }
+  vb->vertices = vertices;
+
+  if (vb->indices) {
+    rawkit_gpu_buffer_destroy(gpu, vb->indices);
+  }
+  vb->indices = indices;
+
+  vb->resource_version++;
 
   return vb;
 }

@@ -147,6 +147,7 @@ typedef enum {
 } rawkit_glsl_base_type;
 
 typedef struct rawkit_glsl_reflection_entry_t {
+  char *name;
   rawkit_glsl_reflection_entry_type entry_type;
   bool readable;
   bool writable;
@@ -164,8 +165,6 @@ typedef struct rawkit_glsl_reflection_entry_t {
   uint32_t vecsize;
   uint32_t columns;
 
-
-  uint32_t user_index;
 } rawkit_glsl_reflection_entry_t;
 
 typedef struct rawkit_glsl_reflection_vector_t {

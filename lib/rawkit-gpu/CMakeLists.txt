@@ -4,9 +4,19 @@ project(rawkit-gpu)
 option(RAWKIT_GPU_BUILD_TESTS "Build the rawkit-gpu test programs" ON)
 option(RAWKIT_GPU_TEST_COVERAGE "Add coverage information for tests run against librawkit-gpu" OFF)
 
+# DEP: rawkit-core (sibling)
+if (NOT TARGET rawkit::core)
+  add_subdirectory(../rawkit-core deps/rawkit-core)
+endif()
+
 # DEP: rawkit-glsl (sibling)
 if (NOT TARGET rawkit::glsl)
   add_subdirectory(../rawkit-glsl deps/rawkit-glsl)
+endif()
+
+# DEP: rawkit-mesh (sibling)
+if (NOT TARGET rawkit::mesh)
+  add_subdirectory(../rawkit-mesh deps/rawkit-mesh)
 endif()
 
 # DEP: rawkit-vulkan
@@ -21,6 +31,7 @@ add_library(rawkit::gpu ALIAS ${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     rawkit::glsl
+    rawkit::mesh
     rawkit::vulkan
 )
 

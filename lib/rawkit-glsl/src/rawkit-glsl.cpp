@@ -109,7 +109,7 @@ const rawkit_glsl_t *rawkit_glsl_file_array(uint8_t file_count, const rawkit_fil
     return &ERR;
   }
 
-  uint64_t id = rawkit_hash_resources(resource_name, file_count, (rawkit_resource_t **)files);
+  uint64_t id = rawkit_hash_resources(resource_name, file_count, (const rawkit_resource_t **)files);
 
   rawkit_glsl_t *glsl = rawkit_hot_resource_id(resource_name, id, rawkit_glsl_t);
   if (!glsl) {
