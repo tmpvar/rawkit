@@ -20,7 +20,7 @@ const rawkit_glsl_t *_rawkit_glsl_va(uint8_t count, ...) {
 
   va_end(vl);
 
-  return _rawkit_glsl_file_array(count, files);
+  return rawkit_glsl_file_array(count, (const rawkit_file_t **)files);
 }
 
 static bool compile_shader(glslang::TShader* shader, const char *name, const char* src, uint64_t len, GLSLIncluder &includer) {
@@ -98,7 +98,7 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
 }
 
 
-const rawkit_glsl_t *_rawkit_glsl_file_array(uint8_t file_count, rawkit_file_t **files) {
+const rawkit_glsl_t *rawkit_glsl_file_array(uint8_t file_count, const rawkit_file_t **files) {
   static bool initialized = false;
   if (!initialized) {
     glslang::InitializeProcess();
@@ -131,7 +131,7 @@ const rawkit_glsl_t *_rawkit_glsl_file_array(uint8_t file_count, rawkit_file_t *
   State *state = new State();
   GLSLIncluder includer;
   for (uint8_t i = 0; i < file_count; i++) {
-    rawkit_file_t* file = files[i];
+    const rawkit_file_t* file = files[i];
     if (!file || file->resource_version == 0) {
       return glsl;
     }
@@ -150,7 +150,7 @@ const rawkit_glsl_t *_rawkit_glsl_file_array(uint8_t file_count, rawkit_file_t *
   vector<glslang::TShader *> shaders;
   {
     for (uint8_t i=0; i<file_count; i++) {
-      rawkit_file_t *file = files[i];
+      const rawkit_file_t *file = files[i];
 
       EShLanguage stage = filename_to_stage(files[i]->resource_name);
       if (stage == EShLanguage::EShLangCount) {

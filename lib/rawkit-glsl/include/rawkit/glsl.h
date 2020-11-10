@@ -186,7 +186,7 @@ typedef struct rawkit_glsl_t {
   extern "C" {
 #endif
 
-const rawkit_glsl_t *_rawkit_glsl_file_array(uint8_t file_count, rawkit_file_t **files);
+const rawkit_glsl_t *rawkit_glsl_file_array(uint8_t file_count, const rawkit_file_t **files);
 const rawkit_glsl_t *_rawkit_glsl_va(uint8_t file_count, ...);
 
 
