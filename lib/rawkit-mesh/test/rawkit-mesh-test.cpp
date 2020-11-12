@@ -50,7 +50,7 @@ TEST_CASE("[rawkit/mesh] binary stl") {
     );
     REQUIRE(mesh != nullptr);
 
-    if (mesh->resource_version != NULL) {
+    if (mesh->resource_version > 0) {
       REQUIRE(mesh->normal_data != nullptr);
       REQUIRE(mesh->vertex_data != nullptr);
       REQUIRE(mesh->index_data != nullptr);

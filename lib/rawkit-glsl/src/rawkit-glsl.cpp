@@ -1,3 +1,5 @@
+#include <stdarg.h>
+
 #include <rawkit/hash.h>
 #include <rawkit/hot.h>
 #include "util.h"
