@@ -1,5 +1,4 @@
 #include <rawkit/core.h>
-#include <pull/stream.h>
 
 #include <string>
 using namespace std;

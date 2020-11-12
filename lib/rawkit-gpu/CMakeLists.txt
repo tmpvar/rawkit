@@ -9,15 +9,21 @@ if (NOT TARGET rawkit::core)
   add_subdirectory(../rawkit-core deps/rawkit-core)
 endif()
 
-# DEP: rawkit-glsl (sibling)
-if (NOT TARGET rawkit::glsl)
-  add_subdirectory(../rawkit-glsl deps/rawkit-glsl)
+# DEP: rawkit-hash (sibling)
+if (NOT TARGET rawkit::hash)
+  add_subdirectory(../rawkit-hash deps/rawkit-hash)
+endif()
+
+# DEP: rawkit-hot (sibling)
+if (NOT TARGET rawkit::hot)
+  add_subdirectory(../rawkit-hot deps/rawkit-hot)
 endif()
 
 # DEP: rawkit-mesh (sibling)
 if (NOT TARGET rawkit::mesh)
   add_subdirectory(../rawkit-mesh deps/rawkit-mesh)
 endif()
+
 
 # DEP: rawkit-vulkan
 add_subdirectory(deps/vulkan)
@@ -29,8 +35,11 @@ add_library(${PROJECT_NAME} STATIC
 add_library(rawkit::gpu ALIAS ${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME}
+  PRIVATE
+    rawkit::hash
+    rawkit::hot
+
   PUBLIC
-    rawkit::glsl
     rawkit::mesh
     rawkit::vulkan
 )

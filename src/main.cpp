@@ -41,6 +41,7 @@
 #include "imgui/imgui_impl_vulkan.h"
 
 #include <rawkit/jit.h>
+#include <rawkit/vg.h>
 
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
@@ -66,6 +67,7 @@ static int                      g_MinImageCount = 2;
 static bool                     g_SwapChainRebuild = false;
 static int                      g_SwapChainResizeWidth = 0;
 static int                      g_SwapChainResizeHeight = 0;
+static rawkit_vg_t            * g_RawkitVG = nullptr;
 
 void rawkit_wassert(wchar_t const* m, wchar_t const* f, unsigned l) {
   printf("ASSERT: %ls (%ls:%u)\n", m, f, l);
@@ -321,8 +323,6 @@ static void BeginMainRenderPass(ImGui_ImplVulkanH_Window* wd) {
     }
 }
 
-
-
 static void EndMainRenderPass(ImGui_ImplVulkanH_Window* wd) {
   VkResult err;
   VkSemaphore image_acquired_semaphore  = wd->FrameSemaphores[wd->SemaphoreIndex].ImageAcquiredSemaphore;
@@ -347,68 +347,6 @@ static void EndMainRenderPass(ImGui_ImplVulkanH_Window* wd) {
     err = vkQueueSubmit(g_Queue, 1, &info, fd->Fence);
     check_vk_result(err);
   }
-}
-
-static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data)
-{
-    VkResult err;
-
-    VkSemaphore image_acquired_semaphore  = wd->FrameSemaphores[wd->SemaphoreIndex].ImageAcquiredSemaphore;
-    VkSemaphore render_complete_semaphore = wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
-    err = vkAcquireNextImageKHR(g_Device, wd->Swapchain, UINT64_MAX, image_acquired_semaphore, VK_NULL_HANDLE, &wd->FrameIndex);
-    check_vk_result(err);
-
-    ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
-    {
-        err = vkWaitForFences(g_Device, 1, &fd->Fence, VK_TRUE, UINT64_MAX);    // wait indefinitely instead of periodically checking
-        check_vk_result(err);
-
-        err = vkResetFences(g_Device, 1, &fd->Fence);
-        check_vk_result(err);
-    }
-    {
-        err = vkResetCommandPool(g_Device, fd->CommandPool, 0);
-        check_vk_result(err);
-        VkCommandBufferBeginInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        err = vkBeginCommandBuffer(fd->CommandBuffer, &info);
-        check_vk_result(err);
-    }
-    {
-        VkRenderPassBeginInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        info.renderPass = wd->RenderPass;
-        info.framebuffer = fd->Framebuffer;
-        info.renderArea.extent.width = wd->Width;
-        info.renderArea.extent.height = wd->Height;
-        info.clearValueCount = 2;
-        info.pClearValues = wd->ClearValue;
-        vkCmdBeginRenderPass(fd->CommandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
-    }
-
-    // Record dear imgui primitives into command buffer
-    ImGui_ImplVulkan_RenderDrawData(draw_data, fd->CommandBuffer);
-
-    // Submit command buffer
-    vkCmdEndRenderPass(fd->CommandBuffer);
-    {
-        VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VkSubmitInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        info.waitSemaphoreCount = 1;
-        info.pWaitSemaphores = &image_acquired_semaphore;
-        info.pWaitDstStageMask = &wait_stage;
-        info.commandBufferCount = 1;
-        info.pCommandBuffers = &fd->CommandBuffer;
-        info.signalSemaphoreCount = 1;
-        info.pSignalSemaphores = &render_complete_semaphore;
-
-        err = vkEndCommandBuffer(fd->CommandBuffer);
-        check_vk_result(err);
-        err = vkQueueSubmit(g_Queue, 1, &info, fd->Fence);
-        check_vk_result(err);
-    }
 }
 
 static void FramePresent(ImGui_ImplVulkanH_Window* wd)
@@ -552,6 +490,10 @@ uint32_t rawkit_vulkan_queue_family() {
   return g_QueueFamily;
 }
 
+rawkit_vg_t *rawkit_vg_default() {
+  return g_RawkitVG;
+}
+
 int main(int argc, const char **argv) {
 
     rawkit_jit_t *jit = rawkit_jit_create(argv[1]);
@@ -608,7 +550,6 @@ int main(int argc, const char **argv) {
       // sp.setTimeout(serial::Timeout::simpleTimeout(1));
       sp.open();
     }
-
 
     vector<string> sp_rx_lines;
 
@@ -717,6 +658,12 @@ int main(int argc, const char **argv) {
         ImGui_ImplVulkan_DestroyFontUploadObjects();
     }
 
+    g_RawkitVG = rawkit_vg(
+      rawkit_vulkan_device(),
+      rawkit_vulkan_physical_device(),
+      rawkit_vulkan_renderpass()
+    );
+
     // Our state
     bool show_demo_window = true;
     bool show_another_window = false;
@@ -764,7 +711,32 @@ int main(int argc, const char **argv) {
 
         BeginMainRenderPass(wd);
 
+        VkViewport viewport = {};
+        viewport.width = (float)g_MainWindowData.Width;
+        viewport.height = (float)g_MainWindowData.Height;
+        vkCmdSetViewport(
+          rawkit_vulkan_command_buffer(),
+          0,
+          1,
+          &viewport
+        );
+
+        VkRect2D scissor = {};
+        scissor.extent.width = g_MainWindowData.Width;
+        scissor.extent.height = g_MainWindowData.Height;
+        vkCmdSetScissor(
+          rawkit_vulkan_command_buffer(),
+          0,
+          1,
+          &scissor
+        );
+
+        // TODO: handle device pixel ratio (fb.width / window.width)
+        rawkit_vg_begin_frame(g_RawkitVG, g_MainWindowData.Width, g_MainWindowData.Height, 1.0);
+
         rawkit_jit_call_loop(jit);
+
+        rawkit_vg_end_frame(g_RawkitVG);
 
         // Render ImGui
         ImGui::Render();

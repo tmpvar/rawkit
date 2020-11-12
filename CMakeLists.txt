@@ -132,6 +132,11 @@ if (NOT TARGET rawkit::mesh)
   add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-mesh)
 endif()
 
+# LIB: rawkit-vg
+if (NOT TARGET rawkit::vg)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-vg)
+endif()
+
 add_executable(
   rawkit
   ${SRC_DIR}/main.cpp
@@ -224,6 +229,8 @@ target_link_libraries(
   rawkit::texture
   rawkit::image
   rawkit::mesh
+
+  rawkit::vg
 
   glfw
   serial

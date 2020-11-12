@@ -1,4 +1,6 @@
 #include <rawkit/gpu.h>
+#include <rawkit/hash.h>
+#include <rawkit/hot.h>
 
 uint32_t rawkit_vulkan_find_queue_family(rawkit_gpu_t *gpu, VkQueueFlags flags) {
   if (!gpu->queues) {

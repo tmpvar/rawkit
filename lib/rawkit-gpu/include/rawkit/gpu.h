@@ -2,7 +2,6 @@
 
 #include <vulkan/vulkan.h>
 #include <rawkit/core.h>
-#include <rawkit/glsl.h>
 #include <rawkit/mesh.h>
 #include <string.h>
 

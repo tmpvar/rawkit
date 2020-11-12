@@ -11,6 +11,7 @@
 #include <rawkit/vulkan.h>
 #include <rawkit/texture.h>
 #include <rawkit/shader.h>
+#include <rawkit/vg.h>
 
 // legacy includes
 #include "time.h"

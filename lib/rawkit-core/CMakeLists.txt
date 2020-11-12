@@ -4,20 +4,11 @@ project(rawkit-core)
 option(RAWKIT_CORE_BUILD_TESTS "Build the rawkit-core test programs" ON)
 option(RAWKIT_CORE_TEST_COVERAGE "Add coverage information for tests run against rawkit-core" OFF)
 
-# DEP: pull-stream (sibling)
-if (NOT TARGET pull::stream)
-  add_subdirectory(../pull-stream deps/pull-stream)
-endif()
-
 add_library(${PROJECT_NAME} STATIC
   ${CMAKE_CURRENT_LIST_DIR}/src/rawkit-core.cpp
 )
 
 add_library(rawkit::core ALIAS ${PROJECT_NAME})
-
-target_link_libraries(${PROJECT_NAME} PUBLIC
-  pull::stream
-)
 
 target_compile_features(${PROJECT_NAME}
   PUBLIC

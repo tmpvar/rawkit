@@ -1,5 +1,4 @@
 #pragma once
-#include <uv.h>
 #include <stdint.h>
 
 // RAWKIT_RESOURCE_ARG_COUNT - count the number of VA_ARGS in both c and c++ mode
