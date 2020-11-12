@@ -67,9 +67,11 @@ bool rawkit_jit_tick(rawkit_jit_t *jit) {
     return false;
   }
 
-  bool res = jit->job->rebuild();
-  jit->version++;
-  return res;
+  if (jit->job->tick()) {
+    jit->version++;
+    return true;
+  }
+  return false;
 }
 
 void rawkit_jit_call_setup(rawkit_jit_t *jit) {

@@ -245,20 +245,8 @@ JitJob *JitJob::create(int argc, const char **argv) {
 }
 
 bool JitJob::rebuild() {
-  for (auto &entry : this->watched_files) {
-    if (entry.mtime != fs::last_write_time(entry.file)) {
-      this->dirty = true;
-      break;
-    }
-  }
-
-  if (!this->dirty) {
-    return false;
-  }
-
   Profiler timeit("JitJob::rebuild");
 
-  this->dirty = false;
   std::unique_ptr<CompilerInvocation> invocation(new CompilerInvocation);
   CompilerInvocation::CreateFromArgs(
     *invocation,
@@ -269,6 +257,15 @@ bool JitJob::rebuild() {
   Runnable *run = Runnable::compile(std::move(invocation), symbols);
 
   if (!run) {
+    if (!this->active_runnable) {
+      this->watched_files.clear();
+
+      JitJobFileEntry entry;
+      entry.file = this->program_source;
+      entry.mtime = fs::last_write_time(this->program_source);
+      watched_files.push_back(entry);
+    }
+
     return false;
   }
 
@@ -312,13 +309,14 @@ void JitJob::addExport(const char *name, llvm::JITTargetAddress addr) {
   });
 }
 
-void JitJob::tick() {
+bool JitJob::tick() {
   if (!this->dirty) {
     for (auto &entry: this->watched_files) {
       try {
         fs::file_time_type mtime = fs::last_write_time(entry.file);
         if (mtime != entry.mtime) {
           this->dirty = true;
+          entry.mtime = mtime;
           break;
         }
       } catch (fs::filesystem_error) {
@@ -326,10 +324,12 @@ void JitJob::tick() {
     }
   }
 
-  if (this->dirty && this->rebuild()) {
-    this->setup();
+  if (!this->dirty) {
+    return false;
   }
 
+  this->dirty = false;
+  return this->rebuild();
 }
 
 void JitJob::setup() {
