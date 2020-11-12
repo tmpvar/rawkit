@@ -72,6 +72,10 @@ Runnable *Runnable::compile(std::unique_ptr<CompilerInvocation> invocation, cons
   emit_timer.end();
 
   Runnable *run = Runnable::create(action, symbols);
+  if (!run) {
+    return nullptr;
+  }
+
   run->includes = includes;
   delete action;
   return run;
