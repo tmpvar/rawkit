@@ -8,8 +8,8 @@ TEST_CASE("[rawkit/image] load missing image") {
   uv_loop_init(&loop);
   rawkit_diskwatcher_t* watcher = rawkit_diskwatcher_ex(&loop);
 
-  int s = 100000;
-
+  int s = 1000;
+  uint32_t version = 0;
   while (s--) {
     const rawkit_image_t* img = rawkit_image_ex(
       "fixtures/enoent.png",
@@ -17,18 +17,13 @@ TEST_CASE("[rawkit/image] load missing image") {
       watcher
     );
 
-    if (img != NULL) {
-      CHECK(img->len == 0);
-      CHECK(img->data == nullptr);
-      CHECK(img->width == 0);
-      CHECK(img->channels == 0);
-      break;
-    }
-
+    REQUIRE(img != nullptr);
+    version = img->resource_version;
     uv_run(&loop, UV_RUN_NOWAIT);
   }
 
-  CHECK(s > 0);
+  CHECK(s < 0);
+  CHECK(version == 0);
 }
 
 TEST_CASE("[rawkit/image] load image") {
@@ -36,7 +31,7 @@ TEST_CASE("[rawkit/image] load image") {
   uv_loop_init(&loop);
   rawkit_diskwatcher_t* watcher = rawkit_diskwatcher_ex(&loop);
 
-  int s = 100000;
+  int s = 1000;
 
   while (s--) {
     const rawkit_image_t* img = rawkit_image_ex(
@@ -44,6 +39,8 @@ TEST_CASE("[rawkit/image] load image") {
       &loop,
       watcher
     );
+
+    REQUIRE(img != nullptr);
 
     if (img->resource_version) {
       CHECK(img->len == 16);
