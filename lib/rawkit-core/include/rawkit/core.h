@@ -37,7 +37,7 @@ bool rawkit_resource_sources_array(rawkit_resource_t *res, uint32_t source_count
 #define rawkit_resource_sources(resource, ...) \
   _rawkit_resource_sources( \
     (rawkit_resource_t *)resource, \
-    RAWKIT_RESOURCE_ARG_COUNT(__VA_ARGS__), \
+    RAWKIT_RESOURCE_ARG_COUNT(__VA_ARGS__),## \
     __VA_ARGS__ \
   )
 

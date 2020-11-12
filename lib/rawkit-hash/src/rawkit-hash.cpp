@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include <rawkit/core.h>
 #include <rawkit/hash.h>
 
