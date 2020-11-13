@@ -5,37 +5,9 @@
 #include <math.h>
 #include "stb_sb.h"
 
-uint32_t numSubsteps = 50;
-
-float defaultRadius = 0.15f;
-float defaultMass = 1.0f;
-float gravity = 10.0f;
-float dt = 1.0f / 60.0f;
-float edgeDampingCoeff = 0.0f;
-float globalDampingCoeff = 0.0f;
-
-bool conserveEnergy = false;
-bool collisionHandling = false;
-bool showTrail = true;
-bool showForces = false;
-uint32_t maxPoints = 50;
-uint32_t numPoints = 4;
-
-uint32_t maxTrailLen = 100000;
-float trailDist = 0.01f;
-
-float mouseCompliance = 0.001f;
-float mouseDampingCoeff = 100.0f;
-
-vec2 canvasOrig;
-float simWidth = 2.0f;
-float pointSize = 5.0f;
-float drawScale = 1.0f;
-
-uint32_t timeFrames = 0;
-bool paused = false;
 
 typedef struct point_t {
+  float mass;
   float invMass;
   float radius;
   float size;
@@ -52,28 +24,63 @@ typedef struct tail_t {
   vec2 pos;
 } tail_t;
 
-point_t *points = NULL;
-tail_t *trail = NULL;
-uint32_t trailLast = 0;
+typedef struct state_t {
+  uint32_t numSubsteps;
+
+  float defaultRadius;
+  float defaultMass;
+
+  float gravity;
+  double lastTime;
+  float edgeDampingCoeff;
+  float globalDampingCoeff;
+
+  bool conserveEnergy;
+  bool collisionHandling;
+  bool showTrail;
+  bool showForces;
+
+  float mouseCompliance;
+  float mouseDampingCoeff;
+
+  float simWidth;
+  float drawScale;
+
+  bool paused;
+
+  uint32_t maxPoints;
+  uint32_t numPoints;
+  float pointSize;
+  point_t *points;
+
+  tail_t *trail;
+  uint32_t trailLast;
+  uint32_t maxTrailLen;
+  float trailDist;
+} state_t;
+
+state_t *state = NULL;
+
+vec2 canvasOrig;
 
 void trailAdd(vec2 p) {
-  uint32_t trail_length = sb_count(trail);
+  uint32_t trail_length = sb_count(state->trail);
   if (trail_length == 0) {
     tail_t t = {};
     glm_vec2_copy(p, t.pos);
-    sb_push(trail, t);
+    sb_push(state->trail, t);
     return;
   }
 
-  float d2 = glm_vec2_distance2(trail[trailLast].pos, p);
-  if (d2 > trailDist * trailDist) {
-    trailLast = (trailLast + 1) % maxTrailLen;
-    if (trail_length < maxTrailLen) {
+  float d2 = glm_vec2_distance2(state->trail[state->trailLast].pos, p);
+  if (d2 > state->trailDist * state->trailDist) {
+    state->trailLast = (state->trailLast + 1) % state->maxTrailLen;
+    if (trail_length < state->maxTrailLen) {
       tail_t t = {};
       glm_vec2_copy(p, t.pos);
-      sb_push(trail, t);
+      sb_push(state->trail, t);
     } else {
-      glm_vec2_copy(p, (&trail[trailLast])->pos);
+      glm_vec2_copy(p, (&state->trail[state->trailLast])->pos);
     }
   }
 }
@@ -81,14 +88,11 @@ void trailAdd(vec2 p) {
 
 void resetPos(bool equilibrium) {
   vec2 pos;
-  pos[0] = equilibrium ? 0 : points[1].radius;
-  pos[1] = equilibrium ? 0 : - points[1].radius;
-  printf("reset pos?? %f, %f\n", pos[0], pos[1]);
+  pos[0] = equilibrium ? 0 : state->points[1].radius;
+  pos[1] = equilibrium ? 0 : - state->points[1].radius;
 
-  uint32_t points_length = sb_count(points);
-
-  for (uint32_t i = 1; i < points_length; i++) {
-    point_t *p = &points[i];
+  for (uint32_t i = 1; i < state->numPoints; i++) {
+    point_t *p = &state->points[i];
     p->size = sqrt(1.0 / p->invMass);
     pos[1] = equilibrium ? pos[1] - p->radius : pos[1] + p->radius;
     glm_vec2_copy(pos, p->pos);
@@ -97,26 +101,27 @@ void resetPos(bool equilibrium) {
     p->vel[0] = 0;
     p->vel[1] = 0;
   }
-  sb_free(trail);
-  trailLast = 0;
+  sb_free(state->trail);
+  state->trail = NULL;
+  state->trailLast = 0;
 }
 
 float computeEnergy() {
   float e = 0.0f;
-  for (uint32_t i = 1; i < numPoints; i++) {
-    point_t *p = &points[i];
-    e += p->pos[1] / p->invMass * gravity + 0.5 / p->invMass * glm_vec2_distance2(GLM_VEC2_ZERO, p->vel);
+  for (uint32_t i = 1; i < state->numPoints; i++) {
+    point_t *p = &state->points[i];
+    e += p->pos[1] / p->invMass * state->gravity + 0.5 / p->invMass * glm_vec2_distance2(GLM_VEC2_ZERO, p->vel);
   }
   return e;
 }
 
 void forceEnergyConservation(float prevE) {
-  float dE = (computeEnergy() - prevE) / (numPoints - 1);
+  float dE = (computeEnergy() - prevE) / (state->numPoints - 1);
   if (dE < 0) {
     float postE = computeEnergy();
 
-    for (uint32_t i = 1; i < numPoints; i++) {
-      point_t *p = &points[i];
+    for (uint32_t i = 1; i < state->numPoints; i++) {
+      point_t *p = &state->points[i];
       float Ek = 0.5 / p->invMass * glm_vec2_distance2(GLM_VEC2_ZERO, p->vel);
       float s = sqrt((Ek - dE) / Ek);
       glm_vec2_scale(p->vel, s, p->vel);
@@ -130,10 +135,10 @@ void draw() {
   float x = canvasOrig[0];
   float y = canvasOrig[1];
 
-  for (uint32_t i = 1; i < numPoints; i++) {
+  for (uint32_t i = 1; i < state->numPoints; i++) {
     float avgX = x;
     float avgY = y;
-    point_t *p = &points[i];
+    point_t *p = &state->points[i];
     if (p->compliance > 0.0f) {
       rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0, 0, 0xFF));
     } else if (p->unilateral) {
@@ -144,8 +149,8 @@ void draw() {
 
     rawkit_vg_begin_path(vg);
     rawkit_vg_move_to(vg, x, y);
-    x = canvasOrig[0] + p->pos[0] * drawScale;
-    y = canvasOrig[1] - p->pos[1] * drawScale;
+    x = canvasOrig[0] + p->pos[0] * state->drawScale;
+    y = canvasOrig[1] - p->pos[1] * state->drawScale;
     rawkit_vg_line_to(vg, x, y);
     rawkit_vg_stroke(vg);
     avgX = (avgX + x) / 2.0f; avgY = (avgY + y) / 2.0f;
@@ -156,41 +161,41 @@ void draw() {
   }
   rawkit_vg_stroke_width(vg, 1.0f);
 
-//   if (grabPointNr > 0) {
-//     c.strokeStyle = "#FF8000";
-//     c.beginPath();
-//     c.moveTo(canvasOrig.x + grabPoint.pos.x * drawScale, canvasOrig.y - grabPoint.pos.y * drawScale);
-//     c.lineTo(canvasOrig.x + points[grabPointNr].pos.x * drawScale, canvasOrig.y - points[grabPointNr].pos.y * drawScale);
-//     c.stroke();
-//   }
+  //   if (grabPointNr > 0) {
+  //     c.strokeStyle = "#FF8000";
+  //     c.beginPath();
+  //     c.moveTo(canvasOrig.x + grabPoint.pos.x * state->drawScale, canvasOrig.y - grabPoint.pos.y * state->drawScale);
+  //     c.lineTo(canvasOrig.x + state->points[grabPointNr].pos.x * state->drawScale, canvasOrig.y - state->points[grabPointNr].pos.y * state->drawScale);
+  //     c.stroke();
+  //   }
 
   rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
-  for (uint32_t i = 1; i < numPoints; i++) {
-    point_t *p = &points[i];
+  for (uint32_t i = 1; i < state->numPoints; i++) {
+    point_t *p = &state->points[i];
     igText("p%u: vel(%.2f, %.2f) pos(%.2f, %.2f)", i, p->unilateral, p->vel[0], p->vel[1]);
-    x = canvasOrig[0] + p->pos[0] * drawScale;
-    y = canvasOrig[1] - p->pos[1] * drawScale;
+    x = canvasOrig[0] + p->pos[0] * state->drawScale;
+    y = canvasOrig[1] - p->pos[1] * state->drawScale;
     rawkit_vg_begin_path(vg);
-    rawkit_vg_arc(vg, x, y, pointSize * p->size, 0, M_PI*2.0f, 1);
+    rawkit_vg_arc(vg, x, y, state->pointSize * p->size, 0, M_PI*2.0f, 1);
     rawkit_vg_close_path(vg);
     rawkit_vg_fill(vg);
   }
 
-  uint32_t trail_length = sb_count(trail);
-  if (trail_length > 1) {
+  uint32_t trail_length = sb_count(state->trail);
+  if (state->showTrail && trail_length > 1) {
     rawkit_vg_stroke_color(vg, rawkit_vg_RGB(52, 235, 137));
     rawkit_vg_begin_path(vg);
-    uint32_t pos = (trailLast + 1) % trail_length;
+    uint32_t pos = (state->trailLast + 1) % trail_length;
     rawkit_vg_move_to(vg,
-      canvasOrig[0] + trail[pos].pos[0] * drawScale,
-      canvasOrig[1] - trail[pos].pos[1] * drawScale
+      canvasOrig[0] + state->trail[pos].pos[0] * state->drawScale,
+      canvasOrig[1] - state->trail[pos].pos[1] * state->drawScale
     );
 
     for (uint32_t i = 1; i < trail_length - 1; i++) {
       pos = (pos + 1) % trail_length;
       rawkit_vg_line_to(vg,
-        canvasOrig[0] + trail[pos].pos[0] * drawScale,
-        canvasOrig[1] - trail[pos].pos[1] * drawScale
+        canvasOrig[0] + state->trail[pos].pos[0] * state->drawScale,
+        canvasOrig[1] - state->trail[pos].pos[1] * state->drawScale
       );
     }
     rawkit_vg_stroke(vg);
@@ -250,25 +255,24 @@ void solvePointVel(point_t *p, float dampingCoeff, float dt) {
   glm_vec2_muladds(n, dv, p->vel);
 }
 
-void simulate(float dt)
-{
-  float sdt = dt / (float)numSubsteps;
+void simulate(float dt) {
+  float sdt = dt / (float)state->numSubsteps;
   igText("df: %f, sdt: %f", dt, sdt);
-  for (uint32_t step = 0; step < numSubsteps; step++) {
+  for (uint32_t step = 0; step < state->numSubsteps; step++) {
 
     // predict
-    for (uint32_t i = 1; i < numPoints; i++) {
-      point_t *p = &points[i];
-      p->vel[1] -= gravity * sdt;
+    for (uint32_t i = 1; i < state->numPoints; i++) {
+      point_t *p = &state->points[i];
+      p->vel[1] -= state->gravity * sdt;
       glm_vec2_copy(p->pos, p->prev);
       glm_vec2_muladds(p->vel, sdt, p->pos);
     }
 
     // solve positions
-    for (uint32_t i = 0; i < numPoints - 1; i++) {
-      point_t *p = &points[i + 1];
+    for (uint32_t i = 0; i < state->numPoints - 1; i++) {
+      point_t *p = &state->points[i + 1];
       solveDistPos(
-        &points[i],
+        &state->points[i],
         p,
         p->radius,
         p->compliance,
@@ -278,90 +282,219 @@ void simulate(float dt)
     }
 
     // if (grabPointNr >= 0)
-    //   solveDistPos(grabPoint, points[grabPointNr], 0, mouseCompliance, false, sdt);
+    //   solveDistPos(grabPoint, state->points[grabPointNr], 0, mouseCompliance, false, sdt);
 
-    // if (collisionHandling) {
-    //   var minX = 0;
-    //   p = points[numPoints - 1];
-    //   if (p.pos.x < minX) {
-    //     p.pos.x = minX;
-    //     if (p.vel.x < 0)
-    //       p.prev.x = p.pos.x + p.vel.x * sdt;
-    //   }
-    // }
-
-    // update velocities
-    for (uint32_t i = 1; i < numPoints; i++) {
-      point_t *p = &points[i];
-      glm_vec2_sub(p->pos, p->prev, p->vel);
-      glm_vec2_scale(p->vel, 1.0f / sdt, p->vel);
-      solvePointVel(p, globalDampingCoeff, sdt);
+    if (state->collisionHandling) {
+      float minX = 0;
+      point_t *p = &state->points[state->numPoints - 1];
+      if (p->pos[0] < minX) {
+        p->pos[0] = minX;
+        if (p->vel[0] < 0)
+          p->prev[0] = p->pos[0] + p->vel[0] * sdt;
+      }
     }
 
-    for (uint32_t i = 0; i < numPoints - 1; i++) {
-      point_t *p = &points[i + 1];
+    // update velocities
+    for (uint32_t i = 1; i < state->numPoints; i++) {
+      point_t *p = &state->points[i];
+      glm_vec2_sub(p->pos, p->prev, p->vel);
+      glm_vec2_scale(p->vel, 1.0f / sdt, p->vel);
+      solvePointVel(p, state->globalDampingCoeff, sdt);
+    }
+
+    for (uint32_t i = 0; i < state->numPoints - 1; i++) {
+      point_t *p = &state->points[i + 1];
       if (p->compliance > 0.0) {
         solveDistVel(
-          &points[i],
+          &state->points[i],
           p,
-          edgeDampingCoeff,
+          state->edgeDampingCoeff,
           sdt
         );
       }
     }
     // if (grabPointNr >= 0)
-    //   solveDistVel(grabPoint, points[grabPointNr], mouseDampingCoeff, sdt);
+    //   solveDistVel(grabPoint, state->points[grabPointNr], mouseDampingCoeff, sdt);
 
-    trailAdd(points[numPoints-1].pos);
+    trailAdd(state->points[state->numPoints-1].pos);
   }
 }
 
-double lastTime = 0.0;
 void timeStep() {
   float prevE = 0.0f;
-  if (conserveEnergy) {
+  if (state->conserveEnergy) {
     prevE = computeEnergy();
   }
   double startTime = rawkit_now();
-  if (lastTime != 0.0) {
-    simulate(startTime - lastTime);
+  if (state->lastTime != 0.0 && !state->paused) {
+    simulate(startTime - state->lastTime);
   }
-  lastTime = startTime;
+  state->lastTime = startTime;
   double endTime = rawkit_now();
-  if (conserveEnergy) {
+  if (state->conserveEnergy) {
     forceEnergyConservation(prevE);
   }
 
-  igText("%.03f", endTime - startTime);
+  igText("%f", endTime - startTime);
 
   draw();
 }
 
-void setup() {
-  lastTime = rawkit_now();
-  // populate points
+void init_state(bool reset) {
+  state = rawkit_hot_state("state", state_t);
+  if (reset || !state->numSubsteps) {
+
+    state->numSubsteps = 50;
+    state->lastTime = rawkit_now();
+    state->gravity = 10.0f;
+    state->edgeDampingCoeff = 0.0f;
+    state->globalDampingCoeff = 0.0f;
+    state->conserveEnergy = false;
+    state->collisionHandling = false;
+    state->showForces = false;
+    state->mouseCompliance = 0.001f;
+    state->mouseDampingCoeff = 100.0f;
+    state->simWidth = 2.0f;
+    state->drawScale = 1.0f;
+    state->paused = false;
+
+    // trail
+    state->trailDist = 0.01f;
+    state->showTrail = true;
+    state->maxTrailLen = 100;
+    state->trail = NULL;
+    state->trailLast = 0;
+
+    // points
+    state->maxPoints = 16;
+    state->numPoints = 4;
+    state->pointSize = 5.0f;
+    state->defaultRadius = 0.15f;
+    state->defaultMass = 1.0f;
+  }
+
+  reset = reset || state->points == NULL;
+
+  if (!state->points) {
+    // TODO: if someone tweaks the "maxPoints" and causes a reload we should realloc this
+    state->points = (point_t *)calloc(sizeof(point_t) * state->maxPoints, 1);
+  }
+
+
+  if (reset) {
+    // populate points
+    for (uint32_t i = 0; i < state->maxPoints; i++) {
+      point_t *point = &state->points[i];
+
+      point->mass =  i == 0 ? 0 : state->defaultMass;
+      point->invMass = i == 0 ? 0 : 1 / state->defaultMass;
+      point->radius = state->defaultRadius;
+      point->compliance = 0;
+      point->unilateral = false;
+      point->force = 0;
+      point->elongation = 0;
+    }
+  }
+}
+
+void render_state() {
+  // render the state
+  ImVec2 size = {70, 30};
+  igBegin("state", 0, 0);
+  if (igButton("restart", size)) {
+    resetPos(false);
+  }
+  igSameLine(0.0f, 10.0f);
+  if (igButton("defaults", size)) {
+    init_state(true);
+    resetPos(false);
+  }
+
+  igCheckbox("pause", &state->paused);
+  igCheckbox("conserve energy", &state->conserveEnergy);
+  igCheckbox("collisions", &state->collisionHandling);
+
+  igSliderInt("substeps", (int *)&state->numSubsteps,  1, 500, "%u");
+
   {
-    for (uint32_t i = 0; i < maxPoints; i++) {
-      point_t point = {};
+    float dmin = 0.01f;
+    float dmax = 10.0f;
+    igSliderScalar("##sim-width", ImGuiDataType_Float, &state->simWidth,  &dmin, &dmax, "sim width %f", 1.0f);
+  }
 
-      point.invMass = i == 0 ? 0 : 1 / defaultMass;
-      point.radius = i == 0 ? 0 : defaultRadius;
-      point.compliance = 0;
-      point.unilateral = false;
-      point.force = 0;
-      point.elongation = 0;
 
-      sb_push(points, point);
+  if (igCollapsingHeaderTreeNodeFlags("points", 0)) {
+    igIndent(5.0f);
+    if (igSliderInt("##count", (int *)&state->numPoints,  2, state->maxPoints, "count %u")) {
+      resetPos(false);
+    }
+
+    char id[256] = {0};
+    for (uint32_t i=1; i<state->numPoints;i++) {
+      point_t *point = &state->points[i];
+      igBeginGroup();
+      igText("point %u", i, point->radius);
+      igIndent(20.0);
+      // mass
+      {
+        float dmin = 0.0000f;
+        float dmax = 10.0f;
+        sprintf(id, "##mass-%u", i);
+        if (igSliderScalar(id, ImGuiDataType_Float, &point->mass,  &dmin, &dmax, "mass %f", 1.0f)) {
+          if (point->mass != 0.0f) {
+            point->invMass = 1.0f / point->mass;
+            point->size = sqrt(point->mass);
+          } else {
+            point->invMass = 0.0f;
+          }
+        }
+      }
+
+      // compliance
+      {
+        float dmin = 0.0000f;
+        float dmax = 0.01f;
+        sprintf(id, "##compliance-%u", i);
+        igSliderScalar(id, ImGuiDataType_Float, &point->compliance,  &dmin, &dmax, "compliance %f", 1.0f);
+      }
+      // state->pointSize = 5.0f;
+      // state->defaultRadius = 0.15f;
+      // state->defaultMass = 1.0f;
+      igEndGroup();
+    }
+
+  }
+
+  if (igCollapsingHeaderTreeNodeFlags("trail", 0)) {
+    igIndent(5.0f);
+    igCheckbox("enable", &state->showTrail);
+    if (igSliderInt("max length", (int *)&state->maxTrailLen,  1, 10000, "%u")) {
+      sb_free(state->trail);
+      state->trail = NULL;
+      state->trailLast = 0;
+    }
+
+    {
+      float dmin = 0.00001f;
+      float dmax = 0.1f;
+      igSliderScalar("distance", ImGuiDataType_Float, &state->trailDist,  &dmin, &dmax, "%f", 1.0f);
     }
   }
 
+  igEnd();
+}
+
+void setup() {
+  init_state(true);
   resetPos(false);
 }
 
 void loop() {
+  render_state();
+
   canvasOrig[0] = (float)rawkit_window_width() / 2.0;
   canvasOrig[1] = (float)rawkit_window_height() / 2.0;
-  drawScale = (float)rawkit_window_width() / simWidth;
+  state->drawScale = (float)rawkit_window_width() / state->simWidth;
 
   timeStep();
 }
