@@ -416,10 +416,32 @@ void render_state() {
 
   igSliderInt("substeps", (int *)&state->numSubsteps,  1, 500, "%u");
 
+  // sim width
   {
     float dmin = 0.01f;
     float dmax = 10.0f;
     igSliderScalar("##sim-width", ImGuiDataType_Float, &state->simWidth,  &dmin, &dmax, "sim width %f", 1.0f);
+  }
+
+  // gravity
+  {
+    float dmin = -100.0f;
+    float dmax = 100.0f;
+    igSliderScalar("##sim-gravity", ImGuiDataType_Float, &state->gravity,  &dmin, &dmax, "gravity %f", 1.0f);
+  }
+
+  // edge damping coefficient
+  {
+    float dmin = 0.0f;
+    float dmax = 1.0f;
+    igSliderScalar("##sim-edgeDampingCoeff", ImGuiDataType_Float, &state->edgeDampingCoeff,  &dmin, &dmax, "edge damping %f", 1.0f);
+  }
+
+  // global damping coefficient
+  {
+    float dmin = 0.0f;
+    float dmax = 1.0f;
+    igSliderScalar("##sim-globalDampingCoeff", ImGuiDataType_Float, &state->globalDampingCoeff,  &dmin, &dmax, "global damping %f", 1.0f);
   }
 
 
@@ -485,7 +507,7 @@ void render_state() {
 }
 
 void setup() {
-  init_state(true);
+  init_state(false);
   resetPos(false);
 }
 
