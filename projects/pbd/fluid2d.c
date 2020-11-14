@@ -55,21 +55,27 @@ void int_vector_push_back(int_vector_t *vec, int32_t val) {
 }
 
 typedef struct state_t {
-  float lastTime;
-
+  // sim controls
   bool paused;
   bool sand;
-
-  uint32_t numParticles;
+  bool fixedTimestep;
   float drawScale;
+
+  int32_t startBlob[2];
 
 	float gravity;
 	float particleRadius;
+
 	bool unilateral;
 	float viscosity;
 
 	uint32_t numIters;
 	uint32_t numSubSteps;
+
+  // dynamic
+  float lastTime;
+  uint32_t numParticles;
+
 
 	uint32_t maxParticles;
 
@@ -116,6 +122,11 @@ void init_state(bool reset) {
   state = rawkit_hot_state("fluid2d state", state_t);
 
   if (reset || !state->numParticles) {
+
+    state->startBlob[0] = 15;
+    state->startBlob[1] = 100;
+    state->fixedTimestep = true;
+
     state->maxParticles = 40000;
     state->drawScale = 300.0f;
     state->gravity = -10.0f;
@@ -129,7 +140,7 @@ void init_state(bool reset) {
     state->fluidOrig[0] = 0.0;
     state->fluidOrig[1] =  1.3;
 
-    int_vector_init(&state->neighbors, 10 * state->maxParticles);
+    int_vector_init(&state->neighbors, state->maxParticles * state->maxParticles);
 
     if (reset) {
       sb_free(state->boundaries);
@@ -260,7 +271,7 @@ void findNeighbors() {
       state->hash.first[h] = -1;
     }
 
-    state->hash.next[i] = state-> hash.first[h];
+    state->hash.next[i] = state->hash.first[h];
     state->hash.first[h] = i;
   }
   // collect neighbors
@@ -470,11 +481,18 @@ void applyViscosity(uint32_t pnr, float dt) {
 		state->velocities[2 * pnr + 1] += state->viscosity * deltaY;
 	}
 
-void simulate(float dt) {
-  dt /= (float)state->numSubSteps;
-  findNeighbors();
+void simulate(float dt, float substeps) {
+  dt /= (float)substeps;
 
-  for (uint32_t step = 0; step < state->numSubSteps; step ++) {
+  {
+    double start = rawkit_now();
+    findNeighbors();
+
+    double end = rawkit_now();
+    igText("findNeighbors: %f", end - start);
+  }
+
+  for (uint32_t step = 0; step < substeps; step ++) {
     // predict
     for (uint32_t i = 0; i < state->numParticles; i++) {
       state->velocities[2 * i + 1] += state->gravity * dt;
@@ -485,12 +503,27 @@ void simulate(float dt) {
     }
 
     // solve
+    igBeginGroup();
 
-    solveBoundaries();
-    solveFluid();
+    igText("substep %u", step);
+    igIndent(10.0f);
+    {
+      double start = rawkit_now();
+      solveBoundaries();
+      double end = rawkit_now();
+      igText("solveBoundaries: %f", end - start);
+    }
+
+    {
+      double start = rawkit_now();
+      solveFluid();
+      double end = rawkit_now();
+      igText("solveFluid: %f", end - start);
+    }
+
 
     // derive velocities
-
+    double applyViscocity = 0.0;
     for (uint32_t i = 0; i < state->numParticles; i++) {
       float vx = state->positions[2 * i] - state->prev_positions[2 * i];
       float vy = state->positions[2 * i + 1] - state->prev_positions[2 * i + 1];
@@ -507,13 +540,67 @@ void simulate(float dt) {
       state->velocities[2 * i] = vx / dt;
       state->velocities[2 * i + 1] = vy / dt;
 
-      applyViscosity(i, dt);
+      {
+        double start = rawkit_now();
+        applyViscosity(i, dt);
+        double end = rawkit_now();
+        applyViscocity += (end - start);
+      }
     }
+
+    igText("applyViscosity: %f", applyViscocity);
+    igEndGroup();
   }
 }
 
 
 void render_state() {
+  igBegin("config", 0, 0);
+  igCheckbox("pause", &state->paused);
+  igCheckbox("sand", &state->sand);
+  igCheckbox("unilateral", &state->unilateral);
+
+  igText("starting blob size");
+  igSliderInt2("##blob-size", state->startBlob, 1, 500, "%i");
+
+  ImVec2 size = {70, 30};
+  if (igButton("restart", size)) {
+     reset(state->startBlob[0], state->startBlob[1]);
+  }
+
+  igCheckbox("fixed time step", &state->fixedTimestep);
+  igSliderInt("##substeps", (int *)&state->numSubSteps,  1, 50, "substeps %u");
+  igSliderInt("##iterations", (int *)&state->numIters,  1, 10, "iterations %u");
+
+  // viscosity
+  {
+    float dmin = 0.0f;
+    float dmax = 1.0f;
+    igSliderScalar("##sim-viscosity", ImGuiDataType_Float, &state->viscosity,  &dmin, &dmax, "viscosity %f", 1.0f);
+  }
+
+  // gravity
+  {
+    float dmin = -20.0f;
+    float dmax = 20.0f;
+    igSliderScalar("##sim-gravity", ImGuiDataType_Float, &state->gravity,  &dmin, &dmax, "gravity %f", 1.0f);
+  }
+
+  // draw scale
+  {
+    float dmin = 20.0f;
+    float dmax = 2000.0f;
+    igSliderScalar("##sim-drawscale", ImGuiDataType_Float, &state->drawScale,  &dmin, &dmax, "scale %f", 1.0f);
+  }
+
+  // draw scale
+  {
+    float dmin = 0.0001f;
+    float dmax = 0.07f;
+    if (igSliderScalar("##sim-particleRadius", ImGuiDataType_Float, &state->particleRadius,  &dmin, &dmax, "particle radius %f", 1.0f)) {
+      state->particleDiameter = state->particleRadius * 2.0f;
+    }
+  }
 
 }
 
@@ -586,17 +673,31 @@ void loop() {
   // step
   {
     double startTime = rawkit_now();
+    double dt = startTime - state->lastTime;
+
+
+    igBegin("sim timings", 0, 0);
     if (state->lastTime != 0.0 && !state->paused) {
-      // TODO: this causes the fluid to boil!
-      // simulate((startTime - state->lastTime));
 
-      simulate(0.01);
+      float r = 1.0f / (float)state->numIters;
+      const float step_size = 0.01f * r;
+      for (uint32_t i = 1; i<=state->numIters; i++) {
+        if (!state->fixedTimestep) {
+          float steps = fminf(4.0f, floorf((dt * 10.0f)/step_size));
+            igText("HERE: %f", steps);
+          for (float i=0.0f; i<=steps; i++) {
+            simulate(step_size, state->numSubSteps / steps);
+          }
 
+        } else {
+          simulate(step_size, state->numSubSteps);
+        }
+      }
     }
+
     double endTime = rawkit_now();
     state->lastTime = endTime;
-
-    igText("%f", endTime - startTime);
+    igText("sim time %f", endTime - startTime);
   }
 
   draw();
