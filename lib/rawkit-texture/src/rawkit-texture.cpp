@@ -1,27 +1,22 @@
 #include <stdlib.h>
 
-#include <rawkit/texture.h>
+#include <rawkit/gpu.h>
 #include <rawkit/image.h>
+#include <rawkit/texture.h>
 
 #include <string>
 using namespace std;
 
-static uint32_t find_memory_type(VkMemoryPropertyFlags properties, uint32_t type_bits) {
-    VkPhysicalDeviceMemoryProperties prop;
-    vkGetPhysicalDeviceMemoryProperties(rawkit_vulkan_physical_device(), &prop);
-    for (uint32_t i = 0; i < prop.memoryTypeCount; i++) {
-      if (
-        (prop.memoryTypes[i].propertyFlags & properties) == properties &&
-        type_bits & (1 << i)
-      ) {
-        return i;
-      }
-    }
-    return 0xFFFFFFFF; // Unable to find memoryType
-}
-
 void rawkit_texture_destroy(rawkit_texture_t *texture) {
-  VkDevice device = rawkit_vulkan_device();
+  if (!texture) {
+    return;
+  }
+
+  if (!texture->options.gpu) {
+    return;
+  }
+
+  VkDevice device = texture->options.gpu->device;
 
   // TODO: ensure none of these resources are currently in use!
   if (device != VK_NULL_HANDLE) {
@@ -42,15 +37,15 @@ void rawkit_texture_destroy(rawkit_texture_t *texture) {
     }
   }
 
-  // TODO: free from hot state
-
+  rawkit_hot_resource_destroy(texture->resource_id);
 }
 
 bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options_t options) {
-  VkDevice device = rawkit_vulkan_device();
-  VkQueue queue = rawkit_vulkan_queue();
-  VkCommandPool command_pool = rawkit_vulkan_command_pool();
-  VkPipelineCache pipeline_cache = rawkit_vulkan_pipeline_cache();
+  rawkit_gpu_t *gpu = options.gpu;
+  VkDevice device = gpu->device;;
+  VkQueue queue = rawkit_vulkan_find_queue(gpu, VK_QUEUE_GRAPHICS_BIT);
+  VkCommandPool command_pool = gpu->command_pool;
+  VkPipelineCache pipeline_cache = gpu->pipeline_cache;
 
   // rebuild the images if the user requests a resize
   if (texture->options.width == options.width && texture->options.height == options.height) {
@@ -132,7 +127,8 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     VkMemoryAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     alloc_info.allocationSize = req.size;
-    alloc_info.memoryTypeIndex = find_memory_type(
+    alloc_info.memoryTypeIndex = rawkit_vulkan_find_memory_type(
+      gpu,
       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
       req.memoryTypeBits
     );
@@ -272,24 +268,30 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
 }
 
 rawkit_texture_t *_rawkit_texture_ex(
+  rawkit_gpu_t *gpu,
   const char *from_file,
   const char *path,
   uv_loop_t *loop,
   rawkit_diskwatcher_t *watcher
 ) {
 
+  if (!gpu) {
+    return NULL;
+  }
+
   string id = string("file+rawkit-texture://") + path + "from" + string(from_file);
   rawkit_texture_t *texture = rawkit_hot_state(id.c_str(), rawkit_texture_t);
 
   const rawkit_image_t *img = _rawkit_image_ex(from_file, path, loop, watcher);
 
-  if (!img) {
+  bool dirty = rawkit_resource_sources(texture, img);
+  if (!dirty) {
     return texture;
   }
 
-  VkCommandPool command_pool = rawkit_vulkan_command_pool();
-  VkQueue queue = rawkit_vulkan_queue();
-  VkDevice device = rawkit_vulkan_device();
+  VkDevice device = gpu->device;
+  VkQueue queue = rawkit_vulkan_find_queue(gpu, VK_QUEUE_GRAPHICS_BIT);
+  VkCommandPool command_pool = gpu->command_pool;
 
   rawkit_texture_options_t options = {};
   options.width = img->width;
@@ -298,6 +300,7 @@ rawkit_texture_t *_rawkit_texture_ex(
 
   // TODO: init doesn't do anything with the source! remove me
   options.source = img;
+  options.gpu = gpu;
 
   vkDeviceWaitIdle(device);
   // cache miss
@@ -333,7 +336,8 @@ rawkit_texture_t *_rawkit_texture_ex(
     VkMemoryAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     alloc_info.allocationSize = req.size;
-    alloc_info.memoryTypeIndex = find_memory_type(
+    alloc_info.memoryTypeIndex = rawkit_vulkan_find_memory_type(
+      gpu,
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
       req.memoryTypeBits
     );
@@ -362,8 +366,6 @@ rawkit_texture_t *_rawkit_texture_ex(
       return texture;
     }
   }
-
-  bool dirty = rawkit_resource_sources(texture, img);
 
   // upload the new image data
   if (dirty && texture->source_cpu_buffer_memory) {
@@ -446,7 +448,7 @@ rawkit_texture_t *_rawkit_texture_ex(
       use_barrier[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
       use_barrier[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
       use_barrier[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-      use_barrier[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      use_barrier[0].newLayout = VK_IMAGE_LAYOUT_GENERAL;
       use_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
       use_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
       use_barrier[0].image = texture->image;

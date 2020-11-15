@@ -40,3 +40,17 @@ void *_rawkit_hot_state(const char *name, uint64_t id, uint64_t len, void *data,
 
   return data;
 }
+
+void rawkit_hot_resource_destroy(uint64_t id) {
+  auto it = state_registry.find(id);
+  if (it == state_registry.end()) {
+    return;
+  }
+
+  void *entry = it->second.data;
+  if (entry) {
+    free(entry);
+  }
+
+  state_registry.erase(it);
+}

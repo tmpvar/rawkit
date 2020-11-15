@@ -87,6 +87,7 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
       .width = width,
       .height = height,
       .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+      .gpu = rawkit_default_gpu(),
     };
     for (uint32_t idx=0; idx<state->texture_count; idx++) {
       rawkit_texture_init(&state->textures[idx], texture_options);
@@ -218,10 +219,7 @@ struct triangle_uniforms {
 
 void loop() {
   // TODO: this should be exposed some where
-  rawkit_gpu_t gpu = {};
-  gpu.physical_device = rawkit_vulkan_physical_device();
-  gpu.device = rawkit_vulkan_device();
-  gpu.pipeline_cache = rawkit_vulkan_pipeline_cache();
+  rawkit_gpu_t *gpu = rawkit_default_gpu();
 
   {
     fill_rect_options_t options = {0};
@@ -234,7 +232,7 @@ void loop() {
       rawkit_shader_texture("input_image", rawkit_texture("box-gradient.png"))
     );
 
-    fill_rect(&gpu, "basic.comp", &options);
+    fill_rect(gpu, "basic.comp", &options);
   }
 
   {
@@ -256,12 +254,12 @@ void loop() {
       rawkit_shader_ubo("UBO", &ubo)
     );
 
-    fill_rect(&gpu, "triangle.comp", &options);
+    fill_rect(gpu, "triangle.comp", &options);
   }
 
   {
     rawkit_shader_t *shader = rawkit_shader_ex(
-      &gpu,
+      gpu,
       rawkit_window_frame_count(),
       rawkit_vulkan_renderpass(),
       2,

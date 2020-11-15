@@ -1090,7 +1090,7 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
           );
           check_vk_result(err);
         }
-        
+
         // Create the depth image memory
         {
           VkMemoryRequirements req;
@@ -1120,7 +1120,7 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
           info.viewType = VK_IMAGE_VIEW_TYPE_2D;
           info.image = frame->Depthbuffer;
           info.format = depth_format;
-         
+
           info.subresourceRange.baseMipLevel = 0;
           info.subresourceRange.levelCount = 1;
           info.subresourceRange.baseArrayLayer = 0;

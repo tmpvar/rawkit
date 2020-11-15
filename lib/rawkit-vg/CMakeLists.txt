@@ -14,23 +14,14 @@ if (NOT TARGET rawkit::gpu)
   add_subdirectory(../rawkit-gpu deps/rawkit-gpu)
 endif()
 
-# # DEP: rawkit-hot (sibling)
-# if (NOT TARGET rawkit::hot)
-#   add_subdirectory(../rawkit-hot deps/rawkit-hot)
-# endif()
-
-# # DEP: rawkit-image (sibling)
-# if (NOT TARGET rawkit::image)
-#   add_subdirectory(../rawkit-image deps/rawkit-image)
-# endif()
-
-# # DEP: rawkit-texture (sibling)
-# if (NOT TARGET rawkit::texture)
-#   add_subdirectory(../rawkit-texture deps/rawkit-texture)
-# endif()
+# DEP: rawkit-texture (sibling)
+if (NOT TARGET rawkit::texture)
+  add_subdirectory(../rawkit-texture deps/rawkit-texture)
+endif()
 
 add_library(${PROJECT_NAME} STATIC
   src/nanovg/nanovg.c
+  src/nanovg/nanovg_vk.c
   src/rawkit-vg.cpp
   src/nanovg-binding.cpp
 )
@@ -53,9 +44,7 @@ target_link_libraries(${PROJECT_NAME}
   PUBLIC
     rawkit::core
     rawkit::gpu
-    # rawkit::hot
-    # rawkit::image
-    # rawkit::texture
+    rawkit::texture
 )
 
 # Install

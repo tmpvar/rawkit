@@ -2,27 +2,48 @@
 #include <rawkit/hash.h>
 #include <rawkit/hot.h>
 
-uint32_t rawkit_vulkan_find_queue_family(rawkit_gpu_t *gpu, VkQueueFlags flags) {
-  if (!gpu->queues) {
+static rawkit_gpu_t *default_gpu = nullptr;
+rawkit_gpu_t *rawkit_default_gpu() {
+  return default_gpu;
+}
+
+void rawkit_set_default_gpu(rawkit_gpu_t *gpu) {
+  default_gpu = gpu;
+}
+
+
+
+int32_t rawkit_vulkan_find_queue_family_index(rawkit_gpu_t *gpu, VkQueueFlags flags) {
+  if (!gpu->queue_family_properties) {
     vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical_device, &gpu->queue_count, NULL);
-    gpu->queues = (VkQueueFamilyProperties*)malloc(sizeof(VkQueueFamilyProperties) * gpu->queue_count);
-    if (!gpu->queues) {
-      printf("ERROR: rawkit_vulkan_find_queue_family failed - out of memory\n");
+    gpu->queue_family_properties = (VkQueueFamilyProperties*)malloc(sizeof(VkQueueFamilyProperties) * gpu->queue_count);
+    if (!gpu->queue_family_properties) {
+      printf("ERROR: rawkit_vulkan_find_queue_family_index failed - out of memory\n");
       return 0;
     }
-    vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical_device, &gpu->queue_count, gpu->queues);
+    vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical_device, &gpu->queue_count, gpu->queue_family_properties);
   }
 
   for (uint32_t i = 0; i < gpu->queue_count; i++) {
-    if (gpu->queues[i].queueFlags & flags) {
+    if (gpu->queue_family_properties[i].queueFlags & flags) {
       return i;
     }
   }
 
-  printf("ERROR: rawkit_vulkan_find_queue_family failed - could not locate queue (%i)\n", flags);
-  return 0;
+  printf("ERROR: rawkit_vulkan_find_queue_family_index failed - could not locate queue (%i)\n", flags);
+  return -1;
 }
 
+VkQueue rawkit_vulkan_find_queue(rawkit_gpu_t *gpu, VkQueueFlags flags) {
+  uint32_t idx = rawkit_vulkan_find_queue_family_index(gpu, flags);
+  if (idx < 0) {
+    return VK_NULL_HANDLE;
+  }
+  VkQueue queue;
+
+  vkGetDeviceQueue(gpu->device, idx, 0, &queue);
+  return queue;
+}
 
 uint32_t rawkit_vulkan_find_memory_type(rawkit_gpu_t *gpu, VkMemoryPropertyFlags properties, uint32_t type_bits) {
   VkPhysicalDeviceMemoryProperties prop;

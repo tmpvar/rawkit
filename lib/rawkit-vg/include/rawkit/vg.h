@@ -1,9 +1,11 @@
 #pragma once
 
 #include <rawkit/core.h>
+#include <rawkit/gpu.h>
 #include <rawkit/hot.h>
+#include <rawkit/texture.h>
 #include <nanovg/nanovg.h>
-#include <rawkit/vulkan.h>
+#include <vulkan/vulkan.h>
 
 typedef struct rawkit_vg_t {
 
@@ -16,14 +18,14 @@ extern "C" {
 #endif
 
   rawkit_vg_t *rawkit_vg(
-    VkDevice device,
-    VkPhysicalDevice physical_device,
+    rawkit_gpu_t *gpu,
     VkRenderPass render_pass
   );
 
   rawkit_vg_t *rawkit_vg_default();
 
-  void rawkit_vg_begin_frame(rawkit_vg_t *vg, float windowWidth, float windowHeight, float devicePixelRatio);
+  NVGpaint rawkit_vg_texture(rawkit_vg_t *vg, rawkit_texture_t *tex);
+  void rawkit_vg_begin_frame(rawkit_vg_t *vg, VkCommandBuffer command_buffer, float windowWidth, float windowHeight, float devicePixelRatio);
   void rawkit_vg_cancel_frame(rawkit_vg_t *vg);
   void rawkit_vg_end_frame(rawkit_vg_t *vg);
   void rawkit_vg_global_composite_operation(rawkit_vg_t *vg, int op);

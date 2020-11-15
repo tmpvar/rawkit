@@ -1,8 +1,7 @@
 #include <stdlib.h>
 
-#include <rawkit/vulkan.h>
+#include <vulkan/vulkan.h>
 #include <rawkit/vg.h>
-#include "nanovg/nanovg_vk.h"
 
 #include "nanovg-binding.h"
 
@@ -10,8 +9,7 @@
 using namespace std;
 
 rawkit_vg_t *rawkit_vg(
-  VkDevice device,
-  VkPhysicalDevice physical_device,
+  rawkit_gpu_t *gpu,
   VkRenderPass render_pass
 ) {
 
@@ -20,8 +18,8 @@ rawkit_vg_t *rawkit_vg(
 
 
   VKNVGCreateInfo create_info = {0};
-  create_info.device = device;
-  create_info.gpu = physical_device;
+  create_info.device = gpu->device;
+  create_info.gpu = gpu->physical_device;
   create_info.renderpass = render_pass;
 
   state->ctx = nvgCreateVk(
@@ -31,4 +29,14 @@ rawkit_vg_t *rawkit_vg(
 
   vg->_state = (void *)state;
   return vg;
+}
+
+
+NVGpaint rawkit_vg_texture(rawkit_vg_t *vg, rawkit_texture_t *tex) {
+
+  NVGpaint paint = {};
+
+
+
+  return paint;
 }

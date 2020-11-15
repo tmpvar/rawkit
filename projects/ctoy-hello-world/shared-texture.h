@@ -312,7 +312,7 @@ class SharedTexture {
       this->imgui_texture = rawkit_imgui_add_texture(
         this->sampler,
         this->image_view,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        VK_IMAGE_LAYOUT_GENERAL
       );
 
       // create the upload buffer
@@ -501,7 +501,7 @@ class SharedTexture {
         use_barrier[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         use_barrier[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         use_barrier[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        use_barrier[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        use_barrier[0].newLayout = VK_IMAGE_LAYOUT_GENERAL;
         use_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         use_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         use_barrier[0].image = this->image;

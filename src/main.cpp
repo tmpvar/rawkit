@@ -658,15 +658,23 @@ int main(int argc, const char **argv) {
         ImGui_ImplVulkan_DestroyFontUploadObjects();
     }
 
+    rawkit_gpu_t gpu = {};
+    gpu.device = rawkit_vulkan_device();
+    gpu.physical_device = rawkit_vulkan_physical_device();
+    gpu.pipeline_cache = rawkit_vulkan_pipeline_cache();
+    gpu.command_pool = rawkit_vulkan_command_pool();
+    rawkit_set_default_gpu(&gpu);
+
     g_RawkitVG = rawkit_vg(
-      rawkit_vulkan_device(),
-      rawkit_vulkan_physical_device(),
+      &gpu,
       rawkit_vulkan_renderpass()
     );
 
     // Our state
     bool show_demo_window = true;
     bool show_another_window = false;
+
+
 
     // Main loop
     while (!glfwWindowShouldClose(window))
@@ -731,8 +739,10 @@ int main(int argc, const char **argv) {
           &scissor
         );
 
+        ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
+
         // TODO: handle device pixel ratio (fb.width / window.width)
-        rawkit_vg_begin_frame(g_RawkitVG, g_MainWindowData.Width, g_MainWindowData.Height, 1.0);
+        rawkit_vg_begin_frame(g_RawkitVG, fd->CommandBuffer, g_MainWindowData.Width, g_MainWindowData.Height, 1.0);
 
         rawkit_jit_call_loop(jit);
 
@@ -742,7 +752,6 @@ int main(int argc, const char **argv) {
         ImGui::Render();
         ImDrawData* draw_data = ImGui::GetDrawData();
 
-        ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
         // Record dear imgui primitives into command buffer
         ImGui_ImplVulkan_RenderDrawData(draw_data, fd->CommandBuffer);
 

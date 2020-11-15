@@ -27,7 +27,7 @@ ShaderState *ShaderState::create(rawkit_gpu_t *gpu, const rawkit_glsl_t *glsl, u
       ? VK_QUEUE_COMPUTE_BIT
       : VK_QUEUE_GRAPHICS_BIT;
 
-    info.queueFamilyIndex = rawkit_vulkan_find_queue_family(gpu, flags);
+    info.queueFamilyIndex = rawkit_vulkan_find_queue_family_index(gpu, flags);
     VkResult err = vkCreateCommandPool(
       gpu->device,
       &info,
