@@ -144,6 +144,7 @@ class JitJob {
     std::vector<JitJobFileEntry> watched_files;
     bool dirty;
   public:
+    std::string program_file;
 
     std::unique_ptr<Runnable> active_runnable;
     static JitJob *create(int argc, const char **argv);

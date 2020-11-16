@@ -240,7 +240,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
   //       sort of like node w/ index.js
   job->program_source = fs::canonical(fs::current_path() / argv[0]);
   job->program_dir = fs::path(job->program_source).remove_filename();
-
+  job->program_file = job->program_source.string();
   return job;
 }
 

@@ -559,10 +559,11 @@ int main(int argc, const char **argv) {
         return 1;
 
 
+    string title = "rawkit " + string(rawkit_jit_program_path(jit));
 
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+Vulkan example", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(1280, 720, title.c_str(), NULL, NULL);
 
     // Setup Vulkan
     if (!glfwVulkanSupported())

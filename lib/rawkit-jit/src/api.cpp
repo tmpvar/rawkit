@@ -33,6 +33,14 @@ rawkit_jit_t *rawkit_jit_create(const char *file) {
   return jit;
 }
 
+const char *rawkit_jit_program_path(rawkit_jit_t *jit) {
+  if (!jit || !jit->job) {
+    return "";
+  }
+
+  return jit->job->program_file.c_str();
+}
+
 rawkit_jit_status rawkit_jit_get_status(rawkit_jit_t *jit) {
   if (!jit || !jit->job) {
     return RAWKIT_JIT_STATUS_ERR;
