@@ -15,10 +15,5 @@ add_subdirectory(
 add_library(glfw::glfw ALIAS glfw)
 
 install(TARGETS glfw
-  EXPORT glfwTargets
-)
-install(EXPORT glfwTargets
-  FILE glfwTargets.cmake
-  NAMESPACE glfw::
-  DESTINATION lib/cmake/glfw
+  EXPORT glfw3Targets
 )
