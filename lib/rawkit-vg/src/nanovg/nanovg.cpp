@@ -848,11 +848,10 @@ NVGpaint nvgLinearGradient(NVGcontext* ctx,
 								  float sx, float sy, float ex, float ey,
 								  NVGcolor icol, NVGcolor ocol)
 {
-	NVGpaint p;
+	NVGpaint p = {0};
 	float dx, dy, d;
 	const float large = 1e5;
 	NVG_NOTUSED(ctx);
-	memset(&p, 0, sizeof(p));
 
 	// Calculate transform aligned to the line
 	dx = ex - sx;
@@ -887,11 +886,11 @@ NVGpaint nvgRadialGradient(NVGcontext* ctx,
 								  float cx, float cy, float inr, float outr,
 								  NVGcolor icol, NVGcolor ocol)
 {
-	NVGpaint p;
+	NVGpaint p = {0};
 	float r = (inr+outr)*0.5f;
 	float f = (outr-inr);
 	NVG_NOTUSED(ctx);
-	memset(&p, 0, sizeof(p));
+
 
 	nvgTransformIdentity(p.xform);
 	p.xform[4] = cx;
@@ -914,10 +913,8 @@ NVGpaint nvgBoxGradient(NVGcontext* ctx,
 							   float x, float y, float w, float h, float r, float f,
 							   NVGcolor icol, NVGcolor ocol)
 {
-	NVGpaint p;
+	NVGpaint p = {0};
 	NVG_NOTUSED(ctx);
-	memset(&p, 0, sizeof(p));
-
 	nvgTransformIdentity(p.xform);
 	p.xform[4] = x+w*0.5f;
 	p.xform[5] = y+h*0.5f;
@@ -940,9 +937,8 @@ NVGpaint nvgImagePattern(NVGcontext* ctx,
 								float cx, float cy, float w, float h, float angle,
 								int image, float alpha)
 {
-	NVGpaint p;
+	NVGpaint p = {0};
 	NVG_NOTUSED(ctx);
-	memset(&p, 0, sizeof(p));
 
 	nvgTransformRotate(p.xform, angle);
 	p.xform[4] = cx;

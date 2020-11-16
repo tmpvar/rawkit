@@ -257,7 +257,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
       }
     }
   }
-
+  texture->image_layout = VK_IMAGE_LAYOUT_GENERAL;
   texture->imgui_texture = rawkit_imgui_add_texture(
     texture->sampler,
     texture->image_view,

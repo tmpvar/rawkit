@@ -252,6 +252,12 @@ float rawkit_vg_rad_to_deg(float rad) {
   return nvgRadToDeg(rad);
 }
 
+int rawkit_vg_create_image_rgba(rawkit_vg_t *vg, int w, int h, int imageFlags, const unsigned char* data) {
+  VGState *state = (VGState *)vg->_state;
+  NVGcontext *ctx = state->ctx;
+  return nvgCreateImageRGBA(ctx, w, h, imageFlags, data);
+}
+
 void rawkit_vg_update_image(rawkit_vg_t *vg, int image, const unsigned char *data) {
   VGState *state = (VGState *)vg->_state;
   NVGcontext *ctx = state->ctx;

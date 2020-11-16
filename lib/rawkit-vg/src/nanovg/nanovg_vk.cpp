@@ -30,6 +30,7 @@ NVGcolor vknvg_premulColor(NVGcolor c) {
 
 VKNVGtexture *vknvg_findTexture(VKNVGcontext *vk, int id) {
   if (id > vk->ntextures || id <= 0) {
+    printf("ERROR: could not find texture %i - invalid\n", id);
     return NULL;
   }
   VKNVGtexture *tex = vk->textures + id - 1;
@@ -220,6 +221,10 @@ int vknvg_convertPaint(VKNVGcontext *vk, VKNVGfragUniforms *frag, NVGpaint *pain
     else
       frag->texType = 2;
     //		printf("frag->texType = %d\n", frag->texType);
+  } else if (paint->texture) {
+    frag->type = NSVG_SHADER_FILLIMG;
+    frag->texType = 1;
+    nvgTransformInverse(invxform, paint->xform);
   } else {
     frag->type = NSVG_SHADER_FILLGRAD;
     frag->radius = paint->radius;
@@ -668,7 +673,7 @@ void vknvg_vset(NVGvertex *vtx, float x, float y, float u, float v) {
   vtx->v = v;
 }
 
-void vknvg_setUniforms(VKNVGcontext *vk, VkDescriptorSet descSet, int uniformOffset, int image) {
+void vknvg_setUniforms(VKNVGcontext *vk, VkDescriptorSet descSet, int uniformOffset, VKNVGcall *call) {
   VkDevice device = vk->createInfo.device;
 
   VkWriteDescriptorSet writes[3] = {{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET}, {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET}, {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET}};
@@ -696,33 +701,37 @@ void vknvg_setUniforms(VKNVGcontext *vk, VkDescriptorSet descSet, int uniformOff
   writes[1].pBufferInfo = &uniform_buffer_info;
   writes[1].dstBinding = 1;
 
-  VkDescriptorImageInfo image_info;
-  if (image != 0) {
-    VKNVGtexture *tex = vknvg_findTexture(vk, image);
+  VkDescriptorImageInfo image_info = {0};
+  // default to the error image
 
-    image_info.imageLayout = tex->imageLayout;
-    image_info.imageView = tex->view;
+  if (call->paint.texture && call->paint.texture->resource_version) {
+    rawkit_texture_t *tex = call->paint.texture;
+    image_info.imageLayout = tex->image_layout;
+    image_info.imageView = tex->image_view;
     image_info.sampler = tex->sampler;
-
-    writes[2].dstSet = descSet;
-    writes[2].dstBinding = 2;
-    writes[2].descriptorCount = 1;
-    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[2].pImageInfo = &image_info;
-  } else {
-    //fixme
-    VKNVGtexture *tex = vknvg_findTexture(vk, 1);
-    image_info.imageLayout = tex->imageLayout;
-    image_info.imageView = tex->view;
-    image_info.sampler = tex->sampler;
-
-    writes[2].dstSet = descSet;
-    writes[2].dstBinding = 2;
-    writes[2].descriptorCount = 1;
-    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[2].pImageInfo = &image_info;
   }
 
+  if (call->paint.image > 0) {
+    VKNVGtexture *tex = vknvg_findTexture(vk, call->paint.image);
+    image_info.imageLayout = tex->imageLayout;
+    image_info.imageView = tex->view;
+    image_info.sampler = tex->sampler;
+  }
+
+  // fallback to error image
+  if (!image_info.imageLayout) {
+    int error_id = nvgErrorImage(vk->ctx);
+    VKNVGtexture *tex = vknvg_findTexture(vk, error_id);
+    image_info.imageLayout = tex->imageLayout;
+    image_info.imageView = tex->view;
+    image_info.sampler = tex->sampler;
+  }
+
+  writes[2].dstSet = descSet;
+  writes[2].dstBinding = 2;
+  writes[2].descriptorCount = 1;
+  writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  writes[2].pImageInfo = &image_info;
   vkUpdateDescriptorSets(device, 3, writes, 0, NULL);
 }
 
@@ -746,7 +755,7 @@ void vknvg_fill(VKNVGcontext *vk, VKNVGcall *call) {
   };
   VkDescriptorSet descSet;
   NVGVK_CHECK_RESULT(vkAllocateDescriptorSets(device, alloc_info, &descSet));
-  vknvg_setUniforms(vk, descSet, call->uniformOffset, call->image); //fixme
+  vknvg_setUniforms(vk, descSet, call->uniformOffset, call);
   vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk->pipelineLayout, 0, 1, &descSet, 0, NULL);
 
   for (i = 0; i < npaths; i++) {
@@ -757,7 +766,7 @@ void vknvg_fill(VKNVGcontext *vk, VKNVGcall *call) {
 
   VkDescriptorSet descSet2;
   NVGVK_CHECK_RESULT(vkAllocateDescriptorSets(device, alloc_info, &descSet2));
-  vknvg_setUniforms(vk, descSet2, call->uniformOffset + vk->fragSize, call->image);
+  vknvg_setUniforms(vk, descSet2, call->uniformOffset + vk->fragSize, call);
   vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk->pipelineLayout, 0, 1, &descSet2, 0, NULL);
 
   if (vk->flags & NVG_ANTIALIAS) {
@@ -807,7 +816,7 @@ void vknvg_convexFill(VKNVGcontext *vk, VKNVGcall *call) {
   };
   VkDescriptorSet descSet;
   NVGVK_CHECK_RESULT(vkAllocateDescriptorSets(device, alloc_info, &descSet));
-  vknvg_setUniforms(vk, descSet, call->uniformOffset, call->image);
+  vknvg_setUniforms(vk, descSet, call->uniformOffset, call);
 
   vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk->pipelineLayout, 0, 1, &descSet, 0, NULL);
 
@@ -843,7 +852,7 @@ void vknvg_stroke(VKNVGcontext *vk, VKNVGcall *call) {
     };
     VkDescriptorSet descSet;
     NVGVK_CHECK_RESULT(vkAllocateDescriptorSets(device, alloc_info, &descSet));
-    vknvg_setUniforms(vk, descSet, call->uniformOffset, call->image);
+    vknvg_setUniforms(vk, descSet, call->uniformOffset, call);
     vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk->pipelineLayout, 0, 1, &descSet, 0, NULL);
     VKNVGCreatePipelineKey pipelinekey = {0};
     pipelinekey.compositOperation = call->compositOperation;
@@ -891,7 +900,7 @@ void vknvg_stroke(VKNVGcontext *vk, VKNVGcall *call) {
     };
     VkDescriptorSet descSet;
     NVGVK_CHECK_RESULT(vkAllocateDescriptorSets(device, alloc_info, &descSet));
-    vknvg_setUniforms(vk, descSet, call->uniformOffset, call->image);
+    vknvg_setUniforms(vk, descSet, call->uniformOffset, call);
     vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk->pipelineLayout, 0, 1, &descSet, 0, NULL);
     // Draw Strokes
 
@@ -922,7 +931,7 @@ void vknvg_triangles(VKNVGcontext *vk, VKNVGcall *call) {
   };
   VkDescriptorSet descSet;
   NVGVK_CHECK_RESULT(vkAllocateDescriptorSets(device, alloc_info, &descSet));
-  vknvg_setUniforms(vk, descSet, call->uniformOffset, call->image);
+  vknvg_setUniforms(vk, descSet, call->uniformOffset, call);
   vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk->pipelineLayout, 0, 1, &descSet, 0, NULL);
 
   const VkDeviceSize offsets[1] = {call->triangleOffset * sizeof(NVGvertex)};
@@ -989,7 +998,7 @@ int vknvg_renderCreateTexture(void *uptr, int type, int w, int h, int imageFlags
   image_createInfo.arrayLayers = 1;
   image_createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   image_createInfo.tiling = VK_IMAGE_TILING_LINEAR;
-  image_createInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+  image_createInfo.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
   image_createInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
   image_createInfo.queueFamilyIndexCount = 0;
   image_createInfo.pQueueFamilyIndices = NULL;
@@ -1026,14 +1035,18 @@ int vknvg_renderCreateTexture(void *uptr, int type, int w, int h, int imageFlags
   }
   samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
   if (imageFlags & NVG_IMAGE_REPEATX) {
-    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
   } else {
     samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
   }
+
+  if (imageFlags & NVG_IMAGE_REPEATY) {
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  } else {
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  }
+
+  samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
   samplerCreateInfo.mipLodBias = 0.0;
   samplerCreateInfo.anisotropyEnable = VK_FALSE;
   samplerCreateInfo.maxAnisotropy = 1;
@@ -1177,7 +1190,7 @@ void vknvg_renderFill(void *uptr, NVGpaint *paint, NVGcompositeOperationState co
   if (call->pathOffset == -1)
     goto error;
   call->pathCount = npaths;
-  call->image = paint->image;
+  call->paint = *paint;
   call->compositOperation = compositeOperation;
 
   if (npaths == 1 && paths[0].convex) {
@@ -1260,7 +1273,7 @@ void vknvg_renderStroke(void *uptr, NVGpaint *paint, NVGcompositeOperationState 
   if (call->pathOffset == -1)
     goto error;
   call->pathCount = npaths;
-  call->image = paint->image;
+  call->paint = *paint;
   call->compositOperation = compositeOperation;
 
   // Allocate vertices for all the paths.
@@ -1318,7 +1331,7 @@ void vknvg_renderTriangles(void *uptr, NVGpaint *paint, NVGcompositeOperationSta
     return;
 
   call->type = VKNVG_TRIANGLES;
-  call->image = paint->image;
+  call->paint = *paint;
   call->compositOperation = compositeOperation;
 
   // Allocate vertices for all the paths.
@@ -1410,6 +1423,7 @@ NVGcontext *nvgCreateVk(VKNVGCreateInfo createInfo, int flags) {
   if (ctx == NULL)
     goto error;
 
+  vk->ctx = ctx;
   return ctx;
 
 error:

@@ -19,6 +19,9 @@
 #ifndef NANOVG_H
 #define NANOVG_H
 
+#include <rawkit/core.h>
+#include <rawkit/texture.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -42,6 +45,8 @@ struct NVGcolor {
 };
 typedef struct NVGcolor NVGcolor;
 
+
+
 struct NVGpaint {
 	float xform[6];
 	float extent[2];
@@ -50,6 +55,7 @@ struct NVGpaint {
 	NVGcolor innerColor;
 	NVGcolor outerColor;
 	int image;
+  rawkit_texture_t *texture;
 };
 typedef struct NVGpaint NVGpaint;
 
@@ -387,6 +393,9 @@ void nvgImageSize(NVGcontext* ctx, int image, int* w, int* h);
 
 // Deletes created image.
 void nvgDeleteImage(NVGcontext* ctx, int image);
+
+// Returns a default image (think source engine missing texture)
+int nvgErrorImage(NVGcontext* ctx);
 
 //
 // Paints

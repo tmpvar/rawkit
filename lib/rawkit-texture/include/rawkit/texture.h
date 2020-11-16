@@ -36,6 +36,7 @@ typedef struct rawkit_texture_t {
   VkDeviceMemory image_memory;
   VkImageView image_view;
   VkSampler sampler;
+  VkImageLayout image_layout;
   rawkit_texture_options_t options;
 
   VkBuffer source_cpu_buffer;

@@ -8,7 +8,6 @@
 #include <string.h>
 
 #include <nanovg/nanovg.h>
-
 #include <vulkan/vulkan.h>
 
 enum NVGcreateFlags {
@@ -68,13 +67,13 @@ enum VKNVGcallType {
 
 typedef struct VKNVGcall {
   int type;
-  int image;
   int pathOffset;
   int pathCount;
   int triangleOffset;
   int triangleCount;
   int uniformOffset;
   NVGcompositeOperationState compositOperation;
+  NVGpaint paint;
 } VKNVGcall;
 
 typedef struct VKNVGpath {
@@ -180,6 +179,8 @@ typedef struct VKNVGcontext {
   VkShaderModule fillVertShader;
 
   VkCommandBuffer current_command_buffer;
+
+  NVGcontext *ctx;
 } VKNVGcontext;
 
 
@@ -249,7 +250,7 @@ int vknvg_allocVerts(VKNVGcontext *vk, int n);
 int vknvg_allocFragUniforms(VKNVGcontext *vk, int n);
 VKNVGfragUniforms *vknvg_fragUniformPtr(VKNVGcontext *vk, int i);
 void vknvg_vset(NVGvertex *vtx, float x, float y, float u, float v);
-void vknvg_setUniforms(VKNVGcontext *vk, VkDescriptorSet descSet, int uniformOffset, int image);
+void vknvg_setUniforms(VKNVGcontext *vk, VkDescriptorSet descSet, int uniformOffset, VKNVGcall *call);
 void vknvg_fill(VKNVGcontext *vk, VKNVGcall *call);
 void vknvg_convexFill(VKNVGcontext *vk, VKNVGcall *call);
 void vknvg_stroke(VKNVGcontext *vk, VKNVGcall *call);

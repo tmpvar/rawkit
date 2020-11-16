@@ -20,9 +20,9 @@ if (NOT TARGET rawkit::texture)
 endif()
 
 add_library(${PROJECT_NAME} STATIC
-  src/nanovg/nanovg.c
-  src/nanovg/nanovg_vk.c
   src/rawkit-vg.cpp
+  src/nanovg/nanovg.cpp
+  src/nanovg/nanovg_vk.cpp
   src/nanovg-binding.cpp
 )
 

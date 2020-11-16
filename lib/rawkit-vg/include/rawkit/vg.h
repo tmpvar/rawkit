@@ -4,6 +4,7 @@
 #include <rawkit/gpu.h>
 #include <rawkit/hot.h>
 #include <rawkit/texture.h>
+
 #include <nanovg/nanovg.h>
 #include <vulkan/vulkan.h>
 
@@ -24,7 +25,8 @@ extern "C" {
 
   rawkit_vg_t *rawkit_vg_default();
 
-  NVGpaint rawkit_vg_texture(rawkit_vg_t *vg, rawkit_texture_t *tex);
+  void rawkit_vg_draw_texture(rawkit_vg_t *vg, float x, float y, float w, float h, rawkit_texture_t *tex);
+  NVGpaint rawkit_vg_texture(rawkit_vg_t *vg, float cx, float cy, float w, float h, float angle, rawkit_texture_t *tex, float alpha);
   void rawkit_vg_begin_frame(rawkit_vg_t *vg, VkCommandBuffer command_buffer, float windowWidth, float windowHeight, float devicePixelRatio);
   void rawkit_vg_cancel_frame(rawkit_vg_t *vg);
   void rawkit_vg_end_frame(rawkit_vg_t *vg);
@@ -73,6 +75,7 @@ extern "C" {
   void rawkit_vg_transform_point(float*dstx, float*dsty, const float*xform, float srcx, float srcy);
   float rawkit_vg_deg_to_rad(float deg);
   float rawkit_vg_rad_to_deg(float rad);
+  int rawkit_vg_create_image_rgba(rawkit_vg_t *vg, int w, int h, int imageFlags, const unsigned char* data);
   void rawkit_vg_update_image(rawkit_vg_t *vg, int image, const unsigned char *data);
   void rawkit_vg_image_size(rawkit_vg_t *vg, int image, int*w, int*h);
   void rawkit_vg_delete_image(rawkit_vg_t *vg, int image);

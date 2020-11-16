@@ -5,6 +5,8 @@
 void host_init_rawkit_vg(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_vg", rawkit_vg);
   rawkit_jit_add_export(jit, "rawkit_vg_default", rawkit_vg_default);
+  rawkit_jit_add_export(jit, "rawkit_vg_texture", rawkit_vg_texture);
+  rawkit_jit_add_export(jit, "rawkit_vg_draw_texture", rawkit_vg_draw_texture);
 
   rawkit_jit_add_export(jit, "rawkit_vg_begin_frame", rawkit_vg_begin_frame);
   rawkit_jit_add_export(jit, "rawkit_vg_cancel_frame", rawkit_vg_cancel_frame);
@@ -54,6 +56,7 @@ void host_init_rawkit_vg(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_vg_transform_point", rawkit_vg_transform_point);
   rawkit_jit_add_export(jit, "rawkit_vg_deg_to_rad", rawkit_vg_deg_to_rad);
   rawkit_jit_add_export(jit, "rawkit_vg_rad_to_deg", rawkit_vg_rad_to_deg);
+  rawkit_jit_add_export(jit, "rawkit_vg_create_image_rgba", rawkit_vg_create_image_rgba);
   rawkit_jit_add_export(jit, "rawkit_vg_update_image", rawkit_vg_update_image);
   rawkit_jit_add_export(jit, "rawkit_vg_image_size", rawkit_vg_image_size);
   rawkit_jit_add_export(jit, "rawkit_vg_delete_image", rawkit_vg_delete_image);
