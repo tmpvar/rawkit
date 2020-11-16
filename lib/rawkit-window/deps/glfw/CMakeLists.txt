@@ -1,0 +1,24 @@
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+
+if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
+  set(GLFW_VULKAN_STATIC OFF CACHE BOOL "" FORCE)
+else()
+  set(GLFW_VULKAN_STATIC ON CACHE BOOL "" FORCE)
+endif()
+
+add_subdirectory(
+  ${CMAKE_CURRENT_LIST_DIR}/glfw-3.3-stable
+)
+
+add_library(glfw::glfw ALIAS glfw)
+
+install(TARGETS glfw
+  EXPORT glfwTargets
+)
+install(EXPORT glfwTargets
+  FILE glfwTargets.cmake
+  NAMESPACE glfw::
+  DESTINATION lib/cmake/glfw
+)

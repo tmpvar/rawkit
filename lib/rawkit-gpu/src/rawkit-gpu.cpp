@@ -11,8 +11,6 @@ void rawkit_set_default_gpu(rawkit_gpu_t *gpu) {
   default_gpu = gpu;
 }
 
-
-
 int32_t rawkit_vulkan_find_queue_family_index(rawkit_gpu_t *gpu, VkQueueFlags flags) {
   if (!gpu->queue_family_properties) {
     vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical_device, &gpu->queue_count, NULL);

@@ -4,23 +4,37 @@
 #include <rawkit/core.h>
 #include <rawkit/mesh.h>
 #include <string.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
   extern "C" {
 #endif
 
+// TOOD: migrate these in main.cpp
+// static uint32_t                 g_QueueFamily = (uint32_t)-1;
+// static VkQueue                  g_Queue = VK_NULL_HANDLE;
+
 typedef struct rawkit_gpu_t {
   RAWKIT_RESOURCE_FIELDS
 
+  bool valid;
+
+  VkInstance instance;
   VkPhysicalDevice physical_device;
   VkDevice device;
   VkAllocationCallbacks *allocator;
   VkPipelineCache pipeline_cache;
   VkCommandPool command_pool;
 
+  VkDebugReportCallbackEXT debug_report;
+
   // Queues
   uint32_t queue_count;
   VkQueueFamilyProperties *queue_family_properties;
+
+  VkDescriptorPool default_descriptor_pool;
+  int32_t graphics_queue_family_index;
+  VkQueue graphics_queue;
 } rawkit_gpu_t;
 
 typedef struct rawkit_gpu_buffer_t {
@@ -34,6 +48,13 @@ typedef struct rawkit_gpu_vertex_buffer_t {
   rawkit_gpu_buffer_t *vertices;
   rawkit_gpu_buffer_t *indices;
 } rawkit_gpu_vertex_buffer_t;
+
+rawkit_gpu_t *rawkit_gpu_init(
+  const char** extensions,
+  uint32_t extensions_count,
+  bool validation,
+  PFN_vkDebugReportCallbackEXT debug_callback
+);
 
 rawkit_gpu_t *rawkit_default_gpu();
 void rawkit_set_default_gpu(rawkit_gpu_t *gpu);

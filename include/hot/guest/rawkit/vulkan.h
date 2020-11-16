@@ -14,7 +14,8 @@ extern "C" {
   VkPipelineCache rawkit_vulkan_pipeline_cache();
   VkRenderPass rawkit_vulkan_renderpass();
   VkDescriptorPool rawkit_vulkan_descriptor_pool();
-  uint32_t rawkit_vulkan_queue_family();
+  // TODO: this is legacy, use rawkit_vulkan_find_queue instead
+  int32_t rawkit_vulkan_queue_family();
   VkFramebuffer rawkit_current_framebuffer();
 #ifdef __cplusplus
 }

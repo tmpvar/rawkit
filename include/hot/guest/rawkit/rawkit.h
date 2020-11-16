@@ -12,6 +12,7 @@
 #include <rawkit/texture.h>
 #include <rawkit/shader.h>
 #include <rawkit/vg.h>
+#include <rawkit/window.h>
 
 // legacy includes
 #include "time.h"
@@ -25,11 +26,6 @@ extern "C" {
 #endif
 
   float rawkit_randf();
-
-  uint32_t rawkit_window_frame_index();
-  uint32_t rawkit_window_frame_count();
-  uint32_t rawkit_window_width();
-  uint32_t rawkit_window_height();
 
 #ifdef __cplusplus
 }

@@ -10,18 +10,6 @@ include_directories(
   include/hot/guest
 )
 
-# DEP: glfw
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
-  set(GLFW_VULKAN_STATIC OFF CACHE BOOL "" FORCE)
-else()
-  set(GLFW_VULKAN_STATIC ON CACHE BOOL "" FORCE)
-endif()
-
-add_subdirectory(${DEPS_DIR}/glfw)
-
 # DEP: cimgui / imgui
 set(IMGUI_SRC
   ${DEPS_DIR}/cimgui/cimgui.cpp
@@ -137,12 +125,18 @@ if (NOT TARGET rawkit::vg)
   add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-vg)
 endif()
 
+# LIB: rawkit-window
+if (NOT TARGET rawkit::window)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-window)
+endif()
+
 add_executable(
   rawkit
   ${SRC_DIR}/main.cpp
   ${SRC_DIR}/hot/state.cpp
   ${SRC_DIR}/hot/cimgui.cpp
   ${SRC_DIR}/rawkit/serial.cpp
+
   ${SRC_DIR}/imgui/imgui_impl_glfw.cpp
   ${SRC_DIR}/imgui/imgui_impl_vulkan.cpp
   ${DEPS_DIR}/tinyfiledialogs/tinyfiledialogs.c
@@ -231,8 +225,8 @@ target_link_libraries(
   rawkit::mesh
 
   rawkit::vg
+  rawkit::window
 
-  glfw
   serial
 )
 
