@@ -12,8 +12,6 @@
 #include <stdlib.h>         // abort
 #include <uv.h>
 
-#define GLFW_INCLUDE_NONE
-#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #pragma warning( push, 0 )
@@ -268,8 +266,16 @@ VkDescriptorPool rawkit_vulkan_descriptor_pool() {
   return gpu->default_descriptor_pool;
 }
 
-ImTextureID rawkit_imgui_add_texture(VkSampler sampler, VkImageView image_view, VkImageLayout image_layout) {
-  return ImGui_ImplVulkan_AddTexture(sampler, image_view, image_layout);
+ImTextureID rawkit_imgui_add_texture(rawkit_texture_t *texture, const rawkit_texture_sampler_t *sampler) {
+  if (!texture) {
+    return nullptr;
+  }
+
+  return ImGui_ImplVulkan_AddTexture(
+    sampler ? sampler->handle : texture->default_sampler->handle,
+    texture->image_view,
+    texture->image_layout
+  );
 }
 
 VkQueue rawkit_vulkan_queue() {

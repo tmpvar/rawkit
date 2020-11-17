@@ -37,6 +37,12 @@ target_include_directories(${PROJECT_NAME}
     $<INSTALL_INTERFACE:include>
 )
 
+target_compile_definitions(${PROJECT_NAME}
+  PUBLIC
+    GLFW_INCLUDE_VULKAN
+    GLFW_INCLUDE_NONE
+)
+
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     rawkit::core
