@@ -26,13 +26,21 @@ static void rawkit_shader_set_concurrent_param(
     }
 
     case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE: {
-      if (!param->texture || !param->texture->sampler || !param->texture->image_view) {
+      rawkit_texture_t *texture = param->texture.texture;
+
+      if (!texture || !texture->image_view) {
         return;
       }
 
       VkDescriptorImageInfo imageInfo = {};
-      imageInfo.sampler = param->texture->sampler;
-      imageInfo.imageView = param->texture->image_view;
+      const rawkit_texture_sampler_t *sampler = param->texture.sampler;
+      if (sampler) {
+        imageInfo.sampler = sampler->handle;
+      } else {
+        imageInfo.sampler = texture->default_sampler->handle;
+      }
+
+      imageInfo.imageView = texture->image_view;
       imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
       VkWriteDescriptorSet writeDescriptorSet = {};

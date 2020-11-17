@@ -37,7 +37,7 @@ void loop() {
 
 
   rawkit_vg_begin_path(vg);
-    rawkit_vg_rect(vg, 0.0f, 0.0f, rawkit_window_width(), rawkit_window_height());
+  rawkit_vg_rect(vg, 0.0f, 0.0f, rawkit_window_width(), rawkit_window_height());
 
   rawkit_vg_fill_paint(vg, notfound);
   rawkit_vg_fill(vg);

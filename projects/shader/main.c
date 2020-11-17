@@ -108,7 +108,7 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
   {
     rawkit_shader_params_t p = {};
     rawkit_shader_params(p,
-      rawkit_shader_texture("rawkit_output_image", &state->textures[idx])
+      rawkit_shader_texture("rawkit_output_image", &state->textures[idx], NULL)
     );
     rawkit_shader_apply_params(
       shader,
@@ -229,7 +229,27 @@ void loop() {
     options.display_height = 256;
 
     rawkit_shader_params(options.params,
-      rawkit_shader_texture("input_image", rawkit_texture("box-gradient.png"))
+      rawkit_shader_texture(
+        "input_image",
+        rawkit_texture("box-gradient.png"),
+        rawkit_texture_sampler(gpu,
+          VK_FILTER_LINEAR,
+          VK_FILTER_LINEAR,
+          VK_SAMPLER_MIPMAP_MODE_LINEAR,
+          VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+          VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+          VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+          0.0f,
+          false,
+          0.0f,
+          false,
+          VK_COMPARE_OP_NEVER,
+          0,
+          1,
+          VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+          false
+        )
+      )
     );
 
     fill_rect(gpu, "basic.comp", &options);

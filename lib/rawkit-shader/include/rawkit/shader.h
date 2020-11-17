@@ -54,11 +54,17 @@ typedef enum {
 #define rawkit_shader_i64(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_I64, .i64 = _value, .bytes = 8, }
 #define rawkit_shader_u64(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_U64, .u64 = _value, .bytes = 8, }
 
-#define rawkit_shader_texture(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_TEXTURE_PTR, .ptr = _value, .bytes = sizeof(*_value), }
+#define rawkit_shader_texture(_name, _texture, _sampler) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_TEXTURE_PTR, .texture = {.texture = _texture, .sampler = _sampler}, .bytes = sizeof(rawkit_shader_param_texture_t), }
 #define rawkit_shader_array(_name, _len, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_ARRAY, .ptr = _value, .bytes = _len * sizeof(*_value), }
 #define rawkit_shader_pull_stream(_name, _ps) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_PULL_STREAM, .ptr = _ps, .bytes = sizeof(_ps), }
 
 #define rawkit_shader_ubo(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_UNIFORM_BUFFER, .ptr = _value, .bytes = sizeof(*_value) }
+
+
+typedef struct rawkit_shader_param_texture_t {
+  rawkit_texture_t *texture;
+  const rawkit_texture_sampler_t *sampler;
+} rawkit_shader_param_texture_t;
 
 typedef struct rawkit_shader_param_t {
   const char *name;
@@ -72,7 +78,8 @@ typedef struct rawkit_shader_param_t {
     double i64;
     double u64;
 
-    rawkit_texture_t *texture;
+    rawkit_shader_param_texture_t texture;
+
     void *ptr;
     ps_t *pull_stream;
 

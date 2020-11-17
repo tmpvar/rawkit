@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #include <rawkit/gpu.h>
+#include <rawkit/hash.h>
 #include <rawkit/image.h>
 #include <rawkit/texture.h>
 
@@ -20,10 +21,6 @@ void rawkit_texture_destroy(rawkit_texture_t *texture) {
 
   // TODO: ensure none of these resources are currently in use!
   if (device != VK_NULL_HANDLE) {
-    if (texture->sampler != VK_NULL_HANDLE) {
-      vkDestroySampler(device, texture->sampler, NULL);
-    }
-
     if (texture->image_view != VK_NULL_HANDLE) {
       vkDestroyImageView(device, texture->image_view, NULL);
     }
@@ -36,13 +33,11 @@ void rawkit_texture_destroy(rawkit_texture_t *texture) {
       vkFreeMemory(device, texture->image_memory, NULL);
     }
   }
-
-  rawkit_hot_resource_destroy(texture->resource_id);
 }
 
 bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options_t options) {
   rawkit_gpu_t *gpu = options.gpu;
-  VkDevice device = gpu->device;;
+  VkDevice device = gpu->device;
   VkQueue queue = rawkit_vulkan_find_queue(gpu, VK_QUEUE_GRAPHICS_BIT);
   VkCommandPool command_pool = gpu->command_pool;
   VkPipelineCache pipeline_cache = gpu->pipeline_cache;
@@ -52,7 +47,9 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     return false;
   }
 
-  printf("Rebuilding texture (w: %u vs %u) (h: %u vs %u)\n",
+  printf("Rebuilding texture (%llu, '%s') (w: %u vs %u) (h: %u vs %u)\n",
+    texture->resource_id,
+    texture->resource_name,
     texture->options.width,
     options.width,
     texture->options.height,
@@ -106,14 +103,14 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    VkResult result = vkCreateImage(
+    VkResult err = vkCreateImage(
       device,
       &info,
       NULL,
       &texture->image
     );
 
-    if (result != VK_SUCCESS) {
+    if (err) {
       return false;
     }
 
@@ -174,33 +171,8 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
       &texture->image_view
     );
 
-    if (err != VK_SUCCESS) {
+    if (err) {
       printf("ERROR: rawkit-texture: could not create image view\n");
-      return false;
-    }
-  }
-
-  // create the image sampler
-  {
-    VkSamplerCreateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    info.magFilter = VK_FILTER_LINEAR;
-    info.minFilter = VK_FILTER_LINEAR;
-    info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    info.minLod = -1000;
-    info.maxLod = 1000;
-    info.maxAnisotropy = 1.0f;
-    VkResult create_result = vkCreateSampler(
-      device,
-      &info,
-      NULL, // v->Allocator,
-      &texture->sampler
-    );
-    if (create_result != VK_SUCCESS) {
-      printf("ERROR: rawkit-texture: unable to create sampler\n");
       return false;
     }
   }
@@ -258,11 +230,28 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     }
   }
   texture->image_layout = VK_IMAGE_LAYOUT_GENERAL;
-  texture->imgui_texture = rawkit_imgui_add_texture(
-    texture->sampler,
-    texture->image_view,
-    VK_IMAGE_LAYOUT_GENERAL
-  );
+
+  VkSamplerCreateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  info.magFilter = VK_FILTER_LINEAR;
+  info.minFilter = VK_FILTER_LINEAR;
+  info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+  info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  info.minLod = -1000;
+  info.maxLod = 1000;
+  info.maxAnisotropy = 1.0f;
+
+  texture->default_sampler = rawkit_texture_sampler_struct(gpu, &info);
+  if (texture->default_sampler) {
+    // TODO: this function doesn't really do much at all and it hides
+    //       the underlying machinery. For now we'll setup a default
+    //       sampler.
+    texture->imgui_texture = rawkit_imgui_add_texture(texture, NULL);
+  }
+
+  texture->options = options;
 
   return true;
 }
@@ -279,10 +268,12 @@ rawkit_texture_t *_rawkit_texture_ex(
     return NULL;
   }
 
-  string id = string("file+rawkit-texture://") + path + "from" + string(from_file);
-  rawkit_texture_t *texture = rawkit_hot_state(id.c_str(), rawkit_texture_t);
-
+  string texture_id = string("file+rawkit-texture://") + path;
+  
   const rawkit_image_t *img = _rawkit_image_ex(from_file, path, loop, watcher);
+  uint64_t id = rawkit_hash_resources(texture_id.c_str(), 1, (const rawkit_resource_t **)&img);
+
+  rawkit_texture_t* texture = rawkit_hot_resource_id(texture_id.c_str(), id, rawkit_texture_t);
 
   bool dirty = rawkit_resource_sources(texture, img);
   if (!dirty) {
@@ -299,13 +290,14 @@ rawkit_texture_t *_rawkit_texture_ex(
   options.format = VK_FORMAT_R8G8B8A8_UNORM;
 
   // TODO: init doesn't do anything with the source! remove me
-  options.source = img;
   options.gpu = gpu;
 
   vkDeviceWaitIdle(device);
   // cache miss
   // TODO: cleanup existing resources!!!!!!
-  rawkit_texture_init(texture, options);
+  if (!rawkit_texture_init(texture, options)) {
+    return texture;
+  }
 
   if (!texture->source_cpu_buffer_memory) {
     // create the upload buffer
@@ -495,3 +487,78 @@ rawkit_texture_t *_rawkit_texture_ex(
 
   return texture;
 }
+
+const rawkit_texture_sampler_t *rawkit_texture_sampler_struct(rawkit_gpu_t *gpu, const VkSamplerCreateInfo *info) {
+  if (!gpu || !info) {
+    return nullptr;
+  }
+
+  uint64_t id = rawkit_hash(sizeof(VkSamplerCreateInfo), (void *)info);
+
+  rawkit_texture_sampler_t *sampler = rawkit_hot_resource_id(
+    "rawkit::texture::sampler",
+    id,
+    rawkit_texture_sampler_t
+  );
+
+  if (sampler->resource_version) {
+    return sampler;
+  }
+
+  // create the image sampler
+  {
+    VkResult err = vkCreateSampler(
+      gpu->device,
+      info,
+      gpu->allocator,
+      &sampler->handle
+    );
+
+    if (err != VK_SUCCESS) {
+      printf("ERROR: TextureState::rebuild_sampler: unable to create sampler (%i)\n", err);
+      return nullptr;
+    }
+  }
+
+  sampler->resource_version++;
+  return sampler;
+}
+
+const rawkit_texture_sampler_t *rawkit_texture_sampler(
+  rawkit_gpu_t *gpu,
+  VkFilter magFilter,
+  VkFilter minFilter,
+  VkSamplerMipmapMode mipmapMode,
+  VkSamplerAddressMode addressModeU,
+  VkSamplerAddressMode addressModeV,
+  VkSamplerAddressMode addressModeW,
+  float mipLodBias,
+  VkBool32 anisotropyEnable,
+  float maxAnisotropy,
+  VkBool32 compareEnable,
+  VkCompareOp compareOp,
+  float minLod,
+  float maxLod,
+  VkBorderColor borderColor,
+  VkBool32 unnormalizedCoordinates
+) {
+  VkSamplerCreateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  info.magFilter = magFilter;
+  info.minFilter = minFilter;
+  info.mipmapMode = mipmapMode;
+  info.addressModeU = addressModeU;
+  info.addressModeV = addressModeV;
+  info.addressModeW = addressModeW;
+  info.mipLodBias = mipLodBias;
+  info.anisotropyEnable = anisotropyEnable;
+  info.maxAnisotropy = maxAnisotropy;
+  info.compareEnable = compareEnable;
+  info.compareOp = compareOp;
+  info.minLod = minLod;
+  info.maxLod = maxLod;
+  info.borderColor = borderColor;
+  info.unnormalizedCoordinates = unnormalizedCoordinates;
+  return rawkit_texture_sampler_struct(gpu, &info);
+}
+

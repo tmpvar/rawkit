@@ -9,7 +9,6 @@ extern "C" {
   // The main renderpass command buffer
   VkCommandBuffer rawkit_vulkan_command_buffer();
   VkCommandPool rawkit_vulkan_command_pool();
-  ImTextureID rawkit_imgui_add_texture(VkSampler sampler, VkImageView image_view, VkImageLayout image_layout);
   VkQueue rawkit_vulkan_queue();
   VkPipelineCache rawkit_vulkan_pipeline_cache();
   VkRenderPass rawkit_vulkan_renderpass();
