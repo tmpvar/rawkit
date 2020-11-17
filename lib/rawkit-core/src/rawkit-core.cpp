@@ -27,17 +27,18 @@ bool _rawkit_resource_sources(rawkit_resource_t *res, uint32_t source_count, ...
 bool rawkit_resource_sources_array(rawkit_resource_t *res, uint32_t source_count, rawkit_resource_t **sources) {
   bool dirty = false;
 
+  uint32_t l = sb_count(res->resource_source_refs);
   // Dirty when the source counts do not match
-  if (source_count != sb_count(res->resource_source_refs)) {
-    // TODO: we could probably reuse the current allocation, but it adds some
-    // complexity. So for now we throw away the entire list and rebuild it.
-    sb_free(res->resource_source_refs);
+  if (source_count != l) {
+    if (l) {
+      stb__sbraw(res->resource_source_refs)[1] = 0;
+    }
 
     for (uint32_t i=0; i<source_count; i++) {
       rawkit_resource_t *source = sources[i];
 
       if (!source || source == res) {
-        continue;
+        return false;
       }
 
       if (source->resource_version != 0) {

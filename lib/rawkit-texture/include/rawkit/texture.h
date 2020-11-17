@@ -30,7 +30,6 @@ typedef struct rawkit_texture_t {
   RAWKIT_RESOURCE_FIELDS
 
   rawkit_gpu_t *gpu;
-  ImTextureID imgui_texture;
   VkImage image;
   VkDeviceMemory image_memory;
   VkImageView image_view;
@@ -51,7 +50,7 @@ extern "C" {
 #endif
 
 // TODO: hack this in until we can make cimgui a sibling lib.
-ImTextureID rawkit_imgui_add_texture(rawkit_texture_t *texture, const rawkit_texture_sampler_t *sampler);
+ImTextureID rawkit_imgui_texture(rawkit_texture_t *texture, const rawkit_texture_sampler_t *sampler);
 
 void rawkit_texture_destroy(rawkit_texture_t *texture);
 bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options_t options);

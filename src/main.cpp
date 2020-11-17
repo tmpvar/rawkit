@@ -266,16 +266,52 @@ VkDescriptorPool rawkit_vulkan_descriptor_pool() {
   return gpu->default_descriptor_pool;
 }
 
-ImTextureID rawkit_imgui_add_texture(rawkit_texture_t *texture, const rawkit_texture_sampler_t *sampler) {
+typedef struct rawkit_imgui_texture_t {
+  RAWKIT_RESOURCE_FIELDS
+
+  ImTextureID handle;
+} rawkit_imgui_texture_t;
+
+ImTextureID rawkit_imgui_texture(rawkit_texture_t *texture, const rawkit_texture_sampler_t *sampler) {
   if (!texture) {
     return nullptr;
   }
 
-  return ImGui_ImplVulkan_AddTexture(
-    sampler ? sampler->handle : texture->default_sampler->handle,
-    texture->image_view,
-    texture->image_layout
+  const uint32_t resource_count = 2;
+  rawkit_resource_t *resources[resource_count] = {
+    (rawkit_resource_t *)texture,
+    (rawkit_resource_t *)sampler
+  };
+
+  const char *resource_name = "rawkit::imgui::texture";
+
+  uint64_t id = rawkit_hash_resources(
+    resource_name,
+    resource_count,
+    (const rawkit_resource_t **)resources
   );
+
+  rawkit_imgui_texture_t* imgui_texture = rawkit_hot_resource_id(
+    resource_name,
+    id,
+    rawkit_imgui_texture_t
+  );
+
+  bool dirty = rawkit_resource_sources_array(
+    (rawkit_resource_t *)imgui_texture,
+    resource_count,
+    resources
+  );
+
+  if (dirty) {
+    imgui_texture->handle = ImGui_ImplVulkan_AddTexture(
+      sampler ? sampler->handle : texture->default_sampler->handle,
+      texture->image_view,
+      texture->image_layout
+    );
+  }
+
+  return imgui_texture->handle;
 }
 
 VkQueue rawkit_vulkan_queue() {
@@ -402,7 +438,7 @@ int main(int argc, const char **argv) {
     rawkit_jit_add_export(jit, "rawkit_vulkan_physical_device", rawkit_vulkan_physical_device);
     rawkit_jit_add_export(jit, "rawkit_vulkan_command_buffer", rawkit_vulkan_command_buffer);
     rawkit_jit_add_export(jit, "rawkit_vulkan_command_pool", rawkit_vulkan_command_pool);
-    rawkit_jit_add_export(jit, "rawkit_imgui_add_texture", rawkit_imgui_add_texture);
+    rawkit_jit_add_export(jit, "rawkit_imgui_texture", rawkit_imgui_texture);
     rawkit_jit_add_export(jit, "rawkit_vulkan_queue", rawkit_vulkan_queue);
     rawkit_jit_add_export(jit, "rawkit_vulkan_pipeline_cache", rawkit_vulkan_pipeline_cache);
     rawkit_jit_add_export(jit, "rawkit_vulkan_renderpass", rawkit_vulkan_renderpass);

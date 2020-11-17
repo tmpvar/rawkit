@@ -244,13 +244,6 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
   info.maxAnisotropy = 1.0f;
 
   texture->default_sampler = rawkit_texture_sampler_struct(gpu, &info);
-  if (texture->default_sampler) {
-    // TODO: this function doesn't really do much at all and it hides
-    //       the underlying machinery. For now we'll setup a default
-    //       sampler.
-    texture->imgui_texture = rawkit_imgui_add_texture(texture, NULL);
-  }
-
   texture->options = options;
 
   return true;
@@ -269,7 +262,7 @@ rawkit_texture_t *_rawkit_texture_ex(
   }
 
   string texture_id = string("file+rawkit-texture://") + path;
-  
+
   const rawkit_image_t *img = _rawkit_image_ex(from_file, path, loop, watcher);
   uint64_t id = rawkit_hash_resources(texture_id.c_str(), 1, (const rawkit_resource_t **)&img);
 
