@@ -167,7 +167,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     VkResult err = vkCreateImageView(
       device,
       &info,
-      NULL, // v->Allocator
+      gpu->allocator,
       &texture->image_view
     );
 

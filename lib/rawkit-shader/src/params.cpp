@@ -1,3 +1,4 @@
+#include <rawkit/hash.h>
 #include "shader-state.h"
 
 static void rawkit_shader_set_concurrent_param(
@@ -198,4 +199,74 @@ rawkit_shader_param_value_t rawkit_shader_param_value(rawkit_shader_param_t *par
   }
 
   return ret;
+}
+
+
+static const char *texture_param_resource_name = "rawkit::shader::param::texture";
+static const char *params_resource_name = "rawkit::shader::params";
+void rawkit_shader_params_init_resource(rawkit_shader_params_t *params) {
+  if (!params || params->resource_id || !params->count) {
+    return;
+  }
+
+  // TODO: this is too hot of a path to be heap allocating. Use a pool instead, or atleast
+  //       shared+reusable stb_sb arrays.
+  vector<uint64_t> resource_ids;
+  vector<rawkit_shader_param_t> filtered;
+  vector<const rawkit_resource_t *> resources;
+  for (uint32_t i=0; i<params->count; i++) {
+    rawkit_shader_param_t *param = &params->entries[i];
+
+    switch (param->type) {
+      case RAWKIT_SHADER_PARAM_TEXTURE_PTR: {
+        if (!param->resource_name) {
+          param->resource_name = texture_param_resource_name;
+        }
+        if (!param->resource_id) {
+          // initialize the param
+          const rawkit_resource_t *texture_resources[] = {
+            (const rawkit_resource_t *)param->texture.sampler,
+            (const rawkit_resource_t *)param->texture.texture,
+          };
+          param->resource_id = rawkit_hash_resources(
+            texture_param_resource_name,
+            2,
+            texture_resources
+          );
+        }
+
+        resource_ids.push_back(param->resource_id);
+        resources.push_back((const rawkit_resource_t *)param);
+
+        break;
+      }
+
+      case RAWKIT_SHADER_PARAM_PULL_STREAM:
+        printf("Unhandled shader param type: pull-stream\n");
+        break;
+
+      default:
+        filtered.push_back(params->entries[i]);
+        return;
+    }
+  }
+
+  // link these params with the dependencies
+  bool dirty = rawkit_resource_sources_array(
+    (rawkit_resource_t *)params,
+    resources.size(),
+    (rawkit_resource_t **)resources.data()
+  );
+
+  uint64_t id = rawkit_hash(
+    filtered.size() * sizeof(rawkit_shader_param_t),
+    (void *)filtered.data()
+  );
+
+  resource_ids.push_back(id);
+
+  params->resource_id = rawkit_hash_composite(
+    resource_ids.size(),
+    resource_ids.data()
+  );
 }

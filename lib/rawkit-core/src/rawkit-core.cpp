@@ -36,16 +36,17 @@ bool rawkit_resource_sources_array(rawkit_resource_t *res, uint32_t source_count
 
     for (uint32_t i=0; i<source_count; i++) {
       rawkit_resource_t *source = sources[i];
+      rawkit_resource_ref_t ref = {};
 
       if (!source || source == res) {
-        return false;
+        sb_push(res->resource_source_refs, ref);
+        continue;
       }
 
       if (source->resource_version != 0) {
         dirty = true;
       }
 
-      rawkit_resource_ref_t ref = {};
       ref.id = source->resource_id;
       ref.version = source->resource_version;
       sb_push(res->resource_source_refs, ref);
@@ -57,6 +58,10 @@ bool rawkit_resource_sources_array(rawkit_resource_t *res, uint32_t source_count
 
   for (uint32_t i=0; i<source_count; i++) {
     const rawkit_resource_t *source = sources[i];
+    if (!source) {
+      continue;
+    }
+
     rawkit_resource_ref_t *ref = &res->resource_source_refs[i];
 
     if (source->resource_id != ref->id) {

@@ -45,4 +45,5 @@ void host_init_string(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "strstr", (void *)&string_host_strstr);
   rawkit_jit_add_export(jit, "strtok", (void *)&strtok);
   rawkit_jit_add_export(jit, "strxfrm", (void *)&strxfrm);
+  rawkit_jit_add_export(jit, "strdup", (void *)&strdup);
 }

@@ -13,6 +13,8 @@
 uint64_t rawkit_hash(uint64_t len, void *data);
 uint64_t rawkit_hash_resources(const char *name, uint32_t resource_count, const rawkit_resource_t **resources);
 
+uint64_t rawkit_hash_composite(uint64_t len, uint64_t *ids);
+
 // Pull Stream based hashing
 typedef struct ps_rawkit_hasher_t ps_rawkit_hasher_t;
 

@@ -19,7 +19,7 @@ typedef struct rawkit_resource_ref_t {
 } rawkit_resource_ref_t;
 
 #define RAWKIT_RESOURCE_FIELDS \
-  char *resource_name; \
+  const char *resource_name; \
   uint64_t resource_id; \
   rawkit_resource_ref_t *resource_source_refs; \
   uint32_t resource_version; \

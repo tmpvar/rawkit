@@ -28,6 +28,7 @@ typedef struct rawkit_shader_t {
   opts.entries = (rawkit_shader_param_t[]){ \
     __VA_ARGS__ \
   }; \
+  rawkit_shader_params_init_resource(&opts); \
 }
 
 typedef enum {
@@ -67,6 +68,8 @@ typedef struct rawkit_shader_param_texture_t {
 } rawkit_shader_param_texture_t;
 
 typedef struct rawkit_shader_param_t {
+  RAWKIT_RESOURCE_FIELDS
+
   const char *name;
   uint32_t type;
   union {
@@ -94,10 +97,11 @@ typedef struct rawkit_shader_param_value_t {
 } rawkit_shader_param_value_t;
 
 typedef struct rawkit_shader_params_t {
+  RAWKIT_RESOURCE_FIELDS
+
   uint32_t count;
   rawkit_shader_param_t *entries;
 } rawkit_shader_params_t;
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -105,7 +109,7 @@ extern "C" {
 
 // TODO: we can't make this nicer to use until all of the vulkan bits migrate to rawkit-gpu.
 //       I'm thinking there is a `rawkit_gpu_set_current()` or similar to control which gpu
-//       `rawkit_gpu_current()` returns.
+//       `rawkit_gpu_current()` returns. However, this approach is not thread safe!
 
 rawkit_shader_t *rawkit_shader_ex(
   rawkit_gpu_t *gpu,
@@ -135,6 +139,8 @@ void rawkit_shader_bind(
 VkCommandBuffer rawkit_shader_command_buffer(rawkit_shader_t *shader, uint8_t concurrency_index);
 
 const rawkit_glsl_t *rawkit_shader_glsl(rawkit_shader_t *shader);
+
+void rawkit_shader_params_init_resource(rawkit_shader_params_t *params);
 
 #ifdef __cplusplus
 }

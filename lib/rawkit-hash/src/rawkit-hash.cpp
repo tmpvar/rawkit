@@ -42,6 +42,21 @@ uint64_t rawkit_hash_resources(const char *name, uint32_t resource_count, const 
   return MeowU64From(hash, 0);
 }
 
+uint64_t rawkit_hash_composite(uint64_t len, uint64_t *ids) {
+  if (!len || !ids) {
+    return 0;
+  }
+
+  meow_state state;
+  MeowBegin(&state, MeowDefaultSeed);
+  for (uint32_t i=0; i<len; i++) {
+    MeowAbsorb(&state, sizeof(uint64_t), (void *)&ids[i]);
+  }
+  meow_u128 hash = MeowEnd(&state, NULL);
+  return MeowU64From(hash, 0);
+}
+
+
 typedef struct ps_rawkit_hasher_t {
   PS_FIELDS
 

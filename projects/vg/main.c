@@ -2,7 +2,7 @@
 #include <nanovg/nanovg.h>
 int id = 0;
 
-    #include "../../lib/rawkit-vg/src/nanovg/img/error-64x64.h"
+#include "../../lib/rawkit-vg/src/nanovg/img/error-64x64.h"
 void setup() {
   rawkit_vg_t *vg = rawkit_vg_default();
   uint32_t l = 64*64;

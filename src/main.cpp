@@ -291,6 +291,7 @@ ImTextureID rawkit_imgui_texture(rawkit_texture_t *texture, const rawkit_texture
     (const rawkit_resource_t **)resources
   );
 
+
   rawkit_imgui_texture_t* imgui_texture = rawkit_hot_resource_id(
     resource_name,
     id,

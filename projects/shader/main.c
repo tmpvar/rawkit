@@ -9,21 +9,31 @@ typedef struct fill_rect_options_t {
   uint32_t render_height;
   uint32_t display_width;
   uint32_t display_height;
-
+  bool stretch;
   rawkit_shader_params_t params;
+  const rawkit_texture_sampler_t *sampler;
 } fill_rect_options_t;
 
 typedef struct fill_rect_state_t {
   uint32_t width;
   uint32_t height;
   VkFormat format;
-  rawkit_texture_t *textures;
   uint32_t texture_count;
+  rawkit_texture_t *textures;
 
   rawkit_glsl_t *glsl;
 
   VkCommandBuffer command_buffer;
 } fill_rect_state_t;
+
+const char *texture_names[] ={
+  "rawkit::fill_rect::texture#0",
+  "rawkit::fill_rect::texture#1",
+  "rawkit::fill_rect::texture#2",
+  "rawkit::fill_rect::texture#3",
+  "rawkit::fill_rect::texture#4",
+  "rawkit::fill_rect::texture#5",
+};
 
 void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *options) {
   VkQueue queue = rawkit_vulkan_queue();
@@ -66,6 +76,9 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
     &file
   );
 
+  // TODO: in the rare event that the window frame count doesn't match the texture count
+  //       then we need to rebuild.
+
   // rebuild the images if the user requests a resize
   if (state->width != width || state->height != height) {
     state->width = width;
@@ -89,8 +102,31 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
       .format = VK_FORMAT_R32G32B32A32_SFLOAT,
       .gpu = rawkit_default_gpu(),
     };
-    for (uint32_t idx=0; idx<state->texture_count; idx++) {
-      rawkit_texture_init(&state->textures[idx], texture_options);
+
+    // shader id, params id, texture index
+    const uint8_t resource_ids_count = 3;
+    uint64_t resource_ids[resource_ids_count] = {
+      shader->resource_id,
+      options->params.resource_id,
+      0 // the texture index
+    };
+
+
+    for (uint64_t idx=0; idx<state->texture_count; idx++) {
+      rawkit_texture_t *texture = &state->textures[idx];
+      // TODO: use idx as an id passed into rawkit_hash_composite
+      if (!texture->resource_id) {
+        texture->resource_name = texture_names[idx];
+        resource_ids[resource_ids_count-1] = idx;
+        texture->resource_id = rawkit_hash_composite(
+          resource_ids_count,
+          resource_ids
+        );
+      }
+
+      if (rawkit_texture_init(texture, texture_options)) {
+        texture->resource_version++;
+      }
     }
   }
 
@@ -193,14 +229,29 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
       return;
     }
 
-    // render the actual image
+    // TODO: allow someone to pass in a sampler
     rawkit_texture_t *current_texture = &state->textures[idx];
+    ImTextureID texture = rawkit_imgui_texture(current_texture, options->sampler);
+    if (!texture) {
+      return;
+    }
 
+    ImVec2 uv1 = (ImVec2){
+      (float)display_width/(float)width,
+      (float)display_height/(float)height,
+    };
+
+    if (options->stretch) {
+      uv1.x = 1.0f;
+      uv1.y = 1.0f;
+    }
+
+    // render the actual image
     igImage(
-      current_texture->imgui_texture,
+      texture,
       (ImVec2){ (float)display_width, (float)display_height},
       (ImVec2){ 0.0f, 0.0f }, // uv0
-      (ImVec2){ 1.0f, 1.0f }, // uv1
+      uv1,
       (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
       (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
     );
@@ -227,28 +278,65 @@ void loop() {
     options.render_height = 64;
     options.display_width = 512;
     options.display_height = 256;
+    options.stretch = true;
+    options.sampler = rawkit_texture_sampler(gpu,
+      VK_FILTER_NEAREST,
+      VK_FILTER_NEAREST,
+      VK_SAMPLER_MIPMAP_MODE_NEAREST,
+      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+      0.0f,
+      false,
+      0.0f,
+      false,
+      VK_COMPARE_OP_NEVER,
+      0,
+      1,
+      VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+      false
+    );
 
     rawkit_shader_params(options.params,
       rawkit_shader_texture(
         "input_image",
         rawkit_texture("box-gradient.png"),
-        rawkit_texture_sampler(gpu,
-          VK_FILTER_LINEAR,
-          VK_FILTER_LINEAR,
-          VK_SAMPLER_MIPMAP_MODE_LINEAR,
-          VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-          VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-          VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-          0.0f,
-          false,
-          0.0f,
-          false,
-          VK_COMPARE_OP_NEVER,
-          0,
-          1,
-          VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
-          false
-        )
+        NULL
+      )
+    );
+
+    fill_rect(gpu, "basic.comp", &options);
+  }
+
+  {
+    fill_rect_options_t options = {0};
+    options.render_width = 128;
+    options.render_height = 64;
+    options.display_width = 256;
+    options.display_height = 128;
+    options.sampler = rawkit_texture_sampler(gpu,
+      VK_FILTER_LINEAR,
+      VK_FILTER_LINEAR,
+      VK_SAMPLER_MIPMAP_MODE_LINEAR,
+      VK_SAMPLER_ADDRESS_MODE_REPEAT,
+      VK_SAMPLER_ADDRESS_MODE_REPEAT,
+      VK_SAMPLER_ADDRESS_MODE_REPEAT,
+      0.0f,
+      false,
+      0.0f,
+      false,
+      VK_COMPARE_OP_NEVER,
+      0,
+      1,
+      VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+      false
+    );
+
+    rawkit_shader_params(options.params,
+      rawkit_shader_texture(
+        "input_image",
+        rawkit_texture("box-gradient.png"),
+        NULL
       )
     );
 

@@ -29,6 +29,11 @@ if (NOT TARGET rawkit::gpu)
   add_subdirectory(../rawkit-gpu deps/rawkit-gpu)
 endif()
 
+# DEP: rawkit-hash (sibling)
+if (NOT TARGET rawkit::hash)
+  add_subdirectory(../rawkit-hash deps/rawkit-hash)
+endif()
+
 # DEP: rawkit-hot (sibling)
 if (NOT TARGET rawkit::hot)
   add_subdirectory(../rawkit-hot deps/rawkit-hot)
@@ -64,6 +69,7 @@ target_link_libraries(${PROJECT_NAME}
     rawkit::file
     rawkit::gpu
     rawkit::glsl
+    rawkit::hash
     rawkit::hot
     rawkit::texture
 )
