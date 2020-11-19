@@ -61,14 +61,17 @@ void rawkit_wassert(wchar_t const* m, wchar_t const* f, unsigned l) {
   printf("ASSERT: %ls (%ls:%u)\n", m, f, l);
 }
 
-static void check_vk_result(VkResult err)
+static void check_vk_result_(VkResult err, const char *file, const uint32_t line)
 {
     if (err == 0)
         return;
-    fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+    fprintf(stderr, "%s:%u [vulkan] Error: VkResult = %d\n", file, line, err);
     if (err < 0)
         abort();
 }
+
+#define check_vk_result(err) check_vk_result_(err, __FILE__, __LINE__)
+
 
 #ifdef IMGUI_VULKAN_DEBUG_REPORT
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_report(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType, uint64_t object, size_t location, int32_t messageCode, const char* pLayerPrefix, const char* pMessage, void* pUserData)
@@ -138,7 +141,9 @@ static void BeginMainRenderPass(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd)
     VkSemaphore image_acquired_semaphore  = wd->FrameSemaphores[wd->SemaphoreIndex].ImageAcquiredSemaphore;
     VkSemaphore render_complete_semaphore = wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
     err = vkAcquireNextImageKHR(gpu->device, wd->Swapchain, UINT64_MAX, image_acquired_semaphore, VK_NULL_HANDLE, &wd->FrameIndex);
-    check_vk_result(err);
+    if (err < 0) {
+      check_vk_result(err);
+    }
 
     ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
     {
@@ -503,8 +508,9 @@ int main(int argc, const char **argv) {
 
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow* window = glfwCreateWindow(1280, 720, title.c_str(), NULL, NULL);
-
+    uint32_t width = 1280;
+    uint32_t height = 720;
+    GLFWwindow* window = glfwCreateWindow(width, height, title.c_str(), NULL, NULL);
 
 
     // Create Window Surface
@@ -543,7 +549,10 @@ int main(int argc, const char **argv) {
     init_info.Allocator = gpu->allocator;
     init_info.MinImageCount = g_MinImageCount;
     init_info.ImageCount = wd->ImageCount;
-    init_info.CheckVkResultFn = check_vk_result;
+    init_info.CheckVkResultFn = [](VkResult err) {
+      check_vk_result(err);
+    };
+
     ImGui_ImplVulkan_Init(&init_info, wd->RenderPass);
 
     // Load Fonts
@@ -603,16 +612,52 @@ int main(int argc, const char **argv) {
     bool show_another_window = false;
 
 
-
+    int32_t prev_width = width;
+    int32_t prev_height = height;
+    int32_t prev_x = 0;
+    int32_t prev_y = 0;
+    bool fullscreen = false;
     // Main loop
-    while (!glfwWindowShouldClose(window))
-    {
+    while (!glfwWindowShouldClose(window)) {
         // Poll and handle events (inputs, window resize, etc.)
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
         // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
         // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
         // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
         glfwPollEvents();
+
+        // handle fullscreen toggle
+        {
+          if (glfwGetKey(window, GLFW_KEY_F11) == GLFW_PRESS) {
+            fullscreen = !fullscreen;
+
+            if (fullscreen) {
+              glfwGetWindowSize(window, &prev_width, &prev_height);
+              glfwGetWindowPos(window, &prev_x, &prev_y);
+
+              const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+              glfwSetWindowMonitor(
+                window,
+                glfwGetPrimaryMonitor(),
+                0,
+                0,
+                mode->width,
+                mode->height,
+                GLFW_DONT_CARE
+              );
+            } else {
+              glfwSetWindowMonitor(
+                window,
+                NULL,
+                prev_x,
+                prev_y,
+                prev_width,
+                prev_height,
+                GLFW_DONT_CARE
+              );
+            }
+          }
+        }
 
         if (rawkit_jit_tick(jit)) {
           rawkit_jit_call_setup(jit);
@@ -687,10 +732,10 @@ int main(int argc, const char **argv) {
         // Record dear imgui primitives into command buffer
         ImGui_ImplVulkan_RenderDrawData(draw_data, fd->CommandBuffer);
 
+        EndMainRenderPass(gpu, wd);
         // TODO: this is silly. use glfwGetWindowAttrib(window, GLFW_ICONIFIED);
         const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
         if (!is_minimized) {
-          EndMainRenderPass(gpu, wd);
           FramePresent(gpu, wd);
         }
     }
