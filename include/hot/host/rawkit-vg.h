@@ -7,6 +7,7 @@ void host_init_rawkit_vg(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_vg_default", rawkit_vg_default);
   rawkit_jit_add_export(jit, "rawkit_vg_texture", rawkit_vg_texture);
   rawkit_jit_add_export(jit, "rawkit_vg_draw_texture", rawkit_vg_draw_texture);
+  rawkit_jit_add_export(jit, "rawkit_vg_draw_texture_rect", rawkit_vg_draw_texture_rect);
 
   rawkit_jit_add_export(jit, "rawkit_vg_begin_frame", rawkit_vg_begin_frame);
   rawkit_jit_add_export(jit, "rawkit_vg_cancel_frame", rawkit_vg_cancel_frame);
