@@ -15,7 +15,7 @@ const rawkit_image_t *_rawkit_image_ex(
   rawkit_diskwatcher_t *watcher
 ) {
   string id = string("file+rawkit-image://") + path + " from " + string(from_file);
-  rawkit_image_t *image = rawkit_hot_state(id.c_str(), rawkit_image_t);
+  rawkit_image_t *image = rawkit_hot_resource(id.c_str(), rawkit_image_t);
 
   const rawkit_file_t* f = _rawkit_file_ex(from_file, path, loop, watcher);
 

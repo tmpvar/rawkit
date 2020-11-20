@@ -22,6 +22,7 @@ typedef struct rawkit_texture_options_t {
   uint32_t width;
   uint32_t height;
   VkFormat format;
+  VkDeviceSize size;
   const rawkit_image_t *source;
 } rawkit_texture_options_t;
 
