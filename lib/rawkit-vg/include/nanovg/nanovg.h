@@ -56,6 +56,7 @@ struct NVGpaint {
 	NVGcolor outerColor;
 	int image;
   rawkit_texture_t *texture;
+  const rawkit_texture_sampler_t *sampler;
 };
 typedef struct NVGpaint NVGpaint;
 

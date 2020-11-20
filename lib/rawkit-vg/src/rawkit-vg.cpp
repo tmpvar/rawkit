@@ -58,6 +58,45 @@ void rawkit_vg_draw_texture(rawkit_vg_t *vg, float x, float y, float w, float h,
     rawkit_vg_fill(vg);
 }
 
+void rawkit_vg_draw_texture_rect(
+  rawkit_vg_t *vg,
+  float src_x,
+  float src_y,
+  float src_w,
+  float src_h,
+
+  float dest_x,
+  float dest_y,
+
+  rawkit_texture_t *tex,
+  const rawkit_texture_sampler_t *sampler
+) {
+  const rawkit_texture_options_t *opts = &tex->options;
+
+  NVGpaint p = {0};
+  {
+    float alpha = 1.0f;
+    float angle = 0.0f;
+    rawkit_vg_transform_identity(p.xform);
+    rawkit_vg_transform_rotate(p.xform, angle);
+    p.xform[4] = dest_x - src_x;
+    p.xform[5] = dest_y - src_y;
+
+    p.extent[0] = (float)opts->width;
+    p.extent[1] = (float)opts->height;
+    p.texture = tex;
+    p.sampler = sampler;
+    p.innerColor = p.outerColor = rawkit_vg_RGBAf(1,1,1,alpha);
+  }
+
+
+  // NVGpaint paint = rawkit_vg_texture(vg, dx, dy, src_w, src_h, 0.0f, tex, 1.0f);
+  rawkit_vg_begin_path(vg);
+    rawkit_vg_rect(vg, dest_x, dest_y, src_w, src_h);
+    rawkit_vg_fill_paint(vg, p);
+    rawkit_vg_fill(vg);
+}
+
 #include "nanovg/img/error-64x64.h"
 static int g_MissingImageId = -1;
 int nvgErrorImage(NVGcontext *ctx) {

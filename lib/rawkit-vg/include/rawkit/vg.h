@@ -26,6 +26,20 @@ extern "C" {
   rawkit_vg_t *rawkit_vg_default();
 
   void rawkit_vg_draw_texture(rawkit_vg_t *vg, float x, float y, float w, float h, rawkit_texture_t *tex);
+  void rawkit_vg_draw_texture_rect(
+    rawkit_vg_t *vg,
+    float src_x,
+    float src_y,
+    float src_w,
+    float src_h,
+
+    float dest_x,
+    float dest_y,
+
+    rawkit_texture_t *tex,
+    const rawkit_texture_sampler_t *sampler
+  );
+
   NVGpaint rawkit_vg_texture(rawkit_vg_t *vg, float cx, float cy, float w, float h, float angle, rawkit_texture_t *tex, float alpha);
   void rawkit_vg_begin_frame(rawkit_vg_t *vg, VkCommandBuffer command_buffer, float windowWidth, float windowHeight, float devicePixelRatio);
   void rawkit_vg_cancel_frame(rawkit_vg_t *vg);

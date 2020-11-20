@@ -708,7 +708,11 @@ void vknvg_setUniforms(VKNVGcontext *vk, VkDescriptorSet descSet, int uniformOff
     rawkit_texture_t *tex = call->paint.texture;
     image_info.imageLayout = tex->image_layout;
     image_info.imageView = tex->image_view;
-    image_info.sampler = tex->default_sampler->handle;
+    if (call->paint.sampler) {
+      image_info.sampler = call->paint.sampler->handle;
+    } else {
+      image_info.sampler = tex->default_sampler->handle;
+    }
   }
 
   if (call->paint.image > 0) {
