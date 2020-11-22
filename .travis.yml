@@ -21,7 +21,7 @@ before_install:
       choco install visualstudio2019-workload-nativedesktop
       export VS160COMNTOOLS="/c/Program Files (x86)/Microsoft Visual Studio/2019/Community/Common7/Tools"
       python -m pip install --upgrade pip
-      wget -q http://tmpvar.com/llvm.7z
+      wget -q http://tmpvar.com/llvm-11-windows-release.7z -O llvm.7z
       7z x llvm.7z
       mv llvm C:/Users/travis/build/tmpvar/
       wget -q http://tmpvar.com/vulkansdk/vulkansdk-windows.7z
@@ -43,12 +43,15 @@ before_install:
       sudo apt-add-repository 'deb https://apt.kitware.com/ubuntu/ focal main'
       wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
       sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.2.148-focal.list https://packages.lunarg.com/vulkan/1.2.148/lunarg-vulkan-1.2.148-focal.list
-      sudo apt-add-repository 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal main'
-      sudo apt update
-      sudo apt install clang-10 llvm-10 llvm-10-dev libclang-10-dev lld-10
+      wget https://apt.llvm.org/llvm.sh
+      chmod +x llvm.sh
+      sudo ./llvm.sh 11
+      # sudo apt-add-repository 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main'
+      # sudo apt update
+      sudo apt install clang-11 llvm-11 llvm-11-dev libclang-11-dev lld-11
       sudo apt install cmake libvulkan1 vulkan-tools mesa-vulkan-drivers libx11-xcb-dev libxrandr-dev vulkan-sdk
       sudo apt install libxrandr-dev libxinerama-dev libxcursor-dev libz-dev libxi-dev
-      cmake .. -DLLVM_DIR:PATH=/usr/lib/llvm-10/lib/cmake/llvm/ -DClang_DIR:PATH=/usr/lib/llvm-10/lib/cmake/clang/
+      cmake .. -DLLVM_DIR:PATH=/usr/lib/llvm-11/lib/cmake/llvm/ -DClang_DIR:PATH=/usr/lib/llvm-11/lib/cmake/clang/
     fi
   - |
     if [ "$TRAVIS_OS_NAME" == "osx" ]; then
@@ -57,9 +60,10 @@ before_install:
       mkdir ~/vulkansdk
       cp -r /Volumes/vulkansdk-macos-*/* ~/vulkansdk/
       . ~/vulkansdk/setup-env.sh
-      wget -q http://tmpvar.com/llvm-10-macos.tar.gz -O ~/llvm-10-macos.tar.gz
-      tar xzf ~/llvm-10-macos.tar.gz -C ~/
-      cmake .. -DLLVM_DIR:PATH=~/llvm/lib/cmake/llvm/ -DClang_DIR:PATH=~/llvm/lib/cmake/clang/
+      # wget -q http://tmpvar.com/llvm-10-macos.tar.gz -O ~/llvm-10-macos.tar.gz
+      # tar xzf ~/llvm-10-macos.tar.gz -C ~/
+      brew install llvm@11
+      cmake ..
     fi
 install:
   - pip3 install cpp-coveralls

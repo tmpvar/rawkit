@@ -1,9 +1,16 @@
 #include <rawkit-jit-internal.h>
 
+#include "llvm/Support/raw_ostream.h"
+
 using namespace clang;
 using namespace clang::driver;
+using namespace llvm;
 using namespace llvm::opt;
+using namespace llvm::orc;
 
+
+#include <ghc/filesystem.hpp>
+namespace fs = ghc::filesystem;
 
 // Adapted from llvm/clang/unittests/Tooling/DependencyScannerTest.cpp
 class IncludeCollector : public DependencyFileGenerator {
@@ -86,7 +93,7 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
   Runnable *run = new Runnable();
   llvm::ExitOnError EOE;
   EOE.setBanner("jit.h");
-  auto jit_builder = llvm::orc::LLJITBuilder();
+
   auto mod_ptr = action->takeModule();
 
   auto JTMB = llvm::orc::JITTargetMachineBuilder::detectHost();
@@ -103,6 +110,7 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
     llvm::orc::ExecutionSession &session,
     const llvm::Triple &TT
   ) {
+
     auto objectLayer = std::make_unique<llvm::orc::RTDyldObjectLinkingLayer>(
         session,
         []() {
@@ -122,81 +130,76 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
     auto dataLayout = mod_ptr->getDataLayout();
     llvm::orc::JITDylib *mainJD = session.getJITDylibByName("<main>");
     if (!mainJD) {
-      mainJD = &session.createJITDylib("<main>");
+      mainJD = &cantFail(session.createJITDylib("<main>"));
     }
 
-    // Resolve symbols that are statically linked in the current process.
-    mainJD->addGenerator(
-      cantFail(
-        llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
-          dataLayout.getGlobalPrefix()
-        )
-      )
-    );
+    #if defined(_WIN32)
+      fs::path windows_dir(getenv("WINDIR"));
 
-    // // Resolve symbols from shared libraries.
-    // for (auto libPath : sharedLibPaths) {
-    //   auto mb = llvm::MemoryBuffer::getFile(libPath);
-    //   if (!mb) {
-    //     printf("Fail to create MemoryBuffer for: %s\n", libPath.c_str());
-    //     continue;
-    //   }
-    //   auto &JD = session.createJITDylib(libPath);
-    //   auto loaded = llvm::orc::DynamicLibrarySearchGenerator::Load(
-    //     libPath.data(),
-    //     dataLayout.getGlobalPrefix()
-    //   );
-    //   if (!loaded) {
-    //     printf("Could not load %s:\n  %s\n", libPath.c_str(), loaded.takeError().c_str());
-    //     continue;
-    //   }
-    //   JD.addGenerator(std::move(*loaded));
-    //   cantFail(objectLayer->add(JD, std::move(mb.get())));
-    // }
+      vector<fs::path> dlls = {
+        windows_dir / "system32" / "msvcrt.dll",
+        windows_dir / "system32" / "msvcp140.dll",
+        windows_dir / "system32" / "msvcp140_1.dll",
+        windows_dir / "system32" / "msvcp140_2.dll",
+        windows_dir / "system32" / "concrt140.dll",
+        windows_dir / "system32" / "vcruntime140.dll",
+        windows_dir / "system32" / "vcruntime140_1.dll",
+        windows_dir / "system32" / "ucrtbase.dll",
+      };
+
+      for (auto dll : dlls) {
+        string dll_path = dll.string();
+        auto mb = llvm::MemoryBuffer::getFile(dll_path.c_str());
+
+        if (!mb) {
+          printf("Fail to create MemoryBuffer for: %s\n", dll_path.c_str());
+          continue;
+        }
+
+        auto& JD = session.createBareJITDylib(dll_path);
+        auto loaded = DynamicLibrarySearchGenerator::Load(dll_path.c_str(), dataLayout.getGlobalPrefix());
+
+        if (!loaded) {
+          printf("ERROR: could not load dynamic library %s\n", dll_path.c_str());
+          continue;
+        }
+
+        JD.addGenerator(std::move(*loaded));
+        cantFail(objectLayer->add(std::move(JD), std::move(mb.get())));
+      }
+    #endif
 
     return objectLayer;
   };
 
-  jit_builder.setJITTargetMachineBuilder(std::move(*JTMB));
-  jit_builder.setObjectLinkingLayerCreator(objectLinkingLayerCreator);
+  auto jit = LLJITBuilder()
+      .setJITTargetMachineBuilder(std::move(*JTMB))
+      .setObjectLinkingLayerCreator(objectLinkingLayerCreator)
+      .create();
 
-  if (jit_builder.prepareForConstruction()) {
-    printf("ERROR: failed to prepare for construction\n");
-    return nullptr;
-  }
-  auto jit_result = jit_builder.create();
-
-  if (!jit_result) {
+  if (!jit) {
     printf("could not create LLJIT\n");
     return nullptr;
   }
 
-  run->jit.reset(std::move(jit_result.get().release()));
+  run->jit.reset(std::move(jit.get().release()));
 
   Profiler symbol_timer("Runnable : export symbols");
-  for (auto &it : symbols) {
-    std::string mangled_name;
-    llvm::raw_string_ostream mangled_name_stream(mangled_name);
 
-    llvm::Mangler::getNameWithPrefix(
-      mangled_name_stream,
-      it.first,
-      run->jit->getDataLayout()
-    );
+  // Add the defined symbols to this jit session
+  {
+    SymbolMap symbol_map;
 
-    auto err = run->jit->defineAbsolute(
-      mangled_name_stream.str().c_str(),
-      llvm::JITEvaluatedSymbol(
+    for (auto &it : symbols) {
+      symbol_map[run->jit->mangleAndIntern(it.first)] = JITEvaluatedSymbol(
         it.second,
-        llvm::JITSymbolFlags(llvm::JITSymbolFlags::FlagNames::Exported)
-      )
-    );
-
-    if (err) {
-      printf("WARNING: could not defineAbsolute(%s)\n", it.first);
-      consumeError(std::move(err));
+        JITSymbolFlags::Callable
+      );
     }
+
+    run->jit->define(absoluteSymbols(symbol_map));
   }
+
   symbol_timer.end();
 
   if (!mod_ptr) {
@@ -252,6 +255,16 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
     printf("ERROR: unable to add IR module\n");
     return nullptr;
   }
+
+  // Resolve symbols that are statically linked in the current process.
+  JITDylib& mainJD = run->jit->getMainJITDylib();
+  mainJD.addGenerator(
+    cantFail(
+      llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
+        run->jit->getDataLayout().getGlobalPrefix()
+      )
+    )
+  );
 
 
   {
@@ -321,10 +334,10 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
   }
   setup_main_timer.end();
 
-  if (run->jit->runConstructors()) {
-    printf("ERROR: could not run constructors\n");
-    return nullptr;
-  }
+  //if (run->jit->runConstructors()) {
+  //  printf("ERROR: could not run constructors\n");
+  //  return nullptr;
+  //}
   return run;
 }
 

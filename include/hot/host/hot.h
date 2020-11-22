@@ -34,10 +34,11 @@ double rawkit_now() {
 }
 
 void host_hot_init(rawkit_jit_t *jit) {
-  host_hot_init_state(jit);
-  host_init_string(jit);
 
-  host_init_stdio(jit);
+  host_hot_init_state(jit);
+  // host_init_string(jit);
+
+  // host_init_stdio(jit);
   host_init_tinyfiledialogs(jit);
   host_cimgui_init(jit);
 
@@ -47,9 +48,9 @@ void host_hot_init(rawkit_jit_t *jit) {
   host_croaring_init(jit);
   //#endif
 
-  #if !defined(__linux__)
-    host_init_stdlib(jit);
-  #endif
+  // #if !defined(__linux__)
+  //   host_init_stdlib(jit);
+  // #endif
 
   host_init_rawkit_glsl(jit);
   host_init_rawkit_gpu(jit);

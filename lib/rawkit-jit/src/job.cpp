@@ -133,7 +133,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
   // clang
   job->driver = new Driver(job->path, triple.str(), *job->diag_engine);
-  job->driver->setTitle("hot");
+  job->driver->setTitle("rawkit-jit-job");
   job->driver->setCheckInputsExist(false);
 
   SmallVector<const char *, 16> Args;
@@ -171,16 +171,26 @@ JitJob *JitJob::create(int argc, const char **argv) {
     Args.push_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/");
     Args.push_back("-Wno-nullability-completeness");
     Args.push_back("-Wno-expansion-to-defined");
+    // TODO: this is not safe, but it is unclear how to get around missing `___stack_chk_guard` symbols on mac
+    Args.push_back("-fno-stack-protector");
+    // avoid error: 'TARGET_OS_IPHONE' is not defined error
+    // see: https://www.gitmemory.com/issue/shirou/gopsutil/976/719870639
+    Args.push_back("-Wno-undef-prefix");
   #endif
 
   Args.push_back("-fsyntax-only");
   Args.push_back("-fno-builtin");
-  // TODO: this is not safe, but it is unclear how to get around missing `___stack_chk_guard` symbols on mac
-  Args.push_back("-fno-stack-protector");
+  Args.push_back("-v");
+
+  /*
+  Args.push_back("-fsyntax-only");
   Args.push_back("-fvisibility-inlines-hidden");
   Args.push_back("-fno-exceptions");
   Args.push_back("-fno-rtti");
-  // Args.push_back(("-I" + fs::path(job->guest_include_dir / "rawkit" / "vulkan").string()).c_str());
+  // TODO: use this and add the appropriate handlers
+  Args.push_back("-fsanitize=integer-divide-by-zero");
+  */
+
   Args.push_back(job->guest_include.c_str());
 
   Args.push_back(job->system_include.c_str());
@@ -203,6 +213,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
   // Args.push_back("-Iinstall/include");
   Args.push_back("-DHOT_GUEST=1");
   Args.push_back("-DRAWKIT_GUEST=1");
+  Args.push_back("-D_DLL");
 
   job->compilation.reset(job->driver->BuildCompilation(Args));
   if (!job->compilation) {

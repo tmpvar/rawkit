@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-
+#include <math.h>
 
 #include <rawkit/rawkit.h>
 
@@ -196,9 +196,9 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
 
       vkCmdDispatch(
         command_buffer,
-        (uint32_t)max(ceilf(global[0] / local[0]), 1.0),
-        (uint32_t)max(ceilf(global[1] / local[1]), 1.0),
-        (uint32_t)max(ceilf(global[2] / local[2]), 1.0)
+        (uint32_t)fmaxf(ceilf(global[0] / local[0]), 1.0),
+        (uint32_t)fmaxf(ceilf(global[1] / local[1]), 1.0),
+        (uint32_t)fmaxf(ceilf(global[2] / local[2]), 1.0)
       );
     }
     err = vkEndCommandBuffer(command_buffer);

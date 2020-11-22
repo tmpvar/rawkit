@@ -14,6 +14,7 @@ set(LLVM_SEARCH_PATHS
   /usr/lib/llvm-10
 )
 
+
 find_library(found_LLVM LLVM HINTS ${LLVM_SEARCH_PATHS})
 find_package(LLVM REQUIRED CONFIG
   PATHS ${LLVM_SEARCH_PATHS}
@@ -64,6 +65,9 @@ if (CMAKE_SYSTEM_NAME STREQUAL Windows)
     -D_HAS_STD_BYTE=0
     # see: http://www.suodenjoki.dk/us/archive/2010/min-max.htm
     -DNOMINMAX=1
+    # see: https://wiki.nervtech.org/doku.php?id=blog:2020:0418_jit_compiler_part4_crt_dependency
+    # -D_MT
+    # -D_DLL
   )
 
 endif()
