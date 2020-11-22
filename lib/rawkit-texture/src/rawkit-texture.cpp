@@ -311,6 +311,26 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
   VkCommandPool command_pool = gpu->command_pool;
   VkPipelineCache pipeline_cache = gpu->pipeline_cache;
 
+  if (!texture->default_sampler) {
+    VkSamplerCreateInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    info.magFilter = VK_FILTER_LINEAR;
+    info.minFilter = VK_FILTER_LINEAR;
+    info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    info.minLod = -1000;
+    info.maxLod = 1000;
+    info.maxAnisotropy = 1.0f;
+
+    texture->default_sampler = rawkit_texture_sampler_struct(gpu, &info);
+  }
+
+  if (!options.width || !options.height) {
+    return false;
+  }
+
   // rebuild the images if the user requests a resize
   if (texture->options.width != options.width || texture->options.height != options.height) {
     // cleanup existing resources
@@ -445,7 +465,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
   }
 
   // create the upload buffer
-  if (texture->source_cpu_buffer_memory == VK_NULL_HANDLE) {
+  if (texture->source_cpu_buffer_memory == VK_NULL_HANDLE && options.size) {
     // create the upload buffer
     VkBufferCreateInfo buffer_info = {};
     buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -560,22 +580,6 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
 
   texture->image_layout = VK_IMAGE_LAYOUT_GENERAL;
 
-  if (texture->default_sampler == nullptr) {
-    VkSamplerCreateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    info.magFilter = VK_FILTER_LINEAR;
-    info.minFilter = VK_FILTER_LINEAR;
-    info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    info.minLod = -1000;
-    info.maxLod = 1000;
-    info.maxAnisotropy = 1.0f;
-
-    texture->default_sampler = rawkit_texture_sampler_struct(gpu, &info);
-  }
-
   texture->options = options;
   return true;
 }
@@ -603,6 +607,7 @@ rawkit_texture_t *_rawkit_texture_ex(
   if (!dirty) {
     return texture;
   }
+
 
   VkDevice device = gpu->device;
   VkQueue queue = rawkit_vulkan_find_queue(gpu, VK_QUEUE_GRAPHICS_BIT);
