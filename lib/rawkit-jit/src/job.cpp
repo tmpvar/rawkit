@@ -169,6 +169,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
   #ifdef __APPLE__
     Args.push_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/");
     Args.push_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/");
+    Args.push_back("-I/Library/Developer/CommandLineTools/usr/include/c++/v1/");
     Args.push_back("-Wno-nullability-completeness");
     Args.push_back("-Wno-expansion-to-defined");
     // TODO: this is not safe, but it is unclear how to get around missing `___stack_chk_guard` symbols on mac
