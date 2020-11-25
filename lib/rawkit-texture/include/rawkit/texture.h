@@ -87,6 +87,10 @@ const rawkit_texture_sampler_t *rawkit_texture_sampler(
 #define rawkit_texture_ex(gpu, path, loop, diskwatcher) _rawkit_texture_ex(gpu, __FILE__, path, loop, diskwatcher)
 #define rawkit_texture(path) _rawkit_texture_ex(rawkit_default_gpu(), __FILE__, path, uv_default_loop(), rawkit_default_diskwatcher())
 
+// Build a texture from a render to texture target (see rawkit-gpu)
+rawkit_texture_t *rawkit_texture_from_gpu_texture_target_color(rawkit_gpu_texture_target_t *target);
+rawkit_texture_t *rawkit_texture_from_gpu_texture_target_depth(rawkit_gpu_texture_target_t *target);
+
 #ifdef __cplusplus
 }
 #endif
