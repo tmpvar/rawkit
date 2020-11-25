@@ -43,6 +43,9 @@ extern "C" {
     const rawkit_texture_sampler_t *sampler
   );
 
+  // select a render to texture context
+  rawkit_vg_t *rawkit_vg_from_gpu_texture_target(rawkit_gpu_texture_target_t *target);
+
   NVGpaint rawkit_vg_texture(rawkit_vg_t *vg, float cx, float cy, float w, float h, float angle, rawkit_texture_t *tex, float alpha);
   void rawkit_vg_begin_frame(rawkit_vg_t *vg, VkCommandBuffer command_buffer, float windowWidth, float windowHeight, float devicePixelRatio);
   void rawkit_vg_cancel_frame(rawkit_vg_t *vg);

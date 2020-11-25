@@ -136,3 +136,18 @@ int nvgErrorImage(NVGcontext *ctx) {
   );
   return g_MissingImageId;
 }
+
+rawkit_vg_t *rawkit_vg_from_gpu_texture_target(rawkit_gpu_texture_target_t *target) {
+  if (!target || !target->gpu || !target->render_pass || !target->name) {
+    return nullptr;
+  }
+
+  string name = string("render-to-texture/") + target->name;
+
+  return rawkit_vg(
+    target->gpu,
+    target->render_pass,
+    name.c_str(),
+    (rawkit_resource_t *)target
+  );
+}
