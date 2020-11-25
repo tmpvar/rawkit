@@ -23,7 +23,7 @@ extern "C" {
     VkRenderPass render_pass
   );
 
-  rawkit_vg_t *rawkit_vg_default();
+  rawkit_vg_t *rawkit_default_vg();
 
   void rawkit_vg_draw_texture(rawkit_vg_t *vg, float x, float y, float w, float h, rawkit_texture_t *tex);
   void rawkit_vg_draw_texture_rect(

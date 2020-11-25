@@ -610,7 +610,7 @@ void draw() {
   float center_x = canvas_width / 2.0f;
   float center_y = canvas_height * 0.95;
 
-  rawkit_vg_t *vg = rawkit_vg_default();
+  rawkit_vg_t *vg = rawkit_default_vg();
 
   uint32_t nr = 0;
   for (uint32_t i = 0; i < state->numParticles; i++) {

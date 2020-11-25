@@ -416,7 +416,7 @@ int32_t rawkit_vulkan_queue_family() {
   return gpu->graphics_queue_family_index;
 }
 
-rawkit_vg_t *rawkit_vg_default() {
+rawkit_vg_t *rawkit_default_vg() {
   return g_RawkitVG;
 }
 

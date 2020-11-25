@@ -27,7 +27,7 @@ void setup() {
 
 
 void loop() {
-  rawkit_vg_t *vg = rawkit_vg_default();
+  rawkit_vg_t *vg = rawkit_default_vg();
 
   rawkit_texture_t *box_gradient = rawkit_texture("box-gradient.png");
 

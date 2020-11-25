@@ -130,7 +130,7 @@ void forceEnergyConservation(float prevE) {
 }
 
 void draw() {
-  rawkit_vg_t *vg = rawkit_vg_default();
+  rawkit_vg_t *vg = rawkit_default_vg();
   rawkit_vg_stroke_width(vg, 1.0f);
   float x = canvasOrig[0];
   float y = canvasOrig[1];
