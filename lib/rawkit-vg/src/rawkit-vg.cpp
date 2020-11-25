@@ -8,12 +8,30 @@
 #include <string>
 using namespace std;
 
+
 rawkit_vg_t *rawkit_vg(
   rawkit_gpu_t *gpu,
-  VkRenderPass render_pass
+  VkRenderPass render_pass,
+  const char *name,
+  rawkit_resource_t *parent
 ) {
+  string vg_id = string("rawkit-vg://") + name;
 
-  rawkit_vg_t *vg = (rawkit_vg_t *)calloc(sizeof(rawkit_vg_t), 1);
+  rawkit_vg_t* vg = nullptr;
+  bool dirty = false;
+  if (parent) {
+    uint64_t id = rawkit_hash_resources(vg_id.c_str(), 1, (const rawkit_resource_t **)&parent);
+    vg = rawkit_hot_resource_id(vg_id.c_str(), id, rawkit_vg_t);
+    dirty = rawkit_resource_sources(vg, parent);
+  } else {
+    vg = rawkit_hot_resource(vg_id.c_str(), rawkit_vg_t);
+    dirty = vg->_state == nullptr;
+  }
+
+  if (!dirty) {
+    return vg;
+  }
+
   VGState *state = new VGState();
 
   VKNVGCreateInfo create_info = {0};

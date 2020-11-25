@@ -604,7 +604,9 @@ int main(int argc, const char **argv) {
 
     g_RawkitVG = rawkit_vg(
       gpu,
-      rawkit_vulkan_renderpass()
+      rawkit_vulkan_renderpass(),
+      "default",
+      nullptr
     );
 
     // Our state

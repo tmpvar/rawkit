@@ -9,6 +9,7 @@
 #include <vulkan/vulkan.h>
 
 typedef struct rawkit_vg_t {
+  RAWKIT_RESOURCE_FIELDS
 
   // internal
   void *_state;
@@ -20,7 +21,9 @@ extern "C" {
 
   rawkit_vg_t *rawkit_vg(
     rawkit_gpu_t *gpu,
-    VkRenderPass render_pass
+    VkRenderPass render_pass,
+    const char *name,
+    rawkit_resource_t *parent
   );
 
   rawkit_vg_t *rawkit_default_vg();
