@@ -90,21 +90,6 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
 
 VkResult rawkit_gpu_vertex_buffer_destroy(rawkit_gpu_t *gpu, rawkit_gpu_vertex_buffer_t *buf);
 
-
-// Render to texture
-typedef struct rawkit_gpu_texture_target_t {
-  RAWKIT_RESOURCE_FIELDS
-
-  const char *name;
-  uint32_t width;
-  uint32_t height;
-
-  rawkit_gpu_t * gpu;
-
-  VkCommandBuffer command_buffer;
-  VkRenderPass render_pass;
-} rawkit_gpu_texture_target_t;
-
 #ifdef __cplusplus
   }
 #endif

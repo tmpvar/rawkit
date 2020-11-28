@@ -23,6 +23,7 @@ typedef struct rawkit_texture_options_t {
   uint32_t height;
   VkFormat format;
   VkDeviceSize size;
+  VkImageUsageFlags usage;
   const rawkit_image_t *source;
 } rawkit_texture_options_t;
 
@@ -49,6 +50,8 @@ typedef struct rawkit_texture_t {
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+VkDeviceSize rawkit_texture_compute_size(uint32_t width, uint32_t height, VkFormat format);
 
 // TODO: hack this in until we can make cimgui a sibling lib.
 ImTextureID rawkit_imgui_texture(rawkit_texture_t *texture, const rawkit_texture_sampler_t *sampler);
@@ -87,9 +90,42 @@ const rawkit_texture_sampler_t *rawkit_texture_sampler(
 #define rawkit_texture_ex(gpu, path, loop, diskwatcher) _rawkit_texture_ex(gpu, __FILE__, path, loop, diskwatcher)
 #define rawkit_texture(path) _rawkit_texture_ex(rawkit_default_gpu(), __FILE__, path, uv_default_loop(), rawkit_default_diskwatcher())
 
-// Build a texture from a render to texture target (see rawkit-gpu)
-rawkit_texture_t *rawkit_texture_from_gpu_texture_target_color(rawkit_gpu_texture_target_t *target);
-rawkit_texture_t *rawkit_texture_from_gpu_texture_target_depth(rawkit_gpu_texture_target_t *target);
+// Render to texture
+typedef struct rawkit_texture_target_t {
+  RAWKIT_RESOURCE_FIELDS
+
+  const char *name;
+  uint32_t width;
+  uint32_t height;
+
+  bool dirty;
+
+  rawkit_gpu_t * gpu;
+
+  VkCommandBuffer command_buffer;
+  VkRenderPass render_pass;
+  VkFramebuffer frame_buffer;
+
+  rawkit_texture_t *color;
+  rawkit_texture_t *depth;
+
+} rawkit_texture_target_t;
+
+rawkit_texture_target_t *rawkit_texture_target_begin(
+  rawkit_gpu_t *gpu,
+  const char *name,
+  uint32_t width,
+  uint32_t height,
+  bool depth
+);
+
+void rawkit_texture_target_end(rawkit_texture_target_t *target);
+
+
+// Build a texture from a render to texture target
+rawkit_texture_t *rawkit_texture_from_gpu_texture_target_color(rawkit_texture_target_t *target);
+rawkit_texture_t *rawkit_texture_from_gpu_texture_target_depth(rawkit_texture_target_t *target);
+
 
 #ifdef __cplusplus
 }

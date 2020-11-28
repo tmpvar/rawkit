@@ -8,7 +8,7 @@
 #include <string>
 using namespace std;
 
-VkDeviceSize computeTextureSize(uint32_t width, uint32_t height, VkFormat format) {
+VkDeviceSize rawkit_texture_compute_size(uint32_t width, uint32_t height, VkFormat format) {
   uint32_t bits = 0;
   switch (format) {
     case VK_FORMAT_R4G4_UNORM_PACK8: bits = 8; break;
@@ -617,7 +617,7 @@ rawkit_texture_t *_rawkit_texture_ex(
   options.width = img->width;
   options.height = img->height;
   options.format = VK_FORMAT_R8G8B8A8_UNORM;
-  options.size = computeTextureSize(
+  options.size = rawkit_texture_compute_size(
     options.width,
     options.height,
     options.format
@@ -832,44 +832,4 @@ const rawkit_texture_sampler_t *rawkit_texture_sampler(
   info.borderColor = borderColor;
   info.unnormalizedCoordinates = unnormalizedCoordinates;
   return rawkit_texture_sampler_struct(gpu, &info);
-}
-
-static inline rawkit_texture_t *init_texture_target_texture(string descriptor, rawkit_gpu_texture_target_t *target) {
-  if (!target) {
-    return nullptr;
-  }
-
-  string texture_id = descriptor + target->name;
-  uint64_t id = rawkit_hash_resources(texture_id.c_str(), 1, (const rawkit_resource_t **)&target);
-
-  rawkit_texture_t* texture = rawkit_hot_resource_id(texture_id.c_str(), id, rawkit_texture_t);
-
-  bool dirty = rawkit_resource_sources(texture, target);
-  if (!dirty) {
-    return texture;
-  }
-
-  rawkit_texture_options_t options = {};
-  options.gpu = target->gpu;
-  options.width = target->width;
-  options.height = target->height;
-  options.format = VK_FORMAT_R8G8B8A8_SNORM;
-  options.size = computeTextureSize(
-    target->width,
-    target->height,
-    options.format
-  );
-  options.source = nullptr;
-
-  rawkit_texture_init(texture, options);
-
-  return texture;
-}
-
-rawkit_texture_t *rawkit_texture_from_gpu_texture_target_color(rawkit_gpu_texture_target_t *target) {
-  return init_texture_target_texture("mem+rawkit-texture-target+color://", target);
-}
-
-rawkit_texture_t *rawkit_texture_from_gpu_texture_target_depth(rawkit_gpu_texture_target_t *target) {
-  return init_texture_target_texture("mem+rawkit-texture-target+depth://", target);
 }

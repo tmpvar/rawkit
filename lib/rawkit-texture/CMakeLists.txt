@@ -31,6 +31,7 @@ endif()
 
 add_library(${PROJECT_NAME} STATIC
   src/rawkit-texture.cpp
+  src/texture-target.cpp
 )
 
 add_library(rawkit::texture ALIAS ${PROJECT_NAME})
