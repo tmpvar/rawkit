@@ -15,16 +15,15 @@ void loop() {
     false
   );
 
-  rawkit_vg_t *vg = rawkit_default_vg();
-  vg = rawkit_vg_from_texture_target(texture_target); {
-    rawkit_vg_begin_frame(vg, texture_target->command_buffer, (float)width, (float)height, 1.0f); {
+  rawkit_vg_t *vg = rawkit_vg_from_texture_target(texture_target); {
+    rawkit_vg_begin_frame(vg, texture_target->current_command_buffer, (float)width, (float)height, 1.0f); {
 
       rawkit_vg_begin_path(vg);
-        rawkit_vg_rect(vg, 0.0f, 0.0f, 320.0f, 200.0f);
+        rawkit_vg_rect(vg, 0.0f, 0.0f, (float)width, (float)height);
         rawkit_vg_fill_color(vg, rawkit_vg_RGBAf(1.0f, 0.0f, 0.0f, 1.0f));
         rawkit_vg_fill(vg);
       rawkit_vg_begin_path(vg);
-        rawkit_vg_rect(vg, 10.0f, 10.0f, 160.0f, 100.0f);
+        rawkit_vg_rect(vg, 0.0f, 0.0f, (float)width * 0.5f, (float)height * 0.5f);
         rawkit_vg_fill_color(vg, rawkit_vg_RGBAf(1.0f, 0.0f, 1.0f, 1.0f));
         rawkit_vg_fill(vg);
 
