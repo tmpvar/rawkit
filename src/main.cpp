@@ -41,6 +41,8 @@
 #include <rawkit/jit.h>
 #include <rawkit/vg.h>
 
+#include <rawkit/window-internal.h>
+
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
 
@@ -386,14 +388,6 @@ const rawkit_image rawkit_load_image_relative_to_file(const char *from_file, con
   return ret;
 }
 
-uint32_t rawkit_window_frame_index() {
-  return g_MainWindowData.FrameIndex;
-}
-
-uint32_t rawkit_window_frame_count() {
-  return g_MainWindowData.ImageCount;
-}
-
 VkPipelineCache rawkit_vulkan_pipeline_cache() {
   rawkit_gpu_t *gpu = rawkit_default_gpu();
   if (!gpu) {
@@ -688,11 +682,13 @@ int main(int argc, const char **argv) {
         }
 
         // Start the Dear ImGui frame
-        ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
         BeginMainRenderPass(gpu, wd);
+
+        rawkit_window_internal_set_frame_index(g_MainWindowData.FrameIndex);
+        rawkit_window_internal_set_frame_count(g_MainWindowData.ImageCount);
 
         // TODO: this command_pool is associated with the current frame and must be reset
         //       every time we acquire a new image.
