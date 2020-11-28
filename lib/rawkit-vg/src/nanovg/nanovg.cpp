@@ -132,6 +132,7 @@ struct NVGcontext {
 	int fillTriCount;
 	int strokeTriCount;
 	int textTriCount;
+	int errorImage;
 };
 
 static float nvg__sqrtf(float a) { return sqrtf(a); }
@@ -293,6 +294,7 @@ NVGcontext* nvgCreateInternal(NVGparams* params)
 	int i;
 	if (ctx == NULL) goto error;
 	memset(ctx, 0, sizeof(NVGcontext));
+	ctx->errorImage = -1;
 
 	ctx->params = *params;
 	for (i = 0; i < NVG_MAX_FONTIMAGES; i++)
@@ -2923,5 +2925,31 @@ void nvgTextMetrics(NVGcontext* ctx, float* ascender, float* descender, float* l
 		*descender *= invscale;
 	if (lineh != NULL)
 		*lineh *= invscale;
+}
+
+#include "img/error-64x64.h"
+
+int nvgErrorImage(NVGcontext* ctx) {
+  if (!ctx) {
+	return -1;
+  }
+
+  if (ctx->errorImage > -1) {
+	return ctx->errorImage;
+  }
+
+  if (!ctx) {
+	printf("ERROR: invalid ctx while creating error image\n");
+	return -1;
+  }
+
+  ctx->errorImage = nvgCreateImageRGBA(
+	ctx,
+	64,
+	64,
+	NVG_IMAGE_REPEATX | NVG_IMAGE_REPEATY | NVG_IMAGE_NEAREST,
+	error_64x64_data
+  );
+  return ctx->errorImage;
 }
 // vim: ft=c nu noet ts=4

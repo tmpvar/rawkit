@@ -115,29 +115,7 @@ void rawkit_vg_draw_texture_rect(
     rawkit_vg_fill(vg);
 }
 
-#include "nanovg/img/error-64x64.h"
-static int g_MissingImageId = -1;
-int nvgErrorImage(NVGcontext *ctx) {
-  if (g_MissingImageId > -1) {
-    return g_MissingImageId;
-  }
-
-  if (!ctx) {
-    printf("ERROR: invalid ctx while creating error image\n");
-    return -1;
-  }
-
-  g_MissingImageId = nvgCreateImageRGBA(
-    ctx,
-    64,
-    64,
-    NVG_IMAGE_REPEATX | NVG_IMAGE_REPEATY | NVG_IMAGE_NEAREST,
-    error_64x64_data
-  );
-  return g_MissingImageId;
-}
-
-rawkit_vg_t *rawkit_vg_from_gpu_texture_target(rawkit_gpu_texture_target_t *target) {
+rawkit_vg_t *rawkit_vg_from_texture_target(rawkit_texture_target_t *target) {
   if (!target || !target->gpu || !target->render_pass || !target->name) {
     return nullptr;
   }
