@@ -85,10 +85,10 @@ void image_draw(float *dest, const rawkit_image_t *src, float width, float heigh
       if (ly < 0 || ly >= (int32_t)height) {
         continue;
       }
-      dest[(x + y * (uint32_t)width) * 4 + 0] = (float)src->data[(uint64_t)(x *4 + ly * width * 4) + 0] / 255.0f;
-      dest[(x + y * (uint32_t)width) * 4 + 1] = (float)src->data[(uint64_t)(x *4 + ly * width * 4) + 1] / 255.0f;
-      dest[(x + y * (uint32_t)width) * 4 + 2] = (float)src->data[(uint64_t)(x *4 + ly * width * 4) + 2] / 255.0f;
-      dest[(x + y * (uint32_t)width) * 4 + 3] = (float)src->data[(uint64_t)(x *4 + ly * width * 4) + 3] / 255.0f;
+      dest[(x + y * (uint32_t)width) * 4 + 0] = (float)src->data[(uint64_t)(x + ly * width) * 4 + 0] / 255.0f;
+      dest[(x + y * (uint32_t)width) * 4 + 1] = (float)src->data[(uint64_t)(x + ly * width) * 4 + 1] / 255.0f;
+      dest[(x + y * (uint32_t)width) * 4 + 2] = (float)src->data[(uint64_t)(x + ly * width) * 4 + 2] / 255.0f;
+      dest[(x + y * (uint32_t)width) * 4 + 3] = (float)src->data[(uint64_t)(x + ly * width) * 4 + 3] / 255.0f;
     }
   }
 }
@@ -144,8 +144,6 @@ void loop() {
     return;
   }
 
-  bool show_demo_window = true;
-  igShowDemoWindow(NULL);
   igBegin("simple window", 0, 0);
    igTextUnformatted("hello!", NULL);
 
