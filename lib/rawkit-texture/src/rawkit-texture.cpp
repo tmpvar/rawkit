@@ -352,26 +352,6 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     return false;
   }
 
-  // create a command buffer
-  if (texture->command_buffer == VK_NULL_HANDLE) {
-    VkCommandBufferAllocateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    info.commandPool = command_pool;
-    info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    info.commandBufferCount = 1;
-
-    VkResult err = vkAllocateCommandBuffers(
-      device,
-      &info,
-      &texture->command_buffer
-    );
-
-    if (err != VK_SUCCESS) {
-      printf("ERROR: failed to allocate command buffers\n");
-      return texture;
-    }
-  }
-
   // create the image
   if (texture->image == VK_NULL_HANDLE) {
     VkImageCreateInfo info = {};
@@ -481,7 +461,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
 
     if (create_result != VK_SUCCESS) {
       printf("ERROR: rawkit-texture: could not create upload buffer\n");
-      return texture;
+      return false;
     }
 
     VkMemoryRequirements req;
@@ -509,7 +489,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
 
     if (alloc_result != VK_SUCCESS) {
       printf("ERROR: rawkit-texture: could not allocate cpu buffer\n");
-      return texture;
+      return false;
     }
 
     VkResult bind_result = vkBindBufferMemory(
@@ -521,16 +501,21 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
 
     if (bind_result != VK_SUCCESS) {
       printf("ERROR: rawkit-texture: could not bind cpu buffer memory\n");
-      return texture;
+      return false;
     }
   }
 
   // transition the texture to be read/write
   {
+    VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(options.gpu);
+    if (!command_buffer) {
+      printf("ERROR: rawkit_texture_init: could not create command buffer\n");
+      return false;
+    }
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    VkResult begin_result = vkBeginCommandBuffer(texture->command_buffer, &begin_info);
+    VkResult begin_result = vkBeginCommandBuffer(command_buffer, &begin_info);
 
     VkImageMemoryBarrier barrier = {};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -545,7 +530,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.layerCount = 1;
     vkCmdPipelineBarrier(
-      texture->command_buffer,
+      command_buffer,
       VK_PIPELINE_STAGE_TRANSFER_BIT,
       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
       0,
@@ -563,8 +548,8 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
       VkSubmitInfo end_info = {};
       end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
       end_info.commandBufferCount = 1;
-      end_info.pCommandBuffers = &texture->command_buffer;
-      VkResult end_result = vkEndCommandBuffer(texture->command_buffer);
+      end_info.pCommandBuffers = &command_buffer;
+      VkResult end_result = vkEndCommandBuffer(command_buffer);
       if (end_result != VK_SUCCESS) {
         printf("ERROR: rawkit-texture: could not end command buffer");
         return false;
@@ -581,6 +566,180 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
   texture->image_layout = VK_IMAGE_LAYOUT_GENERAL;
 
   texture->options = options;
+  return true;
+}
+
+rawkit_texture_t *_rawkit_texture_mem(
+  rawkit_gpu_t *gpu,
+  const char *name,
+  uint32_t width,
+  uint32_t height,
+  VkFormat format
+) {
+  string resource_name = string("mem+rawkit-texture://") + name;
+
+  rawkit_texture_t *texture = rawkit_hot_resource(resource_name.c_str(), rawkit_texture_t);
+  if (!texture) {
+    return nullptr;
+  }
+
+  rawkit_texture_options_t options = {};
+  options.gpu = gpu;
+  options.width = width;
+  options.height = height;
+  options.source = nullptr;
+  options.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+  options.format = format;
+  options.size = rawkit_texture_compute_size(
+    options.width,
+    options.height,
+    options.format
+  );
+
+  if (texture->options.width == options.width && texture->options.height == options.height) {
+    return texture;
+  }
+
+  if (rawkit_texture_init(texture, options)) {
+    texture->resource_version++;
+  }
+
+  return texture;
+}
+
+bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_buffer_t *buffer) {
+  // upload the new image data
+  if (!texture || !texture->source_cpu_buffer_memory) {
+    return false;
+  }
+
+  rawkit_gpu_t *gpu = texture->options.gpu;
+  // copy the new data into the source_cpu memory
+  {
+    size_t size = static_cast<size_t>(buffer->size);
+    void *pixels;
+    VkResult map_result = vkMapMemory(
+      gpu->device,
+      texture->source_cpu_buffer_memory,
+      0,
+      size,
+      0,
+      &pixels
+    );
+
+    if (map_result != VK_SUCCESS) {
+      printf("ERROR: rawkit-texture: could not map buffer\n");
+      return false;
+    }
+
+    memcpy(pixels, buffer->data, size);
+    vkUnmapMemory(gpu->device, texture->source_cpu_buffer_memory);
+  }
+
+  VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu);
+  if (!command_buffer) {
+    printf("ERROR: rawkit_texture_update_buffer: could not create command buffer\n");
+    return false;
+  }
+
+  // copy the data to the texture on the gpu
+  {
+    VkCommandBufferBeginInfo begin_info = {};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    VkResult begin_result = vkBeginCommandBuffer(command_buffer, &begin_info);
+    if (begin_result != VK_SUCCESS) {
+      printf("ERROR: rawkit-texture: could not begin command buffer\n");
+      return false;
+    }
+
+    VkImageMemoryBarrier copy_barrier[1] = {};
+    copy_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    copy_barrier[0].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    copy_barrier[0].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    copy_barrier[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    copy_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    copy_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    copy_barrier[0].image = texture->image;
+    copy_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy_barrier[0].subresourceRange.levelCount = 1;
+    copy_barrier[0].subresourceRange.layerCount = 1;
+    vkCmdPipelineBarrier(
+      command_buffer,
+      VK_PIPELINE_STAGE_HOST_BIT,
+      VK_PIPELINE_STAGE_TRANSFER_BIT,
+      0,
+      0,
+      NULL,
+      0,
+      NULL,
+      1,
+      copy_barrier
+    );
+
+    VkBufferImageCopy region = {};
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.layerCount = 1;
+    region.imageExtent.width = texture->options.width;
+    region.imageExtent.height = texture->options.height;
+
+    region.imageExtent.depth = 1;
+    vkCmdCopyBufferToImage(
+      command_buffer,
+      texture->source_cpu_buffer,
+      texture->image,
+      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+      1,
+      &region
+    );
+
+    VkImageMemoryBarrier use_barrier[1] = {};
+    use_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    use_barrier[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    use_barrier[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    use_barrier[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    use_barrier[0].newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    use_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    use_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    use_barrier[0].image = texture->image;
+    use_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    use_barrier[0].subresourceRange.levelCount = 1;
+    use_barrier[0].subresourceRange.layerCount = 1;
+    vkCmdPipelineBarrier(
+      command_buffer,
+      VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+      0,
+      0,
+      NULL,
+      0,
+      NULL,
+      1,
+      use_barrier
+    );
+  }
+
+  // Blindly submit this command buffer, this is a supreme hack to get something
+  // rendering on the screen.
+  {
+    VkSubmitInfo end_info = {};
+    end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    end_info.commandBufferCount = 1;
+    end_info.pCommandBuffers = &command_buffer;
+    VkResult end_result = vkEndCommandBuffer(command_buffer);
+    if (end_result != VK_SUCCESS) {
+      printf("ERROR: rawkit-texture: could not end command buffer");
+      return false;
+    }
+
+    VkResult submit_result = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, VK_NULL_HANDLE);
+    if (submit_result != VK_SUCCESS) {
+      printf("ERROR: rawkit-texture: could not submit command buffer");
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -632,128 +791,7 @@ rawkit_texture_t *_rawkit_texture_ex(
     return texture;
   }
 
-  // upload the new image data
-  if (texture->source_cpu_buffer_memory) {
-    // copy the new data into the source_cpu memory
-    {
-      size_t size = static_cast<size_t>(img->len);
-      void *pixels;
-      VkResult map_result = vkMapMemory(
-        device,
-        texture->source_cpu_buffer_memory,
-        0,
-        size,
-        0,
-        &pixels
-      );
-
-      if (map_result != VK_SUCCESS) {
-        printf("ERROR: rawkit-texture: could not map buffer\n");
-        return texture;
-      }
-
-      memcpy(pixels, img->data, size);
-      vkUnmapMemory(device, texture->source_cpu_buffer_memory);
-    }
-
-    // copy the data to the texture on the gpu
-    {
-
-      VkCommandBufferBeginInfo begin_info = {};
-      begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-      begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-      VkResult begin_result = vkBeginCommandBuffer(texture->command_buffer, &begin_info);
-      if (begin_result != VK_SUCCESS) {
-        printf("ERROR: rawkit-texture: could not begin command buffer");
-        return texture;
-      }
-
-      VkImageMemoryBarrier copy_barrier[1] = {};
-      copy_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-      copy_barrier[0].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-      copy_barrier[0].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-      copy_barrier[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-      copy_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-      copy_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-      copy_barrier[0].image = texture->image;
-      copy_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-      copy_barrier[0].subresourceRange.levelCount = 1;
-      copy_barrier[0].subresourceRange.layerCount = 1;
-      vkCmdPipelineBarrier(
-        texture->command_buffer,
-        VK_PIPELINE_STAGE_HOST_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0,
-        0,
-        NULL,
-        0,
-        NULL,
-        1,
-        copy_barrier
-      );
-
-      VkBufferImageCopy region = {};
-      region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-      region.imageSubresource.layerCount = 1;
-      region.imageExtent.width = img->width;
-      region.imageExtent.height = img->height;
-
-      region.imageExtent.depth = 1;
-      vkCmdCopyBufferToImage(
-        texture->command_buffer,
-        texture->source_cpu_buffer,
-        texture->image,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1,
-        &region
-      );
-
-      VkImageMemoryBarrier use_barrier[1] = {};
-      use_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-      use_barrier[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-      use_barrier[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-      use_barrier[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-      use_barrier[0].newLayout = VK_IMAGE_LAYOUT_GENERAL;
-      use_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-      use_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-      use_barrier[0].image = texture->image;
-      use_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-      use_barrier[0].subresourceRange.levelCount = 1;
-      use_barrier[0].subresourceRange.layerCount = 1;
-      vkCmdPipelineBarrier(
-        texture->command_buffer,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0,
-        0,
-        NULL,
-        0,
-        NULL,
-        1,
-        use_barrier
-      );
-    }
-
-    // Blindly submit this command buffer, this is a supreme hack to get something
-    // rendering on the screen.
-    {
-      VkSubmitInfo end_info = {};
-      end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-      end_info.commandBufferCount = 1;
-      end_info.pCommandBuffers = &texture->command_buffer;
-      VkResult end_result = vkEndCommandBuffer(texture->command_buffer);
-      if (end_result != VK_SUCCESS) {
-        printf("ERROR: rawkit-texture: could not end command buffer");
-        return texture;
-      }
-
-      VkResult submit_result = vkQueueSubmit(queue, 1, &end_info, VK_NULL_HANDLE);
-      if (submit_result != VK_SUCCESS) {
-        printf("ERROR: rawkit-texture: could not submit command buffer");
-        return texture;
-      }
-    }
-
+  if (rawkit_texture_update(texture, img->data, img->len)) {
     texture->resource_version++;
   }
 

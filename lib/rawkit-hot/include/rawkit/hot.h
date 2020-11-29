@@ -41,6 +41,17 @@
     ) \
   )
 
+  // BUFFERS
+
+  typedef struct rawkit_cpu_buffer_t {
+    RAWKIT_RESOURCE_FIELDS
+
+    void *data;
+    uint64_t size;
+  } rawkit_cpu_buffer_t;
+
+  rawkit_cpu_buffer_t *rawkit_cpu_buffer(const char *name, uint64_t size);
+
 #ifdef __cplusplus
   }
 #endif

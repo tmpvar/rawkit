@@ -156,8 +156,10 @@ static void BeginMainRenderPass(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd)
         check_vk_result(err);
     }
     {
+        gpu->command_pool = fd->CommandPool;
         err = vkResetCommandPool(gpu->device, fd->CommandPool, 0);
         check_vk_result(err);
+
         VkCommandBufferBeginInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -348,10 +350,11 @@ VkFramebuffer rawkit_current_framebuffer() {
   return fb;
 }
 
-std::random_device rd;
-std::mt19937 gen(rd());
-std::uniform_real_distribution<> dis(0.0, 1.0);
+
 float rawkit_randf() {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> dis(0.0, 1.0);
   return dis(gen);
 }
 
@@ -689,10 +692,6 @@ int main(int argc, const char **argv) {
 
         rawkit_window_internal_set_frame_index(g_MainWindowData.FrameIndex);
         rawkit_window_internal_set_frame_count(g_MainWindowData.ImageCount);
-
-        // TODO: this command_pool is associated with the current frame and must be reset
-        //       every time we acquire a new image.
-        gpu->command_pool = rawkit_vulkan_command_pool();
 
         VkViewport viewport = {};
         viewport.width = (float)g_MainWindowData.Width;

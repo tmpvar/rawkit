@@ -440,3 +440,24 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
 
   return vb;
 }
+
+VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu) {
+  VkCommandBufferAllocateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  info.commandPool = gpu->command_pool;
+  info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  info.commandBufferCount = 1;
+  VkCommandBuffer command_buffer;
+  VkResult err = vkAllocateCommandBuffers(
+    gpu->device,
+    &info,
+    &command_buffer
+  );
+
+  if (err) {
+    printf("ERROR: failed to allocate command buffers\n");
+    return VK_NULL_HANDLE;
+  }
+
+  return command_buffer;
+}

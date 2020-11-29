@@ -10,4 +10,6 @@ void host_init_rawkit_texture(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_texture_sampler", rawkit_texture_sampler);
   rawkit_jit_add_export(jit, "rawkit_texture_target_begin", rawkit_texture_target_begin);
   rawkit_jit_add_export(jit, "rawkit_texture_target_end", rawkit_texture_target_end);
+  rawkit_jit_add_export(jit, "_rawkit_texture_mem", _rawkit_texture_mem);
+  rawkit_jit_add_export(jit, "rawkit_texture_update_buffer", rawkit_texture_update_buffer);
 }

@@ -59,6 +59,24 @@ ImTextureID rawkit_imgui_texture(rawkit_texture_t *texture, const rawkit_texture
 void rawkit_texture_destroy(rawkit_texture_t *texture);
 bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options_t options);
 
+rawkit_texture_t *_rawkit_texture_mem(
+  rawkit_gpu_t *gpu,
+  const char *name,
+  uint32_t width,
+  uint32_t height,
+  VkFormat format
+);
+
+bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_buffer_t *buffer);
+static inline bool rawkit_texture_update(rawkit_texture_t *texture, void *data, uint64_t size) {
+  rawkit_cpu_buffer_t buffer = {};
+  buffer.data = data;
+  buffer.size = size;
+  return rawkit_texture_update_buffer(texture, &buffer);
+}
+
+#define rawkit_texture_mem(name, width, height, format) _rawkit_texture_mem(rawkit_default_gpu(), name, width, height, format)
+
 rawkit_texture_t *_rawkit_texture_ex(
   rawkit_gpu_t *gpu,
   const char *from_file,

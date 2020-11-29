@@ -11,4 +11,5 @@ void host_init_rawkit_gpu(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_gpu_vertex_buffer_create", (void *)&rawkit_gpu_vertex_buffer_create);
   rawkit_jit_add_export(jit, "rawkit_gpu_vertex_buffer_destroy", (void *)&rawkit_gpu_vertex_buffer_destroy);
   rawkit_jit_add_export(jit, "rawkit_default_gpu", (void *)&rawkit_default_gpu);
+  rawkit_jit_add_export(jit, "rawkit_gpu_create_command_buffer", (void *)&rawkit_gpu_create_command_buffer);
 }

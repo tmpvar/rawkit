@@ -54,3 +54,37 @@ void rawkit_hot_resource_destroy(uint64_t id) {
 
   state_registry.erase(it);
 }
+
+
+rawkit_cpu_buffer_t *rawkit_cpu_buffer(const char *name, uint64_t size) {
+  rawkit_cpu_buffer_t *buffer = rawkit_hot_resource(name, rawkit_cpu_buffer_t);
+  if (!buffer) {
+    return nullptr;
+  }
+
+  if (buffer->size == size) {
+    return buffer;
+  }
+
+  if (!buffer->data) {
+    void *data = calloc(size, 1);
+    if (!data) {
+      printf("ERROR: rawkit_cpu_buffer: could not create buffer\n");
+      return buffer;
+    }
+    buffer->data = data;
+  } else {
+    void *data = realloc(buffer->data, size);
+    if (!data) {
+      printf("ERROR: rawkit_cpu_buffer: could not resize buffer\n");
+      return nullptr;
+    }
+    buffer->data = data;
+  }
+
+  buffer->size = size;
+
+  buffer->resource_version++;
+
+  return buffer;
+}
