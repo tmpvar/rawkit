@@ -53,6 +53,11 @@ VkResult rawkit_texture_target_attachment(rawkit_texture_target_t *target, VkIma
         options.format
       );
 
+      options.usage = (
+        VK_IMAGE_USAGE_SAMPLED_BIT |
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+      );
+
       if (rawkit_texture_init(target->color, options)) {
         target->color->resource_version++;
       }
@@ -72,6 +77,13 @@ VkResult rawkit_texture_target_attachment(rawkit_texture_target_t *target, VkIma
         target->width,
         target->height,
         options.format
+      );
+
+      options.usage = (
+        VK_IMAGE_USAGE_SAMPLED_BIT |
+        VK_IMAGE_USAGE_STORAGE_BIT |
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
       );
 
       if (rawkit_texture_init(target->depth, options)) {
@@ -269,47 +281,7 @@ rawkit_texture_target_t *rawkit_texture_target_begin(
       }
     }
 
-    if (!target->command_pool) {
-      VkCommandPoolCreateInfo info = {};
-      info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-      info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-      info.queueFamilyIndex = target->gpu->graphics_queue_family_index;
-      err = vkCreateCommandPool(
-        target->gpu->device,
-        &info,
-        target->gpu->allocator,
-        &target->command_pool
-      );
-      if (err) {
-        printf("ERROR: rawkit_texture_target_begin: could not create command pool (%i)\n", err);
-        return target;
-      }
-    }
-
     target->resource_version++;
-  }
-
-  // create a command buffer for this instance
-  uint32_t frame_count = rawkit_window_frame_count();
-  if (!target->command_buffers && frame_count) {
-    target->command_buffers = (VkCommandBuffer*)calloc(sizeof(VkCommandBuffer) * frame_count, 1);
-
-    VkCommandBufferAllocateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    info.commandPool = target->command_pool;
-    info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    info.commandBufferCount = frame_count;
-
-    VkResult err = vkAllocateCommandBuffers(
-      gpu->device,
-      &info,
-      target->command_buffers
-    );
-
-    if (err) {
-      printf("ERROR: rawkit_texture_target_begin: could not create command buffer (%i)\n", err);
-      return target;
-    }
   }
 
   // begin the render pass
@@ -326,12 +298,15 @@ rawkit_texture_target_t *rawkit_texture_target_begin(
       clearValues.push_back(clearDepth);
     }
 
-    target->current_command_buffer = target->command_buffers[rawkit_window_frame_index()];
+    target->command_buffer = rawkit_gpu_create_command_buffer(target->gpu);
+    if (!target->command_buffer) {
+      printf("ERROR: rawkit_texture_init: could not create command buffer\n");
+      return false;
+    }
 
-    //vkResetCommandBuffer(target->current_command_buffer, 0);
     VkCommandBufferBeginInfo cmdBufferBeginInfo = {};
     cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    vkBeginCommandBuffer(target->current_command_buffer, &cmdBufferBeginInfo);
+    vkBeginCommandBuffer(target->command_buffer, &cmdBufferBeginInfo);
 
     VkRenderPassBeginInfo renderPassBeginInfo = {};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -342,14 +317,14 @@ rawkit_texture_target_t *rawkit_texture_target_begin(
     renderPassBeginInfo.clearValueCount = clearValues.size();
     renderPassBeginInfo.pClearValues = clearValues.data();
 
-    vkCmdBeginRenderPass(target->current_command_buffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(target->command_buffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     VkViewport viewport = {};
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     viewport.width = (float)width;
     viewport.height = (float)height;
-    vkCmdSetViewport(target->current_command_buffer, 0, 1, &viewport);
+    vkCmdSetViewport(target->command_buffer, 0, 1, &viewport);
 
     VkRect2D scissor = {};
     scissor.offset.x = 0;
@@ -357,7 +332,7 @@ rawkit_texture_target_t *rawkit_texture_target_begin(
     scissor.extent.width = (int32_t)width;
     scissor.extent.height = (int32_t)height;
 
-    vkCmdSetScissor(target->current_command_buffer, 0, 1, &scissor);
+    vkCmdSetScissor(target->command_buffer, 0, 1, &scissor);
   }
 
   return target;
@@ -369,9 +344,9 @@ void rawkit_texture_target_end(rawkit_texture_target_t *target) {
   }
   VkResult err;
 
-  vkCmdEndRenderPass(target->current_command_buffer);
+  vkCmdEndRenderPass(target->command_buffer);
 
-  err = vkEndCommandBuffer(target->current_command_buffer);
+  err = vkEndCommandBuffer(target->command_buffer);
   if (err) {
     printf("ERROR: rawkit_texture_target_end: could not end command buffer (%i)\n", err);
     return;
@@ -380,7 +355,7 @@ void rawkit_texture_target_end(rawkit_texture_target_t *target) {
   VkSubmitInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   info.commandBufferCount = 1;
-  info.pCommandBuffers = &target->current_command_buffer;
+  info.pCommandBuffers = &target->command_buffer;
 
   err = vkQueueSubmit(
     target->gpu->graphics_queue,

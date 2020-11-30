@@ -16,7 +16,7 @@ void loop() {
   );
 
   rawkit_vg_t *vg = rawkit_vg_from_texture_target(texture_target); {
-    rawkit_vg_begin_frame(vg, texture_target->current_command_buffer, (float)width, (float)height, 1.0f); {
+    rawkit_vg_begin_frame(vg, texture_target->command_buffer, (float)width, (float)height, 1.0f); {
 
       rawkit_vg_begin_path(vg);
         rawkit_vg_rect(vg, 0.0f, 0.0f, (float)width, (float)height);

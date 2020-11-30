@@ -366,7 +366,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     info.arrayLayers = 1;
     info.samples = VK_SAMPLE_COUNT_1_BIT;
     info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    info.usage = options.usage;
     info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
@@ -588,7 +588,11 @@ rawkit_texture_t *_rawkit_texture_mem(
   options.width = width;
   options.height = height;
   options.source = nullptr;
-  options.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+  options.usage = (
+    VK_IMAGE_USAGE_SAMPLED_BIT |
+    VK_IMAGE_USAGE_STORAGE_BIT |
+    VK_IMAGE_USAGE_TRANSFER_DST_BIT
+  );
 
   options.format = format;
   options.size = rawkit_texture_compute_size(
@@ -781,10 +785,13 @@ rawkit_texture_t *_rawkit_texture_ex(
     options.height,
     options.format
   );
-  // TODO: init doesn't do anything with the source! remove me
+  options.usage = (
+    VK_IMAGE_USAGE_SAMPLED_BIT |
+    VK_IMAGE_USAGE_STORAGE_BIT |
+    VK_IMAGE_USAGE_TRANSFER_DST_BIT
+  );
   options.gpu = gpu;
 
-  vkDeviceWaitIdle(device);
   // cache miss
   // TODO: cleanup existing resources!!!!!!
   if (!rawkit_texture_init(texture, options)) {

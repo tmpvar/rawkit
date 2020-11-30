@@ -120,9 +120,7 @@ typedef struct rawkit_texture_target_t {
 
   rawkit_gpu_t * gpu;
 
-  VkCommandBuffer *command_buffers;
-  VkCommandBuffer current_command_buffer;
-  VkCommandPool command_pool;
+  VkCommandBuffer command_buffer;
 
   VkRenderPass render_pass;
   VkFramebuffer frame_buffer;
