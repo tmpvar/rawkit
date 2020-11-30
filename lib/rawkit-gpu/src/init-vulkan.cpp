@@ -33,9 +33,9 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     create_info.ppEnabledExtensionNames = extensions;
     create_info.pApplicationInfo = &app;
 
+    const char* layers[] = { "VK_LAYER_KHRONOS_validation" };
     if (validation) {
       // Enabling multiple validation layers grouped as LunarG standard validation
-      const char* layers[] = { "VK_LAYER_LUNARG_standard_validation" };
       create_info.enabledLayerCount = 1;
       create_info.ppEnabledLayerNames = layers;
     }
