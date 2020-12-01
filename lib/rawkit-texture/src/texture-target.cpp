@@ -301,7 +301,7 @@ rawkit_texture_target_t *rawkit_texture_target_begin(
     target->command_buffer = rawkit_gpu_create_command_buffer(target->gpu);
     if (!target->command_buffer) {
       printf("ERROR: rawkit_texture_init: could not create command buffer\n");
-      return false;
+      return target;
     }
 
     VkCommandBufferBeginInfo cmdBufferBeginInfo = {};
