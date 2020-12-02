@@ -19,6 +19,11 @@ if (NOT TARGET rawkit::texture)
   add_subdirectory(../rawkit-texture deps/rawkit-texture)
 endif()
 
+# DEP: rawkit-window (sibling)
+if (NOT TARGET rawkit::window)
+  add_subdirectory(../rawkit-window deps/rawkit-window)
+endif()
+
 add_library(${PROJECT_NAME} STATIC
   src/rawkit-vg.cpp
   src/nanovg/nanovg.cpp

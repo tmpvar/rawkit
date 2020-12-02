@@ -1,7 +1,9 @@
 #include "nanovg_vk.h"
 
+#include <rawkit/window.h>
+
 void vknvg_set_current_command_buffer(VKNVGcontext *vk, VkCommandBuffer cmdBuffer) {
-  vk->current_command_buffer = cmdBuffer;
+  vk->command_buffer = cmdBuffer;
 }
 
 int vknvg_maxi(int a, int b) { return a > b ? a : b; }
@@ -388,6 +390,7 @@ VkDescriptorPool vknvg_createDescriptorPool(VkDevice device, uint32_t count, con
   NVGVK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptor_pool, allocator, &descPool));
   return descPool;
 }
+
 VkPipelineLayout vknvg_createPipelineLayout(VkDevice device, VkDescriptorSetLayout descLayout, const VkAllocationCallbacks *allocator) {
   VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
   pipelineLayoutCreateInfo.setLayoutCount = 1;
@@ -744,7 +747,7 @@ void vknvg_fill(VKNVGcontext *vk, VKNVGcall *call) {
   int i, npaths = call->pathCount;
 
   VkDevice device = vk->createInfo.device;
-  VkCommandBuffer cmdBuffer = vk->current_command_buffer;
+  VkCommandBuffer cmdBuffer = vk->command_buffer;
 
   VKNVGCreatePipelineKey pipelinekey = {0};
   pipelinekey.compositOperation = call->compositOperation;
@@ -754,8 +757,9 @@ void vknvg_fill(VKNVGcontext *vk, VKNVGcall *call) {
 
   vknvg_bindPipeline(vk, cmdBuffer, &pipelinekey);
 
+  uint32_t frame_idx = rawkit_window_frame_index();
   VkDescriptorSetAllocateInfo alloc_info[1] = {
-      {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, NULL, vk->descPool, 1, &vk->descLayout},
+      {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, NULL, vk->descPools[frame_idx].handle, 1, &vk->descLayout},
   };
   VkDescriptorSet descSet;
   NVGVK_CHECK_RESULT(vkAllocateDescriptorSets(device, alloc_info, &descSet));
@@ -806,7 +810,7 @@ void vknvg_convexFill(VKNVGcontext *vk, VKNVGcall *call) {
   int npaths = call->pathCount;
 
   VkDevice device = vk->createInfo.device;
-  VkCommandBuffer cmdBuffer = vk->current_command_buffer;
+  VkCommandBuffer cmdBuffer = vk->command_buffer;
 
   VKNVGCreatePipelineKey pipelinekey = {0};
   pipelinekey.compositOperation = call->compositOperation;
@@ -814,9 +818,9 @@ void vknvg_convexFill(VKNVGcontext *vk, VKNVGcall *call) {
   pipelinekey.edgeAAShader = vk->flags & NVG_ANTIALIAS;
 
   vknvg_bindPipeline(vk, cmdBuffer, &pipelinekey);
-
+  uint32_t frame_idx = rawkit_window_frame_index();
   VkDescriptorSetAllocateInfo alloc_info[1] = {
-      {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, NULL, vk->descPool, 1, &vk->descLayout},
+      {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, NULL, vk->descPools[frame_idx].handle, 1, &vk->descLayout},
   };
   VkDescriptorSet descSet;
   NVGVK_CHECK_RESULT(vkAllocateDescriptorSets(device, alloc_info, &descSet));
@@ -844,15 +848,15 @@ void vknvg_convexFill(VKNVGcontext *vk, VKNVGcall *call) {
 
 void vknvg_stroke(VKNVGcontext *vk, VKNVGcall *call) {
   VkDevice device = vk->createInfo.device;
-  VkCommandBuffer cmdBuffer = vk->current_command_buffer;
+  VkCommandBuffer cmdBuffer = vk->command_buffer;
 
   VKNVGpath *paths = &vk->paths[call->pathOffset];
   int npaths = call->pathCount;
 
   if (vk->flags & NVG_STENCIL_STROKES) {
-
+    uint32_t frame_idx = rawkit_window_frame_index();
     VkDescriptorSetAllocateInfo alloc_info[1] = {
-        {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, NULL, vk->descPool, 1, &vk->descLayout},
+        {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, NULL, vk->descPools[frame_idx].handle, 1, &vk->descLayout},
     };
     VkDescriptorSet descSet;
     NVGVK_CHECK_RESULT(vkAllocateDescriptorSets(device, alloc_info, &descSet));
@@ -899,8 +903,9 @@ void vknvg_stroke(VKNVGcontext *vk, VKNVGcall *call) {
     pipelinekey.edgeAAShader = vk->flags & NVG_ANTIALIAS;
 
     vknvg_bindPipeline(vk, cmdBuffer, &pipelinekey);
+    uint32_t frame_idx = rawkit_window_frame_index();
     VkDescriptorSetAllocateInfo alloc_info[1] = {
-        {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, NULL, vk->descPool, 1, &vk->descLayout},
+        {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, NULL, vk->descPools[frame_idx].handle, 1, &vk->descLayout},
     };
     VkDescriptorSet descSet;
     NVGVK_CHECK_RESULT(vkAllocateDescriptorSets(device, alloc_info, &descSet));
@@ -921,17 +926,17 @@ void vknvg_triangles(VKNVGcontext *vk, VKNVGcall *call) {
     return;
   }
   VkDevice device = vk->createInfo.device;
-  VkCommandBuffer cmdBuffer = vk->current_command_buffer;
+  VkCommandBuffer cmdBuffer = vk->command_buffer;
 
   VKNVGCreatePipelineKey pipelinekey = {0};
   pipelinekey.compositOperation = call->compositOperation;
   pipelinekey.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   pipelinekey.stencilFill = false;
   pipelinekey.edgeAAShader = vk->flags & NVG_ANTIALIAS;
-
   vknvg_bindPipeline(vk, cmdBuffer, &pipelinekey);
+  uint32_t frame_idx = rawkit_window_frame_index();
   VkDescriptorSetAllocateInfo alloc_info[1] = {
-      {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, NULL, vk->descPool, 1, &vk->descLayout},
+      {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, NULL, vk->descPools[frame_idx].handle, 1, &vk->descLayout},
   };
   VkDescriptorSet descSet;
   NVGVK_CHECK_RESULT(vkAllocateDescriptorSets(device, alloc_info, &descSet));
@@ -1002,7 +1007,7 @@ int vknvg_renderCreateTexture(void *uptr, int type, int w, int h, int imageFlags
   image_createInfo.arrayLayers = 1;
   image_createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   image_createInfo.tiling = VK_IMAGE_TILING_LINEAR;
-  image_createInfo.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
+  image_createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   image_createInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
   image_createInfo.queueFamilyIndexCount = 0;
   image_createInfo.pQueueFamilyIndices = NULL;
@@ -1137,7 +1142,7 @@ void vknvg_renderCancel(void *uptr) {
 void vknvg_renderFlush(void *uptr) {
   VKNVGcontext *vk = (VKNVGcontext *)uptr;
   VkDevice device = vk->createInfo.device;
-  VkCommandBuffer cmdBuffer = vk->current_command_buffer;
+  VkCommandBuffer cmdBuffer = vk->command_buffer;
   VkRenderPass renderpass = vk->createInfo.renderpass;
   VkPhysicalDeviceMemoryProperties memoryProperties = vk->memoryProperties;
   const VkAllocationCallbacks *allocator = vk->createInfo.allocator;
@@ -1149,12 +1154,16 @@ void vknvg_renderFlush(void *uptr) {
     vknvg_UpdateBuffer(device, allocator, &vk->vertUniformBuffer, memoryProperties, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, vk->view, sizeof(vk->view));
     vk->currentPipeline = NULL;
 
-    if (vk->ncalls > vk->cdescPool) {
-      vkDestroyDescriptorPool(device, vk->descPool, allocator);
-      vk->descPool = vknvg_createDescriptorPool(device, vk->ncalls, allocator);
-      vk->cdescPool = vk->ncalls;
+    uint32_t frame_idx = rawkit_window_frame_index();
+    if (vk->ncalls > vk->descPools[frame_idx].ncalls || !vk->descPools[frame_idx].handle) {
+      if (vk->descPools[frame_idx].handle) {
+        vkDestroyDescriptorPool(device, vk->descPools[frame_idx].handle, allocator);
+        vk->descPools[frame_idx].handle = nullptr;
+      }
+      vk->descPools[frame_idx].handle = vknvg_createDescriptorPool(device, vk->ncalls, allocator);
+      vk->descPools[frame_idx].ncalls = vk->ncalls;
     } else {
-      vkResetDescriptorPool(device, vk->descPool, 0);
+      vkResetDescriptorPool(device, vk->descPools[frame_idx].handle, 0);
     }
 
     for (i = 0; i < vk->ncalls; i++) {
@@ -1384,7 +1393,13 @@ void vknvg_renderDelete(void *uptr) {
   vkDestroyShaderModule(device, vk->fillFragShader, allocator);
   vkDestroyShaderModule(device, vk->fillFragShaderAA, allocator);
 
-  vkDestroyDescriptorPool(device, vk->descPool, allocator);
+  int frame_count = rawkit_window_frame_count();
+  for (int i=0; i<frame_count; i++) {
+    if (vk->descPools[i].handle) {
+      vkDestroyDescriptorPool(device, vk->descPools[i].handle, allocator);
+    }
+  }
+
   vkDestroyDescriptorSetLayout(device, vk->descLayout, allocator);
   vkDestroyPipelineLayout(device, vk->pipelineLayout, allocator);
 
@@ -1422,6 +1437,12 @@ NVGcontext *nvgCreateVk(VKNVGCreateInfo createInfo, int flags) {
 
   vk->flags = flags;
   vk->createInfo = createInfo;
+
+  int frame_count = rawkit_window_frame_count();
+  vk->descPools = (VKNVGDescriptorPool *)calloc(
+    sizeof(VKNVGDescriptorPool) * frame_count,
+    1
+  );
 
   ctx = nvgCreateInternal(&params);
   if (ctx == NULL)

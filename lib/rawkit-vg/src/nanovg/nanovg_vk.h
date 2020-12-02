@@ -24,8 +24,6 @@ typedef struct VKNVGCreateInfo {
   VkPhysicalDevice gpu;
   VkDevice device;
   VkRenderPass renderpass;
-  // VkCommandBuffer cmdBuffer;
-
   const VkAllocationCallbacks *allocator; //Allocator for vulkan. can be null
 } VKNVGCreateInfo;
 
@@ -129,6 +127,11 @@ typedef struct VKNVGDepthSimplePipeline {
   VkPipelineLayout pipelineLayout;
 } VKNVGDepthSimplePipeline;
 
+typedef struct VKNVGDescriptorPool {
+  VkDescriptorPool handle;
+  int ncalls;
+} VKNVGDescriptorPool;
+
 typedef struct VKNVGcontext {
   VKNVGCreateInfo createInfo;
 
@@ -163,8 +166,7 @@ typedef struct VKNVGcontext {
   int cverts;
   int nverts;
 
-  VkDescriptorPool descPool;
-  int cdescPool;
+  VKNVGDescriptorPool *descPools;
 
   unsigned char *uniforms;
   int cuniforms;
@@ -178,7 +180,7 @@ typedef struct VKNVGcontext {
   VkShaderModule fillFragShaderAA;
   VkShaderModule fillVertShader;
 
-  VkCommandBuffer current_command_buffer;
+  VkCommandBuffer command_buffer;
 
   NVGcontext *ctx;
 } VKNVGcontext;
