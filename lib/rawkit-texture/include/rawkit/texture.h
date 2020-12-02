@@ -36,6 +36,8 @@ typedef struct rawkit_texture_t {
   VkDeviceMemory image_memory;
   VkImageView image_view;
   VkImageLayout image_layout;
+  VkAccessFlags image_access;
+
   rawkit_texture_options_t options;
 
   VkBuffer source_cpu_buffer;
@@ -83,6 +85,14 @@ rawkit_texture_t *_rawkit_texture_ex(
   const char *path,
   uv_loop_t *loop,
   rawkit_diskwatcher_t *watcher
+);
+
+VkResult rawkit_texture_transition(
+  rawkit_texture_t *texture,
+  VkCommandBuffer command_buffer,
+  VkPipelineStageFlags srcStageMask,
+  VkPipelineStageFlags dstStageMask,
+  VkImageMemoryBarrier extend
 );
 
 const rawkit_texture_sampler_t *rawkit_texture_sampler_struct(rawkit_gpu_t *gpu, const VkSamplerCreateInfo *info);

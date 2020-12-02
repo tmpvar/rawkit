@@ -518,30 +518,17 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     VkResult begin_result = vkBeginCommandBuffer(command_buffer, &begin_info);
 
     VkImageMemoryBarrier barrier = {};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.srcAccessMask = 0;
     barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT;
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = texture->image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.layerCount = 1;
-    vkCmdPipelineBarrier(
+    rawkit_texture_transition(
+      texture,
       command_buffer,
       VK_PIPELINE_STAGE_TRANSFER_BIT,
       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-      0,
-      0,
-      NULL,
-      0,
-      NULL,
-      1,
-      &barrier
+      barrier
     );
-
     // Blindly submit this command buffer, this is a supreme hack to get something
     // rendering on the screen.
     {
@@ -658,29 +645,20 @@ bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_bu
       return false;
     }
 
-    VkImageMemoryBarrier copy_barrier[1] = {};
-    copy_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    copy_barrier[0].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    copy_barrier[0].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    copy_barrier[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    copy_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    copy_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    copy_barrier[0].image = texture->image;
-    copy_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    copy_barrier[0].subresourceRange.levelCount = 1;
-    copy_barrier[0].subresourceRange.layerCount = 1;
-    vkCmdPipelineBarrier(
+    VkImageMemoryBarrier copy_barrier = {};
+    copy_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    copy_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    VkResult copy_transition_err = rawkit_texture_transition(
+      texture,
       command_buffer,
       VK_PIPELINE_STAGE_HOST_BIT,
       VK_PIPELINE_STAGE_TRANSFER_BIT,
-      0,
-      0,
-      NULL,
-      0,
-      NULL,
-      1,
       copy_barrier
     );
+
+    if (copy_transition_err) {
+      return false;
+    }
 
     VkBufferImageCopy region = {};
     region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -698,30 +676,20 @@ bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_bu
       &region
     );
 
-    VkImageMemoryBarrier use_barrier[1] = {};
-    use_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    use_barrier[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    use_barrier[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    use_barrier[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    use_barrier[0].newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    use_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    use_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    use_barrier[0].image = texture->image;
-    use_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    use_barrier[0].subresourceRange.levelCount = 1;
-    use_barrier[0].subresourceRange.layerCount = 1;
-    vkCmdPipelineBarrier(
+    VkImageMemoryBarrier use_barrier = {};
+    use_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    use_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    VkResult use_transition_err = rawkit_texture_transition(
+      texture,
       command_buffer,
       VK_PIPELINE_STAGE_TRANSFER_BIT,
       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-      0,
-      0,
-      NULL,
-      0,
-      NULL,
-      1,
-      use_barrier
+      copy_barrier
     );
+
+    if (use_transition_err) {
+      return false;
+    }
   }
 
   // Blindly submit this command buffer, this is a supreme hack to get something
@@ -877,4 +845,49 @@ const rawkit_texture_sampler_t *rawkit_texture_sampler(
   info.borderColor = borderColor;
   info.unnormalizedCoordinates = unnormalizedCoordinates;
   return rawkit_texture_sampler_struct(gpu, &info);
+}
+
+
+#define RAWKIT_DEFAULT(_value, _default) (!_value ? _default : _value)
+
+VkResult rawkit_texture_transition(
+  rawkit_texture_t *texture,
+  VkCommandBuffer command_buffer,
+  VkPipelineStageFlags srcStageMask,
+  VkPipelineStageFlags dstStageMask,
+  VkImageMemoryBarrier extend
+) {
+  if (!texture || !texture->image || !command_buffer) {
+    return VK_INCOMPLETE;
+  }
+
+  VkImageMemoryBarrier barrier = {};
+  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  barrier.srcAccessMask = RAWKIT_DEFAULT(extend.srcAccessMask, texture->image_access);
+  barrier.dstAccessMask = RAWKIT_DEFAULT(extend.dstAccessMask, VK_ACCESS_SHADER_READ_BIT);
+  barrier.oldLayout = texture->image_layout;
+  barrier.newLayout = RAWKIT_DEFAULT(extend.newLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image = texture->image;
+  barrier.subresourceRange.aspectMask = RAWKIT_DEFAULT(extend.subresourceRange.aspectMask, VK_IMAGE_ASPECT_COLOR_BIT);
+  barrier.subresourceRange.levelCount = RAWKIT_DEFAULT(extend.subresourceRange.levelCount, 1);
+  barrier.subresourceRange.layerCount = RAWKIT_DEFAULT(extend.subresourceRange.layerCount, 1);
+  vkCmdPipelineBarrier(
+    command_buffer,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    0,
+    0,
+    NULL,
+    0,
+    NULL,
+    1,
+    &barrier
+  );
+
+  texture->image_layout = barrier.newLayout;
+  texture->image_access = barrier.dstAccessMask;
+
+  return VK_SUCCESS;
 }
