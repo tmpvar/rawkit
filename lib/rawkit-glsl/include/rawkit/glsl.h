@@ -207,6 +207,8 @@ const uint32_t rawkit_glsl_reflection_binding_count_for_set(const rawkit_glsl_t*
 uint8_t rawkit_glsl_stage_count(const rawkit_glsl_t *ref);
 bool rawkit_glsl_is_compute(const rawkit_glsl_t *ref);
 
+VkPipelineStageFlags rawkit_glsl_vulkan_stage_flags(rawkit_glsl_stage_mask_t stage);
+
 #ifdef __cplusplus
   }
 #endif

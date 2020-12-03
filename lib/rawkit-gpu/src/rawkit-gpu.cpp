@@ -184,7 +184,7 @@ VkResult rawkit_gpu_copy_buffer(
 
     err = vkAllocateCommandBuffers(gpu->device, &info, &command_buffer);
     if (err) {
-      printf("ERROR: could not allocate command buffers while setting up a vertex buffer (%i)\n", err);
+      printf("ERROR: could not allocate command buffers while copying buffer (%i)\n", err);
       return err;
     }
   }
@@ -193,9 +193,10 @@ VkResult rawkit_gpu_copy_buffer(
   {
     VkCommandBufferBeginInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     err = vkBeginCommandBuffer(command_buffer, &info);
     if (err) {
-      printf("ERROR: could not begin command buffer while setting up vertex buffer (%i)\n", err);
+      printf("ERROR: could not begin command buffer while copying buffer (%i)\n", err);
       return err;
     }
   }
@@ -221,32 +222,31 @@ VkResult rawkit_gpu_copy_buffer(
     create.flags = 0;
     err = vkCreateFence(gpu->device, &create, NULL, &fence);
     if (err) {
-      printf("ERROR: create fence failed while setting up vertex buffer (%i)\n", err);
+      printf("ERROR: create fence failed while copying buffer (%i)\n", err);
       return err;
     }
   }
 
   // submit the command buffer to the queue
   {
-      VkSubmitInfo submit = {};
+    VkSubmitInfo submit = {};
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit.commandBufferCount = 1;
     submit.pCommandBuffers = &command_buffer;
     err = vkQueueSubmit(queue, 1, &submit, fence);
     if (err) {
-      printf("ERROR: unable to submit command buffer to queue while setting up vertex buffer (%i)\n", err);
+      printf("ERROR: unable to submit command buffer to queue while copying buffer (%i)\n", err);
       return err;
     }
 
     uint64_t timeout_ns = 100000000000;
     err = vkWaitForFences(gpu->device, 1, &fence, VK_TRUE, timeout_ns);
     if (err) {
-      printf("ERROR: unable to wait for queue while setting up vertex buffer (%i)\n", err);
+      printf("ERROR: unable to wait for queue while copying buffer (%i)\n", err);
       return err;
     }
 
     vkDestroyFence(gpu->device, fence, NULL);
-    vkFreeCommandBuffers(gpu->device, pool, 1, &command_buffer);
   }
 
   return VK_SUCCESS;
