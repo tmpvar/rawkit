@@ -99,20 +99,31 @@ void rawkit_shader_bind(
   }
 }
 
-VkCommandBuffer rawkit_shader_command_buffer(rawkit_shader_t *shader, uint8_t concurrency_index) {
-  ShaderState *shader_state = (ShaderState *)shader->_state;
-  if (!shader_state || shader_state->concurrent_entries.size() <= concurrency_index) {
-    return VK_NULL_HANDLE;
-  }
-
-  ConcurrentStateEntry *state = shader_state->concurrent_entries[concurrency_index];
-  return state->command_buffer;
-}
-
 const rawkit_glsl_t *rawkit_shader_glsl(rawkit_shader_t *shader) {
   ShaderState *shader_state = (ShaderState *)shader->_state;
   if (!shader_state) {
     return NULL;
   }
   return shader_state->glsl;
+}
+
+VkPipelineStageFlags rawkit_glsl_vulkan_stage_flags(rawkit_glsl_stage_mask_t stage) {
+  if (stage & RAWKIT_GLSL_STAGE_ALL) {
+    return VK_SHADER_STAGE_ALL;
+  }
+
+  VkPipelineStageFlags ret = 0;
+  ret |= (stage & RAWKIT_GLSL_STAGE_VERTEX_BIT) ? VK_SHADER_STAGE_VERTEX_BIT : 0;
+  ret |= (stage & RAWKIT_GLSL_STAGE_TESSELLATION_CONTROL_BIT) ? VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT : 0;
+  ret |= (stage & RAWKIT_GLSL_STAGE_TESSELLATION_EVALUATION_BIT) ? VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT : 0;
+  ret |= (stage & RAWKIT_GLSL_STAGE_GEOMETRY_BIT) ? VK_SHADER_STAGE_GEOMETRY_BIT : 0;
+  ret |= (stage & RAWKIT_GLSL_STAGE_FRAGMENT_BIT) ? VK_SHADER_STAGE_FRAGMENT_BIT : 0;
+  ret |= (stage & RAWKIT_GLSL_STAGE_COMPUTE_BIT) ? VK_SHADER_STAGE_COMPUTE_BIT : 0;
+  ret |= (stage & RAWKIT_GLSL_STAGE_RAYGEN_BIT) ? VK_SHADER_STAGE_RAYGEN_BIT_KHR : 0;
+  ret |= (stage & RAWKIT_GLSL_STAGE_ANY_HIT_BIT) ? VK_SHADER_STAGE_ANY_HIT_BIT_KHR : 0;
+  ret |= (stage & RAWKIT_GLSL_STAGE_CLOSEST_HIT_BIT) ? VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR : 0;
+  ret |= (stage & RAWKIT_GLSL_STAGE_MISS_BIT) ? VK_SHADER_STAGE_MISS_BIT_KHR : 0;
+  ret |= (stage & RAWKIT_GLSL_STAGE_INTERSECTION_BIT) ? VK_SHADER_STAGE_INTERSECTION_BIT_KHR : 0;
+  ret |= (stage & RAWKIT_GLSL_STAGE_CALLABLE_BIT) ? VK_SHADER_STAGE_CALLABLE_BIT_KHR : 0;
+  return ret;
 }

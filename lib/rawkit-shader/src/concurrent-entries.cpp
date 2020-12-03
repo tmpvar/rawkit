@@ -62,26 +62,6 @@ VkResult ShaderState::populate_concurrent_entries() {
   ConcurrentStateEntry *entry = new ConcurrentStateEntry();
   entry->gpu = this->gpu;
 
-  // Create the command buffer
-  {
-    VkCommandBufferAllocateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    info.commandPool = this->command_pool;
-    info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    info.commandBufferCount = 1;
-
-    VkResult err = vkAllocateCommandBuffers(
-      this->gpu->device,
-      &info,
-      &entry->command_buffer
-    );
-
-    if (err) {
-      printf("ERROR: ShaderState: could not create command buffer (%i)\n", err);
-      return err;
-    }
-  }
-
   for (VkDescriptorSetLayout layout : this->descriptor_set_layouts) {
     VkDescriptorSetAllocateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;

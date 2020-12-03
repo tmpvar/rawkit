@@ -101,6 +101,11 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
       .height = height,
       .format = VK_FORMAT_R32G32B32A32_SFLOAT,
       .gpu = rawkit_default_gpu(),
+      .usage = (
+        VK_IMAGE_USAGE_SAMPLED_BIT |
+        VK_IMAGE_USAGE_STORAGE_BIT |
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT
+      )
     };
 
     // shader id, params id, texture index
@@ -114,9 +119,9 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
 
     for (uint64_t idx=0; idx<state->texture_count; idx++) {
       rawkit_texture_t *texture = &state->textures[idx];
-      // TODO: use idx as an id passed into rawkit_hash_composite
       if (!texture->resource_id) {
         texture->resource_name = texture_names[idx];
+        // use idx as an id passed into rawkit_hash_composite
         resource_ids[resource_ids_count-1] = idx;
         texture->resource_id = rawkit_hash_composite(
           resource_ids_count,
@@ -135,8 +140,10 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
   }
 
   uint32_t idx = rawkit_window_frame_index();
-  VkCommandBuffer command_buffer = rawkit_shader_command_buffer(shader, idx);
+
+  VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu);
   if (!command_buffer) {
+    printf("ERROR: fill_rect: could not create command buffer\n");
     return;
   }
 
@@ -154,6 +161,8 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
     );
   }
 
+  rawkit_texture_t *current_texture = &state->textures[idx];
+
   // record new command buffer
   {
     // TODO: we need to wait for the previous use of this command buffer to be complete
@@ -170,6 +179,19 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
     if (err != VK_SUCCESS) {
       printf("ERROR: could not begin command buffer");
       return;
+    }
+
+    // transition to a writable texture
+    {
+      VkImageMemoryBarrier barrier = {};
+      barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+      barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+      rawkit_texture_transition(
+        current_texture,
+        command_buffer,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        barrier
+      );
     }
 
     rawkit_shader_bind(
@@ -201,6 +223,7 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
         (uint32_t)fmaxf(ceilf(global[2] / local[2]), 1.0)
       );
     }
+
     err = vkEndCommandBuffer(command_buffer);
     if (err != VK_SUCCESS) {
       printf("ERROR: vkEndCommandBuffer: failed %i\n", err);
@@ -230,7 +253,6 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
     }
 
     // TODO: allow someone to pass in a sampler
-    rawkit_texture_t *current_texture = &state->textures[idx];
     ImTextureID texture = rawkit_imgui_texture(current_texture, options->sampler);
     if (!texture) {
       return;
@@ -308,7 +330,8 @@ void loop() {
     fill_rect(gpu, "basic.comp", &options);
   }
 
-  {
+  // TODO: dedupe fill_rect resource by hashing shader params
+  if (0) {
     fill_rect_options_t options = {0};
     options.render_width = 128;
     options.render_height = 64;

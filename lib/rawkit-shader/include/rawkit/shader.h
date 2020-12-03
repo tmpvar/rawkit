@@ -136,8 +136,6 @@ void rawkit_shader_bind(
   rawkit_shader_params_t params
 );
 
-VkCommandBuffer rawkit_shader_command_buffer(rawkit_shader_t *shader, uint8_t concurrency_index);
-
 const rawkit_glsl_t *rawkit_shader_glsl(rawkit_shader_t *shader);
 
 void rawkit_shader_params_init_resource(rawkit_shader_params_t *params);

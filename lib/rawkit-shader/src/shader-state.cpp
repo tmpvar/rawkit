@@ -17,31 +17,6 @@ ShaderState *ShaderState::create(rawkit_gpu_t *gpu, const rawkit_glsl_t *glsl, u
   state->gpu = gpu;
   state->glsl = glsl;
 
-  // create
-  {
-    VkCommandPoolCreateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-
-    VkQueueFlags flags = rawkit_glsl_is_compute(glsl)
-      ? VK_QUEUE_COMPUTE_BIT
-      : VK_QUEUE_GRAPHICS_BIT;
-
-    info.queueFamilyIndex = rawkit_vulkan_find_queue_family_index(gpu, flags);
-    VkResult err = vkCreateCommandPool(
-      gpu->device,
-      &info,
-      NULL,
-      &state->command_pool
-    );
-
-    if (err) {
-      printf("ERROR: ShaderState: could not create command pool (%i)\n", err);
-      delete state;
-      return nullptr;
-    }
-  }
-
   // create the shader modules
   {
     const uint8_t stage_count = rawkit_glsl_stage_count(glsl);
@@ -157,14 +132,6 @@ ShaderState::~ShaderState() {
     vkDestroyDescriptorPool(
       this->gpu->device,
       this->descriptor_pool,
-      this->gpu->allocator
-    );
-  }
-
-  if (this->command_pool) {
-    vkDestroyCommandPool(
-      this->gpu->device,
-      this->command_pool,
       this->gpu->allocator
     );
   }

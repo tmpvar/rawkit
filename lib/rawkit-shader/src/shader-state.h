@@ -35,7 +35,6 @@ class ShaderState {
     vector<ConcurrentStateEntry *> concurrent_entries;
 
     VkDescriptorPool descriptor_pool;
-    VkCommandPool command_pool = VK_NULL_HANDLE;
 
     vector<VkDescriptorSetLayout> descriptor_set_layouts;
     VkPipelineLayout pipeline_layout;

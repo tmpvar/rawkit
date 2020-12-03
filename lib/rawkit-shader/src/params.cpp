@@ -1,6 +1,51 @@
 #include <rawkit/hash.h>
 #include "shader-state.h"
 
+static VkResult transition_texture_for_stage(
+  rawkit_gpu_t *gpu,
+  rawkit_texture_t *texture,
+  VkImageMemoryBarrier barrier,
+  VkPipelineStageFlags stageFlags
+) {
+  VkResult err = VK_SUCCESS;
+  VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu);
+  if (!command_buffer) {
+    printf("ERROR: transition_texture_for_compute: could not create command buffer\n");
+    return VK_INCOMPLETE;
+  }
+  VkCommandBufferBeginInfo begin_info = {};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  VkResult begin_result = vkBeginCommandBuffer(command_buffer, &begin_info);
+
+  rawkit_texture_transition(
+    texture,
+    command_buffer,
+    stageFlags,
+    barrier
+  );
+
+  {
+    VkSubmitInfo end_info = {};
+    end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    end_info.commandBufferCount = 1;
+    end_info.pCommandBuffers = &command_buffer;
+    err = vkEndCommandBuffer(command_buffer);
+    if (err) {
+      printf("ERROR: transition_texture_for_stage: could not end command buffer");
+      return err;
+    }
+
+    err = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, VK_NULL_HANDLE);
+    if (err) {
+      printf("ERROR: transition_texture_for_stage: could not submit command buffer");
+      return err;
+    }
+  }
+
+  return err;
+}
+
 static void rawkit_shader_set_concurrent_param(
   ShaderState *shader_state,
   ConcurrentStateEntry *state,
@@ -33,32 +78,50 @@ static void rawkit_shader_set_concurrent_param(
         return;
       }
 
-      VkDescriptorImageInfo imageInfo = {};
-      const rawkit_texture_sampler_t *sampler = param->texture.sampler;
-      if (sampler) {
-        imageInfo.sampler = sampler->handle;
+      VkImageMemoryBarrier barrier = {};
+      barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+      if (entry.writable) {
+        barrier.dstAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+        barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
       } else {
-        imageInfo.sampler = texture->default_sampler->handle;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       }
 
-      imageInfo.imageView = texture->image_view;
-      imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-      VkWriteDescriptorSet writeDescriptorSet = {};
-      writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      writeDescriptorSet.dstSet = state->descriptor_sets[entry.set];
-      writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-      writeDescriptorSet.dstBinding = entry.binding;
-      writeDescriptorSet.pImageInfo = &imageInfo;
-      writeDescriptorSet.descriptorCount = 1;
-      vkUpdateDescriptorSets(
-        gpu->device,
-        1,
-        &writeDescriptorSet,
-        0,
-        NULL
+      transition_texture_for_stage(
+        gpu,
+        texture,
+        barrier,
+        rawkit_glsl_vulkan_stage_flags(entry.stage)
       );
 
+      // update destriptor set
+      {
+        VkDescriptorImageInfo imageInfo = {};
+        const rawkit_texture_sampler_t *sampler = param->texture.sampler;
+        if (sampler) {
+          imageInfo.sampler = sampler->handle;
+        } else {
+          imageInfo.sampler = texture->default_sampler->handle;
+        }
+
+        imageInfo.imageView = texture->image_view;
+        imageInfo.imageLayout = texture->image_layout;
+
+        VkWriteDescriptorSet writeDescriptorSet = {};
+        writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptorSet.dstSet = state->descriptor_sets[entry.set];
+        writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        writeDescriptorSet.dstBinding = entry.binding;
+        writeDescriptorSet.pImageInfo = &imageInfo;
+        writeDescriptorSet.descriptorCount = 1;
+        vkUpdateDescriptorSets(
+          gpu->device,
+          1,
+          &writeDescriptorSet,
+          0,
+          NULL
+        );
+      }
       break;
     }
 
