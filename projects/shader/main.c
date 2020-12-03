@@ -19,7 +19,7 @@ typedef struct fill_rect_state_t {
   uint32_t height;
   VkFormat format;
   uint32_t texture_count;
-  rawkit_texture_t *textures;
+  rawkit_texture_t **textures;
 
   rawkit_glsl_t *glsl;
 
@@ -35,7 +35,7 @@ const char *texture_names[] ={
   "rawkit::fill_rect::texture#5",
 };
 
-void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *options) {
+void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill_rect_options_t *options) {
   VkQueue queue = rawkit_vulkan_queue();
   VkDevice device = rawkit_vulkan_device();
   if (device == VK_NULL_HANDLE) {
@@ -60,6 +60,9 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
 
   char id[4096] = "rawkit::fill_rect::";
   strcat(id, path);
+  strcat(id, "::");
+  strcat(id, name);
+
   fill_rect_state_t *state = rawkit_hot_state(id, fill_rect_state_t);
   if (!state) {
     printf("no state\n");
@@ -81,13 +84,15 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
 
   // rebuild the images if the user requests a resize
   if (state->width != width || state->height != height) {
+
+    printf("REBUILD fill_rect(%s) (%u, %u) -> (%u, %u)\n", name, state->width, state->height, width, height);
     state->width = width;
     state->height = height;
 
     state->texture_count = rawkit_window_frame_count();
     if (!state->textures) {
-      state->textures = (rawkit_texture_t *)calloc(
-        state->texture_count * sizeof(rawkit_texture_t),
+      state->textures = (rawkit_texture_t **)calloc(
+        state->texture_count * sizeof(rawkit_texture_t*),
         1
       );
 
@@ -116,21 +121,22 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
       0 // the texture index
     };
 
-
     for (uint64_t idx=0; idx<state->texture_count; idx++) {
-      rawkit_texture_t *texture = &state->textures[idx];
-      if (!texture->resource_id) {
-        texture->resource_name = texture_names[idx];
-        // use idx as an id passed into rawkit_hash_composite
-        resource_ids[resource_ids_count-1] = idx;
-        texture->resource_id = rawkit_hash_composite(
-          resource_ids_count,
-          resource_ids
-        );
-      }
 
-      if (rawkit_texture_init(texture, texture_options)) {
-        texture->resource_version++;
+      resource_ids[resource_ids_count-1] = idx;
+      uint64_t id = rawkit_hash_composite(resource_ids_count, resource_ids);
+
+      state->textures[idx] = rawkit_hot_resource_id(texture_names[idx], id, rawkit_texture_t);
+
+      bool dirty = rawkit_resource_sources_array(
+        (rawkit_resource_t *)state->textures[idx],
+        1,
+        (rawkit_resource_t **)&shader
+      );
+
+      if (rawkit_texture_init(state->textures[idx], texture_options)) {
+        printf("initialized texture: %s\n", state->textures[idx]->resource_name);
+        state->textures[idx]->resource_version++;
       }
     }
   }
@@ -151,7 +157,7 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
   {
     rawkit_shader_params_t p = {};
     rawkit_shader_params(p,
-      rawkit_shader_texture("rawkit_output_image", &state->textures[idx], NULL)
+      rawkit_shader_texture("rawkit_output_image", state->textures[idx], NULL)
     );
     rawkit_shader_apply_params(
       shader,
@@ -161,7 +167,7 @@ void fill_rect(rawkit_gpu_t *gpu, const char *path, const fill_rect_options_t *o
     );
   }
 
-  rawkit_texture_t *current_texture = &state->textures[idx];
+  rawkit_texture_t *current_texture = state->textures[idx];
 
   // record new command buffer
   {
@@ -291,6 +297,8 @@ struct triangle_uniforms {
 };
 
 void loop() {
+
+  printf("================== FRAME ================\n");
   rawkit_gpu_t *gpu = rawkit_default_gpu();
 
   {
@@ -326,7 +334,7 @@ void loop() {
       )
     );
 
-    fill_rect(gpu, "basic.comp", &options);
+    fill_rect(gpu, "nearest", "basic.comp", &options);
   }
 
   // TODO: dedupe fill_rect resource by hashing shader params
@@ -362,10 +370,10 @@ void loop() {
       )
     );
 
-    fill_rect(gpu, "basic.comp", &options);
+    fill_rect(gpu, "tiled", "basic.comp", &options);
   }
 
-  {
+  if (0){
     fill_rect_options_t options = {0};
     options.render_width = 400;
     options.render_height = 400;
@@ -384,10 +392,10 @@ void loop() {
       rawkit_shader_ubo("UBO", &ubo)
     );
 
-    fill_rect(gpu, "triangle.comp", &options);
+    fill_rect(gpu, "triangle", "triangle.comp", &options);
   }
 
-  {
+  if (0) {
     rawkit_shader_t *shader = rawkit_shader_ex(
       gpu,
       rawkit_window_frame_count(),

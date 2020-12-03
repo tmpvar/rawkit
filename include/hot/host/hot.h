@@ -10,6 +10,7 @@
 #include <hot/host/cimgui.h>
 #include <hot/host/croaring.h>
 #include <hot/host/tinyfiledialogs.h>
+#include <hot/host/rawkit-core.h>
 #include <hot/host/rawkit-glsl.h>
 #include <hot/host/rawkit-gpu.h>
 #include <hot/host/rawkit-hash.h>
@@ -52,6 +53,7 @@ void host_hot_init(rawkit_jit_t *jit) {
   //   host_init_stdlib(jit);
   // #endif
 
+  host_init_rawkit_core(jit);
   host_init_rawkit_glsl(jit);
   host_init_rawkit_gpu(jit);
   host_init_rawkit_hash(jit);

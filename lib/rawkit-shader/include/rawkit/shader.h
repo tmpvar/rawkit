@@ -139,6 +139,7 @@ void rawkit_shader_bind(
 const rawkit_glsl_t *rawkit_shader_glsl(rawkit_shader_t *shader);
 
 void rawkit_shader_params_init_resource(rawkit_shader_params_t *params);
+VkPipelineStageFlags rawkit_glsl_vulkan_stage_flags(rawkit_glsl_stage_mask_t stage);
 
 #ifdef __cplusplus
 }
