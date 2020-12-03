@@ -10,6 +10,8 @@
 #include <nanovg/nanovg.h>
 #include <vulkan/vulkan.h>
 
+#include <rawkit/gpu.h>
+
 enum NVGcreateFlags {
   // Flag indicating if geometry based anti-aliasing is used (may not be needed when using MSAA).
   NVG_ANTIALIAS = 1 << 0,
@@ -21,10 +23,8 @@ enum NVGcreateFlags {
 };
 
 typedef struct VKNVGCreateInfo {
-  VkPhysicalDevice gpu;
-  VkDevice device;
+  rawkit_gpu_t *gpu;
   VkRenderPass renderpass;
-  const VkAllocationCallbacks *allocator; //Allocator for vulkan. can be null
 } VKNVGCreateInfo;
 
 #define NVGVK_CHECK_RESULT(f)    \
@@ -43,16 +43,10 @@ enum VKNVGshaderType {
 };
 
 typedef struct VKNVGtexture {
-  VkSampler sampler;
-
-  VkImage image;
-  VkImageLayout imageLayout;
-  VkImageView view;
-
-  VkDeviceMemory mem;
-  int32_t width, height;
-  int type; //enum NVGtexture
+  rawkit_texture_t *resource;
+  const rawkit_texture_sampler_t *sampler;
   int flags;
+  int type; //enum NVGtexture
 } VKNVGtexture;
 
 enum VKNVGcallType {
@@ -167,6 +161,7 @@ typedef struct VKNVGcontext {
   int nverts;
 
   VKNVGDescriptorPool *descPools;
+  uint32_t descPoolsCount;
 
   unsigned char *uniforms;
   int cuniforms;

@@ -35,8 +35,7 @@ rawkit_vg_t *rawkit_vg(
   VGState *state = new VGState();
 
   VKNVGCreateInfo create_info = {0};
-  create_info.device = gpu->device;
-  create_info.gpu = gpu->physical_device;
+  create_info.gpu = gpu;
   create_info.renderpass = render_pass;
 
   state->ctx = nvgCreateVk(
@@ -46,7 +45,6 @@ rawkit_vg_t *rawkit_vg(
 
   // setup 64x64 error image
   nvgErrorImage(state->ctx);
-
   vg->_state = (void *)state;
 
   return vg;

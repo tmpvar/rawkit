@@ -43,7 +43,7 @@ VKNVGtexture *vknvg_allocTexture(VKNVGcontext *vk) {
   int i;
 
   for (i = 0; i < vk->ntextures; i++) {
-    if (vk->textures[i].image == VK_NULL_HANDLE) {
+    if (vk->textures[i].resource == VK_NULL_HANDLE) {
       tex = &vk->textures[i];
       break;
     }
@@ -72,25 +72,8 @@ int vknvg_textureId(VKNVGcontext *vk, VKNVGtexture *tex) {
   return (int)id + 1;
 }
 int vknvg_deleteTexture(VKNVGcontext *vk, VKNVGtexture *tex) {
-  VkDevice device = vk->createInfo.device;
-  const VkAllocationCallbacks *allocator = vk->createInfo.allocator;
   if (tex) {
-    if (tex->view != VK_NULL_HANDLE) {
-      vkDestroyImageView(device, tex->view, allocator);
-      tex->view = VK_NULL_HANDLE;
-    }
-    if (tex->sampler != VK_NULL_HANDLE) {
-      vkDestroySampler(device, tex->sampler, allocator);
-      tex->sampler = VK_NULL_HANDLE;
-    }
-    if (tex->image != VK_NULL_HANDLE) {
-      vkDestroyImage(device, tex->image, allocator);
-      tex->image = VK_NULL_HANDLE;
-    }
-    if (tex->mem != VK_NULL_HANDLE) {
-      vkFreeMemory(device, tex->mem, allocator);
-      tex->mem = VK_NULL_HANDLE;
-    }
+    rawkit_texture_destroy(tex->resource);
     return 1;
   }
   return 0;
@@ -451,10 +434,10 @@ VkPipelineDepthStencilStateCreateInfo initializeDepthStencilCreateInfo(VKNVGCrea
 }
 VKNVGPipeline *vknvg_createPipeline(VKNVGcontext *vk, VKNVGCreatePipelineKey *pipelinekey) {
 
-  VkDevice device = vk->createInfo.device;
+  VkDevice device = vk->createInfo.gpu->device;
   VkPipelineLayout pipelineLayout = vk->pipelineLayout;
   VkRenderPass renderpass = vk->createInfo.renderpass;
-  const VkAllocationCallbacks *allocator = vk->createInfo.allocator;
+  const VkAllocationCallbacks *allocator = vk->createInfo.gpu->allocator;
 
   VkDescriptorSetLayout descLayout = vk->descLayout;
   VkShaderModule vert_shader = vk->fillVertShader;
@@ -572,24 +555,23 @@ VkPipeline vknvg_bindPipeline(VKNVGcontext *vk, VkCommandBuffer cmdBuffer, VKNVG
   }
   return pipeline->pipeline;
 }
-
+#pragma optimize( "", off )
 int vknvg_UpdateTexture(VkDevice device, VKNVGtexture *tex, int dx, int dy, int w, int h, const unsigned char *data) {
-
   VkMemoryRequirements mem_reqs;
-  vkGetImageMemoryRequirements(device, tex->image, &mem_reqs);
+  vkGetImageMemoryRequirements(device, tex->resource->image, &mem_reqs);
   VkImageSubresource subres = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0};
   VkSubresourceLayout layout;
   void *bindptr;
   /* Get the subresource layout so we know what the row pitch is */
-  vkGetImageSubresourceLayout(device, tex->image, &subres, &layout);
-  NVGVK_CHECK_RESULT(vkMapMemory(device, tex->mem, 0, mem_reqs.size, 0, &bindptr));
+  vkGetImageSubresourceLayout(device, tex->resource->image, &subres, &layout);
+  NVGVK_CHECK_RESULT(vkMapMemory(device, tex->resource->image_memory, 0, mem_reqs.size, 0, &bindptr));
   int comp_size = (tex->type == NVG_TEXTURE_RGBA) ? 4 : 1;
   for (int y = 0; y < h; ++y) {
-    char *src = (char *)data + ((dy + y) * (tex->width * comp_size)) + dx;
+    char *src = (char *)data + ((dy + y) * (tex->resource->options.width * comp_size)) + dx;
     char *dest = (char *)bindptr + ((dy + y) * layout.rowPitch) + dx;
     memcpy(dest, src, w * comp_size);
   }
-  vkUnmapMemory(device, tex->mem);
+  vkUnmapMemory(device, tex->resource->image_memory);
   return 1;
 }
 
@@ -677,7 +659,7 @@ void vknvg_vset(NVGvertex *vtx, float x, float y, float u, float v) {
 }
 
 void vknvg_setUniforms(VKNVGcontext *vk, VkDescriptorSet descSet, int uniformOffset, VKNVGcall *call) {
-  VkDevice device = vk->createInfo.device;
+  VkDevice device = vk->createInfo.gpu->device;
 
   VkWriteDescriptorSet writes[3] = {{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET}, {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET}, {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET}};
 
@@ -720,18 +702,18 @@ void vknvg_setUniforms(VKNVGcontext *vk, VkDescriptorSet descSet, int uniformOff
 
   if (call->paint.image > 0) {
     VKNVGtexture *tex = vknvg_findTexture(vk, call->paint.image);
-    image_info.imageLayout = tex->imageLayout;
-    image_info.imageView = tex->view;
-    image_info.sampler = tex->sampler;
+    image_info.imageLayout = tex->resource->image_layout;
+    image_info.imageView = tex->resource->image_view;
+    image_info.sampler = tex->sampler->handle;
   }
 
   // fallback to error image
   if (!image_info.imageLayout) {
     int error_id = nvgErrorImage(vk->ctx);
     VKNVGtexture *tex = vknvg_findTexture(vk, error_id);
-    image_info.imageLayout = tex->imageLayout;
-    image_info.imageView = tex->view;
-    image_info.sampler = tex->sampler;
+    image_info.imageLayout = tex->resource->image_layout;
+    image_info.imageView = tex->resource->image_view;
+    image_info.sampler = tex->sampler->handle;
   }
 
   writes[2].dstSet = descSet;
@@ -746,7 +728,7 @@ void vknvg_fill(VKNVGcontext *vk, VKNVGcall *call) {
   VKNVGpath *paths = &vk->paths[call->pathOffset];
   int i, npaths = call->pathCount;
 
-  VkDevice device = vk->createInfo.device;
+  VkDevice device = vk->createInfo.gpu->device;
   VkCommandBuffer cmdBuffer = vk->command_buffer;
 
   VKNVGCreatePipelineKey pipelinekey = {0};
@@ -809,7 +791,7 @@ void vknvg_convexFill(VKNVGcontext *vk, VKNVGcall *call) {
   VKNVGpath *paths = &vk->paths[call->pathOffset];
   int npaths = call->pathCount;
 
-  VkDevice device = vk->createInfo.device;
+  VkDevice device = vk->createInfo.gpu->device;
   VkCommandBuffer cmdBuffer = vk->command_buffer;
 
   VKNVGCreatePipelineKey pipelinekey = {0};
@@ -847,7 +829,7 @@ void vknvg_convexFill(VKNVGcontext *vk, VKNVGcall *call) {
 }
 
 void vknvg_stroke(VKNVGcontext *vk, VKNVGcall *call) {
-  VkDevice device = vk->createInfo.device;
+  VkDevice device = vk->createInfo.gpu->device;
   VkCommandBuffer cmdBuffer = vk->command_buffer;
 
   VKNVGpath *paths = &vk->paths[call->pathOffset];
@@ -925,7 +907,7 @@ void vknvg_triangles(VKNVGcontext *vk, VKNVGcall *call) {
   if (call->triangleCount == 0) {
     return;
   }
-  VkDevice device = vk->createInfo.device;
+  VkDevice device = vk->createInfo.gpu->device;
   VkCommandBuffer cmdBuffer = vk->command_buffer;
 
   VKNVGCreatePipelineKey pipelinekey = {0};
@@ -951,12 +933,12 @@ void vknvg_triangles(VKNVGcontext *vk, VKNVGcall *call) {
 ///==================================================================================================================
 int vknvg_renderCreate(void *uptr) {
   VKNVGcontext *vk = (VKNVGcontext *)uptr;
-  VkDevice device = vk->createInfo.device;
+  VkDevice device = vk->createInfo.gpu->device;
   VkRenderPass renderpass = vk->createInfo.renderpass;
-  const VkAllocationCallbacks *allocator = vk->createInfo.allocator;
+  const VkAllocationCallbacks *allocator = vk->createInfo.gpu->allocator;
 
-  vkGetPhysicalDeviceMemoryProperties(vk->createInfo.gpu, &vk->memoryProperties);
-  vkGetPhysicalDeviceProperties(vk->createInfo.gpu, &vk->gpuProperties);
+  vkGetPhysicalDeviceMemoryProperties(vk->createInfo.gpu->physical_device, &vk->memoryProperties);
+  vkGetPhysicalDeviceProperties(vk->createInfo.gpu->physical_device, &vk->gpuProperties);
 
   const uint32_t fillVertShader[] = {
 #include "shader/fill.vert.inc"
@@ -988,115 +970,70 @@ int vknvg_renderCreateTexture(void *uptr, int type, int w, int h, int imageFlags
     return 0;
   }
 
-  VkDevice device = vk->createInfo.device;
-  const VkAllocationCallbacks *allocator = vk->createInfo.allocator;
-
-  VkImageCreateInfo image_createInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
-  image_createInfo.pNext = NULL;
-  image_createInfo.imageType = VK_IMAGE_TYPE_2D;
+  uint64_t data_size = w * h;
+  VkFormat format = VK_FORMAT_R8_UNORM;
   if (type == NVG_TEXTURE_RGBA) {
-    image_createInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-  } else {
-    image_createInfo.format = VK_FORMAT_R8_UNORM;
+    format = VK_FORMAT_R8G8B8A8_UNORM;
+    data_size = w * h * 4;
   }
+  tex->type = type;
 
-  image_createInfo.extent.width = w;
-  image_createInfo.extent.height = h;
-  image_createInfo.extent.depth = 1;
-  image_createInfo.mipLevels = 1;
-  image_createInfo.arrayLayers = 1;
-  image_createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-  image_createInfo.tiling = VK_IMAGE_TILING_LINEAR;
-  image_createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  image_createInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
-  image_createInfo.queueFamilyIndexCount = 0;
-  image_createInfo.pQueueFamilyIndices = NULL;
-  image_createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  image_createInfo.flags = 0;
-
-  VkMemoryAllocateInfo mem_alloc = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
-  mem_alloc.allocationSize = 0;
-
-  VkImage mappableImage;
-  VkDeviceMemory mappableMemory;
-
-  NVGVK_CHECK_RESULT(vkCreateImage(device, &image_createInfo, allocator, &mappableImage));
-
-  VkMemoryRequirements mem_reqs;
-  vkGetImageMemoryRequirements(device, mappableImage, &mem_reqs);
-
-  mem_alloc.allocationSize = mem_reqs.size;
-
-  VkResult res = vknvg_memory_type_from_properties(vk->memoryProperties, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &mem_alloc.memoryTypeIndex);
-  assert(res == VK_SUCCESS);
-
-  NVGVK_CHECK_RESULT(vkAllocateMemory(device, &mem_alloc, allocator, &mappableMemory));
-
-  NVGVK_CHECK_RESULT(vkBindImageMemory(device, mappableImage, mappableMemory, 0));
-
+  rawkit_gpu_t *gpu = vk->createInfo.gpu;
+  char name[255] = "\0";
+  sprintf(name, "vknvg-texture-resource#%i", vknvg_textureId(vk, tex));
+  tex->resource = _rawkit_texture_mem(gpu, name, w, h, format);
   VkSamplerCreateInfo samplerCreateInfo = {VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+
+  VkFilter magFilter = VK_FILTER_LINEAR;
+  VkFilter minFilter = VK_FILTER_LINEAR;
   if (imageFlags & NVG_IMAGE_NEAREST) {
-    samplerCreateInfo.magFilter = VK_FILTER_NEAREST;
-    samplerCreateInfo.minFilter = VK_FILTER_NEAREST;
-  } else {
-    samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-    samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+    magFilter = VK_FILTER_NEAREST;
+    minFilter = VK_FILTER_NEAREST;
   }
-  samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
+  VkSamplerAddressMode addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
   if (imageFlags & NVG_IMAGE_REPEATX) {
     samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  } else {
-    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
   }
 
+  VkSamplerAddressMode addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
   if (imageFlags & NVG_IMAGE_REPEATY) {
     samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  } else {
-    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
   }
 
-  samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-  samplerCreateInfo.mipLodBias = 0.0;
-  samplerCreateInfo.anisotropyEnable = VK_FALSE;
-  samplerCreateInfo.maxAnisotropy = 1;
-  samplerCreateInfo.compareEnable = VK_FALSE;
-  samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-  samplerCreateInfo.minLod = 0.0;
-  samplerCreateInfo.maxLod = 0.0;
-  samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 
-  /* create sampler */
-  NVGVK_CHECK_RESULT(vkCreateSampler(device, &samplerCreateInfo, allocator, &tex->sampler));
+  tex->sampler = rawkit_texture_sampler(
+    gpu,
+    magFilter,
+    minFilter,
+    VK_SAMPLER_MIPMAP_MODE_NEAREST,
+    addressModeU,
+    addressModeV,
+    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+    0.0,
+    false,
+    1,
+    false,
+    VK_COMPARE_OP_NEVER,
+    0.0,
+    0.0,
+    VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
+    false
+  );
 
-  VkImageViewCreateInfo view_info = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-  view_info.pNext = NULL;
-  view_info.image = mappableImage;
-  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  view_info.format = image_createInfo.format;
-  view_info.components.r = VK_COMPONENT_SWIZZLE_R;
-  view_info.components.g = VK_COMPONENT_SWIZZLE_G;
-  view_info.components.b = VK_COMPONENT_SWIZZLE_B;
-  view_info.components.a = VK_COMPONENT_SWIZZLE_A;
-  view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  view_info.subresourceRange.baseMipLevel = 0;
-  view_info.subresourceRange.levelCount = 1;
-  view_info.subresourceRange.baseArrayLayer = 0;
-  view_info.subresourceRange.layerCount = 1;
-
-  VkImageView image_view;
-  NVGVK_CHECK_RESULT(vkCreateImageView(device, &view_info, allocator, &image_view));
-
-  tex->height = h;
-  tex->width = w;
-  tex->image = mappableImage;
-  tex->view = image_view;
-  tex->mem = mappableMemory;
-  tex->imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-  tex->type = type;
-  tex->flags = imageFlags;
   if (data) {
-    vknvg_UpdateTexture(device, tex, 0, 0, w, h, data);
+    rawkit_texture_update(tex->resource, (void *)data, data_size);
   }
+
+  VkImageMemoryBarrier barrier = {};
+  barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  rawkit_texture_transition(
+    tex->resource,
+    vk->command_buffer,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    barrier
+  );
 
   return vknvg_textureId(vk, tex);
 }
@@ -1112,15 +1049,15 @@ int vknvg_renderUpdateTexture(void *uptr, int image, int x, int y, int w, int h,
   VKNVGcontext *vk = (VKNVGcontext *)uptr;
 
   VKNVGtexture *tex = vknvg_findTexture(vk, image);
-  vknvg_UpdateTexture(vk->createInfo.device, tex, x, y, w, h, data);
+  vknvg_UpdateTexture(vk->createInfo.gpu->device, tex, x, y, w, h, data);
   return 1;
 }
 int vknvg_renderGetTextureSize(void *uptr, int image, int *w, int *h) {
   VKNVGcontext *vk = (VKNVGcontext *)uptr;
   VKNVGtexture *tex = vknvg_findTexture(vk, image);
   if (tex) {
-    *w = tex->width;
-    *h = tex->height;
+    *w = tex->resource->options.width;
+    *h = tex->resource->options.height;
     return 1;
   }
   return 0;
@@ -1141,11 +1078,11 @@ void vknvg_renderCancel(void *uptr) {
 
 void vknvg_renderFlush(void *uptr) {
   VKNVGcontext *vk = (VKNVGcontext *)uptr;
-  VkDevice device = vk->createInfo.device;
+  VkDevice device = vk->createInfo.gpu->device;
   VkCommandBuffer cmdBuffer = vk->command_buffer;
   VkRenderPass renderpass = vk->createInfo.renderpass;
   VkPhysicalDeviceMemoryProperties memoryProperties = vk->memoryProperties;
-  const VkAllocationCallbacks *allocator = vk->createInfo.allocator;
+  const VkAllocationCallbacks *allocator = vk->createInfo.gpu->allocator;
 
   int i;
   if (vk->ncalls > 0) {
@@ -1155,10 +1092,22 @@ void vknvg_renderFlush(void *uptr) {
     vk->currentPipeline = NULL;
 
     uint32_t frame_idx = rawkit_window_frame_index();
+
+    int frame_count = rawkit_window_frame_count();
+    if (vk->descPoolsCount != frame_count) {
+      VKNVGDescriptorPool *old = vk->descPools;
+      vk->descPools = (VKNVGDescriptorPool*)calloc(
+        sizeof(VKNVGDescriptorPool) * frame_count,
+        1
+      );
+
+      memcpy(vk->descPools, old, sizeof(VKNVGDescriptorPool) * vk->descPoolsCount);
+      vk->descPoolsCount = frame_count;
+    }
+
     if (vk->ncalls > vk->descPools[frame_idx].ncalls || !vk->descPools[frame_idx].handle) {
       if (vk->descPools[frame_idx].handle) {
         vkDestroyDescriptorPool(device, vk->descPools[frame_idx].handle, allocator);
-        vk->descPools[frame_idx].handle = nullptr;
       }
       vk->descPools[frame_idx].handle = vknvg_createDescriptorPool(device, vk->ncalls, allocator);
       vk->descPools[frame_idx].ncalls = vk->ncalls;
@@ -1376,11 +1325,11 @@ void vknvg_renderDelete(void *uptr) {
 
   VKNVGcontext *vk = (VKNVGcontext *)uptr;
 
-  VkDevice device = vk->createInfo.device;
-  const VkAllocationCallbacks *allocator = vk->createInfo.allocator;
+  VkDevice device = vk->createInfo.gpu->device;
+  const VkAllocationCallbacks *allocator = vk->createInfo.gpu->allocator;
 
   for (int i = 0; i < vk->ntextures; i++) {
-    if (vk->textures[i].image != VK_NULL_HANDLE) {
+    if (vk->textures[i].resource) {
       vknvg_deleteTexture(vk, &vk->textures[i]);
     }
   }

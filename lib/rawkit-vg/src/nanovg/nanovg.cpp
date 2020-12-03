@@ -2931,24 +2931,24 @@ void nvgTextMetrics(NVGcontext* ctx, float* ascender, float* descender, float* l
 
 int nvgErrorImage(NVGcontext* ctx) {
   if (!ctx) {
-	return -1;
+	  return -1;
   }
 
   if (ctx->errorImage > -1) {
-	return ctx->errorImage;
+	  return ctx->errorImage;
   }
 
   if (!ctx) {
-	printf("ERROR: invalid ctx while creating error image\n");
-	return -1;
+    printf("ERROR: invalid ctx while creating error image\n");
+    return -1;
   }
 
   ctx->errorImage = nvgCreateImageRGBA(
-	ctx,
-	64,
-	64,
-	NVG_IMAGE_REPEATX | NVG_IMAGE_REPEATY | NVG_IMAGE_NEAREST,
-	error_64x64_data
+    ctx,
+    64,
+    64,
+    NVG_IMAGE_REPEATX | NVG_IMAGE_REPEATY | NVG_IMAGE_NEAREST,
+    error_64x64_data
   );
   return ctx->errorImage;
 }
