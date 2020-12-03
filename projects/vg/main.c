@@ -40,7 +40,8 @@ void loop() {
     0.0f,
 
     box_gradient,
-    1.0f
+    1.0f,
+    NULL
   );
 
   NVGpaint notfound = rawkit_vg_texture(
@@ -52,7 +53,8 @@ void loop() {
     0.0f,
 
     rawkit_texture("asdfasdf.png"),
-    1.0f
+    1.0f,
+    nearest
   );
 
   rawkit_vg_begin_path(vg);
@@ -70,7 +72,8 @@ void loop() {
     300.0f,
     128,
     64,
-    box_gradient
+    box_gradient,
+    NULL
   );
 
   static uint8_t frame = 0;

@@ -28,7 +28,7 @@ extern "C" {
 
   rawkit_vg_t *rawkit_default_vg();
 
-  void rawkit_vg_draw_texture(rawkit_vg_t *vg, float x, float y, float w, float h, rawkit_texture_t *tex);
+  void rawkit_vg_draw_texture(rawkit_vg_t *vg, float x, float y, float w, float h, rawkit_texture_t *tex, const rawkit_texture_sampler_t *sampler);
   void rawkit_vg_draw_texture_rect(
     rawkit_vg_t *vg,
     float src_x,
@@ -46,7 +46,7 @@ extern "C" {
   // select a render to texture context
   rawkit_vg_t *rawkit_vg_from_texture_target(rawkit_texture_target_t *target);
 
-  NVGpaint rawkit_vg_texture(rawkit_vg_t *vg, float cx, float cy, float w, float h, float angle, rawkit_texture_t *tex, float alpha);
+  NVGpaint rawkit_vg_texture(rawkit_vg_t *vg, float cx, float cy, float w, float h, float angle, rawkit_texture_t *tex, float alpha, const rawkit_texture_sampler_t *sampler);
   void rawkit_vg_begin_frame(rawkit_vg_t *vg, VkCommandBuffer command_buffer, float windowWidth, float windowHeight, float devicePixelRatio);
   void rawkit_vg_cancel_frame(rawkit_vg_t *vg);
   void rawkit_vg_end_frame(rawkit_vg_t *vg);

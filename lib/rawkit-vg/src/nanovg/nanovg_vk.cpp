@@ -704,7 +704,11 @@ void vknvg_setUniforms(VKNVGcontext *vk, VkDescriptorSet descSet, int uniformOff
     VKNVGtexture *tex = vknvg_findTexture(vk, call->paint.image);
     image_info.imageLayout = tex->resource->image_layout;
     image_info.imageView = tex->resource->image_view;
-    image_info.sampler = tex->sampler->handle;
+    if (call->paint.sampler) {
+      image_info.sampler = call->paint.sampler->handle;
+    } else {
+      image_info.sampler = tex->sampler->handle;
+    }
   }
 
   // fallback to error image
@@ -714,6 +718,11 @@ void vknvg_setUniforms(VKNVGcontext *vk, VkDescriptorSet descSet, int uniformOff
     image_info.imageLayout = tex->resource->image_layout;
     image_info.imageView = tex->resource->image_view;
     image_info.sampler = tex->sampler->handle;
+    if (call->paint.sampler) {
+      image_info.sampler = call->paint.sampler->handle;
+    } else {
+      image_info.sampler = tex->sampler->handle;
+    }
   }
 
   writes[2].dstSet = descSet;

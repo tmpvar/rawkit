@@ -51,7 +51,7 @@ rawkit_vg_t *rawkit_vg(
 }
 
 
-NVGpaint rawkit_vg_texture(rawkit_vg_t *vg, float cx, float cy, float w, float h, float angle, rawkit_texture_t *tex, float alpha) {
+NVGpaint rawkit_vg_texture(rawkit_vg_t *vg, float cx, float cy, float w, float h, float angle, rawkit_texture_t *tex, float alpha, const rawkit_texture_sampler_t *sampler) {
   NVGpaint p = {0};
   nvgTransformIdentity(p.xform);
   nvgTransformRotate(p.xform, angle);
@@ -62,11 +62,12 @@ NVGpaint rawkit_vg_texture(rawkit_vg_t *vg, float cx, float cy, float w, float h
   p.extent[1] = h;
   p.texture = tex;
   p.innerColor = p.outerColor = nvgRGBAf(1,1,1,alpha);
+  p.sampler = sampler;
   return p;
 }
 
-void rawkit_vg_draw_texture(rawkit_vg_t *vg, float x, float y, float w, float h, rawkit_texture_t *tex) {
-  NVGpaint paint = rawkit_vg_texture(vg, x, y, w, h, 0.0f, tex, 1.0f);
+void rawkit_vg_draw_texture(rawkit_vg_t *vg, float x, float y, float w, float h, rawkit_texture_t *tex, const rawkit_texture_sampler_t *sampler) {
+  NVGpaint paint = rawkit_vg_texture(vg, x, y, w, h, 0.0f, tex, 1.0f, sampler);
 
   rawkit_vg_begin_path(vg);
     rawkit_vg_rect(vg, x, y, w, h);

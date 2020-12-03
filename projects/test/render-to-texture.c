@@ -52,7 +52,8 @@ void loop() {
     0.0f,
     (float)width,
     (float)height,
-    texture_target->color
+    texture_target->color,
+    NULL
   );
 
 }
