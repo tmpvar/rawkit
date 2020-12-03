@@ -43,7 +43,9 @@ VkResult rawkit_texture_target_attachment(rawkit_texture_target_t *target, VkIma
       uint64_t id = rawkit_hash_resources(resource_name.c_str(), 1, (const rawkit_resource_t **)&target);
       target->color = rawkit_hot_resource_id(resource_name.c_str(), id, rawkit_texture_t);
       if (rawkit_resource_sources(target->color, target)) {
-        return VK_SUCCESS;
+        // NOTE: it is assumed that we are in a dirty state so returning here actually breaks resizing. The
+        //       expectation is that we are rebuilding
+        //return VK_SUCCESS;
       }
 
       options.format = VK_FORMAT_R8G8B8A8_SNORM;
@@ -70,7 +72,9 @@ VkResult rawkit_texture_target_attachment(rawkit_texture_target_t *target, VkIma
       uint64_t id = rawkit_hash_resources(resource_name.c_str(), 1, (const rawkit_resource_t **)&target);
       target->depth = rawkit_hot_resource_id(resource_name.c_str(), id, rawkit_texture_t);
       if (rawkit_resource_sources(target->depth, target)) {
-        return VK_SUCCESS;
+        // NOTE: it is assumed that we are in a dirty state so returning here actually breaks resizing. The
+        //       expectation is that we are rebuilding
+        // return VK_SUCCESS;
       }
 
       options.size = rawkit_texture_compute_size(
@@ -171,7 +175,7 @@ rawkit_texture_target_t *rawkit_texture_target_begin(
     vector<VkAttachmentDescription> attachment_descriptions;
 
     // color attachment
-    if (!target->color) {
+    {
       VkAttachmentDescription attachment = {};
       attachment.format = VK_FORMAT_R8G8B8A8_SNORM;
       attachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -195,7 +199,7 @@ rawkit_texture_target_t *rawkit_texture_target_begin(
     }
 
     // depth attachment
-    if (depth && !target->depth) {
+    if (depth) {
       VkAttachmentDescription attachment = {};
       attachment.format = get_supported_depth_format(target->gpu->physical_device);
       attachment.samples = VK_SAMPLE_COUNT_1_BIT;
