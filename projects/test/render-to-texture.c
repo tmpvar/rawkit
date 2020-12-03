@@ -50,8 +50,8 @@ void loop() {
     rawkit_default_vg(),
     0.0f,
     0.0f,
-    320.0f,
-    200.0f,
+    (float)width,
+    (float)height,
     texture_target->color
   );
 

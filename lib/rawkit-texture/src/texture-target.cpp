@@ -346,16 +346,30 @@ void rawkit_texture_target_end(rawkit_texture_target_t *target) {
 
   vkCmdEndRenderPass(target->command_buffer);
 
-  err = vkEndCommandBuffer(target->command_buffer);
-  if (err) {
-    printf("ERROR: rawkit_texture_target_end: could not end command buffer (%i)\n", err);
-    return;
+
+  // transition the resulting textures into something a shader can read
+  {
+    VkImageMemoryBarrier barrier = {};
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    rawkit_texture_transition(
+      target->color,
+      target->command_buffer,
+      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      barrier
+    );
   }
 
   VkSubmitInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   info.commandBufferCount = 1;
   info.pCommandBuffers = &target->command_buffer;
+
+  err = vkEndCommandBuffer(target->command_buffer);
+  if (err) {
+    printf("ERROR: rawkit_texture_target_end: could not end command buffer (%i)\n", err);
+    return;
+  }
 
   err = vkQueueSubmit(
     target->gpu->graphics_queue,

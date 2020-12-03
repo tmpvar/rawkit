@@ -518,14 +518,11 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     VkResult begin_result = vkBeginCommandBuffer(command_buffer, &begin_info);
 
     VkImageMemoryBarrier barrier = {};
-    barrier.srcAccessMask = 0;
     barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
     rawkit_texture_transition(
       texture,
       command_buffer,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
       barrier
     );
@@ -651,12 +648,12 @@ bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_bu
     VkResult copy_transition_err = rawkit_texture_transition(
       texture,
       command_buffer,
-      VK_PIPELINE_STAGE_HOST_BIT,
       VK_PIPELINE_STAGE_TRANSFER_BIT,
       copy_barrier
     );
 
     if (copy_transition_err) {
+      printf("ERROR: rawkit-texture: could transition for upload");
       return false;
     }
 
@@ -678,16 +675,16 @@ bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_bu
 
     VkImageMemoryBarrier use_barrier = {};
     use_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    use_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    use_barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     VkResult use_transition_err = rawkit_texture_transition(
       texture,
       command_buffer,
-      VK_PIPELINE_STAGE_TRANSFER_BIT,
       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-      copy_barrier
+      use_barrier
     );
 
     if (use_transition_err) {
+      printf("ERROR: rawkit-texture: could not transition to general");
       return false;
     }
   }
@@ -853,7 +850,6 @@ const rawkit_texture_sampler_t *rawkit_texture_sampler(
 VkResult rawkit_texture_transition(
   rawkit_texture_t *texture,
   VkCommandBuffer command_buffer,
-  VkPipelineStageFlags srcStageMask,
   VkPipelineStageFlags dstStageMask,
   VkImageMemoryBarrier extend
 ) {
@@ -875,8 +871,8 @@ VkResult rawkit_texture_transition(
   barrier.subresourceRange.layerCount = RAWKIT_DEFAULT(extend.subresourceRange.layerCount, 1);
   vkCmdPipelineBarrier(
     command_buffer,
-    VK_PIPELINE_STAGE_TRANSFER_BIT,
-    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    texture->stage_flags,
+    dstStageMask,
     0,
     0,
     NULL,
@@ -888,6 +884,7 @@ VkResult rawkit_texture_transition(
 
   texture->image_layout = barrier.newLayout;
   texture->image_access = barrier.dstAccessMask;
+  texture->stage_flags = dstStageMask;
 
   return VK_SUCCESS;
 }

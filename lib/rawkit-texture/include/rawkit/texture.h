@@ -37,6 +37,7 @@ typedef struct rawkit_texture_t {
   VkImageView image_view;
   VkImageLayout image_layout;
   VkAccessFlags image_access;
+  VkPipelineStageFlags stage_flags;
 
   rawkit_texture_options_t options;
 
@@ -90,7 +91,6 @@ rawkit_texture_t *_rawkit_texture_ex(
 VkResult rawkit_texture_transition(
   rawkit_texture_t *texture,
   VkCommandBuffer command_buffer,
-  VkPipelineStageFlags srcStageMask,
   VkPipelineStageFlags dstStageMask,
   VkImageMemoryBarrier extend
 );
