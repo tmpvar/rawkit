@@ -291,7 +291,6 @@ struct triangle_uniforms {
 };
 
 void loop() {
-  // TODO: this should be exposed some where
   rawkit_gpu_t *gpu = rawkit_default_gpu();
 
   {
