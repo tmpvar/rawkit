@@ -448,7 +448,7 @@ int main(int argc, char **argv) {
     rawkit_gpu_t *gpu = rawkit_gpu_init(
       extensions,
       extensions_count,
-      true,
+      args.get<bool>("rawkit-vulkan-validation", false),
       #ifdef IMGUI_VULKAN_DEBUG_REPORT
       debug_report
       #else
