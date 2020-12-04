@@ -87,6 +87,9 @@ static void rawkit_shader_set_concurrent_param(
         barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       }
 
+      // TODO: this throws validation errors when not in general.
+      barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+
       transition_texture_for_stage(
         gpu,
         texture,
