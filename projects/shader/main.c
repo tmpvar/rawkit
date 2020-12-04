@@ -195,7 +195,7 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
       rawkit_texture_transition(
         current_texture,
         command_buffer,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         barrier
       );
     }
@@ -227,6 +227,20 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
         (uint32_t)fmaxf(ceilf(global[0] / local[0]), 1.0),
         (uint32_t)fmaxf(ceilf(global[1] / local[1]), 1.0),
         (uint32_t)fmaxf(ceilf(global[2] / local[2]), 1.0)
+      );
+    }
+
+    // transition image to fragment shader readable
+    {
+      VkImageMemoryBarrier barrier = {};
+      barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+      // barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+      barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      rawkit_texture_transition(
+        current_texture,
+        command_buffer,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        barrier
       );
     }
 
