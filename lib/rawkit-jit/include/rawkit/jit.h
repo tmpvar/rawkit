@@ -27,6 +27,26 @@ void _rawkit_jit_add_export(rawkit_jit_t *jit, const char *name, void *address);
 
 bool rawkit_jit_tick(rawkit_jit_t *jit);
 
+enum rawkit_jit_message_level {
+  RAWKIT_JIT_MESSAGE_LEVEL_NONE = 0,
+  RAWKIT_JIT_MESSAGE_LEVEL_NOTE,
+  RAWKIT_JIT_MESSAGE_LEVEL_WARNING,
+  RAWKIT_JIT_MESSAGE_LEVEL_REMARK,
+  RAWKIT_JIT_MESSAGE_LEVEL_ERROR,
+  RAWKIT_JIT_MESSAGE_LEVEL_FATAL,
+};
+
+typedef struct rawkit_jit_message_t {
+  rawkit_jit_message_level level;
+  const char *filename;
+  uint32_t line;
+  uint32_t column;
+  const char *str;
+} rawkit_jit_message_t;
+
+bool rawkit_jit_get_message(const rawkit_jit_t *jit, uint32_t index, rawkit_jit_message_t *msg);
+
+
 void rawkit_jit_call_setup(rawkit_jit_t *jit);
 void rawkit_jit_call_loop(rawkit_jit_t *jit);
 

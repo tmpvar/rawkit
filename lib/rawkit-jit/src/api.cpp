@@ -82,6 +82,35 @@ bool rawkit_jit_tick(rawkit_jit_t *jit) {
   return false;
 }
 
+bool rawkit_jit_get_message(const rawkit_jit_t *jit, uint32_t index, rawkit_jit_message_t *ret) {
+  if (!jit || !jit->job) {
+    return false;
+  }
+
+  if (jit->job->messages.size() <= index) {
+    return false;
+  }
+
+  DiagnosticEntry e = jit->job->messages[index];
+
+  switch (e.level) {
+    case clang::DiagnosticsEngine::Note: ret->level = RAWKIT_JIT_MESSAGE_LEVEL_NOTE; break;
+    case clang::DiagnosticsEngine::Warning: ret->level = RAWKIT_JIT_MESSAGE_LEVEL_WARNING; break;
+    case clang::DiagnosticsEngine::Remark: ret->level = RAWKIT_JIT_MESSAGE_LEVEL_REMARK; break;
+    case clang::DiagnosticsEngine::Error: ret->level = RAWKIT_JIT_MESSAGE_LEVEL_ERROR; break;
+    case clang::DiagnosticsEngine::Fatal: ret->level = RAWKIT_JIT_MESSAGE_LEVEL_FATAL; break;
+    default:
+      ret->level = RAWKIT_JIT_MESSAGE_LEVEL_NONE;
+  }
+
+  ret->line = e.line;
+  ret->column = e.column;
+  ret->filename = e.filename.c_str();
+  ret->str = e.message.c_str();
+  return true;
+}
+
+
 void rawkit_jit_call_setup(rawkit_jit_t *jit) {
   if (!jit || !jit->job) {
     return;

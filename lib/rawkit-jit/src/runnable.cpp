@@ -32,8 +32,66 @@ class IncludeCollector : public DependencyFileGenerator {
     );
   }
 };
+#pragma optimize( "", off )
 
-Runnable *Runnable::compile(std::unique_ptr<CompilerInvocation> invocation, const llvm::orc::JITSymbolBag &symbols) {
+// Adapted from llvm/clang/lib/Frontend/TextDiagnosticBuffer.cpp
+class RawkitDiagnosticBuffer :  public DiagnosticConsumer {
+  public:
+    RawkitDiagnosticBuffer(std::vector<DiagnosticEntry> &entries)
+      : entries(entries), DiagnosticConsumer()
+    {
+
+    }
+
+    std::vector<DiagnosticEntry> &entries;
+
+    void HandleDiagnostic(DiagnosticsEngine::Level Level, const Diagnostic &Info) {
+      // Default implementation (Warnings/errors count).
+      DiagnosticConsumer::HandleDiagnostic(Level, Info);
+
+      SmallString<100> Buf;
+      Info.FormatDiagnostic(Buf);
+
+      SourceLocation location = Info.getLocation();
+      const SourceManager &source_manager = Info.getSourceManager();
+      DiagnosticEntry entry = {};
+
+      if (location.isFileID()) {
+        PresumedLoc PLoc = source_manager.getPresumedLoc(location);
+
+        if (!PLoc.isInvalid()) {
+          entry.filename = string(PLoc.getFilename());
+          entry.line = PLoc.getLine();
+          entry.column = PLoc.getColumn();
+        }
+      }
+
+      entry.level = Level;
+      entry.message = std::string(Buf.str());
+      this->entries.push_back(entry);
+
+      printf("%s:%u:%u", entry.filename.c_str(), entry.line, entry.column);
+      switch(Level) {
+        case clang::DiagnosticsEngine::Note: printf(" note:"); break;
+        case clang::DiagnosticsEngine::Warning: printf(" warning:"); break;
+        case clang::DiagnosticsEngine::Remark: printf(" remark:"); break;
+        case clang::DiagnosticsEngine::Error: printf(" error:"); break;
+        case clang::DiagnosticsEngine::Fatal: printf(" fatal:"); break;
+        default:
+          break;
+      }
+
+      printf(" %s\n", entry.message.c_str());
+    }
+
+    void FlushDiagnostics(DiagnosticsEngine &Diags) const {}
+};
+
+Runnable *Runnable::compile(
+  std::unique_ptr<CompilerInvocation> invocation,
+  const llvm::orc::JITSymbolBag &symbols,
+  vector<DiagnosticEntry> &messages
+) {
   Profiler compile_timer("Runnable::compile");
   if (!invocation) {
     printf("failed to create compiler invocation\n");
@@ -42,10 +100,13 @@ Runnable *Runnable::compile(std::unique_ptr<CompilerInvocation> invocation, cons
 
   CompilerInstance compiler_instance;
   compiler_instance.setInvocation(std::move(invocation));
+  compiler_instance.createDiagnostics(
+    new RawkitDiagnosticBuffer(messages),
+    true
+  );
+
 
   // Create the compilers actual diagnostics engine.
-  compiler_instance.createDiagnostics();
-
   if (!compiler_instance.hasDiagnostics()) {
     printf("could not create diagnostics engine\n");
     return nullptr;

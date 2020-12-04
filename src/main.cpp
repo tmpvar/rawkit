@@ -620,6 +620,8 @@ int main(int argc, char **argv) {
           rawkit_jit_call_setup(jit);
         }
 
+
+
         // service libuv
         uv_run(uv_default_loop(), UV_RUN_NOWAIT);
 
@@ -647,6 +649,37 @@ int main(int argc, char **argv) {
         ImGui::NewFrame();
 
         BeginMainRenderPass(gpu, wd);
+
+        // show compilation errors
+        {
+          uint32_t i = 0;
+          rawkit_jit_message_t msg;
+          while (rawkit_jit_get_message(jit, i, &msg)) {
+            if (i == 0) {
+              ImGui::Begin("program compilation issues");
+            }
+
+            const char *level_str = "<null>";
+            switch (msg.level) {
+              case RAWKIT_JIT_MESSAGE_LEVEL_NOTE: level_str = "note"; break;
+              case RAWKIT_JIT_MESSAGE_LEVEL_WARNING: level_str = "warning"; break;
+              case RAWKIT_JIT_MESSAGE_LEVEL_REMARK: level_str = "remark"; break;
+              case RAWKIT_JIT_MESSAGE_LEVEL_ERROR: level_str = "error"; break;
+              case RAWKIT_JIT_MESSAGE_LEVEL_FATAL: level_str = "fatal"; break;
+              default:
+                level_str = "none";
+            }
+
+            ImGui::Text("%s %s:%u:%u %s", level_str, msg.filename, msg.line, msg.column, msg.str);
+
+            i++;
+          }
+
+          if (i > 0) {
+            ImGui::End();
+          }
+        }
+
 
         rawkit_window_internal_set_frame_index(g_MainWindowData.FrameIndex);
         rawkit_window_internal_set_frame_count(g_MainWindowData.ImageCount);

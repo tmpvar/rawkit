@@ -2,6 +2,7 @@
 
 #include <ghc/filesystem.hpp>
 #pragma warning(push, 0)
+  #include "clang/Basic/Diagnostic.h"
   #include <clang/Basic/DiagnosticOptions.h>
   #include <clang/CodeGen/CodeGenAction.h>
   #include <clang/Driver/Compilation.h>
@@ -81,6 +82,15 @@ struct Profiler {
 
 typedef int(*rawkit_jit_guest_fn)(...);
 
+struct DiagnosticEntry {
+  clang::DiagnosticsEngine::Level level;
+  uint32_t line;
+  uint32_t column;
+  std::string filename;
+  std::string message;
+};
+
+
 class Runnable {
   private:
     // llvm
@@ -98,7 +108,8 @@ class Runnable {
     static Runnable *create(clang::CodeGenAction *action, const llvm::orc::JITSymbolBag &symbols);
     static Runnable *compile(
       std::unique_ptr<clang::CompilerInvocation> invocation,
-      const llvm::orc::JITSymbolBag &symbols
+      const llvm::orc::JITSymbolBag &symbols,
+      vector<DiagnosticEntry> &messages
     );
     void setup();
     void loop();
@@ -145,7 +156,7 @@ class JitJob {
     bool dirty;
   public:
     std::string program_file;
-
+    vector<DiagnosticEntry> messages;
     std::unique_ptr<Runnable> active_runnable;
     static JitJob *create(int argc, const char **argv);
     bool rebuild();

@@ -181,7 +181,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
   Args.push_back("-fsyntax-only");
   Args.push_back("-fno-builtin");
-  Args.push_back("-v");
+  Args.push_back("-O3");
 
   /*
   Args.push_back("-fsyntax-only");
@@ -266,7 +266,12 @@ bool JitJob::rebuild() {
     *this->diag_engine
   );
 
-  Runnable *run = Runnable::compile(std::move(invocation), symbols);
+
+  vector<DiagnosticEntry> local_messages;
+
+  Runnable *run = Runnable::compile(std::move(invocation), symbols, local_messages);
+
+  this->messages.assign(local_messages.begin(), local_messages.end());
 
   if (!run) {
     if (!this->active_runnable) {
