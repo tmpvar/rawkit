@@ -2,6 +2,8 @@
 #include <stdlib.h>         // abort
 #include <uv.h>
 
+#include <flags/flags.h>
+
 #include <GLFW/glfw3.h>
 
 #pragma warning( push, 0 )
@@ -370,7 +372,9 @@ rawkit_vg_t *rawkit_default_vg() {
   return g_RawkitVG;
 }
 
-int main(int argc, const char **argv) {
+int main(int argc, char **argv) {
+
+    const flags::args args(argc, argv);
 
     rawkit_jit_t *jit = rawkit_jit_create(argv[1]);
     if (!jit) {

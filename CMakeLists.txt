@@ -35,6 +35,11 @@ include_directories(
   ${DEPS_DIR}/tinyfiledialogs
 )
 
+# DEP: flags
+include_directories(
+  ${DEPS_DIR}/flags/include
+)
+
 # DEP: croaring
 set(CROARING_SRC
   ${DEPS_DIR}/croaring/roaring/roaring.c
@@ -142,6 +147,11 @@ add_executable(
   ${DEPS_DIR}/tinyfiledialogs/tinyfiledialogs.c
   ${IMGUI_SRC}
   ${CROARING_SRC}
+)
+
+target_compile_features(rawkit
+  PRIVATE
+    cxx_std_17
 )
 
 if (CMAKE_SYSTEM_NAME STREQUAL Windows)
