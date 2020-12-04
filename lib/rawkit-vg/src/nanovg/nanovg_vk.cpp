@@ -1373,8 +1373,9 @@ NVGcontext *nvgCreateVk(VKNVGCreateInfo createInfo, int flags) {
   NVGparams params;
   NVGcontext *ctx = NULL;
   VKNVGcontext *vk = (VKNVGcontext *)malloc(sizeof(VKNVGcontext));
-  if (vk == NULL)
-    goto error;
+  if (vk == NULL) {
+    return NULL;
+  }
   memset(vk, 0, sizeof(VKNVGcontext));
 
   memset(&params, 0, sizeof(params));
@@ -1403,17 +1404,13 @@ NVGcontext *nvgCreateVk(VKNVGCreateInfo createInfo, int flags) {
   );
 
   ctx = nvgCreateInternal(&params);
-  if (ctx == NULL)
-    goto error;
+  if (!ctx) {
+    free(vk);
+    return NULL;
+  }
 
   vk->ctx = ctx;
   return ctx;
-
-error:
-  // 'gl' is freed by nvgDeleteInternal.
-  if (ctx != NULL)
-    nvgDeleteInternal(ctx);
-  return NULL;
 }
 
 void nvgDeleteVk(NVGcontext *ctx) {

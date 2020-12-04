@@ -104,7 +104,7 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
 
     VkPhysicalDevice* gpus = (VkPhysicalDevice*)malloc(sizeof(VkPhysicalDevice) * gpu_count);
     if (!gpus) {
-      printf("ERROR: rawkit_gpu_init: failed to allocate physical device list - out of memory\n", err);
+      printf("ERROR: rawkit_gpu_init: failed to allocate physical device list - out of memory\n");
       return gpu;
     }
 
