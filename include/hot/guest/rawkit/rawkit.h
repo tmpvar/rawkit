@@ -16,7 +16,6 @@
 
 // legacy includes
 #include "time.h"
-#include "legacy-image.h"
 
 #ifdef __cplusplus
 #include "string.h"

@@ -20,10 +20,6 @@
 #include <locale.h>
 
 #include <hot/host/hot.h>
-#include <hot/guest/rawkit/legacy-image.h>
-
-// implmentation is defined in rawkit-image
-#include <stb_image.h>
 
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_vulkan.h"
@@ -348,39 +344,6 @@ float rawkit_randf() {
   return dis(gen);
 }
 
-const rawkit_image rawkit_load_image_relative_to_file(const char *from_file, const char *path) {
-  // todo: compute the path relative to the file that included it
-  const fs::path base_dir = fs::path(from_file).remove_filename();
-  rawkit_image ret = {};
-  memset(&ret, 0, sizeof(ret));
-
-  try {
-    const fs::path abs_path = fs::canonical(base_dir / path);
-    int width = 0;
-    int height = 0;
-    int channels = 0;
-    ret.pixels = stbi_loadf(
-      abs_path.string().c_str(),
-      &width,
-      &height,
-      &channels,
-      4
-    );
-
-    if (!ret.pixels) {
-      return ret;
-    }
-
-    ret.width = static_cast<float>(width);
-    ret.height = static_cast<float>(height);
-    ret.channels = 4;
-
-  } catch(fs::filesystem_error& fe) {
-    return ret;
-  }
-  return ret;
-}
-
 VkPipelineCache rawkit_vulkan_pipeline_cache() {
   rawkit_gpu_t *gpu = rawkit_default_gpu();
   if (!gpu) {
@@ -439,7 +402,6 @@ int main(int argc, const char **argv) {
     rawkit_jit_add_export(jit, "rawkit_vulkan_queue_family", rawkit_vulkan_queue_family);
     rawkit_jit_add_export(jit, "rawkit_current_framebuffer", rawkit_current_framebuffer);
     rawkit_jit_add_export(jit, "rawkit_randf", rawkit_randf);
-    rawkit_jit_add_export(jit, "rawkit_load_image_relative_to_file", rawkit_load_image_relative_to_file);
 
     rawkit_jit_add_export(jit, "rawkit_window_frame_index", rawkit_window_frame_index);
     rawkit_jit_add_export(jit, "rawkit_window_frame_count", rawkit_window_frame_count);
