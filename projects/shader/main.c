@@ -311,8 +311,6 @@ struct triangle_uniforms {
 };
 
 void loop() {
-
-  printf("================== FRAME ================\n");
   rawkit_gpu_t *gpu = rawkit_default_gpu();
 
   {
@@ -352,7 +350,7 @@ void loop() {
   }
 
   // TODO: dedupe fill_rect resource by hashing shader params
-  if (0) {
+  {
     fill_rect_options_t options = {0};
     options.render_width = 128;
     options.render_height = 64;
@@ -387,7 +385,7 @@ void loop() {
     fill_rect(gpu, "tiled", "basic.comp", &options);
   }
 
-  if (0){
+  {
     fill_rect_options_t options = {0};
     options.render_width = 400;
     options.render_height = 400;
@@ -409,7 +407,7 @@ void loop() {
     fill_rect(gpu, "triangle", "triangle.comp", &options);
   }
 
-  if (0) {
+  {
     rawkit_shader_t *shader = rawkit_shader_ex(
       gpu,
       rawkit_window_frame_count(),
