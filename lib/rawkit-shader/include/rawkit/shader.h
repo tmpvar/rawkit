@@ -29,7 +29,6 @@ typedef struct rawkit_shader_t {
   opts.entries = (rawkit_shader_param_t[]){ \
     __VA_ARGS__ \
   }; \
-  rawkit_shader_params_init_resource(&opts); \
 }
 
 typedef enum {
@@ -61,7 +60,6 @@ typedef enum {
 #define rawkit_shader_pull_stream(_name, _ps) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_PULL_STREAM, .ptr = _ps, .bytes = sizeof(_ps), }
 
 #define rawkit_shader_ubo(_name, _value) (rawkit_shader_param_t){.name = _name, .type = RAWKIT_SHADER_PARAM_UNIFORM_BUFFER, .ptr = _value, .bytes = sizeof(*_value) }
-
 
 typedef struct rawkit_shader_param_texture_t {
   rawkit_texture_t *texture;
@@ -104,6 +102,9 @@ typedef struct rawkit_shader_params_t {
   rawkit_shader_param_t *entries;
 } rawkit_shader_params_t;
 
+int rawkit_shader_param_size(const rawkit_shader_param_t *param);
+rawkit_shader_param_value_t rawkit_shader_param_value(rawkit_shader_param_t *param);
+
 typedef struct rawkit_shader_instance_t {
   RAWKIT_RESOURCE_FIELDS
   rawkit_shader_t *shader;
@@ -121,42 +122,24 @@ typedef struct rawkit_shader_instance_t {
 extern "C" {
 #endif
 
-// TODO: we can't make this nicer to use until all of the vulkan bits migrate to rawkit-gpu.
-//       I'm thinking there is a `rawkit_gpu_set_current()` or similar to control which gpu
-//       `rawkit_gpu_current()` returns. However, this approach is not thread safe!
-
 rawkit_shader_t *rawkit_shader_ex(
   rawkit_gpu_t *gpu,
-  uint8_t concurrency,
   VkRenderPass render_pass,
   uint8_t file_count,
   const rawkit_file_t **files
 );
 
-
-void rawkit_shader_apply_params(
-  rawkit_shader_t *shader,
-  uint8_t concurrency_index,
-  VkCommandBuffer command_buffer,
-  rawkit_shader_params_t params
-);
-int rawkit_shader_param_size(const rawkit_shader_param_t *param);
-rawkit_shader_param_value_t rawkit_shader_param_value(rawkit_shader_param_t *param);
-
-void rawkit_shader_bind(
-  rawkit_shader_t *shader,
-  uint8_t concurrency_index,
-  VkCommandBuffer command_buffer,
-  rawkit_shader_params_t params
-);
-
 const rawkit_glsl_t *rawkit_shader_glsl(rawkit_shader_t *shader);
 
-void rawkit_shader_params_init_resource(rawkit_shader_params_t *params);
 VkPipelineStageFlags rawkit_glsl_vulkan_stage_flags(rawkit_glsl_stage_mask_t stage);
 
 // Shader Instances
-rawkit_shader_instance_t *rawkit_shader_instance_begin(rawkit_gpu_t *gpu, rawkit_shader_t *shader, VkCommandBuffer command_buffer, uint32_t frame_idx);
+rawkit_shader_instance_t *rawkit_shader_instance_begin(
+  rawkit_gpu_t *gpu,
+  rawkit_shader_t *shader,
+  VkCommandBuffer command_buffer,
+  uint32_t frame_idx
+);
 
 void rawkit_shader_instance_param_texture(
   rawkit_shader_instance_t *instance,
@@ -185,8 +168,6 @@ void rawkit_shader_instance_apply_params(
 );
 
 void rawkit_shader_instance_end(rawkit_shader_instance_t *instance, VkQueue queue);
-
-
 
 #ifdef __cplusplus
 }

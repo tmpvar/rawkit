@@ -14,17 +14,6 @@
 #include <string>
 using namespace std;
 
-class ConcurrentStateEntry {
-  public:
-    ConcurrentStateEntry();
-    ~ConcurrentStateEntry();
-    vector<VkDescriptorSet> descriptor_sets;
-    VkCommandBuffer command_buffer;
-    unordered_map<string, rawkit_gpu_buffer_t *> buffers;
-    rawkit_gpu_t *gpu = nullptr;
-};
-
-
 class ShaderInstanceState {
   public:
     ShaderInstanceState(rawkit_shader_t *shader, rawkit_shader_instance_t *instance);
@@ -43,8 +32,6 @@ class ShaderState {
     vector<VkWriteDescriptorSet> writes;
     vector<VkShaderModule> modules;
 
-    vector<ConcurrentStateEntry *> concurrent_entries;
-
     VkDescriptorPool descriptor_pool;
 
     vector<VkDescriptorSetLayout> descriptor_set_layouts;
@@ -54,7 +41,7 @@ class ShaderState {
     uint32_t gpu_tick_idx = 0xFFFFFFFF;
     uint64_t instance_idx = 0;
 
-    static ShaderState *create(rawkit_gpu_t *gpu, const rawkit_glsl_t *glsl, uint8_t concurrency, VkRenderPass render_pass);
+    static ShaderState *create(rawkit_gpu_t *gpu, const rawkit_glsl_t *glsl, VkRenderPass render_pass);
     ~ShaderState();
 
     bool valid();

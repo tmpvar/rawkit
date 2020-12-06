@@ -8,8 +8,8 @@ bool ShaderState::valid() {
   return true;
 }
 
-ShaderState *ShaderState::create(rawkit_gpu_t *gpu, const rawkit_glsl_t *glsl, uint8_t concurrency, VkRenderPass render_pass) {
-  if (!gpu || !gpu->device || !gpu->physical_device || !glsl || !concurrency || !render_pass) {
+ShaderState *ShaderState::create(rawkit_gpu_t *gpu, const rawkit_glsl_t *glsl, VkRenderPass render_pass) {
+  if (!gpu || !gpu->device || !gpu->physical_device || !glsl || !render_pass) {
     return nullptr;
   }
 
@@ -108,20 +108,10 @@ ShaderState *ShaderState::create(rawkit_gpu_t *gpu, const rawkit_glsl_t *glsl, u
     }
   }
 
-  for (uint8_t i=0; i<concurrency; i++) {
-    VkResult err = state->populate_concurrent_entries();
-    if (err) {
-      printf("ERROR: ShaderState: failed to populate concurrent entries #%u (%i)\n", i, err);
-      delete state;
-      return nullptr;
-    }
-  }
-
   return state;
 }
 
 ShaderState::~ShaderState() {
-  this->concurrent_entries.clear();
   this->writes.clear();
 
   if (!this->gpu || !this->gpu->device) {

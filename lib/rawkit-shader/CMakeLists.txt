@@ -50,9 +50,8 @@ add_library(${PROJECT_NAME} STATIC
   src/pipeline-compute.cpp
   src/pipeline-graphics.cpp
   src/pipeline-layout.cpp
-  src/params.cpp
-  src/concurrent-entries.cpp
   src/instance.cpp
+  src/params.cpp
 )
 
 add_library(rawkit::shader ALIAS ${PROJECT_NAME})

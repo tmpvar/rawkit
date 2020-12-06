@@ -9,7 +9,6 @@ static rawkit_shader_t ERR = {};
 
 rawkit_shader_t *rawkit_shader_ex(
   rawkit_gpu_t *gpu,
-  uint8_t concurrency,
   VkRenderPass render_pass,
   uint8_t file_count,
   const rawkit_file_t **files
@@ -55,7 +54,7 @@ rawkit_shader_t *rawkit_shader_ex(
     return shader;
   }
 
-  ShaderState *state = ShaderState::create(gpu, glsl, concurrency, render_pass);
+  ShaderState *state = ShaderState::create(gpu, glsl, render_pass);
   if (!state) {
     printf("ERROR: rawkit-shader: failed to create ShaderState\n");
     return shader;
@@ -68,50 +67,6 @@ rawkit_shader_t *rawkit_shader_ex(
   shader->_state = (void *)state;
   shader->resource_version++;
   return shader;
-}
-
-void rawkit_shader_bind(
-  rawkit_shader_t *shader,
-  uint8_t concurrency_index,
-  VkCommandBuffer command_buffer,
-  rawkit_shader_params_t params
-) {
-  ShaderState *shader_state = (ShaderState *)shader->_state;
-  if (!shader_state || shader_state->concurrent_entries.size() <= concurrency_index) {
-    return;
-  }
-
-  ConcurrentStateEntry *state = shader_state->concurrent_entries[concurrency_index];
-
-  VkPipelineBindPoint bind_point = rawkit_glsl_is_compute(shader_state->glsl)
-    ? VK_PIPELINE_BIND_POINT_COMPUTE
-    : VK_PIPELINE_BIND_POINT_GRAPHICS;
-
-  vkCmdBindPipeline(
-    command_buffer,
-    bind_point,
-    shader_state->pipeline
-  );
-
-  rawkit_shader_apply_params(
-    shader,
-    concurrency_index,
-    command_buffer,
-    params
-  );
-
-  if (state->descriptor_sets.size() > 0) {
-    vkCmdBindDescriptorSets(
-      command_buffer,
-      bind_point,
-      shader_state->pipeline_layout,
-      0,
-      static_cast<uint32_t>(state->descriptor_sets.size()),
-      state->descriptor_sets.data(),
-      0,
-      0
-    );
-  }
 }
 
 const rawkit_glsl_t *rawkit_shader_glsl(rawkit_shader_t *shader) {

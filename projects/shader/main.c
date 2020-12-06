@@ -73,7 +73,6 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
 
   rawkit_shader_t *shader = rawkit_shader_ex(
     gpu,
-    rawkit_window_frame_count(),
     rawkit_vulkan_renderpass(),
     1,
     &file
@@ -336,7 +335,6 @@ void loop() {
   if (1) {
     rawkit_shader_t *shader = rawkit_shader_ex(
       gpu,
-      rawkit_window_frame_count(),
       rawkit_vulkan_renderpass(),
       2,
       ((const rawkit_file_t *[]){
