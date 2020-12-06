@@ -1,4 +1,3 @@
-#pragma optimize("", off)
 #include <rawkit/shader.h>
 #include "shader-state.h"
 
@@ -470,6 +469,7 @@ void rawkit_shader_instance_apply_params(
       shader_state->glsl,
       param->name
     );
+    bool is_compute = rawkit_glsl_is_compute(shader_state->glsl);
 
     switch (entry.entry_type) {
       case RAWKIT_GLSL_REFLECTION_ENTRY_UNIFORM_BUFFER:
@@ -479,6 +479,20 @@ void rawkit_shader_instance_apply_params(
       case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE:
           rawkit_shader_instance_param_texture(instance, param->name, param->texture.texture, param->texture.sampler);
         break;
+
+      case RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER: {
+        rawkit_shader_param_value_t val = rawkit_shader_param_value(param);
+        vkCmdPushConstants(
+          instance->command_buffer,
+          shader_state->pipeline_layout,
+          is_compute ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_ALL_GRAPHICS,
+          entry.offset,
+          val.len,
+          val.buf
+        );
+        break;
+      }
+
       default:
         printf("ERROR: rawkit_shader_instance_apply_params: entry type (%i) not implemented (%s)\n", entry.entry_type, param->name);
     }
