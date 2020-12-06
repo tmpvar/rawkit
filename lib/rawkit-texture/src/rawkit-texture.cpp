@@ -352,6 +352,10 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     return false;
   }
 
+  if (!texture->stage_flags) {
+    texture->stage_flags = VK_PIPELINE_STAGE_TRANSFER_BIT;
+  }
+
   // create the image
   if (texture->image == VK_NULL_HANDLE) {
     VkImageCreateInfo info = {};

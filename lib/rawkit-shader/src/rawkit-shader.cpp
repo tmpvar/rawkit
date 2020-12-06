@@ -5,7 +5,6 @@
 
 #include "shader-state.h"
 
-static const char *resource_name = "rawkit::shader";
 static rawkit_shader_t ERR = {};
 
 rawkit_shader_t *rawkit_shader_ex(
@@ -26,8 +25,18 @@ rawkit_shader_t *rawkit_shader_ex(
     return &ERR;
   }
 
-  uint64_t id = rawkit_hash_resources(resource_name, file_count, (const rawkit_resource_t **)files);
-  rawkit_shader_t *shader = rawkit_hot_resource_id(resource_name, id, rawkit_shader_t);
+  string resource_name = "rawkit::shader(";
+  for (uint8_t i=0; i<file_count; i++) {
+    if (i>0) {
+      resource_name+=", ";
+    }
+    resource_name += files[i]->resource_name;
+  }
+  resource_name += ")";
+
+
+  uint64_t id = rawkit_hash_resources(resource_name.c_str(), file_count, (const rawkit_resource_t **)files);
+  rawkit_shader_t *shader = rawkit_hot_resource_id(resource_name.c_str(), id, rawkit_shader_t);
   if (!shader) {
     printf("ERROR: rawkit_shader experienced out of memory error while allocating\n");
     return &ERR;
@@ -36,8 +45,10 @@ rawkit_shader_t *rawkit_shader_ex(
   bool dirty = rawkit_resource_sources_array((rawkit_resource_t *)shader, 1, (rawkit_resource_t **)&glsl);
 
   ShaderState *current_state = (ShaderState *)shader->_state;
-  if (current_state && current_state->gpu_tick_idx != rawkit_gpu_get_tick_idx(gpu)) {
+  uint32_t gpu_tick_idx = rawkit_gpu_get_tick_idx(gpu);
+  if (current_state && current_state->gpu_tick_idx != gpu_tick_idx) {
     current_state->instance_idx = 0;
+    current_state->gpu_tick_idx = gpu_tick_idx;
   }
 
   if (!dirty) {

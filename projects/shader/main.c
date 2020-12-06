@@ -146,62 +146,16 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
   }
 
   uint32_t idx = rawkit_window_frame_index();
+  rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(gpu, shader, NULL, idx);
 
-  VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu);
-  if (!command_buffer) {
-    printf("ERROR: fill_rect: could not create command buffer\n");
-    return;
-  }
-  VkCommandBufferBeginInfo info = {};
-  info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  err = vkBeginCommandBuffer(
-    command_buffer,
-    &info
-  );
-
-  if (err != VK_SUCCESS) {
-    printf("ERROR: could not begin command buffer");
-    return;
-  }
-
-  // TODO: maybe only do this when the shader changes?
-  {
-    rawkit_shader_params_t p = {};
-    rawkit_shader_params(p,
-      rawkit_shader_texture("rawkit_output_image", state->textures[idx], NULL)
-    );
-    rawkit_shader_apply_params(
-      shader,
-      idx,
-      command_buffer,
-      p
-    );
-  }
 
   rawkit_texture_t *current_texture = state->textures[idx];
 
+  rawkit_shader_instance_param_texture(inst, "rawkit_output_image", current_texture, NULL);
+
   // record new command buffer
   {
-    // transition to a writable texture
-    {
-      VkImageMemoryBarrier barrier = {};
-      barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-      barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-      rawkit_texture_transition(
-        current_texture,
-        command_buffer,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        barrier
-      );
-    }
-
-    rawkit_shader_bind(
-      shader,
-      idx,
-      command_buffer,
-      options->params
-    );
+    rawkit_shader_instance_apply_params(inst, options->params);
 
     {
       const rawkit_glsl_t *glsl = rawkit_shader_glsl(shader);
@@ -219,7 +173,7 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
       };
 
       vkCmdDispatch(
-        command_buffer,
+        inst->command_buffer,
         (uint32_t)fmaxf(ceilf(global[0] / local[0]), 1.0),
         (uint32_t)fmaxf(ceilf(global[1] / local[1]), 1.0),
         (uint32_t)fmaxf(ceilf(global[2] / local[2]), 1.0)
@@ -230,59 +184,20 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
     {
       VkImageMemoryBarrier barrier = {};
       barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-      // barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
       barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       rawkit_texture_transition(
         current_texture,
-        command_buffer,
+        inst->command_buffer,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
         barrier
       );
     }
   }
 
-  // Submit compute commands
+
+  rawkit_shader_instance_end(inst, inst->gpu->graphics_queue);
+
   {
-    err = vkEndCommandBuffer(command_buffer);
-    if (err != VK_SUCCESS) {
-      printf("ERROR: vkEndCommandBuffer: failed %i\n", err);
-      return;
-    }
-
-    VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-    VkSubmitInfo computeSubmitInfo = {};
-    computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    computeSubmitInfo.commandBufferCount = 1;
-    computeSubmitInfo.pCommandBuffers = &command_buffer;
-    computeSubmitInfo.pWaitDstStageMask = &waitStageMask;
-
-
-    VkFence fence;
-    {
-      VkFenceCreateInfo create = {};
-      create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-      create.flags = 0;
-      err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
-      if (err) {
-        printf("ERROR: fill_rect: create fence failed (%i)\n", err);
-        return;
-      }
-    }
-
-    err = vkQueueSubmit(
-      queue,
-      1,
-      &computeSubmitInfo,
-      fence
-    );
-
-    rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
-
-    if (err != VK_SUCCESS) {
-      printf("ERROR: unable to submit compute shader\n");
-      return;
-    }
-
     ImTextureID texture = rawkit_imgui_texture(current_texture, options->sampler);
     if (!texture) {
       return;
@@ -323,7 +238,7 @@ struct triangle_uniforms {
 void loop() {
   rawkit_gpu_t *gpu = rawkit_default_gpu();
 
-  if (0) {
+  if (1) {
     fill_rect_options_t options = {0};
     options.render_width = 128;
     options.render_height = 64;
@@ -360,7 +275,7 @@ void loop() {
   }
 
   // TODO: dedupe fill_rect resource by hashing shader params
-  if (0) {
+  if (1) {
     fill_rect_options_t options = {0};
     options.render_width = 128;
     options.render_height = 64;
@@ -395,7 +310,7 @@ void loop() {
     fill_rect(gpu, "tiled", "basic.comp", &options);
   }
 
-  if (0) {
+  if (1) {
     fill_rect_options_t options = {0};
     options.render_width = 400;
     options.render_height = 400;
@@ -414,10 +329,11 @@ void loop() {
       rawkit_shader_ubo("UBO", &ubo)
     );
 
-    fill_rect(gpu, "triangle", "triangle.comp", &options);
+    fill_rect(gpu, "triangle1", "triangle.comp", &options);
+    fill_rect(gpu, "triangle2", "triangle.comp", &options);
   }
 
-  {
+  if (1) {
     rawkit_shader_t *shader = rawkit_shader_ex(
       gpu,
       rawkit_window_frame_count(),
@@ -432,7 +348,8 @@ void loop() {
     rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(
       gpu,
       shader,
-      rawkit_vulkan_command_buffer()
+      rawkit_vulkan_command_buffer(),
+      rawkit_window_frame_index()
     );
 
     if (inst && inst->resource_version) {

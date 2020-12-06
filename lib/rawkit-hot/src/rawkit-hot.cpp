@@ -7,6 +7,7 @@
 using namespace std;
 
 typedef struct entry_t {
+  const char *name;
   void *data;
   uint64_t len;
 } entry_t;

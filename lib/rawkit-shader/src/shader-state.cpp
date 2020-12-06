@@ -16,6 +16,8 @@ ShaderState *ShaderState::create(rawkit_gpu_t *gpu, const rawkit_glsl_t *glsl, u
   ShaderState *state = new ShaderState;
   state->gpu = gpu;
   state->glsl = glsl;
+  state->instance_idx = 0;
+  state->gpu_tick_idx = rawkit_gpu_get_tick_idx(gpu);
 
   // create the shader modules
   {

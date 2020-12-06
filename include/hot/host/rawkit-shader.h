@@ -15,5 +15,7 @@ void host_init_rawkit_shader(rawkit_jit_t *jit) {
   // Shader Instances
   rawkit_jit_add_export(jit, "rawkit_shader_instance_begin", rawkit_shader_instance_begin);
   rawkit_jit_add_export(jit, "rawkit_shader_instance_param_texture", rawkit_shader_instance_param_texture);
+  rawkit_jit_add_export(jit, "_rawkit_shader_instance_param_ubo", _rawkit_shader_instance_param_ubo);
+  rawkit_jit_add_export(jit, "rawkit_shader_instance_apply_params", rawkit_shader_instance_apply_params);
   rawkit_jit_add_export(jit, "rawkit_shader_instance_end", rawkit_shader_instance_end);
 }

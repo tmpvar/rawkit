@@ -109,6 +109,7 @@ typedef struct rawkit_shader_instance_t {
   rawkit_shader_t *shader;
   rawkit_gpu_t *gpu;
   bool owns_command_buffer;
+  bool can_launch;
   VkCommandBuffer command_buffer;
   VkCommandPool command_pool;
 
@@ -155,12 +156,32 @@ void rawkit_shader_params_init_resource(rawkit_shader_params_t *params);
 VkPipelineStageFlags rawkit_glsl_vulkan_stage_flags(rawkit_glsl_stage_mask_t stage);
 
 // Shader Instances
-rawkit_shader_instance_t *rawkit_shader_instance_begin(rawkit_gpu_t *gpu, rawkit_shader_t *shader, VkCommandBuffer command_buffer);
+rawkit_shader_instance_t *rawkit_shader_instance_begin(rawkit_gpu_t *gpu, rawkit_shader_t *shader, VkCommandBuffer command_buffer, uint32_t frame_idx);
 
 void rawkit_shader_instance_param_texture(
   rawkit_shader_instance_t *instance,
+  const char *name,
   rawkit_texture_t *texture,
-  rawkit_texture_sampler_t *sampler
+  const rawkit_texture_sampler_t *sampler
+);
+
+void _rawkit_shader_instance_param_ubo(
+  rawkit_shader_instance_t *instance,
+  const char *name,
+  void *data,
+  uint64_t bytes
+);
+
+#define rawkit_shader_instance_param_ubo(instance, name, value) _rawkit_shader_instance_param_ubo( \
+  instance, \
+  name, \
+  data, \
+  sizeof(*data) \
+);
+
+void rawkit_shader_instance_apply_params(
+  rawkit_shader_instance_t *instance,
+  rawkit_shader_params_t params
 );
 
 void rawkit_shader_instance_end(rawkit_shader_instance_t *instance, VkQueue queue);
