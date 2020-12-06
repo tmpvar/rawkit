@@ -323,7 +323,7 @@ struct triangle_uniforms {
 void loop() {
   rawkit_gpu_t *gpu = rawkit_default_gpu();
 
-  {
+  if (0) {
     fill_rect_options_t options = {0};
     options.render_width = 128;
     options.render_height = 64;
@@ -360,7 +360,7 @@ void loop() {
   }
 
   // TODO: dedupe fill_rect resource by hashing shader params
-  {
+  if (0) {
     fill_rect_options_t options = {0};
     options.render_width = 128;
     options.render_height = 64;
@@ -395,7 +395,7 @@ void loop() {
     fill_rect(gpu, "tiled", "basic.comp", &options);
   }
 
-  {
+  if (0) {
     fill_rect_options_t options = {0};
     options.render_width = 400;
     options.render_height = 400;
@@ -429,20 +429,13 @@ void loop() {
       })
     );
 
-    if (shader && shader->resource_version > 0) {
-      VkCommandBuffer command_buffer = rawkit_vulkan_command_buffer();
-      if (!command_buffer) {
-        return;
-      }
+    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(
+      gpu,
+      shader,
+      rawkit_vulkan_command_buffer()
+    );
 
-      rawkit_shader_params_t params = {};
-      rawkit_shader_bind(
-        shader,
-        rawkit_window_frame_index(),
-        command_buffer,
-        params
-      );
-
+    if (inst && inst->resource_version) {
       VkViewport viewport = {
         .x = 0.0f,
         .y = 0.0f,
@@ -451,7 +444,7 @@ void loop() {
       };
 
       vkCmdSetViewport(
-        command_buffer,
+        inst->command_buffer,
         0,
         1,
         &viewport
@@ -461,13 +454,15 @@ void loop() {
       scissor.extent.width = viewport.width;
       scissor.extent.height = viewport.height;
       vkCmdSetScissor(
-        command_buffer,
+        inst->command_buffer,
         0,
         1,
         &scissor
       );
 
-      vkCmdDraw(command_buffer, 3, 1, 0, 0);
+      vkCmdDraw(inst->command_buffer, 3, 1, 0, 0);
+      rawkit_shader_instance_end(inst, gpu->graphics_queue);
     }
+
   }
 }

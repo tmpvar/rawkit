@@ -35,6 +35,11 @@ rawkit_shader_t *rawkit_shader_ex(
 
   bool dirty = rawkit_resource_sources_array((rawkit_resource_t *)shader, 1, (rawkit_resource_t **)&glsl);
 
+  ShaderState *current_state = (ShaderState *)shader->_state;
+  if (current_state && current_state->gpu_tick_idx != rawkit_gpu_get_tick_idx(gpu)) {
+    current_state->instance_idx = 0;
+  }
+
   if (!dirty) {
     return shader;
   }
@@ -45,9 +50,8 @@ rawkit_shader_t *rawkit_shader_ex(
     return shader;
   }
 
-  if (shader->_state) {
-    ShaderState *old_state = (ShaderState *)shader->_state;
-    delete old_state;
+  if (current_state) {
+    delete current_state;
   }
 
   shader->_state = (void *)state;

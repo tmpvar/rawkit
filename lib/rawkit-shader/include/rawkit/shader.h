@@ -4,6 +4,7 @@
 
 #include <rawkit/core.h>
 #include <rawkit/file.h>
+#include <rawkit/glsl.h>
 #include <rawkit/gpu.h>
 #include <rawkit/texture.h>
 
@@ -103,6 +104,18 @@ typedef struct rawkit_shader_params_t {
   rawkit_shader_param_t *entries;
 } rawkit_shader_params_t;
 
+typedef struct rawkit_shader_instance_t {
+  RAWKIT_RESOURCE_FIELDS
+  rawkit_shader_t *shader;
+  rawkit_gpu_t *gpu;
+  bool owns_command_buffer;
+  VkCommandBuffer command_buffer;
+  VkCommandPool command_pool;
+
+  // internal
+  void *_state;
+} rawkit_shader_instance_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -140,6 +153,19 @@ const rawkit_glsl_t *rawkit_shader_glsl(rawkit_shader_t *shader);
 
 void rawkit_shader_params_init_resource(rawkit_shader_params_t *params);
 VkPipelineStageFlags rawkit_glsl_vulkan_stage_flags(rawkit_glsl_stage_mask_t stage);
+
+// Shader Instances
+rawkit_shader_instance_t *rawkit_shader_instance_begin(rawkit_gpu_t *gpu, rawkit_shader_t *shader, VkCommandBuffer command_buffer);
+
+void rawkit_shader_instance_param_texture(
+  rawkit_shader_instance_t *instance,
+  rawkit_texture_t *texture,
+  rawkit_texture_sampler_t *sampler
+);
+
+void rawkit_shader_instance_end(rawkit_shader_instance_t *instance, VkQueue queue);
+
+
 
 #ifdef __cplusplus
 }

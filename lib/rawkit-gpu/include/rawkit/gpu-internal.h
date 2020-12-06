@@ -13,4 +13,5 @@ struct GPUCommandBuffer {
 class GPUState {
   public:
     std::vector<GPUCommandBuffer> completed_command_buffers;
+    uint32_t tick_idx = 0;
 };

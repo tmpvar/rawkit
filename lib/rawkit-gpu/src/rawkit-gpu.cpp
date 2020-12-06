@@ -500,6 +500,7 @@ void rawkit_gpu_tick(rawkit_gpu_t *gpu) {
 
   state->completed_command_buffers.clear();
   state->completed_command_buffers = buffers;
+  state->tick_idx++;
 }
 
 void rawkit_gpu_queue_command_buffer_for_deletion(rawkit_gpu_t *gpu, VkCommandBuffer buffer, VkFence fence, VkCommandPool pool) {
@@ -513,5 +514,13 @@ void rawkit_gpu_queue_command_buffer_for_deletion(rawkit_gpu_t *gpu, VkCommandBu
   b.fence = fence;
   b.pool = pool;
   state->completed_command_buffers.push_back(b);
+}
+
+uint32_t rawkit_gpu_get_tick_idx(rawkit_gpu_t *gpu) {
+  if (!gpu || !gpu->_state) {
+    return 0;
+  }
+  GPUState *state = (GPUState *)gpu->_state;
+  return state->tick_idx;
 }
 

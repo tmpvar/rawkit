@@ -99,7 +99,7 @@ VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu);
 
 void rawkit_gpu_tick(rawkit_gpu_t *gpu);
 void rawkit_gpu_queue_command_buffer_for_deletion(rawkit_gpu_t *gpu, VkCommandBuffer buffer, VkFence fence, VkCommandPool pool);
-
+uint32_t rawkit_gpu_get_tick_idx(rawkit_gpu_t *gpu);
 
 #ifdef __cplusplus
   }
