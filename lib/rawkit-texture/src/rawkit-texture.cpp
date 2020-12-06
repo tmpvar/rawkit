@@ -539,11 +539,25 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
         return false;
       }
 
-      VkResult submit_result = vkQueueSubmit(queue, 1, &end_info, VK_NULL_HANDLE);
+      VkFence fence;
+      {
+        VkFenceCreateInfo create = {};
+        create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        create.flags = 0;
+        VkResult err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
+        if (err) {
+          printf("ERROR: rawkit_texture_init: create fence failed (%i)\n", err);
+          return false;
+        }
+      }
+
+      VkResult submit_result = vkQueueSubmit(queue, 1, &end_info, fence);
+      rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
       if (submit_result != VK_SUCCESS) {
         printf("ERROR: rawkit-texture: could not submit command buffer");
         return false;
       }
+
     }
   }
 
@@ -700,7 +714,20 @@ bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_bu
       return false;
     }
 
-    VkResult submit_result = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, VK_NULL_HANDLE);
+    VkFence fence;
+    {
+      VkFenceCreateInfo create = {};
+      create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+      create.flags = 0;
+      VkResult err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
+      if (err) {
+        printf("ERROR: rawkit_texture_update_buffer: create fence failed (%i)\n", err);
+        return false;
+      }
+    }
+
+    VkResult submit_result = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, fence);
+    rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
     if (submit_result != VK_SUCCESS) {
       printf("ERROR: rawkit-texture: could not submit command buffer");
       return false;

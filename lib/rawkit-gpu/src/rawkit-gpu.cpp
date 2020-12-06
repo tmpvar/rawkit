@@ -1,4 +1,4 @@
-#include <rawkit/gpu.h>
+#include <rawkit/gpu-internal.h>
 #include <rawkit/hash.h>
 #include <rawkit/hot.h>
 
@@ -220,7 +220,7 @@ VkResult rawkit_gpu_copy_buffer(
     VkFenceCreateInfo create = {};
     create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     create.flags = 0;
-    err = vkCreateFence(gpu->device, &create, NULL, &fence);
+    err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
     if (err) {
       printf("ERROR: create fence failed while copying buffer (%i)\n", err);
       return err;
@@ -247,6 +247,7 @@ VkResult rawkit_gpu_copy_buffer(
     }
 
     vkDestroyFence(gpu->device, fence, NULL);
+    vkFreeCommandBuffers(gpu->device, pool, 1, &command_buffer);
   }
 
   return VK_SUCCESS;
@@ -461,3 +462,56 @@ VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu) {
 
   return command_buffer;
 }
+
+void rawkit_gpu_tick(rawkit_gpu_t *gpu) {
+  if (!gpu || !gpu->_state) {
+    return;
+  }
+
+  GPUState *state = (GPUState *)gpu->_state;
+  std::vector<GPUCommandBuffer> buffers;
+  for (auto &buffer : state->completed_command_buffers) {
+    VkResult res = vkGetFenceStatus(gpu->device, buffer.fence);
+    switch (res) {
+      case VK_SUCCESS:
+        {
+          vkFreeCommandBuffers(
+            gpu->device,
+            buffer.pool,
+            1,
+            &buffer.handle
+          );
+
+          vkDestroyFence(
+            gpu->device,
+            buffer.fence,
+            gpu->allocator
+          );
+        }
+        break;
+      case VK_NOT_READY:
+        buffers.push_back(buffer);
+        break;
+      case VK_ERROR_DEVICE_LOST:
+        printf("ERROR: lost device %s:%u\n", __FILE__, __LINE__);
+        break;
+    }
+  }
+
+  state->completed_command_buffers.clear();
+  state->completed_command_buffers = buffers;
+}
+
+void rawkit_gpu_queue_command_buffer_for_deletion(rawkit_gpu_t *gpu, VkCommandBuffer buffer, VkFence fence, VkCommandPool pool) {
+  if (!gpu || !gpu->_state || !buffer || !fence) {
+    return;
+  }
+
+  GPUState *state = (GPUState *)gpu->_state;
+  GPUCommandBuffer b = {};
+  b.handle = buffer;
+  b.fence = fence;
+  b.pool = pool;
+  state->completed_command_buffers.push_back(b);
+}
+

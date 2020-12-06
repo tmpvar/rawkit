@@ -1,5 +1,5 @@
 #include <rawkit/core.h>
-#include <rawkit/gpu.h>
+#include <rawkit/gpu-internal.h>
 #include <rawkit/hot.h>
 
 #include <vulkan/vulkan.h>
@@ -15,6 +15,10 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
   }
 
   VkResult err;
+
+  if (!gpu->_state) {
+    gpu->_state = (void *)new GPUState;
+  }
 
   // Create Vulkan Instance
   {

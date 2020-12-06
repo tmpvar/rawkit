@@ -35,6 +35,9 @@ typedef struct rawkit_gpu_t {
   VkDescriptorPool default_descriptor_pool;
   int32_t graphics_queue_family_index;
   VkQueue graphics_queue;
+
+  // internal
+  void *_state;
 } rawkit_gpu_t;
 
 typedef struct rawkit_gpu_buffer_t {
@@ -91,7 +94,12 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
 VkResult rawkit_gpu_vertex_buffer_destroy(rawkit_gpu_t *gpu, rawkit_gpu_vertex_buffer_t *buf);
 
 
+
 VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu);
+
+void rawkit_gpu_tick(rawkit_gpu_t *gpu);
+void rawkit_gpu_queue_command_buffer_for_deletion(rawkit_gpu_t *gpu, VkCommandBuffer buffer, VkFence fence, VkCommandPool pool);
+
 
 #ifdef __cplusplus
   }

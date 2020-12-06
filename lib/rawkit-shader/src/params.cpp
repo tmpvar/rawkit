@@ -36,7 +36,20 @@ static VkResult transition_texture_for_stage(
       return err;
     }
 
-    err = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, VK_NULL_HANDLE);
+    VkFence fence;
+    {
+      VkFenceCreateInfo create = {};
+      create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+      create.flags = 0;
+      err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
+      if (err) {
+        printf("ERROR: transition_texture_for_stage: create fence failed (%i)\n", err);
+        return err;
+      }
+    }
+
+    err = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, fence);
+    rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
     if (err) {
       printf("ERROR: transition_texture_for_stage: could not submit command buffer");
       return err;

@@ -310,6 +310,7 @@ rawkit_texture_target_t *rawkit_texture_target_begin(
 
     VkCommandBufferBeginInfo cmdBufferBeginInfo = {};
     cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    cmdBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(target->command_buffer, &cmdBufferBeginInfo);
 
     VkRenderPassBeginInfo renderPassBeginInfo = {};
@@ -375,12 +376,26 @@ void rawkit_texture_target_end(rawkit_texture_target_t *target) {
     return;
   }
 
+  VkFence fence;
+  {
+    VkFenceCreateInfo create = {};
+    create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    create.flags = 0;
+    err = vkCreateFence(target->gpu->device, &create, target->gpu->allocator, &fence);
+    if (err) {
+      printf("ERROR: fill_rect: create fence failed (%i)\n", err);
+      return;
+    }
+  }
+
   err = vkQueueSubmit(
     target->gpu->graphics_queue,
     1,
     &info,
-    VK_NULL_HANDLE
+    fence
   );
+
+  rawkit_gpu_queue_command_buffer_for_deletion(target->gpu, target->command_buffer, fence, target->gpu->command_pool);
 
   if (err) {
     printf("ERROR: rawkit_texture_target_end: could not submit command buffer to queue (%i)\n", err);

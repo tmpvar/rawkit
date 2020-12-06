@@ -152,6 +152,18 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
     printf("ERROR: fill_rect: could not create command buffer\n");
     return;
   }
+  VkCommandBufferBeginInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  err = vkBeginCommandBuffer(
+    command_buffer,
+    &info
+  );
+
+  if (err != VK_SUCCESS) {
+    printf("ERROR: could not begin command buffer");
+    return;
+  }
 
   // TODO: maybe only do this when the shader changes?
   {
@@ -171,22 +183,6 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
 
   // record new command buffer
   {
-    // TODO: we need to wait for the previous use of this command buffer to be complete
-    //       don't use such a sledgehammer.
-    // vkQueueWaitIdle(queue);
-
-    VkCommandBufferBeginInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    err = vkBeginCommandBuffer(
-      command_buffer,
-      &info
-    );
-
-    if (err != VK_SUCCESS) {
-      printf("ERROR: could not begin command buffer");
-      return;
-    }
-
     // transition to a writable texture
     {
       VkImageMemoryBarrier barrier = {};
@@ -243,16 +239,16 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
         barrier
       );
     }
+  }
 
+  // Submit compute commands
+  {
     err = vkEndCommandBuffer(command_buffer);
     if (err != VK_SUCCESS) {
       printf("ERROR: vkEndCommandBuffer: failed %i\n", err);
       return;
     }
-  }
 
-  // Submit compute commands
-  {
     VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
     VkSubmitInfo computeSubmitInfo = {};
     computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -260,19 +256,33 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
     computeSubmitInfo.pCommandBuffers = &command_buffer;
     computeSubmitInfo.pWaitDstStageMask = &waitStageMask;
 
+
+    VkFence fence;
+    {
+      VkFenceCreateInfo create = {};
+      create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+      create.flags = 0;
+      err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
+      if (err) {
+        printf("ERROR: fill_rect: create fence failed (%i)\n", err);
+        return;
+      }
+    }
+
     err = vkQueueSubmit(
       queue,
       1,
       &computeSubmitInfo,
-      VK_NULL_HANDLE
+      fence
     );
+
+    rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
 
     if (err != VK_SUCCESS) {
       printf("ERROR: unable to submit compute shader\n");
       return;
     }
 
-    // TODO: allow someone to pass in a sampler
     ImTextureID texture = rawkit_imgui_texture(current_texture, options->sampler);
     if (!texture) {
       return;
