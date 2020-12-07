@@ -118,9 +118,8 @@ ShaderInstanceState::~ShaderInstanceState() {
   this->buffers.clear();
 }
 
-
-rawkit_shader_instance_t *rawkit_shader_instance_begin(rawkit_gpu_t *gpu, rawkit_shader_t *shader, VkCommandBuffer command_buffer, uint32_t frame_idx) {
-  if (!gpu || !shader || !shader->_state) {
+rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(rawkit_gpu_t *gpu, rawkit_shader_t *shader, VkCommandBuffer command_buffer, uint32_t frame_idx) {
+  if (!gpu || !shader || !shader->_state || !shader->resource_version) {
     return NULL;
   }
 
@@ -395,7 +394,7 @@ void _rawkit_shader_instance_param_ubo(
   );
 }
 
-void rawkit_shader_instance_end(rawkit_shader_instance_t *instance, VkQueue queue) {
+void rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue queue) {
   if (!instance || !instance->can_launch || !queue) {
     return;
   }
