@@ -5,4 +5,6 @@
 
 struct world_ubo_t {
   mat4 worldToScreen;
+  vec4 eye;
+  vec4 world_dims;
 };

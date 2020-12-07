@@ -303,9 +303,20 @@ void rawkit_shader_instance_param_texture(
     glsl,
     name
   );
-  if (entry.entry_type != RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE) {
-    printf("WARN: rawkit_shader_instance_param_ubo: could not set '%s' as storage image\n", name);
-    return;
+
+  VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
+
+  switch (entry.entry_type) {
+    case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE:
+      descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+      break;
+    case RAWKIT_GLSL_REFLECTION_ENTRY_SAMPLED_IMAGE:
+      //descriptor_type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+      descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+      break;
+    default:
+      printf("WARN: rawkit_shader_instance_param_texture: could not update '%s', texture type not handled\n", name);
+      return;
   }
 
   ShaderInstanceState *state = (ShaderInstanceState *)instance->_state;
@@ -344,7 +355,7 @@ void rawkit_shader_instance_param_texture(
     VkWriteDescriptorSet writeDescriptorSet = {};
     writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writeDescriptorSet.dstSet = state->descriptor_sets[entry.set];
-    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    writeDescriptorSet.descriptorType = descriptor_type;
     writeDescriptorSet.dstBinding = entry.binding;
     writeDescriptorSet.pImageInfo = &imageInfo;
     writeDescriptorSet.descriptorCount = 1;
@@ -355,6 +366,7 @@ void rawkit_shader_instance_param_texture(
       0,
       NULL
     );
+
   }
 }
 
@@ -475,6 +487,7 @@ void rawkit_shader_instance_apply_params(
           _rawkit_shader_instance_param_ubo(instance, param->name, param->ptr, param->bytes);
         break;
 
+      case RAWKIT_GLSL_REFLECTION_ENTRY_SAMPLED_IMAGE:
       case RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_IMAGE:
           rawkit_shader_instance_param_texture(instance, param->name, param->texture.texture, param->texture.sampler);
         break;
