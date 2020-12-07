@@ -12,6 +12,13 @@ void loop() {
   );
 
   rawkit_texture_t *blue_noise = rawkit_texture("blue-noise.ldr.png");
+  rawkit_texture_t *world_data = rawkit_texture_mem(
+    "world-data",
+    128,
+    128,
+    128,
+    VK_FORMAT_R8G8B8A8_UINT
+  );
 
   rawkit_shader_t *world_shader = rawkit_shader(
     rawkit_file("shader/world.vert"),
