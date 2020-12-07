@@ -145,7 +145,7 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
   }
 
   uint32_t idx = rawkit_window_frame_index();
-  rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(gpu, shader, NULL, idx);
+  rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(gpu, shader, NULL, idx);
 
 
   rawkit_texture_t *current_texture = state->textures[idx];
@@ -194,7 +194,7 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
   }
 
 
-  rawkit_shader_instance_end(inst, inst->gpu->graphics_queue);
+  rawkit_shader_instance_end(inst);
 
   {
     ImTextureID texture = rawkit_imgui_texture(current_texture, options->sampler);
@@ -343,12 +343,7 @@ void loop() {
       })
     );
 
-    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(
-      gpu,
-      shader,
-      rawkit_vulkan_command_buffer(),
-      rawkit_window_frame_index()
-    );
+    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
 
     if (inst && inst->resource_version) {
       VkViewport viewport = {
@@ -376,7 +371,7 @@ void loop() {
       );
 
       vkCmdDraw(inst->command_buffer, 3, 1, 0, 0);
-      rawkit_shader_instance_end(inst, gpu->graphics_queue);
+      rawkit_shader_instance_end(inst);
     }
 
   }
