@@ -6,6 +6,11 @@
 
 void setup(){}
 void loop() {
+  vec2 window_dims(
+    (float)rawkit_window_width(),
+    (float)rawkit_window_height()
+  );
+
   rawkit_texture_t *blue_noise = rawkit_texture("blue-noise.ldr.png");
 
   rawkit_shader_t *world_shader = rawkit_shader(
@@ -15,7 +20,7 @@ void loop() {
 
   mat4 proj = glm::perspective(
     80.0f,
-    (float)rawkit_window_width()/float(rawkit_window_height()),
+    window_dims.x/window_dims.y,
     0.1f,
     100.0f
   );
@@ -38,8 +43,8 @@ void loop() {
     VkViewport viewport = {
       .x = 0.0f,
       .y = 0.0f,
-      .width = (float)rawkit_window_width(),
-      .height = (float)rawkit_window_height()
+      .width = window_dims.x,
+      .height = window_dims.y
     };
 
     vkCmdSetViewport(
