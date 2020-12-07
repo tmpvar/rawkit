@@ -72,6 +72,10 @@ void on_file_event(uv_fs_event_t* handle, const char* filename, int events, int 
     printf("rawkit-diskwatcher: error: invalid baton\n");
   }
 
+  if (!filename) {
+    return;
+  }
+
   fs::path full = entry->dir / fs::path(filename).filename();
   if (full == entry->full_path) {
     entry->version++;
