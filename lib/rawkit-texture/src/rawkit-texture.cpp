@@ -8,7 +8,7 @@
 #include <string>
 using namespace std;
 
-VkDeviceSize rawkit_texture_compute_size(uint32_t width, uint32_t height, VkFormat format) {
+VkDeviceSize rawkit_texture_compute_size(uint32_t width, uint32_t height, uint32_t depth, VkFormat format) {
   uint32_t bits = 0;
   switch (format) {
     case VK_FORMAT_R4G4_UNORM_PACK8: bits = 8; break;
@@ -260,8 +260,10 @@ VkDeviceSize rawkit_texture_compute_size(uint32_t width, uint32_t height, VkForm
     return 0;
   }
 
+  depth = depth ? depth : 1;
+
   return static_cast<VkDeviceSize>(
-    width * height * (bits / 8)
+    width * height * depth * (bits / 8)
   );
 }
 
@@ -574,6 +576,7 @@ rawkit_texture_t *_rawkit_texture_mem(
   const char *name,
   uint32_t width,
   uint32_t height,
+  uint32_t depth,
   VkFormat format
 ) {
   string resource_name = string("mem+rawkit-texture://") + name;
@@ -587,6 +590,7 @@ rawkit_texture_t *_rawkit_texture_mem(
   options.gpu = gpu;
   options.width = width;
   options.height = height;
+  options.depth = depth ? depth : 1;
   options.source = nullptr;
   options.usage = (
     VK_IMAGE_USAGE_SAMPLED_BIT |
@@ -598,6 +602,7 @@ rawkit_texture_t *_rawkit_texture_mem(
   options.size = rawkit_texture_compute_size(
     options.width,
     options.height,
+    options.depth,
     options.format
   );
 
@@ -777,6 +782,7 @@ rawkit_texture_t *_rawkit_texture_ex(
   options.size = rawkit_texture_compute_size(
     options.width,
     options.height,
+    options.depth,
     options.format
   );
   options.usage = (

@@ -990,7 +990,7 @@ int vknvg_renderCreateTexture(void *uptr, int type, int w, int h, int imageFlags
   rawkit_gpu_t *gpu = vk->createInfo.gpu;
   char name[255] = "\0";
   sprintf(name, "vknvg-texture-resource#%i", vknvg_textureId(vk, tex));
-  tex->resource = _rawkit_texture_mem(gpu, name, w, h, format);
+  tex->resource = _rawkit_texture_mem(gpu, name, w, h, 1, format);
   VkSamplerCreateInfo samplerCreateInfo = {VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
 
   VkFilter magFilter = VK_FILTER_LINEAR;

@@ -35,6 +35,7 @@ VkResult rawkit_texture_target_attachment(rawkit_texture_target_t *target, VkIma
   options.gpu = target->gpu;
   options.width = target->width;
   options.height = target->height;
+  options.depth = 1;
   options.source = nullptr;
   options.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | usage;
   switch (usage) {
@@ -52,6 +53,7 @@ VkResult rawkit_texture_target_attachment(rawkit_texture_target_t *target, VkIma
       options.size = rawkit_texture_compute_size(
         target->width,
         target->height,
+        options.depth,
         options.format
       );
 
@@ -80,6 +82,7 @@ VkResult rawkit_texture_target_attachment(rawkit_texture_target_t *target, VkIma
       options.size = rawkit_texture_compute_size(
         target->width,
         target->height,
+        1,
         options.format
       );
 
