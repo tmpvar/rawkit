@@ -782,6 +782,8 @@ rawkit_texture_t *_rawkit_texture_ex(
   rawkit_texture_options_t options = {};
   options.width = img->width;
   options.height = img->height;
+  // TODO: don't assume that this is a 2d image
+  options.depth = 1;
   options.format = VK_FORMAT_R8G8B8A8_UNORM;
   options.size = rawkit_texture_compute_size(
     options.width,
@@ -795,6 +797,7 @@ rawkit_texture_t *_rawkit_texture_ex(
     VK_IMAGE_USAGE_TRANSFER_DST_BIT
   );
   options.gpu = gpu;
+  options.source = img;
 
   // cache miss
   // TODO: cleanup existing resources!!!!!!
