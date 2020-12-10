@@ -87,39 +87,32 @@ float march_brick(in out vec3 pos, vec3 rayDir, out vec3 normal, out float itera
   vec3 ratio = 1.0 / ubo.data.world_dims.xyz;
   float max_iterations = length(ubo.data.world_dims.xyz) * 2.0;
   color = vec4(0.0);
+  vec4 prevSample = vec4(0.0);
   for (int iterations = 0; iterations < max_iterations; iterations++) {
     if (all(greaterThanEqual(mapPos, vec3(0))) && all(lessThan(mapPos, ubo.data.world_dims.xyz))) {
       vec3 p = mapPos * ratio;
       float density = texture(world_occlusion_texture, p).r;
+      vec4 s = texture(world_texture, p);
 
-      hit += density;
-      color += texture(world_texture, p);
+      if (density >= 1.0) {
+        color.rgb += texture(world_texture, p).rgb;
 
-      // if (density > 0.0) {
-      //   if (density < 0.5) {
-      //     vec3 low_density_pos = floor(mapPos) + 0.5;
-      //     float low_density_iterations = 0.0f;
-      //     vec4 low_density_color;
-      //     float low_density = march_low_density(
-      //       low_density_pos,
-      //       normalize(sun.pos - low_density_pos),
-      //       low_density_iterations,
-      //       low_density_color
-      //     );
+        if (prevSample.a == 0.0) {
+          prevSample.a = s.a;
+        }
 
-      //     color += texture(world_texture, p);
-      //     hit += density * low_density;
+        if (hit == 0.0) {
+          hit = 1.0;
+        }
 
-      //     // color += low_density_color * 0.001;
-      //   } else {
-      //    color += texture(world_texture, p);
-      //     hit += density;
-      //   }
-      // }
-
-      if (hit >= 1.0) {
         break;
       }
+
+      hit += density;
+
+      color += s * density;
+      color.a = s.a;
+      prevSample = s;
     }
     mask = step(sideDist.xyz, sideDist.yzx) * step(sideDist.xyz, sideDist.zxy);
     sideDist += mask * deltaDist;
@@ -130,45 +123,6 @@ float march_brick(in out vec3 pos, vec3 rayDir, out vec3 normal, out float itera
   pos = floor(mapPos) + 0.5;
 
   normal = (-mask*sign(rayDir)) * 0.5 + 0.5;
-  return hit;
-}
-
-float march(in out vec3 pos, vec3 rayDir, out vec3 normal, out float iterations, out vec4 color) {
-  vec3 ratio = 1.0 / ubo.data.world_dims.xyz;
-  pos -= rayDir * 0.0001;
-  vec3 mapPos = floor(pos);
-
-  vec3 prevPos = pos * ratio;//mapPos * ratio;
-  vec3 deltaDist = abs(vec3(length(rayDir)) / rayDir);
-  vec3 rayStep = sign(rayDir);
-  vec3 sideDist = (rayStep * (mapPos - pos) + (rayStep * 0.5) + 0.5) * deltaDist;
-  vec3 mask = step(sideDist.xyz, sideDist.yzx) * step(sideDist.xyz, sideDist.zxy);
-  normal = mask;
-  float hit = 0.0;
-  float max_iterations = length(ubo.data.world_dims);
-  color = vec4(0.0, 0.0, 0.0, 1.0);
-  for (iterations = 0.0; iterations < max_iterations; iterations++) {
-    vec3 p = mapPos * ratio;
-    if (any(lessThanEqual(p, vec3(0.0))) || any(greaterThanEqual(p, vec3(1.0)))) {
-      hit = 0.0;
-      break;
-    }
-
-    float density = texture(world_occlusion_texture, p).r;
-    if (density > 0.0) {
-      color = texture(world_texture, p);
-      return 1.0;
-    }
-
-    mask = step(sideDist.xyz, sideDist.yzx) * step(sideDist.xyz, sideDist.zxy);
-    normal = mask;
-    sideDist += mask * deltaDist;
-    prevPos = p;
-    mapPos += mask * rayStep;
-    pos += mask * rayStep;
-
-  }
-
   return hit;
 }
 
@@ -210,56 +164,33 @@ void main() {
 
   // vec3 ratio = 1.0 / ubo.data.world_dims.xyz;
   float hardOcclusion = 0.0;
+  vec4 lightColor;
   vec3 normal;
   {
-    vec4 lightColor;
     float lightIterations = 0.0f;
     float sunOcclusion = 0.0;
     vec3 lightDir = normalize(sun.pos - pos);
 
     vec3 lightPos = (
-      density < 1.0 ? pos : pos + worldNormal * 0.55
+      //density < 1.0 ? pos : pos + worldNormal * 0.55
+      pos + worldNormal * 0.55
       // + dot(dir, worldNormal)
       // // + dir * 0.15
       // + dir * 0.5
       // + worldNormal * 0.5// * 1.0 - max(0.0, dot(dir, worldNormal))
     );
-    vec4 c = vec4(0.0);
-    hardOcclusion = march_brick(
+
+    hardOcclusion = march_light(
       lightPos,
       lightDir,
       normal,
       lightIterations,
-      c
+      lightColor
     );
   }
 
-  vec4 lightColor;
   float lightIterations = 0.0f;
   float sunOcclusion = 1.0;
-  // const float steps = 5.0;
-
-  // for (float i=0.0; i<steps; i++) {
-  //   vec3 target = sun.pos + (texture(blue_noise, pos.xz * i).xyz * 2.0 - 1.0) * 2.0;
-  //   vec3 lightDir = normalize(target - pos );
-
-  //   vec3 lightPos = (
-  //     pos + lightDir + worldNormal
-  //   );
-  //   vec4 c = vec4(0.0);
-
-  //   float occ = march_brick(
-  //     lightPos,
-  //     lightDir,
-  //     normal,
-  //     lightIterations,
-  //     c
-  //   );
-
-  //   sunOcclusion += occ / steps;
-  //   lightColor += (c / steps) * occ;
-  //   // lightColor = c * occ;
-  // }
 
   if (hit == 0.0) {
     outFragColor = vec4(0.0);
@@ -272,14 +203,33 @@ void main() {
 
 
   // pos is the voxel center
-  // outFragColor *= 1.0 - (dot(normalize(sun.pos - pos), -worldNormal));
-  outFragColor = (
-    outColor / hit
-    - hardOcclusion
-  );
 
 
-  outFragColor *= 1.0 - (dot(normalize(sun.pos - pos), -worldNormal)) * 0.7;
+
+  // outFragColor *= 1.0 - (dot(normalize(sun.pos - pos), -worldNormal)) * 0.9;
+  if (outColor.a == WATER_ALPHA) {
+    outFragColor = (
+      outColor / hit * 0.99// / hardOcclusion * 0.5
+    ) * 0.6;
+
+    outFragColor -=  hardOcclusion * 0.155;
+    // outFragColor *= (1.0 - dot(normalize(sun.pos - pos), -worldNormal)) * (0.99 - hardOcclusion);
+    // outFragColor = lightColor;
+    // outFragColor = vec4(hit);
+    // outFragColor *= dot(normalize(sun.pos - pos), worldNormal) * 0.85;
+    // outFragColor -= 0.1;
+    //outFragColor /= hit;
+    // outFragColor = vec4(1.0, 0.0, 1.0, 1.0);
+    outFragColor *= (1.0 - dot(normalize(sun.pos - pos), -worldNormal)) * 0.55;
+  } else {
+    outFragColor = (
+      outColor / hit
+      - hardOcclusion * 0.25
+    );
+
+    outFragColor *= (1.0 - dot(normalize(sun.pos - pos), -worldNormal)) * 0.55;
+  }
+
 
   // outFragColor = outColor + lightColor * 0.25;
   // vec4 noise = texture(blue_noise, pos.xz * 100.0);

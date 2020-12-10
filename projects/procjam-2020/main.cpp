@@ -26,7 +26,7 @@ vec4 sample_blue_noise(const rawkit_texture_t *tex, uint64_t loc) {
   );
 }
 
-vec3 world_dims(128.0);
+vec3 world_dims(126.0);
 bool rebuild_world = false;
 void setup(){
   rebuild_world = true;
@@ -114,8 +114,8 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
   uint8_t *occlusion_data = (uint8_t *)world_occlusion_buffer->data;
   vec3 half = vec3(world_dims) / 2.0f;
 
-  uint64_t seed = 0;
-  float rock_offset = 0.0;
+  uint64_t seed = 1;
+  float rock_offset = 1000.0;
 
   // fill the ground
   if (1) {
@@ -179,7 +179,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
             if (v < p.y) {
               // water
               if (y < max_y * 0.7 - half.y / 2.0f) {
-                occlusion_data[loc] = 16;
+                occlusion_data[loc] = 64;
                 color_data[loc].r = 0.0f;
                 color_data[loc].g = 0.3f;
                 color_data[loc].b = 0.5f;
@@ -197,7 +197,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
               if (y && occlusion_data[below] == 255) {
 
                 vec4 r = sample_blue_noise(noise, (seed + x * z));
-                if (r.b > 0.9999 && r.g > 0.6) {
+                if (r.b > 0.999 && r.g > 0.6) {
                   occlusion_data[loc] = 255;
 
                   color_data[loc].r = 0.0;
@@ -214,7 +214,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
                       world_occlusion_buffer,
                       noise,
                       p,
-                      vec3(r.g * 32.0f),
+                      vec3(r.g * 16.0f),
                       rock_offset,
                       0.5
                     );
@@ -222,7 +222,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
                     continue;
                   }
 
-                  if (r.g < 0.01) {
+                  if (r.g < 0.0) {
                     add_rock(
                       world_buffer,
                       world_occlusion_buffer,
@@ -327,7 +327,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
           loc += static_cast<uint64_t>(y * world_dims.x);
           loc += static_cast<uint64_t>(z * world_dims.x * world_dims.y);
 
-          float dist = glm::distance(p, half) - half.x + perlin2d(vec2((float)x+seed*2, (float)z), 0.1f, 2) * half.y;
+          float dist = glm::distance(p, half) - half.x + perlin2d(vec2((float)x+seed*2, (float)z), 0.05f, 1) * half.y;
           if (dist <= 0.0f) {
             occlusion_data[loc] = 255;//static_cast<uint8_t>(-dist/world_dims.x * 64.0);
 
@@ -414,7 +414,7 @@ void loop() {
     );
 
     float dist = 2.0f;
-    float now = 1.6;//(float)rawkit_now() * .2 + 5.0;
+    float now = (float)rawkit_now() * .2 + 5.0;
     vec3 eye(
       sin(now) * dist,
       dist * 0.25,
