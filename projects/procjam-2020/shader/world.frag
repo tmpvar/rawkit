@@ -85,34 +85,37 @@ float march_brick(in out vec3 pos, vec3 rayDir, out vec3 normal, out float itera
   float hit = 0.0;
   vec3 prevPos = pos;
   vec3 ratio = 1.0 / ubo.data.world_dims.xyz;
-  float max_iterations = length(ubo.data.world_dims.xyz) * 5.0;
+  float max_iterations = length(ubo.data.world_dims.xyz) * 2.0;
   color = vec4(0.0);
   for (int iterations = 0; iterations < max_iterations; iterations++) {
     if (all(greaterThanEqual(mapPos, vec3(0))) && all(lessThan(mapPos, ubo.data.world_dims.xyz))) {
       vec3 p = mapPos * ratio;
       float density = texture(world_occlusion_texture, p).r;
 
-      if (density > 0.0) {
-        if (density < 0.5) {
-          vec3 low_density_pos = floor(mapPos) + 0.5;
-          float low_density_iterations = 0.0f;
-          vec4 low_density_color;
-          float low_density = march_low_density(
-            low_density_pos,
-            normalize(sun.pos - low_density_pos),
-            low_density_iterations,
-            low_density_color
-          );
+      hit += density;
+      color += texture(world_texture, p);
 
-          color += texture(world_texture, p);
-          hit += density * low_density;
+      // if (density > 0.0) {
+      //   if (density < 0.5) {
+      //     vec3 low_density_pos = floor(mapPos) + 0.5;
+      //     float low_density_iterations = 0.0f;
+      //     vec4 low_density_color;
+      //     float low_density = march_low_density(
+      //       low_density_pos,
+      //       normalize(sun.pos - low_density_pos),
+      //       low_density_iterations,
+      //       low_density_color
+      //     );
 
-          // color += low_density_color * 0.001;
-        } else {
-         color += texture(world_texture, p);
-          hit += density;
-        }
-      }
+      //     color += texture(world_texture, p);
+      //     hit += density * low_density;
+
+      //     // color += low_density_color * 0.001;
+      //   } else {
+      //    color += texture(world_texture, p);
+      //     hit += density;
+      //   }
+      // }
 
       if (hit >= 1.0) {
         break;
@@ -169,15 +172,13 @@ float march(in out vec3 pos, vec3 rayDir, out vec3 normal, out float iterations,
   return hit;
 }
 
-float t = 3.5;//ubo.data.time * 0.5;
+float t = ubo.data.time * 0.5;
 
 
 void main() {
-
-
   sun.pos = (vec3(
     sin(t) * 2.0,
-    1.0,
+    2.0,
     cos(t) * 2.0
   ) * 0.5 + 0.5) * ubo.data.world_dims.xyz;
 
@@ -218,7 +219,7 @@ void main() {
 
     vec3 lightPos = (
       density < 1.0 ? pos : pos + worldNormal * 0.55
-      // + dot(dir, worldNormal) *
+      // + dot(dir, worldNormal)
       // // + dir * 0.15
       // + dir * 0.5
       // + worldNormal * 0.5// * 1.0 - max(0.0, dot(dir, worldNormal))
@@ -235,45 +236,51 @@ void main() {
 
   vec4 lightColor;
   float lightIterations = 0.0f;
-  float sunOcclusion = 0.0;
-  const float steps = 5.0;
+  float sunOcclusion = 1.0;
+  // const float steps = 5.0;
 
-  for (float i=0.0; i<steps; i++) {
-    vec3 target = sun.pos + (texture(blue_noise, pos.xz * i * ubo.data.time).xyz * 2.0 - 1.0) * 20.0;
-    vec3 lightDir = normalize(target - pos );
+  // for (float i=0.0; i<steps; i++) {
+  //   vec3 target = sun.pos + (texture(blue_noise, pos.xz * i).xyz * 2.0 - 1.0) * 2.0;
+  //   vec3 lightDir = normalize(target - pos );
 
-    vec3 lightPos = (
-      pos + lightDir + worldNormal
-    );
-    vec4 c = vec4(0.0);
+  //   vec3 lightPos = (
+  //     pos + lightDir + worldNormal
+  //   );
+  //   vec4 c = vec4(0.0);
 
-    float occ = march_light(
-      lightPos,
-      lightDir,
-      normal,
-      lightIterations,
-      c
-    );
+  //   float occ = march_brick(
+  //     lightPos,
+  //     lightDir,
+  //     normal,
+  //     lightIterations,
+  //     c
+  //   );
 
-    sunOcclusion += occ / steps;
-    lightColor += (c / steps) * occ;
-    // lightColor = c * occ;
-  }
+  //   sunOcclusion += occ / steps;
+  //   lightColor += (c / steps) * occ;
+  //   // lightColor = c * occ;
+  // }
 
   if (hit == 0.0) {
     outFragColor = vec4(0.0);
     return;
   }
-  outFragColor = outColor * hit;
-  outFragColor -= (hardOcclusion + vec4(sunOcclusion) * 0.5) * 0.5;
-  outFragColor = vec4(outColor.rgb * max(1.0-hardOcclusion, 0.4) * sun.color, 1.0) * hit;
+  // outFragColor = outColor * hit;
+  // outFragColor -= (hardOcclusion + vec4(sunOcclusion) * 0.5) * 0.5;
+  // outFragColor = vec4(outColor.rgb * max(1.0-hardOcclusion, 0.4) * sun.color, 1.0) * hit;
   // outFragColor = vec4(worldNormal * hit, 1.0);
 
 
   // pos is the voxel center
-  outFragColor *= 1.0 - (dot(normalize(sun.pos - pos), -worldNormal));
+  // outFragColor *= 1.0 - (dot(normalize(sun.pos - pos), -worldNormal));
+  outFragColor = (
+    outColor / hit
+    - hardOcclusion
+  );
 
-  // outFragColor = vec4(worldNormal, 1.0);
+
+  outFragColor *= 1.0 - (dot(normalize(sun.pos - pos), -worldNormal)) * 0.7;
+
   // outFragColor = outColor + lightColor * 0.25;
   // vec4 noise = texture(blue_noise, pos.xz * 100.0);
   // outFragColor = (outColor * hit + vec4(hit * normal * 0.05, 1.0)) * dot(sun_dir, dir) * 3.0;
@@ -292,7 +299,7 @@ void main() {
   // }
   // outFragColor =;
   // outFragColor = outColor;
-  // outFragColor = vec4(hit * normal, 1.0);
+  // outFragColor = vec4(normal, 1.0);
   // outFragColor = (outColor + lightColor) / 2.0 * 1.0 - sunOcclusion;
 
 
