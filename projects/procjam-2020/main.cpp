@@ -2,9 +2,25 @@
 
 #define CPU_HOST
 #include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtx/compatibility.hpp"
 #include "shared.h"
 
+#include "bezier.h"
+
 #include "perlin.h"
+
+#define TAU 6.2831853f
+#include <vector>
+using namespace std;
+
+struct segment_t {
+  vec3 start;
+  vec3 end;
+  float start_radius;
+  float end_radius;
+  vec3 start_color;
+  vec3 end_color;
+};
 
 
 vec4 sample_blue_noise(const rawkit_texture_t *tex, uint64_t loc) {
@@ -26,13 +42,136 @@ vec4 sample_blue_noise(const rawkit_texture_t *tex, uint64_t loc) {
   );
 }
 
-vec3 world_dims(126.0);
+vec3 world_dims(250.0);
 bool rebuild_world = false;
 void setup(){
   rebuild_world = true;
 }
 
+void add_sphere(
+  rawkit_cpu_buffer_t *world_buffer,
+  rawkit_cpu_buffer_t *world_occlusion_buffer,
+  rawkit_texture_t *noise,
+  vec3 pos,
+  float radius,
+  vec4 color
+) {
 
+  vec4 *color_data = (vec4 *)world_buffer->data;
+  uint8_t *occlusion_data = (uint8_t *)world_occlusion_buffer->data;
+
+  vec3 lb = floor(pos - radius * 1.1f);
+  vec3 ub = ceil(pos + radius * 1.1f);
+
+  vec3 p;
+  for (p.x = lb.x; p.x<ub.x; p.x+=1.0f) {
+    for (p.y = lb.y; p.y<ub.y; p.y+=1.0f) {
+      for (p.z = lb.z; p.z<ub.z; p.z+=1.0f) {
+
+        if (
+          glm::any(glm::lessThan(p, vec3(0.0))) ||
+          glm::any(glm::greaterThanEqual(p, world_dims))
+        ) {
+          continue;
+        }
+
+        uint64_t loc = (
+          static_cast<uint64_t>(p.x) +
+          static_cast<uint64_t>(p.y * world_dims.x) +
+          static_cast<uint64_t>(p.z * world_dims.x * world_dims.y)
+        );
+
+        if (glm::distance(p, pos) - radius <= 0.0) {
+          occlusion_data[loc] = 255;
+          color_data[loc] = color;
+        }
+
+      }
+    }
+  }
+}
+
+void add_palm_tree(
+  rawkit_cpu_buffer_t *world_buffer,
+  rawkit_cpu_buffer_t *world_occlusion_buffer,
+  rawkit_texture_t *noise,
+  vec3 pos,
+  float noise_offset,
+  float color_basis
+) {
+  vec4 *color_data = (vec4 *)world_buffer->data;
+  uint8_t *occlusion_data = (uint8_t *)world_occlusion_buffer->data;
+  vec3 half = world_dims * 0.5f;
+  float radius = 4.0f;
+  pos.y -= radius * 2.0;
+
+
+  vec3 trunk[4] = {};
+  vec4 n;
+  n = sample_blue_noise(noise, pos.x + pos.y + pos.z) * 2.0f - 1.0f;
+  float height = fabs(n.x) * 128.0f;
+  float half_height = height / 2.0f;
+  {
+    trunk[0] = pos + vec3(n.x * half_height, fabs(n.y) , n.z * half_height);
+    n = sample_blue_noise(noise, pos.x + pos.y + pos.z + 1.0) * 2.0f - 1.0f;
+    trunk[1] = trunk[0] + vec3(n.y * half_height, height / 4.0f, n.z * half_height);
+    n = sample_blue_noise(noise, pos.x + pos.y + pos.z + 2.0) * 2.0f - 1.0f;
+    trunk[2] = trunk[1] + vec3(n.x * height / 4.0f, height / 4.0f, n.z * height / 4.0f);
+    n = sample_blue_noise(noise, pos.x + pos.y + pos.z + 3.0) * 2.0f - 1.0f;
+    trunk[3] = trunk[2] + vec3(n.z * height / 8.0f, height / 4.0f, n.z * height / 8.0f);
+  }
+
+  for (float t = 0.0; t<1.0; t+=0.01) {
+    vec3 pos = bezier(trunk[0], trunk[1], trunk[2], trunk[3], t);
+    vec4 color = vec4(0.81, 0.66, 0.62, 1.0);
+
+    add_sphere(
+      world_buffer,
+      world_occlusion_buffer,
+      noise,
+      pos,
+      ((1.0 - t) + 0.25) * radius,
+      color + (2.0f * sample_blue_noise(noise, 10.0 * t * pos.x * pos.y).r - 1.0f) * 0.3f
+    );
+  }
+
+  float frond_count = 30.0f;
+  for (float frond = 0.0f; frond<frond_count; frond++) {
+    n = sample_blue_noise(noise, (pos.x + pos.y + pos.z) * frond) * 2.0f - 1.0f;
+    vec3 p(
+      n.x * height / 2.0,
+      n.z * height / 4.0,
+      n.y * height / 2.0
+    );
+
+    radius = 1.5f;
+    for (float t = 0.0; t<1.0; t+=0.01) {
+      vec3 pos = bezier(
+        trunk[3],
+        trunk[3] + vec3(p.x / 2.0f, fabs(p.y), p.z / 2.0f),
+        trunk[3] + vec3(p.x / 2.0f, p.y / 2.0, p.z/ 2.0f),
+        trunk[3] + vec3(p.x / 2.0, p.y / 2.0, p.z / 2.0),
+        t
+      );
+      vec4 color = mix(
+        vec4(0.2, 0.6, 0.0, 1.0),
+        vec4(1.0, 1.0, 0.0, 1.0),
+        t
+      );
+
+      add_sphere(
+        world_buffer,
+        world_occlusion_buffer,
+        noise,
+        pos,
+        ((1.0 - t) + 0.125) * radius,
+        color
+      );
+    }
+
+
+  }
+}
 
 void add_rock(
   rawkit_cpu_buffer_t *world_buffer,
@@ -114,7 +253,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
   uint8_t *occlusion_data = (uint8_t *)world_occlusion_buffer->data;
   vec3 half = vec3(world_dims) / 2.0f;
 
-  uint64_t seed = 1;
+  uint64_t seed = 0;
   float rock_offset = 1000.0;
 
   // fill the ground
@@ -175,7 +314,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
 
           if (1) {
             float v = perlin2d(vec2((float)x + seed, (float)z + seed), 0.004f, 10) * max_y - half.y / 2.0f;
-
+            vec4 r = sample_blue_noise(noise, (seed + x * z));
             if (v < p.y) {
               // water
               if (y < max_y * 0.7 - half.y / 2.0f) {
@@ -196,18 +335,28 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
 
               if (y && occlusion_data[below] == 255) {
 
-                vec4 r = sample_blue_noise(noise, (seed + x * z));
-                if (r.b > 0.999 && r.g > 0.6) {
-                  occlusion_data[loc] = 255;
 
-                  color_data[loc].r = 0.0;
-                  color_data[loc].g = 1;
-                  color_data[loc].b = 0;
-                  color_data[loc].a = PLANT_ALPHA;
+                if (color_data[below].a == DIRT_ALPHA && r.b > 0.999 && r.g > 0.5) {
+                  add_palm_tree(
+                    world_buffer,
+                    world_occlusion_buffer,
+                    noise,
+                    p,
+                    0,
+                    0
+                  );
+
+                  // occlusion_data[loc] = 255;
+
+                  // color_data[loc].r = 0.0;
+                  // color_data[loc].g = 1;
+                  // color_data[loc].b = 0;
+                  // color_data[loc].a = PLANT_ALPHA;
                   continue;
                 }
+              }
 
-                if (color_data[below].a == DIRT_ALPHA) {
+              if (color_data[below].a == DIRT_ALPHA) {
                   if (r.g > 0.9990) {
                     add_rock(
                       world_buffer,
@@ -236,7 +385,6 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
                     continue;
                   }
                 }
-              }
 
               continue;
             }
@@ -297,6 +445,8 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
           color_data[loc].b = p.z / world_dims.z;
           color_data[loc].a = 1.0f;
 
+
+
           // float dist = glm::distance(p, half) - half.x;
           // if (dist <= 0.0f) {
           //   occlusion_data[loc] = 255;//static_cast<uint8_t>(-dist/world_dims.x * 64.0);
@@ -343,6 +493,29 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
         }
       }
     }
+  }
+
+  // build a tree
+  if (0) {
+
+    add_palm_tree(
+      world_buffer,
+      world_occlusion_buffer,
+      noise,
+      vec3(32, 32, 32),
+      0,
+      0
+    );
+
+    add_palm_tree(
+      world_buffer,
+      world_occlusion_buffer,
+      noise,
+      vec3(64, 32, 64),
+      0,
+      0
+    );
+
   }
 
 
@@ -414,7 +587,7 @@ void loop() {
     );
 
     float dist = 2.0f;
-    float now = (float)rawkit_now() * .2 + 5.0;
+    float now =  1.5;//(float)rawkit_now() * .2 + 5.0;
     vec3 eye(
       sin(now) * dist,
       dist * 0.25,
