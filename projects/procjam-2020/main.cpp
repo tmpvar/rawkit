@@ -42,7 +42,7 @@ vec4 sample_blue_noise(const rawkit_texture_t *tex, uint64_t loc) {
   );
 }
 
-vec3 world_dims(250.0);
+vec3 world_dims(200.0);
 bool rebuild_world = false;
 void setup(){
   rebuild_world = true;
@@ -318,7 +318,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
             if (v < p.y) {
               // water
               if (y < max_y * 0.7 - half.y / 2.0f) {
-                occlusion_data[loc] = 64;
+                occlusion_data[loc] = 32;
                 color_data[loc].r = 0.0f;
                 color_data[loc].g = 0.3f;
                 color_data[loc].b = 0.5f;
@@ -495,6 +495,47 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
     }
   }
 
+
+  // fill the world with reflection test
+  if (0) {
+    uint64_t a = 0;
+    for (uint32_t x=0; x<world_dims.x; x++) {
+      for (uint32_t y=0; y<world_dims.y; y++) {
+        for (uint32_t z=0; z<world_dims.z; z++) {
+          vec3 p((float)x, (float)y, (float)z);
+          uint64_t loc = x;
+          loc += static_cast<uint64_t>(y * world_dims.x);
+          loc += static_cast<uint64_t>(z * world_dims.x * world_dims.y);
+
+          if (y < 4) {
+            occlusion_data[loc] = 255;//static_cast<uint8_t>(-dist/world_dims.x * 64.0);
+
+            color_data[loc].r = p.x / world_dims.x;
+            color_data[loc].g = p.y / world_dims.y;
+            color_data[loc].b = p.z / world_dims.z;
+            color_data[loc].a = WATER_ALPHA;
+            continue;
+          }
+
+
+          float dist = glm::distance(p, half - vec3(0.0, half.y* 0.5, 0.0)) - half.x + perlin2d(vec2((float)x+seed*2, (float)z), 0.05f, 1) * half.y;
+          if (dist <= 0.0f) {
+            occlusion_data[loc] = 255;//static_cast<uint8_t>(-dist/world_dims.x * 64.0);
+
+            color_data[loc].r = p.x / world_dims.x;
+            color_data[loc].g = p.y / world_dims.y;
+            color_data[loc].b = p.z / world_dims.z;
+            color_data[loc].a = 1.0f;
+          } else {
+            // occlusion_data[loc] = 0x00;
+            // color_data[loc] = vec4(0.0);
+          }
+
+        }
+      }
+    }
+  }
+
   // build a tree
   if (0) {
 
@@ -586,9 +627,9 @@ void loop() {
       10.0f
     );
 
-    float dist = 2.0f;
-    float now =  1.5;//(float)rawkit_now() * .2 + 5.0;
-    vec3 eye(
+    float dist = 1.0f;
+    float now = (float)rawkit_now() * .1 + 5.0;
+    vec3 eye = vec3(0.5) + vec3(
       sin(now) * dist,
       dist * 0.25,
       cos(now) * dist
@@ -596,13 +637,13 @@ void loop() {
 
     mat4 view = glm::lookAt(
       eye,
-      vec3(0.0f, 0.0f, 0.0f),
+      vec3(0.5),
       vec3(0.0f, -1.0f, 0.0f)
     );
 
     world_ubo.worldToScreen = proj * view;
     world_ubo.world_dims = vec4(world_dims, 0.0f);
-    world_ubo.eye = vec4(eye, 0.0f);
+    world_ubo.eye = vec4(eye, 1.0f);
     world_ubo.time = (float)rawkit_now();
   }
 
