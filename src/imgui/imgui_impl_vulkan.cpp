@@ -908,10 +908,10 @@ VkPresentModeKHR ImGui_ImplVulkanH_SelectPresentMode(VkPhysicalDevice physical_d
     //for (uint32_t avail_i = 0; avail_i < avail_count; avail_i++)
     //    printf("[vulkan] avail_modes[%d] = %d\n", avail_i, avail_modes[avail_i]);
 
-    for (int request_i = 0; request_i < request_modes_count; request_i++)
-        for (uint32_t avail_i = 0; avail_i < avail_count; avail_i++)
-            if (request_modes[request_i] == avail_modes[avail_i])
-                return request_modes[request_i];
+    // for (int request_i = 0; request_i < request_modes_count; request_i++)
+    //     for (uint32_t avail_i = 0; avail_i < avail_count; avail_i++)
+    //         if (request_modes[request_i] == avail_modes[avail_i])
+    //             return request_modes[request_i];
 
     return VK_PRESENT_MODE_FIFO_KHR; // Always available
 }

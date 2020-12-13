@@ -1,5 +1,8 @@
 #pragma once
 
+#pragma comment(linker, "/export:??_7type_info@@6B@")
+#pragma comment(linker, "/export:??3@YAXPEAX_K@Z")
+
 #include <ghc/filesystem.hpp>
 #pragma warning(push, 0)
   #include "clang/Basic/Diagnostic.h"

@@ -8,7 +8,7 @@
 #include <string>
 using namespace std;
 
-VkDeviceSize rawkit_texture_compute_size(uint32_t width, uint32_t height, VkFormat format) {
+VkDeviceSize rawkit_texture_compute_size(uint32_t width, uint32_t height, uint32_t depth, VkFormat format) {
   uint32_t bits = 0;
   switch (format) {
     case VK_FORMAT_R4G4_UNORM_PACK8: bits = 8; break;
@@ -260,8 +260,10 @@ VkDeviceSize rawkit_texture_compute_size(uint32_t width, uint32_t height, VkForm
     return 0;
   }
 
+  depth = depth ? depth : 1;
+
   return static_cast<VkDeviceSize>(
-    width * height * (bits / 8)
+    width * height * depth * (bits / 8)
   );
 }
 
@@ -337,13 +339,15 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     rawkit_texture_destroy(texture);
   }
 
-  printf("Rebuilding texture (%llu, '%s') (w: %u vs %u) (h: %u vs %u)\n",
+  printf("Rebuilding texture (%llu, '%s') (w: %u vs %u) (h: %u vs %u) (d: %u vs %u)\n",
     texture->resource_id,
     texture->resource_name,
     texture->options.width,
     options.width,
     texture->options.height,
-    options.height
+    options.height,
+    texture->options.depth,
+    options.depth
   );
 
   texture->options = options;
@@ -360,12 +364,12 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
   if (texture->image == VK_NULL_HANDLE) {
     VkImageCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    info.imageType = VK_IMAGE_TYPE_2D;
+    info.imageType = options.depth > 1 ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
     // TODO: allow this to be provided
     info.format = options.format;
     info.extent.width = options.width;
     info.extent.height = options.height;
-    info.extent.depth = 1;
+    info.extent.depth = options.depth;
     info.mipLevels = 1;
     info.arrayLayers = 1;
     info.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -382,6 +386,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     );
 
     if (err) {
+      printf("ERROR: rawkit-texture: could not create image (%i)\n", err);
       return false;
     }
 
@@ -430,11 +435,13 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     VkImageViewCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     info.image = texture->image;
-    info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    info.viewType = options.depth > 1 ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D;
     info.format = options.format;
     info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     info.subresourceRange.levelCount = 1;
     info.subresourceRange.layerCount = 1;
+    info.subresourceRange.baseArrayLayer = 0;
+
     VkResult err = vkCreateImageView(
       device,
       &info,
@@ -574,6 +581,7 @@ rawkit_texture_t *_rawkit_texture_mem(
   const char *name,
   uint32_t width,
   uint32_t height,
+  uint32_t depth,
   VkFormat format
 ) {
   string resource_name = string("mem+rawkit-texture://") + name;
@@ -587,6 +595,7 @@ rawkit_texture_t *_rawkit_texture_mem(
   options.gpu = gpu;
   options.width = width;
   options.height = height;
+  options.depth = depth ? depth : 1;
   options.source = nullptr;
   options.usage = (
     VK_IMAGE_USAGE_SAMPLED_BIT |
@@ -598,6 +607,7 @@ rawkit_texture_t *_rawkit_texture_mem(
   options.size = rawkit_texture_compute_size(
     options.width,
     options.height,
+    options.depth,
     options.format
   );
 
@@ -678,8 +688,7 @@ bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_bu
     region.imageSubresource.layerCount = 1;
     region.imageExtent.width = texture->options.width;
     region.imageExtent.height = texture->options.height;
-
-    region.imageExtent.depth = 1;
+    region.imageExtent.depth = texture->options.depth;
     vkCmdCopyBufferToImage(
       command_buffer,
       texture->source_cpu_buffer,
@@ -773,10 +782,13 @@ rawkit_texture_t *_rawkit_texture_ex(
   rawkit_texture_options_t options = {};
   options.width = img->width;
   options.height = img->height;
+  // TODO: don't assume that this is a 2d image
+  options.depth = 1;
   options.format = VK_FORMAT_R8G8B8A8_UNORM;
   options.size = rawkit_texture_compute_size(
     options.width,
     options.height,
+    options.depth,
     options.format
   );
   options.usage = (
@@ -785,6 +797,7 @@ rawkit_texture_t *_rawkit_texture_ex(
     VK_IMAGE_USAGE_TRANSFER_DST_BIT
   );
   options.gpu = gpu;
+  options.source = img;
 
   // cache miss
   // TODO: cleanup existing resources!!!!!!

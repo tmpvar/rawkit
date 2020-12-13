@@ -7,6 +7,7 @@
 #include <rawkit/glsl.h>
 #include <rawkit/gpu.h>
 #include <rawkit/texture.h>
+#include <rawkit/vulkan.h>
 
 typedef struct rawkit_shader_t {
   RAWKIT_RESOURCE_FIELDS
@@ -21,7 +22,7 @@ typedef struct rawkit_shader_t {
   #include <tuple>
   #define RAWKIT_SHADER_ARG_COUNT(...) (std::tuple_size<decltype(std::make_tuple(__VA_ARGS__))>::value)
 #else
-  #define RAWKIT_SHADER_ARG_COUNT(...) ((int)(sizeof((rawkit_shader_param_t[]){ __VA_ARGS__ })/sizeof(rawkit_shader_param_t)))
+  #define RAWKIT_SHADER_ARG_COUNT(...) ((int)(sizeof((int[]){ __VA_ARGS__ })/sizeof(int)))
 #endif
 
 #define rawkit_shader_params(opts, ...) { \
@@ -129,17 +130,33 @@ rawkit_shader_t *rawkit_shader_ex(
   const rawkit_file_t **files
 );
 
+#define rawkit_shader(...) rawkit_shader_ex( \
+  rawkit_default_gpu(), \
+  rawkit_vulkan_renderpass(), \
+  RAWKIT_SHADER_ARG_COUNT(__VA_ARGS__), \
+  (const rawkit_file_t *[]){ \
+    __VA_ARGS__ \
+  } \
+)
+
 const rawkit_glsl_t *rawkit_shader_glsl(rawkit_shader_t *shader);
 
 VkPipelineStageFlags rawkit_glsl_vulkan_stage_flags(rawkit_glsl_stage_mask_t stage);
 
 // Shader Instances
-rawkit_shader_instance_t *rawkit_shader_instance_begin(
+rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(
   rawkit_gpu_t *gpu,
   rawkit_shader_t *shader,
   VkCommandBuffer command_buffer,
   uint32_t frame_idx
 );
+
+#define rawkit_shader_instance_begin(shader) rawkit_shader_instance_begin_ex( \
+  rawkit_default_gpu(), \
+  shader, \
+  rawkit_vulkan_command_buffer(), \
+  rawkit_window_frame_index() \
+)
 
 void rawkit_shader_instance_param_texture(
   rawkit_shader_instance_t *instance,
@@ -158,8 +175,8 @@ void _rawkit_shader_instance_param_ubo(
 #define rawkit_shader_instance_param_ubo(instance, name, value) _rawkit_shader_instance_param_ubo( \
   instance, \
   name, \
-  data, \
-  sizeof(*data) \
+  value, \
+  sizeof(*value) \
 );
 
 void rawkit_shader_instance_apply_params(
@@ -167,7 +184,13 @@ void rawkit_shader_instance_apply_params(
   rawkit_shader_params_t params
 );
 
-void rawkit_shader_instance_end(rawkit_shader_instance_t *instance, VkQueue queue);
+void rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue queue);
+
+#define rawkit_shader_instance_end(instance) rawkit_shader_instance_end_ex( \
+  instance, \
+  instance->gpu ? instance->gpu->graphics_queue : NULL \
+)
+
 
 #ifdef __cplusplus
 }

@@ -21,6 +21,7 @@ typedef struct rawkit_texture_options_t {
   rawkit_gpu_t *gpu;
   uint32_t width;
   uint32_t height;
+  uint32_t depth;
   VkFormat format;
   VkDeviceSize size;
   VkImageUsageFlags usage;
@@ -54,7 +55,7 @@ typedef struct rawkit_texture_t {
 extern "C" {
 #endif
 
-VkDeviceSize rawkit_texture_compute_size(uint32_t width, uint32_t height, VkFormat format);
+VkDeviceSize rawkit_texture_compute_size(uint32_t width, uint32_t height, uint32_t depth, VkFormat format);
 
 // TODO: hack this in until we can make cimgui a sibling lib.
 ImTextureID rawkit_imgui_texture(rawkit_texture_t *texture, const rawkit_texture_sampler_t *sampler);
@@ -67,6 +68,7 @@ rawkit_texture_t *_rawkit_texture_mem(
   const char *name,
   uint32_t width,
   uint32_t height,
+  uint32_t depth,
   VkFormat format
 );
 
@@ -78,7 +80,7 @@ static inline bool rawkit_texture_update(rawkit_texture_t *texture, void *data, 
   return rawkit_texture_update_buffer(texture, &buffer);
 }
 
-#define rawkit_texture_mem(name, width, height, format) _rawkit_texture_mem(rawkit_default_gpu(), name, width, height, format)
+#define rawkit_texture_mem(name, width, height, depth, format) _rawkit_texture_mem(rawkit_default_gpu(), name, width, height, depth, format)
 
 rawkit_texture_t *_rawkit_texture_ex(
   rawkit_gpu_t *gpu,

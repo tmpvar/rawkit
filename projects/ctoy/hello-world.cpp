@@ -121,6 +121,7 @@ void loop() {
     "output",
     (uint32_t)image->width,
     (uint32_t)image->height,
+    1,
     VK_FORMAT_R32G32B32A32_SFLOAT
   );
 
