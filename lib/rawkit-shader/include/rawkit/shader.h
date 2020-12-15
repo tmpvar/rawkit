@@ -172,11 +172,18 @@ void _rawkit_shader_instance_param_ubo(
   uint64_t bytes
 );
 
+
 #define rawkit_shader_instance_param_ubo(instance, name, value) _rawkit_shader_instance_param_ubo( \
   instance, \
   name, \
   value, \
   sizeof(*value) \
+);
+
+void rawkit_shader_instance_param_ssbo(
+  rawkit_shader_instance_t *instance,
+  const char *name,
+  rawkit_gpu_ssbo_t *ssbo
 );
 
 void rawkit_shader_instance_apply_params(

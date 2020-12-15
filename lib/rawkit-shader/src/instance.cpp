@@ -406,6 +406,54 @@ void _rawkit_shader_instance_param_ubo(
   );
 }
 
+
+void rawkit_shader_instance_param_ssbo(
+  rawkit_shader_instance_t *instance,
+  const char *name,
+  rawkit_gpu_ssbo_t *ssbo
+) {
+  if (!instance || !instance->_state || !ssbo || !ssbo->resource_version || !name) {
+    return;
+  }
+
+  rawkit_gpu_t *gpu = instance->gpu;
+  const rawkit_glsl_t *glsl = rawkit_shader_glsl(instance->shader);
+
+  const rawkit_glsl_reflection_entry_t entry = rawkit_glsl_reflection_entry(
+    glsl,
+    name
+  );
+  if (entry.entry_type != RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_BUFFER) {
+    printf("WARN: rawkit_shader_instance_param_ssbo: could not set '%s' as SSBO\n", name);
+    return;
+  }
+
+  // update destriptor set
+  {
+    VkDescriptorBufferInfo bufferInfo = {};
+    bufferInfo.buffer = ssbo->buffer->handle;
+    bufferInfo.offset = 0;
+    bufferInfo.range = ssbo->buffer->size;
+
+    ShaderInstanceState *state = (ShaderInstanceState *)instance->_state;
+
+    VkWriteDescriptorSet writeDescriptorSet = {};
+    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet.dstSet = state->descriptor_sets[entry.set];
+    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writeDescriptorSet.dstBinding = entry.binding;
+    writeDescriptorSet.pBufferInfo = &bufferInfo;
+    writeDescriptorSet.descriptorCount = 1;
+    vkUpdateDescriptorSets(
+      gpu->device,
+      1,
+      &writeDescriptorSet,
+      0,
+      NULL
+    );
+  }
+}
+
 void rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue queue) {
   if (!instance || !instance->can_launch || !queue) {
     return;

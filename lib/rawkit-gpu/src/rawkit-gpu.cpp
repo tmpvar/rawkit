@@ -2,6 +2,8 @@
 #include <rawkit/hash.h>
 #include <rawkit/hot.h>
 
+#include <string>
+
 static rawkit_gpu_t *default_gpu = nullptr;
 rawkit_gpu_t *rawkit_default_gpu() {
   return default_gpu;
@@ -74,10 +76,11 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
   }
 
   rawkit_gpu_buffer_t *buf = (rawkit_gpu_buffer_t *)calloc(sizeof(rawkit_gpu_buffer_t), 1);
+  buf->size = size;
   VkResult err;
 
   if (!buf) {
-    printf("ERROR: unable to allocate rawkit_gpu_buffer\n");
+    printf("ERROR: rawkit_gpu_buffer_create: unable to allocate rawkit_gpu_buffer\n");
     return NULL;
   }
 
@@ -96,7 +99,7 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
     );
 
     if (err) {
-      printf("ERROR: unable to create buffer for vertex buffer (%i)\n", err);
+      printf("ERROR: rawkit_gpu_buffer_create: unable to create buffer (%i)\n", err);
       return NULL;
     }
   }
@@ -127,7 +130,7 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
     );
 
     if (err) {
-      printf("ERROR: unable to allocate memory for vertex buffer (%i)\n", err);
+      printf("ERROR: rawkit_gpu_buffer_create: unable to allocate memory for buffer (bytes=%llu) (err=%i)\n", size, err);
       return NULL;
     }
   }
@@ -142,7 +145,7 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
     );
 
     if (err) {
-      printf("ERROR: unable to bind memory for vertex buffer (%i)\n", err);
+      printf("ERROR: rawkit_gpu_buffer_create: unable to bind memory for buffer (%i)\n", err);
       return NULL;
     }
   }
@@ -357,14 +360,13 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       vertices_size
     );
 
+    rawkit_gpu_buffer_destroy(gpu, vertices_staging);
+
     if (err) {
       printf("ERROR: unable to copy buffer `vertices_staging` to `vb->vertices`\n");
       free(vb);
-      rawkit_gpu_buffer_destroy(gpu, vertices_staging);
       return NULL;
     }
-
-    rawkit_gpu_buffer_destroy(gpu, vertices_staging);
   }
 
 
@@ -524,3 +526,100 @@ uint32_t rawkit_gpu_get_tick_idx(rawkit_gpu_t *gpu) {
   return state->tick_idx;
 }
 
+rawkit_gpu_ssbo_t *_rawkit_gpu_ssbo(
+  rawkit_gpu_t *gpu,
+  const char *name,
+  uint64_t size,
+  VkMemoryPropertyFlags memory_flags,
+  VkBufferUsageFlags buffer_usage_flags
+) {
+  std::string resource_name = std::string("rawkit-gpu-ssbo://") + name;
+  rawkit_gpu_ssbo_t *ssbo = rawkit_hot_resource(resource_name.c_str(), rawkit_gpu_ssbo_t);
+  ssbo->gpu = gpu;
+
+  bool dirty = (
+    ssbo->buffer == NULL ||
+    ssbo->buffer->size != size
+  );
+
+  if (dirty) {
+    ssbo->resource_version = 0;
+    if (ssbo->buffer) {
+      rawkit_gpu_buffer_destroy(gpu, ssbo->buffer);
+    }
+
+    if (ssbo->staging_buffer) {
+      rawkit_gpu_buffer_destroy(gpu, ssbo->staging_buffer);
+    }
+
+    ssbo->buffer = rawkit_gpu_buffer_create(
+      gpu,
+      size,
+      (
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+        memory_flags
+      ),
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | buffer_usage_flags
+    );
+
+    ssbo->staging_buffer = rawkit_gpu_buffer_create(
+      gpu,
+      size,
+      (
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+      ),
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+    );
+  }
+
+  return ssbo;
+}
+
+VkResult rawkit_gpu_ssbo_update(
+  rawkit_gpu_ssbo_t *ssbo,
+  VkQueue queue,
+  VkCommandPool pool,
+  void *data,
+  uint64_t size
+) {
+  if (!ssbo || !data || !size) {
+    return VK_INCOMPLETE;
+  }
+
+  if (!ssbo->gpu || !ssbo->buffer || !ssbo->staging_buffer) {
+    return VK_INCOMPLETE;
+  }
+
+  VkResult err;
+
+  err = rawkit_gpu_buffer_update(
+    ssbo->gpu,
+    ssbo->staging_buffer,
+    data,
+    size
+  );
+
+  if (err) {
+    printf("ERROR: rawkit_gpu_ssbo_update(%s): could not update staging buffer (%i)\n", ssbo->resource_name, err);
+    return err;
+  }
+
+  rawkit_gpu_copy_buffer(
+    ssbo->gpu,
+    queue,
+    pool,
+    ssbo->staging_buffer,
+    ssbo->buffer,
+    ssbo->buffer->size < size ? ssbo->buffer->size : size
+  );
+
+  if (err) {
+    printf("ERROR: rawkit_gpu_ssbo_update(%s): could not copy staging buffer to gpu buffer (%i)\n", ssbo->resource_name, err);
+    return err;
+  }
+
+  return VK_SUCCESS;
+}
