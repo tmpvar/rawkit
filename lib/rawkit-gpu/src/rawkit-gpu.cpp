@@ -557,10 +557,13 @@ rawkit_gpu_ssbo_t *_rawkit_gpu_ssbo(
       size,
       (
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
         memory_flags
       ),
-      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | buffer_usage_flags
+      (
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+        buffer_usage_flags
+      )
     );
 
     ssbo->staging_buffer = rawkit_gpu_buffer_create(
@@ -568,10 +571,12 @@ rawkit_gpu_ssbo_t *_rawkit_gpu_ssbo(
       size,
       (
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
       ),
-      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+      (
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+      )
     );
   }
 
