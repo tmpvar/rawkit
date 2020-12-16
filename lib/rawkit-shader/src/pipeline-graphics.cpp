@@ -146,6 +146,8 @@ VkResult ShaderState::create_graphics_pipeline(VkRenderPass render_pass) {
 
   VkPipelineViewportStateCreateInfo         pViewportState = {};
   pViewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+  pViewportState.viewportCount = 1;
+  pViewportState.scissorCount = 1;
 
   VkPipelineRasterizationStateCreateInfo    pRasterizationState = {};
   pRasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -163,10 +165,11 @@ VkResult ShaderState::create_graphics_pipeline(VkRenderPass render_pass) {
   pDepthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
   pDepthStencilState.depthTestEnable = VK_TRUE;
   pDepthStencilState.depthWriteEnable = VK_TRUE;
-  pDepthStencilState.depthBoundsTestEnable = VK_FALSE;
+
   pDepthStencilState.minDepthBounds = 0.0f;
   pDepthStencilState.maxDepthBounds = 1.0f;
   pDepthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
+  pDepthStencilState.stencilTestEnable = VK_FALSE;
 
   VkPipelineColorBlendStateCreateInfo       pColorBlendState = {};
   pColorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;

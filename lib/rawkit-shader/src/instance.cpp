@@ -92,7 +92,7 @@ ShaderInstanceState::ShaderInstanceState(rawkit_shader_t *shader, rawkit_shader_
           rawkit_gpu_buffer_t *buffer = rawkit_gpu_buffer_create(
             gpu,
             reflection_entry->block_size,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
           );
 

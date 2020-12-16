@@ -21,9 +21,13 @@ typedef struct rawkit_shader_t {
 #ifdef __cplusplus
   #include <tuple>
   #define RAWKIT_SHADER_ARG_COUNT(...) (std::tuple_size<decltype(std::make_tuple(__VA_ARGS__))>::value)
+  #define RAWKIT_SHADER_FILE_ARG_COUNT(...) (std::tuple_size<decltype(std::make_tuple(__VA_ARGS__))>::value)
 #else
-  #define RAWKIT_SHADER_ARG_COUNT(...) ((int)(sizeof((int[]){ __VA_ARGS__ })/sizeof(int)))
+  #define RAWKIT_SHADER_ARG_COUNT(...) ((int)(sizeof((const int*[]){ __VA_ARGS__ })/sizeof(const int*)))
+  #define RAWKIT_SHADER_FILE_ARG_COUNT(...) ((int)(sizeof((const rawkit_file_t *[]){ __VA_ARGS__ })/sizeof(const rawkit_file_t *)))
 #endif
+
+
 
 #define rawkit_shader_params(opts, ...) { \
   opts.count = RAWKIT_SHADER_ARG_COUNT(__VA_ARGS__); \
@@ -133,7 +137,7 @@ rawkit_shader_t *rawkit_shader_ex(
 #define rawkit_shader(...) rawkit_shader_ex( \
   rawkit_default_gpu(), \
   rawkit_vulkan_renderpass(), \
-  RAWKIT_SHADER_ARG_COUNT(__VA_ARGS__), \
+  RAWKIT_SHADER_FILE_ARG_COUNT(__VA_ARGS__), \
   (const rawkit_file_t *[]){ \
     __VA_ARGS__ \
   } \
