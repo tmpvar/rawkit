@@ -47,6 +47,9 @@
 #include "imgui_impl_vulkan.h"
 #include <stdio.h>
 
+#include <vector>
+using namespace std;
+
 // Reusable buffers used for rendering 1 current in-flight frame, for ImGui_ImplVulkan_RenderDrawData()
 // [Please zero-clear before use!]
 struct ImGui_ImplVulkanH_FrameRenderBuffers
@@ -722,13 +725,18 @@ bool ImGui_ImplVulkan_CreateDeviceObjects()
 
     VkPipelineDepthStencilStateCreateInfo depth_info = {};
     depth_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depth_info.depthTestEnable = VK_FALSE;
+    depth_info.depthWriteEnable = VK_FALSE;
 
     VkPipelineColorBlendStateCreateInfo blend_info = {};
     blend_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     blend_info.attachmentCount = 1;
     blend_info.pAttachments = color_attachment;
 
-    VkDynamicState dynamic_states[2] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    VkDynamicState dynamic_states[2] = {
+      VK_DYNAMIC_STATE_VIEWPORT,
+      VK_DYNAMIC_STATE_SCISSOR,
+    };
     VkPipelineDynamicStateCreateInfo dynamic_state = {};
     dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamic_state.dynamicStateCount = (uint32_t)IM_ARRAYSIZE(dynamic_states);
@@ -975,9 +983,44 @@ int ImGui_ImplVulkanH_GetMinImageCountFromPresentMode(VkPresentModeKHR present_m
     return 1;
 }
 
+static VkBool32 getSupportedDepthFormat(VkPhysicalDevice physicalDevice, VkFormat *depthFormat) {
+  // Since all depth formats may be optional, we need to find a suitable depth format to use
+  // Start with the highest precision packed format
+  std::vector<VkFormat> depthFormats = {
+    VK_FORMAT_D32_SFLOAT_S8_UINT,
+    VK_FORMAT_D32_SFLOAT,
+    VK_FORMAT_D24_UNORM_S8_UINT,
+    VK_FORMAT_D16_UNORM_S8_UINT,
+    VK_FORMAT_D16_UNORM
+  };
+
+  for (auto& format : depthFormats)
+  {
+    VkFormatProperties formatProps;
+    vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &formatProps);
+    // Format must support depth stencil attachment for optimal tiling
+    if (formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
+    {
+      *depthFormat = format;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+#pragma optimize("", off)
 // Also destroy old swap chain and in-flight frames data, if any.
-void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, VkDevice device, ImGui_ImplVulkanH_Window* wd, const VkAllocationCallbacks* allocator, int w, int h, uint32_t min_image_count)
-{
+void ImGui_ImplVulkanH_CreateWindowSwapChain(
+  VkPhysicalDevice physical_device,
+  VkDevice device,
+  ImGui_ImplVulkanH_Window* wd,
+  const VkAllocationCallbacks* allocator,
+  int w,
+  int h,
+  uint32_t min_image_count
+) {
     VkResult err;
     VkSwapchainKHR old_swapchain = wd->Swapchain;
     err = vkDeviceWaitIdle(device);
@@ -1004,6 +1047,10 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
 
     // Create Swapchain
     {
+        VkSurfaceCapabilitiesKHR cap;
+        err = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, wd->Surface, &cap);
+        check_vk_result(err);
+
         VkSwapchainCreateInfoKHR info = {};
         info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
         info.surface = wd->Surface;
@@ -1011,20 +1058,18 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
         info.imageFormat = wd->SurfaceFormat.format;
         info.imageColorSpace = wd->SurfaceFormat.colorSpace;
         info.imageArrayLayers = 1;
-        info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;           // Assume that graphics family == present family
         info.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
         info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         info.presentMode = wd->PresentMode;
         info.clipped = VK_TRUE;
         info.oldSwapchain = old_swapchain;
-        VkSurfaceCapabilitiesKHR cap;
-        err = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, wd->Surface, &cap);
-        check_vk_result(err);
+
         if (info.minImageCount < cap.minImageCount)
-            info.minImageCount = cap.minImageCount;
+          info.minImageCount = cap.minImageCount;
         else if (cap.maxImageCount != 0 && info.minImageCount > cap.maxImageCount)
-            info.minImageCount = cap.maxImageCount;
+          info.minImageCount = cap.maxImageCount;
 
         if (cap.currentExtent.width == 0xffffffff)
         {
@@ -1058,83 +1103,89 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
         vkDestroySwapchainKHR(device, old_swapchain, allocator);
 
     // create the depth buffers
-    VkFormat depth_format = VK_FORMAT_D32_SFLOAT;
+    VkFormat depth_format;
+    if (!getSupportedDepthFormat(physical_device, &depth_format)) {
+      printf("ERROR: could not find a valid depth format..\n");
+    }
+
     {
-      for (uint32_t i = 0; i < wd->ImageCount; i++) {
-        ImGui_ImplVulkanH_Frame *frame = &wd->Frames[i];
+      vkDestroyImage(device, wd->Depthbuffer, allocator);
+      vkDestroyImageView(device, wd->DepthbufferView, allocator);
+      vkFreeMemory(device, wd->DepthbufferMemory, allocator);
 
-        vkDestroyImage(device, frame->Depthbuffer, allocator);
-        vkDestroyImageView(device, frame->DepthbufferView, allocator);
-        vkFreeMemory(device, frame->DepthbufferMemory, allocator);
-
-        // Create the image
-        {
-          VkImageCreateInfo info = { };
-          info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-          info.pNext = nullptr;
-          info.imageType = VK_IMAGE_TYPE_2D;
-          info.format = depth_format;
-          info.extent.width = wd->Width;
-          info.extent.height = wd->Height;
-          info.extent.depth = 1;
-          info.mipLevels = 1;
-          info.arrayLayers = 1;
-          info.samples = VK_SAMPLE_COUNT_1_BIT;
-          info.tiling = VK_IMAGE_TILING_OPTIMAL;
-          info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-          err = vkCreateImage(
-            device,
-            &info,
-            allocator,
-            &frame->Depthbuffer
-          );
-          check_vk_result(err);
-        }
-
-        // Create the depth image memory
-        {
-          VkMemoryRequirements req;
-          vkGetImageMemoryRequirements(device, frame->Depthbuffer, &req);
-
-          VkMemoryAllocateInfo alloc_info = {};
-          alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-          alloc_info.allocationSize = req.size;
-          alloc_info.memoryTypeIndex = ImGui_ImplVulkan_MemoryType(
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            req.memoryTypeBits,
-            physical_device
-          );
-
-          err = vkAllocateMemory(device, &alloc_info, allocator, &frame->DepthbufferMemory);
-          check_vk_result(err);
-          err = vkBindImageMemory(device, frame->Depthbuffer, frame->DepthbufferMemory, 0);
-          check_vk_result(err);
-        }
-
-        // Create the depth image view
-        {
-          VkImageViewCreateInfo info = {};
-          info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-          info.pNext = nullptr;
-
-          info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-          info.image = frame->Depthbuffer;
-          info.format = depth_format;
-
-          info.subresourceRange.baseMipLevel = 0;
-          info.subresourceRange.levelCount = 1;
-          info.subresourceRange.baseArrayLayer = 0;
-          info.subresourceRange.layerCount = 1;
-          info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-          err = vkCreateImageView(
-            device,
-            &info,
-            NULL,
-            &frame->DepthbufferView
-          );
-          check_vk_result(err);
-        }
+      // Create the image
+      {
+        VkImageCreateInfo info = { };
+        info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        info.pNext = nullptr;
+        info.imageType = VK_IMAGE_TYPE_2D;
+        info.format = depth_format;
+        info.extent.width = wd->Width;
+        info.extent.height = wd->Height;
+        info.extent.depth = 1;
+        info.mipLevels = 1;
+        info.arrayLayers = 1;
+        info.samples = VK_SAMPLE_COUNT_1_BIT;
+        info.tiling = VK_IMAGE_TILING_OPTIMAL;
+        info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        err = vkCreateImage(
+          device,
+          &info,
+          allocator,
+          &wd->Depthbuffer
+        );
+        check_vk_result(err);
       }
+
+      // Create the depth image memory
+      {
+        VkMemoryRequirements req;
+        vkGetImageMemoryRequirements(device, wd->Depthbuffer, &req);
+
+        VkMemoryAllocateInfo alloc_info = {};
+        alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        alloc_info.allocationSize = req.size;
+        alloc_info.memoryTypeIndex = ImGui_ImplVulkan_MemoryType(
+          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+          req.memoryTypeBits,
+          physical_device
+        );
+
+        err = vkAllocateMemory(device, &alloc_info, allocator, &wd->DepthbufferMemory);
+        check_vk_result(err);
+        err = vkBindImageMemory(device, wd->Depthbuffer, wd->DepthbufferMemory, 0);
+        check_vk_result(err);
+      }
+
+      // Create the depth image view
+      {
+        VkImageViewCreateInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        info.pNext = nullptr;
+
+        info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        info.image = wd->Depthbuffer;
+        info.format = depth_format;
+
+        info.subresourceRange.baseMipLevel = 0;
+        info.subresourceRange.levelCount = 1;
+        info.subresourceRange.baseArrayLayer = 0;
+        info.subresourceRange.layerCount = 1;
+
+        info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        // Stencil aspect should only be set on depth + stencil formats (VK_FORMAT_D16_UNORM_S8_UINT..VK_FORMAT_D32_SFLOAT_S8_UINT
+        if (depth_format >= VK_FORMAT_D16_UNORM_S8_UINT) {
+          info.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
+        err = vkCreateImageView(
+          device,
+          &info,
+          NULL,
+          &wd->DepthbufferView
+        );
+        check_vk_result(err);
+      }
+
     }
 
 
@@ -1157,7 +1208,7 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
         depth_attachment.format = depth_format;
         depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
         depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -1176,10 +1227,10 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
         VkSubpassDependency dependency = {};
         dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
         dependency.dstSubpass = 0;
-        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependency.srcAccessMask = 0;
-        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;// | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
+        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
 
         VkAttachmentDescription attachments[2] = { color_attachment, depth_attachment };
@@ -1218,7 +1269,12 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
 
     // Create Framebuffer
     {
-        VkImageView attachments[2];
+      for (uint32_t i = 0; i < wd->ImageCount; i++) {
+        ImGui_ImplVulkanH_Frame* fd = &wd->Frames[i];
+        VkImageView attachments[2] = {
+          fd->BackbufferView,
+          wd->DepthbufferView
+        };
         VkFramebufferCreateInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         info.renderPass = wd->RenderPass;
@@ -1227,14 +1283,10 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(VkPhysicalDevice physical_device, V
         info.width = wd->Width;
         info.height = wd->Height;
         info.layers = 1;
-        for (uint32_t i = 0; i < wd->ImageCount; i++)
-        {
-            ImGui_ImplVulkanH_Frame* fd = &wd->Frames[i];
-            attachments[0] = fd->BackbufferView;
-            attachments[1] = fd->DepthbufferView;
-            err = vkCreateFramebuffer(device, &info, allocator, &fd->Framebuffer);
-            check_vk_result(err);
-        }
+
+        err = vkCreateFramebuffer(device, &info, allocator, &fd->Framebuffer);
+        check_vk_result(err);
+      }
     }
 }
 

@@ -89,10 +89,6 @@ struct ImGui_ImplVulkanH_Frame
     VkImage             Backbuffer;
     VkImageView         BackbufferView;
     VkFramebuffer       Framebuffer;
-
-    VkImage             Depthbuffer;
-    VkImageView         DepthbufferView;
-    VkDeviceMemory      DepthbufferMemory;
 };
 
 struct ImGui_ImplVulkanH_FrameSemaphores
@@ -120,13 +116,17 @@ struct ImGui_ImplVulkanH_Window
     ImGui_ImplVulkanH_Frame*            Frames;
     ImGui_ImplVulkanH_FrameSemaphores*  FrameSemaphores;
 
+    VkImage             Depthbuffer;
+    VkImageView         DepthbufferView;
+    VkDeviceMemory      DepthbufferMemory;
+
     ImGui_ImplVulkanH_Window()
     {
         memset(this, 0, sizeof(*this));
         PresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
         ClearEnable = true;
 
-        ClearValue[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f }};
-        ClearValue[1].depthStencil.depth = 1.0f;
+        ClearValue[0] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        ClearValue[1] = { 1.0, 0 };
     }
 };
