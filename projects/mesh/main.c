@@ -15,14 +15,12 @@ typedef struct render_mesh_state_t {
 } render_mesh_state_t;
 
 void render_mesh_file(
-  rawkit_gpu_t *gpu,
   const char *mesh_file,
   uint32_t instances,
-  uint8_t file_count,
-  const rawkit_file_t **files,
-  rawkit_shader_params_t params
+  rawkit_shader_instance_t *inst
 ) {
 
+  rawkit_gpu_t *gpu = inst->gpu;
   VkDevice device = gpu->device;
   if (device == VK_NULL_HANDLE) {
     printf("invalid vulkan device\n");
@@ -30,12 +28,9 @@ void render_mesh_file(
   }
 
   VkResult err;
-  // TODO: generate a better id
+  // TODO: generate a better id - use the instance's id
   char id[4096] = "rawkit::render_mesh ";
   strcat(id, mesh_file);
-  for (uint8_t i=0; i<file_count; i++) {
-    strcat(id, files[i]->resource_name);
-  }
 
   render_mesh_state_t *state = rawkit_hot_state(id, render_mesh_state_t);
   if (!state) {
@@ -43,15 +38,11 @@ void render_mesh_file(
     return;
   }
 
-  rawkit_shader_t *shader = rawkit_shader_ex(
-    gpu,
-    rawkit_window_frame_count(),
-    rawkit_vulkan_renderpass(),
-    file_count,
-    files
-  );
-
   rawkit_mesh_t *mesh = rawkit_mesh(mesh_file);
+  if (!mesh || !mesh->resource_version) {
+    return;
+  }
+
   rawkit_gpu_vertex_buffer_t *vb = rawkit_gpu_vertex_buffer_create(
     gpu,
     rawkit_vulkan_queue(),
@@ -60,7 +51,7 @@ void render_mesh_file(
   );
 
   // rebuild the vertex buffer if the mesh changed
-  if (mesh && vb->resource_version != state->vb_resource_version) {
+  if (vb->resource_version != state->vb_resource_version) {
     // TODO: use the standardized mechanism for dirty tracking of resources.
     state->vb_resource_version = vb->resource_version;
 
@@ -70,26 +61,22 @@ void render_mesh_file(
     }
   }
 
-  if (!vb || !shader->resource_version) {
+  if (!vb) {
     return;
   }
 
   // render the mesh
-  VkCommandBuffer command_buffer = rawkit_vulkan_command_buffer();
+  VkCommandBuffer command_buffer = inst->command_buffer;
   if (!command_buffer) {
     return;
   }
 
-  rawkit_shader_bind(
-    shader,
-    rawkit_window_frame_index(),
-    command_buffer,
-    params
-  );
 
   VkViewport viewport = {};
   viewport.width = rawkit_window_width();
   viewport.height = rawkit_window_height();
+  viewport.minDepth = 0.0f;
+  viewport.maxDepth = 1.0f;
   vkCmdSetViewport(
     command_buffer,
     0,
@@ -100,6 +87,7 @@ void render_mesh_file(
   VkRect2D scissor = {};
   scissor.extent.width = rawkit_window_width();
   scissor.extent.height = rawkit_window_height();
+
   vkCmdSetScissor(
     command_buffer,
     0,
@@ -182,48 +170,47 @@ void loop() {
 
   // single instance
   {
-    rawkit_shader_params_t params = {};
-    rawkit_shader_params(params,
-      rawkit_shader_ubo("UBO", &ubo)
+    rawkit_shader_t *shader = rawkit_shader(
+      rawkit_file("mesh.vert"),
+      rawkit_file("mesh.frag")
     );
 
-    render_mesh_file(
-      &gpu,
-      "cube.stl",
-      1,
-      2,
-      (const rawkit_file_t *[]){
-        rawkit_file("mesh.vert"),
-        rawkit_file("mesh.frag")
-      },
-      params
-    );
+    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
+    if (inst) {
+      rawkit_shader_instance_param_ubo(inst, "UBO", &ubo);
+
+      render_mesh_file(
+        "cube.stl",
+        1,
+        inst
+      );
+
+      rawkit_shader_instance_end(inst);
+    }
   }
 
   {
-
-    float offsets[40] = {};
-    for (int i=0; i<40; i+=4) {
-      offsets[i] = (float)i * 0.75;
-      offsets[i+1] = 3;
-    }
-
-    rawkit_shader_params_t params = {};
-    rawkit_shader_params(params,
-      rawkit_shader_ubo("UBO", &ubo),
-      rawkit_shader_ubo("Offsets", &offsets)
+    rawkit_shader_t *shader = rawkit_shader(
+      rawkit_file("mesh-instanced.vert"),
+      rawkit_file("mesh.frag")
     );
 
-    render_mesh_file(
-      &gpu,
+    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
+    if (inst) {
+      float offsets[40] = {};
+      for (int i=0; i<40; i+=4) {
+        offsets[i] = (float)i * 0.75;
+        offsets[i+1] = 3;
+      }
+      rawkit_shader_instance_param_ubo(inst, "UBO", &ubo);
+      rawkit_shader_instance_param_ubo(inst, "Offsets", &offsets);
+
+      render_mesh_file(
       "cube.stl",
-      10,
-      2,
-      (const rawkit_file_t *[]){
-        rawkit_file("mesh-instanced.vert"),
-        rawkit_file("mesh.frag")
-      },
-      params
-    );
+        10,
+        inst
+      );
+      rawkit_shader_instance_end(inst);
+    }
   }
 }
