@@ -1,4 +1,12 @@
 #ifdef CPU_HOST
+// 1.224990, -2.439616, 1.069841
+// 0.527587, -2.439616, 0.611209
+  // #define GLM_FORCE_DEPTH_ZERO_TO_ONE 1
+  // #define GLM_FORCE_RADIANS
+  #include "glm/glm.hpp"
+  #include "glm/gtc/matrix_transform.hpp"
+  #include "glm/gtx/compatibility.hpp"
+
   #include "glm/glm.hpp"
   using namespace glm;
 #endif

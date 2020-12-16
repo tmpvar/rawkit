@@ -1,8 +1,8 @@
+#undef GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 #include <rawkit/rawkit.h>
 
 #define CPU_HOST
-#include "glm/gtc/matrix_transform.hpp"
-#include "glm/gtx/compatibility.hpp"
 #include "shared.h"
 
 #include "bezier.h"
@@ -44,7 +44,7 @@ vec4 sample_blue_noise(const rawkit_texture_t *tex, uint64_t loc) {
   );
 }
 
-vec3 world_dims(128.0);
+vec3 world_dims(256.0);
 bool rebuild_world = false;
 void setup(){
   rebuild_world = true;
@@ -277,12 +277,12 @@ void compute_visible_voxels(rawkit_cpu_buffer_t *buf) {
 
         // TODO: store this on a per face basis
         bool visible = (
-          read_occlusion(buf, pos + vec3(-1.0,  0.0,  0.0)) ||
-          read_occlusion(buf, pos + vec3( 0.0, -1.0,  0.0)) ||
-          read_occlusion(buf, pos + vec3( 0.0,  0.0, -1.0)) ||
-          read_occlusion(buf, pos + vec3( 1.0,  0.0,  0.0)) ||
-          read_occlusion(buf, pos + vec3( 0.0,  1.0,  0.0)) ||
-          read_occlusion(buf, pos + vec3( 0.0,  0.0,  1.0))
+          !read_occlusion(buf, pos + vec3(-1.0,  0.0,  0.0)) ||
+          !read_occlusion(buf, pos + vec3( 0.0, -1.0,  0.0)) ||
+          !read_occlusion(buf, pos + vec3( 0.0,  0.0, -1.0)) ||
+          !read_occlusion(buf, pos + vec3( 1.0,  0.0,  0.0)) ||
+          !read_occlusion(buf, pos + vec3( 0.0,  1.0,  0.0)) ||
+          !read_occlusion(buf, pos + vec3( 0.0,  0.0,  1.0))
         );
 
         if (visible) {
@@ -295,7 +295,6 @@ void compute_visible_voxels(rawkit_cpu_buffer_t *buf) {
     }
   }
 }
-
 
 void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlusion_texture, rawkit_texture_t *noise) {
   double start_build = rawkit_now();
@@ -319,8 +318,13 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
   uint64_t seed = 0;
   float rock_offset = 1000.0;
 
-  // fill the ground
+  // fill all
   if (0) {
+    memset(occlusion_data, 255, world_occlusion_buffer->size);
+  }
+
+  // fill the ground
+  if (1) {
     vec4 init = sample_blue_noise(noise, seed);
     uint32_t max_y = (init.x * world_dims.y);
 
@@ -560,7 +564,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
 
 
   // fill the world with reflection test
-  if (1) {
+  if (0) {
     uint64_t a = 0;
     for (uint32_t x=0; x<world_dims.x; x++) {
       for (uint32_t y=0; y<world_dims.y; y++) {
@@ -644,7 +648,8 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
 }
 
 void loop() {
-  igBegin("controls", 0, 0);
+
+  igBegin("config", 0, 0);
 
   vec2 window_dims(
     (float)rawkit_window_width(),
@@ -693,21 +698,25 @@ void loop() {
     mat4 proj = glm::perspective(
       glm::radians(90.0f),
       window_dims.x/window_dims.y,
-      0.0f,
-      10.0f
+      0.1f,
+      100.0f
     );
 
-    float dist = 1.0f;
-    float now = (float)rawkit_now() * .1 + 5.0;
-    vec3 eye = vec3(0.5) + vec3(
+    vec3 half = world_dims / 2.0f;
+    half = vec3(0.5f);
+
+
+    float dist = glm::length(half * 1.4f);
+    float now = (float)rawkit_now() * .6 + 5.0;
+    vec3 eye = half + vec3(
       sin(now) * dist,
-      dist * 0.25,
+      half.y * 0.125,
       cos(now) * dist
     );
 
     mat4 view = glm::lookAt(
       eye,
-      vec3(0.5),
+      half,
       vec3(0.0f, -1.0f, 0.0f)
     );
 
@@ -776,7 +785,9 @@ void loop() {
         .x = 0.0f,
         .y = 0.0f,
         .width = window_dims.x,
-        .height = window_dims.y
+        .height = window_dims.y,
+        .minDepth = -1.0,
+        .maxDepth = 100.0
       };
 
       vkCmdSetViewport(
@@ -814,7 +825,7 @@ void loop() {
       count * sizeof(visible_voxel)
     );
 
-    if (true || rebuilt || pos_ssbo->resource_version == 0) {
+    if (rebuilt || pos_ssbo->resource_version == 0) {
       VkResult err = rawkit_gpu_ssbo_update(
         pos_ssbo,
         rawkit_vulkan_queue(),
@@ -836,7 +847,6 @@ void loop() {
       percent
     );
 
-
     rawkit_shader_t *shader = rawkit_shader(
       rawkit_file("shader/per-voxel-world.vert"),
       rawkit_file("shader/per-voxel-world.frag")
@@ -851,7 +861,9 @@ void loop() {
         .x = 0.0f,
         .y = 0.0f,
         .width = window_dims.x,
-        .height = window_dims.y
+        .height = window_dims.y,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
       };
 
       vkCmdSetViewport(
