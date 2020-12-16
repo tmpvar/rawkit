@@ -4,6 +4,9 @@
 
 #include <vulkan/vulkan.h>
 
+#include <vector>
+using namespace std;
+
 rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count, bool validation, PFN_vkDebugReportCallbackEXT debug_callback) {
   rawkit_gpu_t *gpu = rawkit_hot_resource("rawkit::gpu::default", rawkit_gpu_t);
   if (!gpu) {
@@ -33,8 +36,6 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
 
     VkInstanceCreateInfo create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    create_info.enabledExtensionCount = extensions_count;
-    create_info.ppEnabledExtensionNames = extensions;
     create_info.pApplicationInfo = &app;
 
     const char* layers[] = { "VK_LAYER_KHRONOS_validation" };
@@ -44,19 +45,17 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
       create_info.ppEnabledLayerNames = layers;
     }
 
-    const char** extensions_ext = NULL;
-    if (debug_callback) {
-      // Enable debug report extension (we need additional storage, so we duplicate the user array to add our new extension to it)
-      extensions_ext = (const char**)malloc(sizeof(const char*) * (extensions_count + 1));
-      if (!extensions_ext) {
-        printf("ERROR: unable to init vulkan - out of memory while allocating extension list");
-        return gpu;
-      }
-      memcpy(extensions_ext, extensions, extensions_count * sizeof(const char*));
-      extensions_ext[extensions_count] = "VK_EXT_debug_report";
-      create_info.enabledExtensionCount = extensions_count + 1;
-      create_info.ppEnabledExtensionNames = extensions_ext;
+    vector<const char *> extensions_ext;
+    for (int i=0; i<extensions_count; i++) {
+      extensions_ext.push_back(extensions[i]);
     }
+
+    if (debug_callback) {
+      extensions_ext.push_back("VK_EXT_debug_report");
+    }
+
+    create_info.enabledExtensionCount = extensions_ext.size();
+    create_info.ppEnabledExtensionNames = extensions_ext.data();
 
     for (uint32_t i=0; i<create_info.enabledExtensionCount; i++) {
       printf("extension: %s\n", create_info.ppEnabledExtensionNames[i]);
@@ -78,7 +77,6 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     }
 
     if (debug_callback) {
-      free(extensions_ext);
       // Get the function pointer (required for any extensions)
       auto vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(gpu->instance, "vkCreateDebugReportCallbackEXT");
       if (vkCreateDebugReportCallbackEXT) {
