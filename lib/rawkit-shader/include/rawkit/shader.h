@@ -23,7 +23,7 @@ typedef struct rawkit_shader_t {
   #define RAWKIT_SHADER_ARG_COUNT(...) (std::tuple_size<decltype(std::make_tuple(__VA_ARGS__))>::value)
   #define RAWKIT_SHADER_FILE_ARG_COUNT(...) (std::tuple_size<decltype(std::make_tuple(__VA_ARGS__))>::value)
 #else
-  #define RAWKIT_SHADER_ARG_COUNT(...) ((int)(sizeof((const int*[]){ __VA_ARGS__ })/sizeof(const int*)))
+  #define RAWKIT_SHADER_ARG_COUNT(...) ((int)(sizeof((const rawkit_shader_param_t*[]){ __VA_ARGS__ })/sizeof(const rawkit_shader_param_t*)))
   #define RAWKIT_SHADER_FILE_ARG_COUNT(...) ((int)(sizeof((const rawkit_file_t *[]){ __VA_ARGS__ })/sizeof(const rawkit_file_t *)))
 #endif
 
@@ -193,6 +193,13 @@ void rawkit_shader_instance_param_ssbo(
 void rawkit_shader_instance_apply_params(
   rawkit_shader_instance_t *instance,
   rawkit_shader_params_t params
+);
+
+void rawkit_shader_instance_dispatch_compute(
+  rawkit_shader_instance_t *instance,
+  uint32_t width,
+  uint32_t height,
+  uint32_t depth
 );
 
 void rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue queue);

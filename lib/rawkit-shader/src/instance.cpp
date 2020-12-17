@@ -254,7 +254,7 @@ static VkResult transition_texture_for_stage(
     end_info.pCommandBuffers = &command_buffer;
     err = vkEndCommandBuffer(command_buffer);
     if (err) {
-      printf("ERROR: transition_texture_for_stage: could not end command buffer");
+      printf("ERROR: transition_texture_for_stage: could not end command buffer (%i)\n", err);
       return err;
     }
 
@@ -273,7 +273,7 @@ static VkResult transition_texture_for_stage(
     err = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, fence);
     rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
     if (err) {
-      printf("ERROR: transition_texture_for_stage: could not submit command buffer");
+      printf("ERROR: transition_texture_for_stage: could not submit command buffer (%i)\n", err);
       return err;
     }
   }
@@ -413,6 +413,10 @@ void rawkit_shader_instance_param_ssbo(
   rawkit_gpu_ssbo_t *ssbo
 ) {
   if (!instance || !instance->_state || !ssbo || !ssbo->resource_version || !name) {
+    return;
+  }
+
+  if (!ssbo->buffer || !ssbo->staging_buffer) {
     return;
   }
 
@@ -559,3 +563,43 @@ void rawkit_shader_instance_apply_params(
   }
 }
 
+
+void rawkit_shader_instance_dispatch_compute(
+  rawkit_shader_instance_t *instance,
+  uint32_t width,
+  uint32_t height,
+  uint32_t depth
+) {
+  if (!instance || !instance->shader) {
+    return;
+  }
+
+  rawkit_shader_t *shader = instance->shader;
+  const rawkit_glsl_t *glsl = rawkit_shader_glsl(shader);
+  bool is_compute = rawkit_glsl_is_compute(glsl);
+
+  if (!is_compute) {
+    printf("ERROR: rawkit_shader_instance_dispatch_compute: '%s' is not a compute shader!\n", shader->resource_name);
+    return;
+  }
+
+  const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(glsl, 0);
+  float local[3] = {
+    (float)workgroup_size[0],
+    (float)workgroup_size[1],
+    (float)workgroup_size[2],
+  };
+
+  float global[3] = {
+    (float)width,
+    (float)height,
+    (float)depth,
+  };
+
+  vkCmdDispatch(
+    instance->command_buffer,
+    (uint32_t)fmaxf(ceilf(global[0] / local[0]), 1.0),
+    (uint32_t)fmaxf(ceilf(global[1] / local[1]), 1.0),
+    (uint32_t)fmaxf(ceilf(global[2] / local[2]), 1.0)
+  );
+}
