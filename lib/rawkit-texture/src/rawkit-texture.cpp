@@ -887,7 +887,7 @@ const rawkit_texture_sampler_t *rawkit_texture_sampler(
 }
 
 
-#define RAWKIT_DEFAULT(_value, _default) (!_value ? _default : _value)
+
 
 VkResult rawkit_texture_transition(
   rawkit_texture_t *texture,

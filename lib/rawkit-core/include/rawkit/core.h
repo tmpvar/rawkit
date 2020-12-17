@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
 
+#define RAWKIT_DEFAULT(_value, _default) (!_value ? _default : _value)
+
 // RAWKIT_RESOURCE_ARG_COUNT - count the number of VA_ARGS in both c and c++ mode
 #ifdef __cplusplus
   #include <tuple>
