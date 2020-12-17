@@ -16,19 +16,6 @@ layout(binding = 4) uniform sampler2D blue_noise;
 in vec3 rayOrigin;
 light_t sun;
 
-struct ray_hit_t {
-  vec4 color;
-  vec3 pos;
-  vec3 normal;
-  float density;
-  float iterations;
-};
-
-struct scene_t {
-  vec3 grid_dims;
-  vec3 inv_grid_dims;
-};
-
 ray_hit_t march_light(in out vec3 pos, vec3 dir) {
 
   ray_hit_t ret;

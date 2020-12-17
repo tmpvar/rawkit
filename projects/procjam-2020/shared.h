@@ -1,14 +1,13 @@
 #ifdef CPU_HOST
-// 1.224990, -2.439616, 1.069841
-// 0.527587, -2.439616, 0.611209
-  // #define GLM_FORCE_DEPTH_ZERO_TO_ONE 1
-  // #define GLM_FORCE_RADIANS
+  #define GLM_FORCE_RADIANS
   #include "glm/glm.hpp"
   #include "glm/gtc/matrix_transform.hpp"
   #include "glm/gtx/compatibility.hpp"
 
   #include "glm/glm.hpp"
   using namespace glm;
+
+  typedef uint uint32_t;
 #endif
 
 struct world_ubo_t {
@@ -23,6 +22,18 @@ struct light_t {
   vec3 color;
 };
 
+struct ray_hit_t {
+  vec4 color;
+  vec3 pos;
+  vec3 normal;
+  float density;
+  float iterations;
+};
+
+struct scene_t {
+  vec3 grid_dims;
+  vec3 inv_grid_dims;
+};
 
 #define WATER_ALPHA 0.1f
 #define ROCK_ALPHA 0.2f
@@ -31,4 +42,5 @@ struct light_t {
 
 struct visible_voxel {
   uvec4 pos;
+  vec4 face_color[6];
 };

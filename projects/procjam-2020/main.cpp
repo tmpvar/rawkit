@@ -45,9 +45,25 @@ vec4 sample_blue_noise(const rawkit_texture_t *tex, uint64_t loc) {
 }
 
 vec3 world_dims(256.0);
+
+typedef struct state_t {
+  bool initialized;
+  bool rebuild_on_save;
+  int approach;
+} state_t;
+
+state_t *state = NULL;
+
 bool rebuild_world = false;
 void setup(){
-  rebuild_world = true;
+  state = rawkit_hot_state("procjam-2020-state", state_t);
+
+  if (!state->initialized) {
+    state->rebuild_on_save = true;
+    state->initialized = true;
+  }
+
+  rebuild_world = state->rebuild_on_save;
 }
 
 void add_sphere(
@@ -267,7 +283,9 @@ void compute_visible_voxels(rawkit_cpu_buffer_t *buf) {
   }
 
   vec3 pos(0.0f);
+  printf("compute shells ");
   for (pos.x = 0.0f; pos.x < world_dims.x; pos.x++) {
+    printf(".");
     for (pos.y = 0.0f; pos.y < world_dims.y; pos.y++) {
       for (pos.z = 0.0f; pos.z < world_dims.z; pos.z++) {
         // skip empties
@@ -288,12 +306,21 @@ void compute_visible_voxels(rawkit_cpu_buffer_t *buf) {
         if (visible) {
           visible_voxel v = {
             .pos = uvec4(pos, 0),
+            .face_color = {
+              vec4(0.1, 0.1, 0.1, 1.0),
+              vec4(0.1, 0.1, 0.1, 1.0),
+              vec4(0.1, 0.1, 0.1, 1.0),
+              vec4(0.1, 0.1, 0.1, 1.0),
+              vec4(0.1, 0.1, 0.1, 1.0),
+              vec4(0.1, 0.1, 0.1, 1.0),
+            },
           };
           sb_push(visible_voxels, v);
         }
       }
     }
   }
+  printf(" done\n");
 }
 
 void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlusion_texture, rawkit_texture_t *noise) {
@@ -322,7 +349,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
   if (0) {
     memset(occlusion_data, 255, world_occlusion_buffer->size);
   }
-
+  printf("filled occlusion data\n");
   // fill the ground
   if (1) {
     vec4 init = sample_blue_noise(noise, seed);
@@ -628,6 +655,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
 
 
   rawkit_texture_update_buffer(world_texture, world_buffer);
+
   world_texture->resource_version++;
   world_buffer->resource_version++;
 
@@ -647,14 +675,25 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
   printf("setup complete: build: %f, visibility: %f\n", end_build - start_build, end_visibility - start_visibility);
 }
 
+enum render_approach {
+  APPROACH_PIXEL_TRACING,
+  APPROACH_VOXEL_FACE_TRACING,
+};
+
 void loop() {
-
+igShowDemoWindow(0);
   igBegin("config", 0, 0);
-
+  igCheckbox("rebuild on save", &state->rebuild_on_save);
   vec2 window_dims(
     (float)rawkit_window_width(),
     (float)rawkit_window_height()
   );
+
+  // approach options
+  {
+    const char *items[2] = { "Pixel Tracing", "Voxel Face Tracing" };
+    igComboStr_arr("rendering approach", &state->approach, items, 2, 10);
+  }
 
   ImVec2 size = {110, 30};
   rebuild_world = rebuild_world || igButton("rebuild world", size);
@@ -689,6 +728,7 @@ void loop() {
 
     rebuild_world = false;
     rebuilt = true;
+    printf("visible voxel count: %llu\n", sb_count(visible_voxels));
   }
 
 
@@ -707,7 +747,7 @@ void loop() {
 
 
     float dist = glm::length(half * 1.4f);
-    float now = (float)rawkit_now() * .6 + 5.0;
+    float now = (float)rawkit_now() * .1 + 5.0;
     vec3 eye = half + vec3(
       sin(now) * dist,
       half.y * 0.125,
@@ -730,8 +770,27 @@ void loop() {
     return;
   }
 
+  const rawkit_texture_sampler_t *nearest_sampler = rawkit_texture_sampler(
+    rawkit_default_gpu(),
+    VK_FILTER_NEAREST,
+    VK_FILTER_NEAREST,
+    VK_SAMPLER_MIPMAP_MODE_NEAREST,
+    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+    0.0f,
+    false,
+    0.0f,
+    false,
+    VK_COMPARE_OP_NEVER,
+    0,
+    1,
+    VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+    false
+  );
+
   // Approach: per pixel raytracing of primary and secondary rays in a single fragment shader
-  if (0) {
+  if (state->approach == APPROACH_PIXEL_TRACING) {
     rawkit_shader_t *world_shader = rawkit_shader(
       rawkit_file("shader/per-pixel-world.vert"),
       rawkit_file("shader/per-pixel-world.frag")
@@ -740,24 +799,6 @@ void loop() {
     rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(world_shader);
     if (inst) {
       rawkit_shader_instance_param_ubo(inst, "UBO", &world_ubo);
-      const rawkit_texture_sampler_t *nearest_sampler = rawkit_texture_sampler(
-        inst->gpu,
-        VK_FILTER_NEAREST,
-        VK_FILTER_NEAREST,
-        VK_SAMPLER_MIPMAP_MODE_NEAREST,
-        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-        0.0f,
-        false,
-        0.0f,
-        false,
-        VK_COMPARE_OP_NEVER,
-        0,
-        1,
-        VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
-        false
-      );
 
       const rawkit_texture_sampler_t *linear_sampler = rawkit_texture_sampler(
         inst->gpu,
@@ -786,8 +827,8 @@ void loop() {
         .y = 0.0f,
         .width = window_dims.x,
         .height = window_dims.y,
-        .minDepth = -1.0,
-        .maxDepth = 100.0
+        .minDepth = 0.0,
+        .maxDepth = 1.0
       };
 
       vkCmdSetViewport(
@@ -814,9 +855,10 @@ void loop() {
   }
 
   // Approach: per face raytracing w/ voxel splatting
-  {
+  if (state->approach == APPROACH_VOXEL_FACE_TRACING) {
 
     uint64_t count = sb_count(visible_voxels);
+
     uint64_t total = static_cast<uint64_t>(world_dims.x * world_dims.y * world_dims.z);
     double percent = (double)count / (double)total * 100.0;
 
@@ -826,6 +868,7 @@ void loop() {
     );
 
     if (rebuilt || pos_ssbo->resource_version == 0) {
+      printf("rebuild ssbo\n");
       VkResult err = rawkit_gpu_ssbo_update(
         pos_ssbo,
         rawkit_vulkan_queue(),
@@ -834,10 +877,15 @@ void loop() {
         count * sizeof(visible_voxel)
       );
 
+      rawkit_gpu_ssbo_transition(pos_ssbo, (
+        VK_ACCESS_SHADER_READ_BIT |
+        VK_ACCESS_SHADER_WRITE_BIT
+      ));
+
       if (err) {
         printf("could not update ssbo %i\n", err);
       }
-
+      printf("done updating ssbo\n");
 
       pos_ssbo->resource_version++;
     }
@@ -847,45 +895,89 @@ void loop() {
       percent
     );
 
-    rawkit_shader_t *shader = rawkit_shader(
-      rawkit_file("shader/per-voxel-world.vert"),
-      rawkit_file("shader/per-voxel-world.frag")
-    );
-    // render the world shader
-    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
-    if (inst) {
-      rawkit_shader_instance_param_ubo(inst, "UBO", &world_ubo);
-      rawkit_shader_instance_param_ssbo(inst, "VisibleVoxels", pos_ssbo);
-
-      VkViewport viewport = {
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = window_dims.x,
-        .height = window_dims.y,
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f,
-      };
-
-      vkCmdSetViewport(
-        inst->command_buffer,
-        0,
-        1,
-        &viewport
+    // trace from every visible voxel's face to the sun
+    {
+      rawkit_shader_t *shader = rawkit_shader(
+        rawkit_file("shader/trace-voxel-faces.comp")
+      );
+      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(
+        rawkit_default_gpu(),
+        shader,
+        NULL,
+        0
       );
 
-      VkRect2D scissor = {};
-      scissor.extent.width = viewport.width;
-      scissor.extent.height = viewport.height;
-      vkCmdSetScissor(
-        inst->command_buffer,
-        0,
-        1,
-        &scissor
+      if (inst) {
+        uint32_t visible_count = sb_count(visible_voxels);
+
+        rawkit_shader_instance_param_ubo(inst, "UBO", &world_ubo);
+        rawkit_shader_instance_param_texture(inst, "world_texture", world_texture, nearest_sampler);
+        rawkit_shader_instance_param_texture(inst, "world_occlusion_texture", world_occlusion_texture, nearest_sampler);
+        rawkit_shader_instance_param_ssbo(inst, "VisibleVoxels", pos_ssbo);
+
+        // rawkit_gpu_ssbo_transition(pos_ssbo, (
+        //   VK_ACCESS_SHADER_WRITE_BIT
+        // ));
+
+        rawkit_shader_instance_dispatch_compute(
+          inst,
+          visible_count,
+          6,
+          1
+        );
+
+        // rawkit_gpu_ssbo_transition(pos_ssbo, (
+        //   VK_ACCESS_SHADER_READ_BIT
+        // ));
+
+        rawkit_shader_instance_end(inst);
+      }
+    }
+
+    // render the visible voxels as cubes
+    {
+      rawkit_shader_t *shader = rawkit_shader(
+        rawkit_file("shader/per-voxel-world.vert"),
+        rawkit_file("shader/per-voxel-world.frag")
       );
+      // render the world shader
+      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
+      if (inst) {
+        rawkit_shader_instance_param_ubo(inst, "UBO", &world_ubo);
+        rawkit_shader_instance_param_ssbo(inst, "VisibleVoxels", pos_ssbo);
+        rawkit_shader_instance_param_texture(inst, "world_texture", world_texture, nearest_sampler);
+        rawkit_shader_instance_param_texture(inst, "world_occlusion_texture", world_occlusion_texture, nearest_sampler);
 
-      vkCmdDraw(inst->command_buffer, 36, count, 0, 0);
+        VkViewport viewport = {
+          .x = 0.0f,
+          .y = 0.0f,
+          .width = window_dims.x,
+          .height = window_dims.y,
+          .minDepth = 0.0f,
+          .maxDepth = 1.0f,
+        };
 
-      rawkit_shader_instance_end(inst);
+        vkCmdSetViewport(
+          inst->command_buffer,
+          0,
+          1,
+          &viewport
+        );
+
+        VkRect2D scissor = {};
+        scissor.extent.width = viewport.width;
+        scissor.extent.height = viewport.height;
+        vkCmdSetScissor(
+          inst->command_buffer,
+          0,
+          1,
+          &scissor
+        );
+
+        vkCmdDraw(inst->command_buffer, 36, count, 0, 0);
+
+        rawkit_shader_instance_end(inst);
+      }
     }
   }
 }
