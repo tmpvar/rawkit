@@ -5,9 +5,12 @@
 
 void host_init_rawkit_gpu(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_vulkan_find_memory_type", (void *)&rawkit_vulkan_find_memory_type);
+  rawkit_jit_add_export(jit, "rawkit_vulkan_find_queue", (void *)&rawkit_vulkan_find_queue);
   rawkit_jit_add_export(jit, "rawkit_gpu_buffer_create", (void *)&rawkit_gpu_buffer_create);
   rawkit_jit_add_export(jit, "rawkit_gpu_buffer_update", (void *)&rawkit_gpu_buffer_update);
   rawkit_jit_add_export(jit, "rawkit_gpu_buffer_destroy", (void *)&rawkit_gpu_buffer_destroy);
+  rawkit_jit_add_export(jit, "rawkit_gpu_buffer_transition", (void *)&rawkit_gpu_buffer_transition);
+
   rawkit_jit_add_export(jit, "rawkit_gpu_vertex_buffer_create", (void *)&rawkit_gpu_vertex_buffer_create);
   rawkit_jit_add_export(jit, "rawkit_gpu_vertex_buffer_destroy", (void *)&rawkit_gpu_vertex_buffer_destroy);
   rawkit_jit_add_export(jit, "rawkit_default_gpu", (void *)&rawkit_default_gpu);
@@ -18,5 +21,6 @@ void host_init_rawkit_gpu(rawkit_jit_t *jit) {
   // SSBO
   rawkit_jit_add_export(jit, "_rawkit_gpu_ssbo", (void *)&_rawkit_gpu_ssbo);
   rawkit_jit_add_export(jit, "rawkit_gpu_ssbo_update", (void *)&rawkit_gpu_ssbo_update);
+  rawkit_jit_add_export(jit, "rawkit_gpu_ssbo_transition", (void *)&rawkit_gpu_ssbo_transition);
 
 }

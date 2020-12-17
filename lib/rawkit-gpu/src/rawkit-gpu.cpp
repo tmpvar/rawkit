@@ -1,6 +1,8 @@
+#include <rawkit/core.h>
 #include <rawkit/gpu-internal.h>
 #include <rawkit/hash.h>
 #include <rawkit/hot.h>
+
 
 #include <string>
 
@@ -583,6 +585,73 @@ rawkit_gpu_ssbo_t *_rawkit_gpu_ssbo(
   return ssbo;
 }
 
+
+VkResult rawkit_gpu_ssbo_transition(
+  rawkit_gpu_ssbo_t *ssbo,
+  VkAccessFlags access
+) {
+  if (!ssbo || !ssbo->gpu || !ssbo->buffer) {
+    return VK_INCOMPLETE;
+  }
+
+  rawkit_gpu_t *gpu = ssbo->gpu;
+
+  VkResult err = VK_SUCCESS;
+  VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu);
+  if (!command_buffer) {
+    printf("ERROR: _rawkit_gpu_ssbo: could not create command buffer\n");
+    return err;
+  }
+  VkCommandBufferBeginInfo begin_info = {};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  VkResult begin_result = vkBeginCommandBuffer(command_buffer, &begin_info);
+
+  VkBufferMemoryBarrier barrier = {};
+  barrier.dstAccessMask = access;
+
+  rawkit_gpu_buffer_transition(
+    ssbo->buffer,
+    command_buffer,
+    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    barrier
+  );
+
+  {
+    VkSubmitInfo end_info = {};
+    end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    end_info.commandBufferCount = 1;
+    end_info.pCommandBuffers = &command_buffer;
+    err = vkEndCommandBuffer(command_buffer);
+    if (err) {
+      printf("ERROR: _rawkit_gpu_ssbo: could not end command buffer");
+      return err;
+    }
+
+    VkFence fence;
+    {
+      VkFenceCreateInfo create = {};
+      create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+      create.flags = 0;
+      err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
+      if (err) {
+        printf("ERROR: _rawkit_gpu_ssbo: create fence failed (%i)\n", err);
+        return err;
+      }
+    }
+
+    err = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, fence);
+    rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
+    if (err) {
+      printf("ERROR: _rawkit_gpu_ssbo: could not submit command buffer");
+      return err;
+    }
+  }
+
+  return VK_SUCCESS;
+}
+
 VkResult rawkit_gpu_ssbo_update(
   rawkit_gpu_ssbo_t *ssbo,
   VkQueue queue,
@@ -626,5 +695,45 @@ VkResult rawkit_gpu_ssbo_update(
     return err;
   }
 
+  return VK_SUCCESS;
+}
+
+VkResult rawkit_gpu_buffer_transition(
+  rawkit_gpu_buffer_t *buffer,
+  VkCommandBuffer command_buffer,
+  VkPipelineStageFlags src_stage,
+  VkPipelineStageFlags dest_stage,
+  VkBufferMemoryBarrier extend
+) {
+  if (!buffer || !command_buffer) {
+    return VK_INCOMPLETE;
+  }
+
+  VkBufferMemoryBarrier barrier = {};
+  barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+  barrier.srcAccessMask = RAWKIT_DEFAULT(extend.srcAccessMask, buffer->access);
+  barrier.dstAccessMask = RAWKIT_DEFAULT(extend.dstAccessMask, VK_ACCESS_SHADER_READ_BIT);
+  barrier.size = VK_WHOLE_SIZE;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.buffer = buffer->handle;
+
+  if (buffer->access == barrier.dstAccessMask) {
+    return VK_SUCCESS;
+  }
+
+  vkCmdPipelineBarrier(
+    command_buffer,
+    src_stage,
+    dest_stage,
+    0,
+    0,
+    NULL,
+    1,
+    &barrier,
+    0,
+    NULL
+  );
+  buffer->access = barrier.dstAccessMask;
   return VK_SUCCESS;
 }

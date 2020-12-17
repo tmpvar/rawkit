@@ -44,6 +44,9 @@ typedef struct rawkit_gpu_buffer_t {
   VkDeviceMemory memory;
   VkBuffer handle;
   VkDeviceSize size;
+
+  VkAccessFlags access;
+
 } rawkit_gpu_buffer_t;
 
 typedef struct rawkit_gpu_vertex_buffer_t {
@@ -83,10 +86,15 @@ VkResult rawkit_gpu_buffer_update(
   VkDeviceSize size
 );
 
+VkResult rawkit_gpu_buffer_transition(
+  rawkit_gpu_buffer_t* buffer,
+  VkCommandBuffer command_buffer,
+  VkPipelineStageFlags src_stage,
+  VkPipelineStageFlags dest_stage,
+  VkBufferMemoryBarrier extend
+);
+
 VkResult rawkit_gpu_buffer_destroy(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *buf);
-
-
-
 
 rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
   rawkit_gpu_t *gpu,
@@ -96,8 +104,6 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
 );
 
 VkResult rawkit_gpu_vertex_buffer_destroy(rawkit_gpu_t *gpu, rawkit_gpu_vertex_buffer_t *buf);
-
-
 
 VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu);
 
@@ -128,6 +134,11 @@ VkResult rawkit_gpu_ssbo_update(
   VkCommandPool pool,
   void *data,
   uint64_t size
+);
+
+VkResult rawkit_gpu_ssbo_transition(
+  rawkit_gpu_ssbo_t *ssbo,
+  VkAccessFlags access
 );
 
 #define rawkit_gpu_ssbo(name, size) _rawkit_gpu_ssbo( \
