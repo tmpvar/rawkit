@@ -1,3 +1,4 @@
+#pragma optimize("", off)
 #include <rawkit/shader.h>
 #include "shader-state.h"
 

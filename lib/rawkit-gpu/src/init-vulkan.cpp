@@ -143,12 +143,17 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     queue_info[0].queueFamilyIndex = gpu->graphics_queue_family_index;
     queue_info[0].queueCount = 1;
     queue_info[0].pQueuePriorities = queue_priority;
+
+    VkPhysicalDeviceFeatures features = {};
+    features.shaderInt64 = true;
+
     VkDeviceCreateInfo create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     create_info.queueCreateInfoCount = sizeof(queue_info) / sizeof(queue_info[0]);
     create_info.pQueueCreateInfos = queue_info;
     create_info.enabledExtensionCount = device_extension_count;
     create_info.ppEnabledExtensionNames = device_extensions;
+    create_info.pEnabledFeatures = &features;
     err = vkCreateDevice(gpu->physical_device, &create_info, gpu->allocator, &gpu->device);
     if (err) {
       printf("ERROR: rawkit_gpu_init: could not create device (%i)\n", err);

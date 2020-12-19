@@ -44,7 +44,7 @@ vec4 sample_blue_noise(const rawkit_texture_t *tex, uint64_t loc) {
   );
 }
 
-vec3 world_dims(256.0);
+vec3 world_dims(512.0);
 
 typedef struct state_t {
   bool initialized;
@@ -270,6 +270,10 @@ inline bool read_occlusion(rawkit_cpu_buffer_t *buf, vec3 pos) {
     static_cast<uint64_t>(pos.z * world_dims.x * world_dims.y)
   );
 
+  if (buf->size <= loc) {
+    return false;
+  }
+
   return data[loc] > 0;
 }
 
@@ -285,7 +289,7 @@ void compute_visible_voxels(rawkit_cpu_buffer_t *buf) {
   vec3 pos(0.0f);
   printf("compute shells ");
   for (pos.x = 0.0f; pos.x < world_dims.x; pos.x++) {
-    printf(".");
+    printf("%0.2f ", pos.x);
     for (pos.y = 0.0f; pos.y < world_dims.y; pos.y++) {
       for (pos.z = 0.0f; pos.z < world_dims.z; pos.z++) {
         // skip empties
@@ -351,7 +355,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
   }
   printf("filled occlusion data\n");
   // fill the ground
-  if (1) {
+  if (0) {
     vec4 init = sample_blue_noise(noise, seed);
     uint32_t max_y = (init.x * world_dims.y);
 
@@ -591,7 +595,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
 
 
   // fill the world with reflection test
-  if (0) {
+  if (1) {
     uint64_t a = 0;
     for (uint32_t x=0; x<world_dims.x; x++) {
       for (uint32_t y=0; y<world_dims.y; y++) {
@@ -739,7 +743,7 @@ igShowDemoWindow(0);
       glm::radians(90.0f),
       window_dims.x/window_dims.y,
       0.1f,
-      100.0f
+      10000.0f
     );
 
     vec3 half = world_dims / 2.0f;
@@ -764,6 +768,12 @@ igShowDemoWindow(0);
     world_ubo.world_dims = vec4(world_dims, 0.0f);
     world_ubo.eye = vec4(eye, 1.0f);
     world_ubo.time = (float)rawkit_now();
+    world_ubo.screen_dims = vec4(
+      (float)rawkit_window_width(),
+      (float)rawkit_window_height(),
+      0,
+      0
+    );
   }
 
   if (!blue_noise->resource_version) {
@@ -896,7 +906,7 @@ igShowDemoWindow(0);
     );
 
     // trace from every visible voxel's face to the sun
-    {
+    if (0) {
       rawkit_shader_t *shader = rawkit_shader(
         rawkit_file("shader/trace-voxel-faces.comp")
       );
@@ -935,7 +945,7 @@ igShowDemoWindow(0);
     }
 
     // render the visible voxels as cubes
-    {
+    if (0) {
       rawkit_shader_t *shader = rawkit_shader(
         rawkit_file("shader/per-voxel-world.vert"),
         rawkit_file("shader/per-voxel-world.frag")
@@ -974,7 +984,53 @@ igShowDemoWindow(0);
           &scissor
         );
 
-        vkCmdDraw(inst->command_buffer, 36, count, 0, 0);
+        vkCmdDraw(inst->command_buffer, 6, count, 0, 0);
+
+        rawkit_shader_instance_end(inst);
+      }
+    }
+
+    // render the visible voxels as quads
+    if (1) {
+      rawkit_shader_t *shader = rawkit_shader(
+        rawkit_file("shader/per-voxel-world-quad.vert"),
+        rawkit_file("shader/per-voxel-world.frag")
+      );
+      // render the world shader
+      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
+      if (inst) {
+        rawkit_shader_instance_param_ubo(inst, "UBO", &world_ubo);
+        rawkit_shader_instance_param_ssbo(inst, "VisibleVoxels", pos_ssbo);
+        rawkit_shader_instance_param_texture(inst, "world_texture", world_texture, nearest_sampler);
+        rawkit_shader_instance_param_texture(inst, "world_occlusion_texture", world_occlusion_texture, nearest_sampler);
+
+        VkViewport viewport = {
+          .x = 0.0f,
+          .y = 0.0f,
+          .width = window_dims.x,
+          .height = window_dims.y,
+          .minDepth = 0.0f,
+          .maxDepth = 1.0f,
+        };
+
+        vkCmdSetViewport(
+          inst->command_buffer,
+          0,
+          1,
+          &viewport
+        );
+
+        VkRect2D scissor = {};
+        scissor.extent.width = viewport.width;
+        scissor.extent.height = viewport.height;
+        vkCmdSetScissor(
+          inst->command_buffer,
+          0,
+          1,
+          &scissor
+        );
+
+        vkCmdDraw(inst->command_buffer, 6, count, 0, 0);
 
         rawkit_shader_instance_end(inst);
       }

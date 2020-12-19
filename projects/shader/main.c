@@ -35,13 +35,19 @@ const char *texture_names[] ={
   "rawkit::fill_rect::texture#5",
 };
 
-void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill_rect_options_t *options) {
+void fill_rect(rawkit_shader_instance_t *inst, const char *name, const fill_rect_options_t *options) {
   VkQueue queue = rawkit_vulkan_queue();
   VkDevice device = rawkit_vulkan_device();
   if (device == VK_NULL_HANDLE) {
     printf("invalid vulkan device\n");
     return;
   }
+
+  if (!inst || !inst->resource_version) {
+    return;
+  }
+
+  rawkit_gpu_t *gpu = inst->gpu;
 
   // TODO: hash options and compare
 
@@ -59,8 +65,6 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
     : height;
 
   char id[4096] = "rawkit::fill_rect::";
-  strcat(id, path);
-  strcat(id, "::");
   strcat(id, name);
 
   fill_rect_state_t *state = rawkit_hot_state(id, fill_rect_state_t);
@@ -68,18 +72,6 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
     printf("no state\n");
     return;
   }
-
-  const rawkit_file_t *file = rawkit_file(path);
-
-  rawkit_shader_t *shader = rawkit_shader_ex(
-    gpu,
-    rawkit_vulkan_renderpass(),
-    1,
-    &file
-  );
-
-  // TODO: in the rare event that the window frame count doesn't match the texture count
-  //       then we need to rebuild.
 
   // rebuild the images if the user requests a resize
   if (state->width != width || state->height != height) {
@@ -115,7 +107,7 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
     // shader id, params id, texture index
     const uint8_t resource_ids_count = 3;
     uint64_t resource_ids[resource_ids_count] = {
-      shader->resource_id,
+      inst->resource_id,
       options->params.resource_id,
       0 // the texture index
     };
@@ -130,7 +122,7 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
       bool dirty = rawkit_resource_sources_array(
         (rawkit_resource_t *)state->textures[idx],
         1,
-        (rawkit_resource_t **)&shader
+        (rawkit_resource_t **)&inst
       );
 
       if (rawkit_texture_init(state->textures[idx], texture_options)) {
@@ -140,12 +132,10 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
     }
   }
 
-  if (!shader || !shader->resource_version || !state->textures) {
-    return;
-  }
+
 
   uint32_t idx = rawkit_window_frame_index();
-  rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(gpu, shader, NULL, idx);
+
 
 
   rawkit_texture_t *current_texture = state->textures[idx];
@@ -157,7 +147,7 @@ void fill_rect(rawkit_gpu_t *gpu, const char *name, const char *path, const fill
     rawkit_shader_instance_apply_params(inst, options->params);
 
     {
-      const rawkit_glsl_t *glsl = rawkit_shader_glsl(shader);
+      const rawkit_glsl_t *glsl = rawkit_shader_glsl(inst->shader);
       const uint32_t *workgroup_size = rawkit_glsl_workgroup_size(glsl, 0);
       float local[3] = {
         (float)workgroup_size[0],
@@ -237,77 +227,77 @@ struct triangle_uniforms {
 void loop() {
   rawkit_gpu_t *gpu = rawkit_default_gpu();
 
-  if (1) {
-    fill_rect_options_t options = {0};
-    options.render_width = 128;
-    options.render_height = 64;
-    options.display_width = 512;
-    options.display_height = 256;
-    options.stretch = true;
-    options.sampler = rawkit_texture_sampler(gpu,
-      VK_FILTER_NEAREST,
-      VK_FILTER_NEAREST,
-      VK_SAMPLER_MIPMAP_MODE_NEAREST,
-      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-      VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-      0.0f,
-      false,
-      0.0f,
-      false,
-      VK_COMPARE_OP_NEVER,
-      0,
-      1,
-      VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
-      false
-    );
+  // if (0) {
+  //   fill_rect_options_t options = {0};
+  //   options.render_width = 128;
+  //   options.render_height = 64;
+  //   options.display_width = 512;
+  //   options.display_height = 256;
+  //   options.stretch = true;
+  //   options.sampler = rawkit_texture_sampler(gpu,
+  //     VK_FILTER_NEAREST,
+  //     VK_FILTER_NEAREST,
+  //     VK_SAMPLER_MIPMAP_MODE_NEAREST,
+  //     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+  //     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+  //     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+  //     0.0f,
+  //     false,
+  //     0.0f,
+  //     false,
+  //     VK_COMPARE_OP_NEVER,
+  //     0,
+  //     1,
+  //     VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+  //     false
+  //   );
 
-    rawkit_shader_params(options.params,
-      rawkit_shader_texture(
-        "input_image",
-        rawkit_texture("box-gradient.png"),
-        NULL
-      )
-    );
+  //   rawkit_shader_params(options.params,
+  //     rawkit_shader_texture(
+  //       "input_image",
+  //       rawkit_texture("box-gradient.png"),
+  //       NULL
+  //     )
+  //   );
 
-    fill_rect(gpu, "nearest", "basic.comp", &options);
-  }
+  //   fill_rect(gpu, "nearest", "basic.comp", &options);
+  // }
 
-  // TODO: dedupe fill_rect resource by hashing shader params
-  if (1) {
-    fill_rect_options_t options = {0};
-    options.render_width = 128;
-    options.render_height = 64;
-    options.display_width = 256;
-    options.display_height = 128;
-    options.sampler = rawkit_texture_sampler(gpu,
-      VK_FILTER_LINEAR,
-      VK_FILTER_LINEAR,
-      VK_SAMPLER_MIPMAP_MODE_LINEAR,
-      VK_SAMPLER_ADDRESS_MODE_REPEAT,
-      VK_SAMPLER_ADDRESS_MODE_REPEAT,
-      VK_SAMPLER_ADDRESS_MODE_REPEAT,
-      0.0f,
-      false,
-      0.0f,
-      false,
-      VK_COMPARE_OP_NEVER,
-      0,
-      1,
-      VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
-      false
-    );
+  // // TODO: dedupe fill_rect resource by hashing shader params
+  // if (0) {
+  //   fill_rect_options_t options = {0};
+  //   options.render_width = 128;
+  //   options.render_height = 64;
+  //   options.display_width = 256;
+  //   options.display_height = 128;
+  //   options.sampler = rawkit_texture_sampler(gpu,
+  //     VK_FILTER_LINEAR,
+  //     VK_FILTER_LINEAR,
+  //     VK_SAMPLER_MIPMAP_MODE_LINEAR,
+  //     VK_SAMPLER_ADDRESS_MODE_REPEAT,
+  //     VK_SAMPLER_ADDRESS_MODE_REPEAT,
+  //     VK_SAMPLER_ADDRESS_MODE_REPEAT,
+  //     0.0f,
+  //     false,
+  //     0.0f,
+  //     false,
+  //     VK_COMPARE_OP_NEVER,
+  //     0,
+  //     1,
+  //     VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+  //     false
+  //   );
 
-    rawkit_shader_params(options.params,
-      rawkit_shader_texture(
-        "input_image",
-        rawkit_texture("box-gradient.png"),
-        NULL
-      )
-    );
+  //   rawkit_shader_params(options.params,
+  //     rawkit_shader_texture(
+  //       "input_image",
+  //       rawkit_texture("box-gradient.png"),
+  //       NULL
+  //     )
+  //   );
 
-    fill_rect(gpu, "tiled", "basic.comp", &options);
-  }
+  //   fill_rect(gpu, "tiled", "basic.comp", &options);
+  // }
 
   if (1) {
     fill_rect_options_t options = {0};
@@ -315,64 +305,73 @@ void loop() {
     options.render_height = 400;
 
 
-    float time = (float)rawkit_now();
-
-    struct triangle_uniforms ubo = {};
-    ubo.time = time;
-    ubo.color[0] = 1.0;
-    ubo.color[1] = 0.0;
-    ubo.color[2] = 1.0;
-    ubo.color[3] = 1.0;
-
-    rawkit_shader_params(options.params,
-      rawkit_shader_ubo("UBO", &ubo)
+    rawkit_shader_t *shader = rawkit_shader(
+      rawkit_file("triangle.comp")
     );
-
-    fill_rect(gpu, "triangle1", "triangle.comp", &options);
-    fill_rect(gpu, "triangle2", "triangle.comp", &options);
-  }
-
-  if (1) {
-    rawkit_shader_t *shader = rawkit_shader_ex(
-      gpu,
-      rawkit_vulkan_renderpass(),
-      2,
-      ((const rawkit_file_t *[]){
-        rawkit_file("fullscreen.vert"),
-        rawkit_file("fullscreen.frag")
-      })
-    );
-
     rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
+    if (inst) {
 
-    if (inst && inst->resource_version) {
-      VkViewport viewport = {
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = (float)rawkit_window_width(),
-        .height = (float)rawkit_window_height()
-      };
+      float time = (float)rawkit_now();
 
-      vkCmdSetViewport(
-        inst->command_buffer,
-        0,
-        1,
-        &viewport
+      struct triangle_uniforms ubo = {};
+      ubo.time = time;
+      ubo.color[0] = 1.0;
+      ubo.color[1] = 0.0;
+      ubo.color[2] = 1.0;
+      ubo.color[3] = 1.0;
+
+      rawkit_shader_instance_param_ubo(inst, "UBO", &ubo);
+
+      fill_rect(inst, "triangle1", &options);
+      // fill_rect(gpu, "triangle2", "triangle.comp", &options);
+      rawkit_shader_instance_end_ex(
+        inst,
+        rawkit_vulkan_find_queue(inst->gpu, VK_QUEUE_COMPUTE_BIT)
       );
-
-      VkRect2D scissor = {};
-      scissor.extent.width = viewport.width;
-      scissor.extent.height = viewport.height;
-      vkCmdSetScissor(
-        inst->command_buffer,
-        0,
-        1,
-        &scissor
-      );
-
-      vkCmdDraw(inst->command_buffer, 3, 1, 0, 0);
-      rawkit_shader_instance_end(inst);
     }
-
   }
+
+  // if (0) {
+  //   rawkit_shader_t *shader = rawkit_shader_ex(
+  //     gpu,
+  //     rawkit_vulkan_renderpass(),
+  //     2,
+  //     ((const rawkit_file_t *[]){
+  //       rawkit_file("fullscreen.vert"),
+  //       rawkit_file("fullscreen.frag")
+  //     })
+  //   );
+
+  //   rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
+
+  //   if (inst && inst->resource_version) {
+  //     VkViewport viewport = {
+  //       .x = 0.0f,
+  //       .y = 0.0f,
+  //       .width = (float)rawkit_window_width(),
+  //       .height = (float)rawkit_window_height()
+  //     };
+
+  //     vkCmdSetViewport(
+  //       inst->command_buffer,
+  //       0,
+  //       1,
+  //       &viewport
+  //     );
+
+  //     VkRect2D scissor = {};
+  //     scissor.extent.width = viewport.width;
+  //     scissor.extent.height = viewport.height;
+  //     vkCmdSetScissor(
+  //       inst->command_buffer,
+  //       0,
+  //       1,
+  //       &scissor
+  //     );
+
+  //     vkCmdDraw(inst->command_buffer, 3, 1, 0, 0);
+  //     rawkit_shader_instance_end(inst);
+  //   }
+
+  // }
 }

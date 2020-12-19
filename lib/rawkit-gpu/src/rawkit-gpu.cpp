@@ -1,3 +1,4 @@
+#pragma optimize("", off)
 #include <rawkit/core.h>
 #include <rawkit/gpu-internal.h>
 #include <rawkit/hash.h>
