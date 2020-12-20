@@ -69,6 +69,7 @@ void main() {
   uint64_t occlusion[4];
   Brick brick = bricks[gl_InstanceIndex];
   vec3 pos = positions[gl_VertexIndex] + brick.pos.xyz;
-  v_color = vec4(pos.x / 16.0, pos.y / 16.0, 0.0, 1.0);
+  v_color = vec4(pos.x / 16.0, pos.y / 10.0, pos.z / 16.0, 1.0);
+  //v_color = vec4(pos.y / 10.0);
 	gl_Position = ubo.scene.worldToScreen * vec4(pos, 1.0);
 }

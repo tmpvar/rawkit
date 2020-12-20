@@ -23,5 +23,5 @@ struct Scene {
 
 struct Brick {
   vec4 pos;
-  uint64_t occlusion[64];
+  //uint64_t occlusion[64];
 };

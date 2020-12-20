@@ -4,7 +4,9 @@
 #include <stb_sb.h>
 
 #include <unordered_map>
+#include <string>
 using namespace std;
+
 
 struct AABB {
   vec3 lb;
@@ -15,8 +17,10 @@ struct AABB {
   }
 };
 
+char tmp_str[512] = "\0";
+
 struct Object {
-  const char *name;
+  string name;
   vec4 pos;
   quat rot;
   AABB aabb = {.lb = vec3(0.0), .ub = vec3(0.0) };
@@ -26,9 +30,9 @@ struct Object {
 
   void upload() {
     uint64_t count = sb_count(this->bricks);
-    printf("uploading '%s' bricks (%u)\n", this->name, count);
+    printf("uploading '%s' bricks (%u)\n", this->name.c_str(), count);
     uint64_t size = sizeof(Brick) * count;
-    this->ssbo = rawkit_gpu_ssbo(this->name, size);
+    this->ssbo = rawkit_gpu_ssbo(this->name.c_str(), size);
     rawkit_gpu_ssbo_update(
       this->ssbo,
       rawkit_vulkan_queue(),
@@ -54,7 +58,7 @@ struct Object {
 };
 
 struct World {
-  Object *objects = NULL;
+  Object **objects = NULL;
 };
 
 struct State {
@@ -68,43 +72,45 @@ void setup() {
 
   State *state = rawkit_hot_state("state", State);
 
-  if (!state->world.objects) {
+  if (true || !state->world.objects) {
     if (state->world.objects) {
-      stb__sbm(state->world.objects[0].bricks) = 0;
-      stb__sbm(state->world.objects) = 0;
+      stb__sbn(state->world.objects[0]->bricks) = 0;
+      stb__sbn(state->world.objects) = 0;
     }
-    Object obj = {};
-    obj.name = "babs first object";
-    Brick brick = {};
 
-    for (float x = 0.0f; x<16.0f; x++) {
-      for (float z = 0.0f; z<16.0f; z++) {
-        brick.pos = vec4(x, 0.0, z, 0.0);
-        memset(&brick.occlusion, 0xFF, sizeof(brick.occlusion));
-        obj.add_brick(brick);
+    uint32_t object_id = 0;
+    for (float y=0.0; y<10.0f; y+=2) {
+      Object *obj = new Object;
+      sprintf(tmp_str, "object#%u", object_id++);
+      obj->name.assign(tmp_str);
+
+      for (float x = 0.0f; x<8.0f; x++) {
+        for (float z = 0.0f; z<8.0f; z++) {
+         //memset(&brick.occlusion, 0xFF, sizeof(brick.occlusion));
+          obj->add_brick({
+            .pos = vec4(x, y, z, 0.0)
+          });
+        }
       }
+      sb_push(state->world.objects, obj);
+      obj->upload();
     }
-
-    obj.upload();
-
-    sb_push(state->world.objects, obj);
   }
-
-  printf("objects: %u\n", sb_count(state->world.objects));
-
 }
 
 void loop() {
+
   State *state = rawkit_hot_state("state", State);
+  uint32_t obj_count = sb_count(state->world.objects);
 
   // debug
   if (0) {
     uint32_t object_count = sb_count(state->world.objects);
     igText("objects: %u", object_count);
     for (uint32_t i=0; i<object_count; i++) {
-      Object *obj = &state->world.objects[i];
+      Object *obj = state->world.objects[i];
       uint32_t brick_count = sb_count(obj->bricks);
-      igText("  %s; %u bricks\n", obj->name, brick_count);
+      igText("  %s; %u bricks\n", obj->name.c_str(), brick_count);
       for (uint32_t brick_idx = 0; brick_idx<brick_count; brick_idx++) {
         Brick *b = &obj->bricks[brick_idx];
         igText("    (%f, %f, %f)", b->pos.x, b->pos.y, b->pos.z);
@@ -128,7 +134,10 @@ void loop() {
       10000.0f
     );
 
-    vec3 center = (state->world.objects[0].aabb.ub - state->world.objects[0].aabb.lb)/2.0f;
+    vec3 center = obj_count > 0
+      ? (state->world.objects[0]->aabb.ub - state->world.objects[0]->aabb.lb)/2.0f
+      : vec3(1.0);
+
 
     float dist = length(center) * 2.0;
     float now = (float)rawkit_now() * .5 + 5.0;
@@ -155,43 +164,44 @@ void loop() {
     rawkit_file("bricks/brick.frag")
   );
   // render the world shader
-  rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(world_shader);
-  if (inst) {
-    rawkit_shader_instance_param_ubo(inst, "UBO", &state->scene);
 
-    VkViewport viewport = {
-      .x = 0.0f,
-      .y = 0.0f,
-      .width = state->scene.screen_dims.x,
-      .height = state->scene.screen_dims.y,
-      .minDepth = 0.0,
-      .maxDepth = 1.0
-    };
+  for (uint32_t obj_idx=0; obj_idx<obj_count; obj_idx++) {
+    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(world_shader);
+    if (inst) {
+      igText("rendering inst: %llu\n", inst->resource_id);
+      rawkit_shader_instance_param_ubo(inst, "UBO", &state->scene);
 
-    vkCmdSetViewport(
-      inst->command_buffer,
-      0,
-      1,
-      &viewport
-    );
+      VkViewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = state->scene.screen_dims.x,
+        .height = state->scene.screen_dims.y,
+        .minDepth = 0.0,
+        .maxDepth = 1.0
+      };
 
-    VkRect2D scissor = {};
-    scissor.extent.width = viewport.width;
-    scissor.extent.height = viewport.height;
-    vkCmdSetScissor(
-      inst->command_buffer,
-      0,
-      1,
-      &scissor
-    );
+      vkCmdSetViewport(
+        inst->command_buffer,
+        0,
+        1,
+        &viewport
+      );
 
-    uint32_t obj_count = sb_count(state->world.objects);
-    for (uint32_t obj_idx=0; obj_idx<obj_count; obj_idx++) {
-      Object *obj = &state->world.objects[obj_idx];
+      VkRect2D scissor = {};
+      scissor.extent.width = viewport.width;
+      scissor.extent.height = viewport.height;
+      vkCmdSetScissor(
+        inst->command_buffer,
+        0,
+        1,
+        &scissor
+      );
+
+      Object *obj = state->world.objects[obj_idx];
       obj->render(inst);
-    }
 
-    rawkit_shader_instance_end(inst);
+      rawkit_shader_instance_end(inst);
+    }
   }
 
 
