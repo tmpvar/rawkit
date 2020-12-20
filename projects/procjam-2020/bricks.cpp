@@ -67,29 +67,43 @@ struct State {
 };
 
 
+void fill_brick(Brick *brick) {
+  memset(&brick->occlusion, 0, sizeof(brick->occlusion));
+  for (int x=0; x<4; x++) {
+    for (int y=0; y<4; y++) {
+      for (int z=0; z<4; z++) {
+        int loc = x + y * 4 + z * 4 * 4;
+        // checkerboard
+        // brick.occlusion[0] = 6148914691236517000;
+        brick->occlusion[loc] = 1;
+      }
+    }
+  }
+}
 
 void setup() {
 
   State *state = rawkit_hot_state("state", State);
 
-  if (true || !state->world.objects) {
+  if (!state->world.objects) {
     if (state->world.objects) {
       stb__sbn(state->world.objects[0]->bricks) = 0;
       stb__sbn(state->world.objects) = 0;
     }
 
     uint32_t object_id = 0;
-    for (float y=0.0; y<10.0f; y+=2) {
+    for (float y=0.0; y<1.0f; y++) {
       Object *obj = new Object;
       sprintf(tmp_str, "object#%u", object_id++);
       obj->name.assign(tmp_str);
 
-      for (float x = 0.0f; x<8.0f; x++) {
-        for (float z = 0.0f; z<8.0f; z++) {
-         //memset(&brick.occlusion, 0xFF, sizeof(brick.occlusion));
-          obj->add_brick({
+      for (float x = 0.0f; x<19.0f; x++) {
+        for (float z = 0.0f; z<25.0f; z++) {
+          Brick brick = {
             .pos = vec4(x, y, z, 0.0)
-          });
+          };
+          fill_brick(&brick);
+          obj->add_brick(brick);
         }
       }
       sb_push(state->world.objects, obj);
@@ -139,11 +153,11 @@ void loop() {
       : vec3(1.0);
 
 
-    float dist = length(center) * 2.0;
-    float now = (float)rawkit_now() * .5 + 5.0;
+    float dist = length(center) * .51;
+    float now = (float)rawkit_now() * .05 + 5.0;
     vec3 eye = center + vec3(
       sin(now) * dist,
-      dist * 0.125,
+      dist,
       cos(now) * dist
     );
 

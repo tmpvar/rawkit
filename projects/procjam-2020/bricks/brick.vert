@@ -12,7 +12,10 @@ layout(std430, binding = 2) readonly buffer Bricks {
   Brick bricks[];
 };
 
-out vec4 v_color;
+out vec3 rayOrigin;
+out vec3 normal;
+flat out vec3 eye;
+flat out uint brick_id;
 
 // a cube
 const vec3 positions[36] = vec3[36](
@@ -65,11 +68,25 @@ const vec3 positions[36] = vec3[36](
   vec3(1.0, 0.0, 1.0)
 );
 
+vec3 normals[6] = vec3[6](
+  vec3(0.0, 0.5, 0.5),
+  vec3(0.5, 0.0, 0.5),
+  vec3(0.5, 0.5, 0.0),
+  vec3(1.0, 0.5, 0.5),
+  vec3(0.5, 1.0, 0.5),
+  vec3(0.5, 0.5, 1.0)
+);
+
 void main() {
   uint64_t occlusion[4];
   Brick brick = bricks[gl_InstanceIndex];
+  brick_id = gl_InstanceIndex;
+
   vec3 pos = positions[gl_VertexIndex] + brick.pos.xyz;
-  v_color = vec4(pos.x / 16.0, pos.y / 10.0, pos.z / 16.0, 1.0);
-  //v_color = vec4(pos.y / 10.0);
+  rayOrigin = positions[gl_VertexIndex];
+  eye = ubo.scene.eye.xyz - brick.pos.xyz;
+
+  int face_idx = gl_VertexIndex / 3 / 2;
+  normal = normals[face_idx];
 	gl_Position = ubo.scene.worldToScreen * vec4(pos, 1.0);
 }

@@ -23,5 +23,19 @@ struct Scene {
 
 struct Brick {
   vec4 pos;
-  //uint64_t occlusion[64];
+  uint64_t occlusion[64];
+};
+
+struct ray_hit_t {
+  vec4 color;
+  vec3 pos;
+  vec3 normal;
+  float density;
+  float iterations;
+};
+
+struct scene_t {
+  vec3 grid_dims;
+  vec3 inv_grid_dims;
+  Brick brick;
 };
