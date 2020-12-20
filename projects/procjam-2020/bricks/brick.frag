@@ -15,7 +15,7 @@ flat in vec3 eye;
 flat in uint brick_id;
 
 
-vec3 brick_dims = vec3(4.0);
+vec3 brick_dims = vec3(16.0);
 
 #define BRICK_DIAMETER 4.0
 
@@ -78,10 +78,12 @@ float march_voxviz(in Brick brick, in out vec3 pos, vec3 rayDir, out vec3 normal
 
   float hit = 0.0;
   vec3 prevPos = pos;
-  for (int iterations = 0; iterations < 16; iterations++) {
-    ivec3 p = ivec3(mapPos - offset);
-    if (all(greaterThanEqual(p, ivec3(0))) && all(lessThan(p, ivec3(4)))) {
-      if (distance(mapPos, vec3(2.0)) - 1.5 < 0.0) {
+  float max_iterations = length(brick_dims);
+  for (int iterations = 0; iterations < max_iterations; iterations++) {
+    vec3 p = mapPos - offset;
+    if (all(greaterThanEqual(p, vec3(0.0))) && all(lessThan(p, brick_dims))) {
+
+      if (distance(mapPos, vec3(8.0)) - 8.0 < 0.0) {
         hit = 1.0;
         break;
       }
@@ -112,7 +114,6 @@ float march_voxviz(in Brick brick, in out vec3 pos, vec3 rayDir, out vec3 normal
 void main() {
   Brick brick = bricks[brick_id];
   vec3 pos = rayOrigin * brick_dims;
-  // vec3 eye = ubo.scene.eye.xyz * brick_dims;
   vec3 dir = normalize(rayOrigin - eye);
 
   vec3 normal;

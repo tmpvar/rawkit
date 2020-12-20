@@ -82,11 +82,14 @@ void main() {
   Brick brick = bricks[gl_InstanceIndex];
   brick_id = gl_InstanceIndex;
 
-  vec3 pos = positions[gl_VertexIndex] + brick.pos.xyz;
   rayOrigin = positions[gl_VertexIndex];
   eye = ubo.scene.eye.xyz - brick.pos.xyz;
 
   int face_idx = gl_VertexIndex / 3 / 2;
   normal = normals[face_idx];
-	gl_Position = ubo.scene.worldToScreen * vec4(pos, 1.0);
+
+	gl_Position = ubo.scene.worldToScreen * vec4(
+    positions[gl_VertexIndex] + brick.pos.xyz,
+    1.0
+  );
 }
