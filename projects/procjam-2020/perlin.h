@@ -71,6 +71,22 @@ static double perlin2d(glm::vec2 pos, double freq, int depth) {
     return fin/div;
 }
 
+static double perlin2d(float x, float y, double freq, int depth) {
+    double  xa = x*freq;
+    double  ya = y*freq;
+    double  amp = 1.0;
+    double  fin = 0;
+    double  div = 0.0;
+    for (int i=0; i<depth; i++) {
+        div += 256 * amp;
+        fin += noise2d( xa, ya ) * amp;
+        amp /= 2;
+        xa *= 2;
+        ya *= 2;
+    }
+    return fin/div;
+}
+
 static double perlin3d(glm::vec3 pos, double freq, int depth) {
     double  xa = pos.x*freq;
     double  ya = pos.y*freq;
