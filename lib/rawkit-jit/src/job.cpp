@@ -299,13 +299,10 @@ bool JitJob::rebuild() {
     auto abs_path = fs::canonical(include);
     auto rel = fs::relative(abs_path, this->guest_include_dir);
 
-    // Filter down the results to files that exist outside of the rawkit install dir
-    if (rel.string().find("..") != 0) {
-      JitJobFileEntry entry;
-      entry.file = abs_path;
-      entry.mtime = fs::last_write_time(entry.file);
-      this->watched_files.push_back(entry);
-    }
+    JitJobFileEntry entry;
+    entry.file = abs_path;
+    entry.mtime = fs::last_write_time(entry.file);
+    this->watched_files.push_back(entry);
   }
 
   this->active_runnable.reset(run);

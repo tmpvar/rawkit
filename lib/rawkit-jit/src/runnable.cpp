@@ -25,11 +25,11 @@ class IncludeCollector : public DependencyFileGenerator {
 
   void finishedMainFile(DiagnosticsEngine &Diags) override {
     auto new_deps = this->getDependencies();
-    this->includes.insert(
-      this->includes.end(),
-      new_deps.begin(),
-      new_deps.end()
-    );
+
+    for (auto& dep : new_deps) {
+      string s = fs::absolute(dep).string();
+      this->includes.push_back(s);
+    }
   }
 };
 #pragma optimize( "", off )
