@@ -19,97 +19,32 @@ vec3 brick_dims = vec3(16.0);
 
 #define BRICK_DIAMETER 4.0
 
+float brick_march(in Brick brick, in vec3 rayOrigin, in vec3 rayDir, out vec3 normal, out float iterations) {
+  rayOrigin -= rayDir * 3.0;
+	vec3 pos = floor(rayOrigin);
+	vec3 dir = sign(rayDir);
+	vec3 sideDist = pos + 0.5 + dir * 0.5 - rayOrigin;
+  vec3 invDir = 1.0 / rayDir;
+	vec3 dt = sideDist * invDir;
 
-
-ray_hit_t march(scene_t scene, in vec3 pos, in vec3 dir) {
-  float max_distance = 2.0;
-  ray_hit_t ret;
-  ret.color = vec4(0.0);
-  ret.density = 0.0;
-  ret.pos = pos;
-  ret.pos -= dir * 0.1;
-
-  vec3 mapPos = vec3(floor(pos));
-  vec3 deltaDist = abs(vec3(length(dir)) / dir);
-  vec3 rayStep = sign(dir);
-  vec3 initial = pos;
-  float dist = 0.0;
-  vec3 sideDist = (sign(dir) * (mapPos - pos) + (sign(dir) * 0.5) + 0.5) * deltaDist;
-  vec3 mask = step(sideDist.xyz, sideDist.yzx) * step(sideDist.xyz, sideDist.zxy);
-
-  float hit = 0.0;
-  vec3 prevPos = pos;
-  float max_iterations = length(brick_dims) * 2.0;
-  for (int iterations = 0; iterations < max_iterations; iterations++) {
-    if (all(greaterThanEqual(mapPos, vec3(0))) && all(lessThan(mapPos, brick_dims))) {
-
-      uint loc = uint(
-        mapPos.x +
-        mapPos.y * scene.grid_dims.x +
-        mapPos.z * scene.grid_dims.x * scene.grid_dims.y
-      );
-
-      if (scene.brick.occlusion[loc] > 0) {
-        break;
-      }
-    }
-    mask = step(sideDist.xyz, sideDist.yzx) * step(sideDist.xyz, sideDist.zxy);
-    sideDist += mask * deltaDist;
-    mapPos += mask * rayStep;
-  }
-
-  // Note: this causes entire voxels to return the same coords
-  ret.pos = floor(mapPos) + 0.5;
-  // TODO: currently this only handles positive normals..
-  ret.normal = mask;//(-mask*sign(dir)) * 0.5 + 0.5;
-
-  return ret;
-}
-
-float march_voxviz(in Brick brick, in out vec3 pos, vec3 rayDir, out vec3 normal, out float iterations) {
-  pos -= rayDir * 3.0;
-  vec3 mapPos = vec3(floor(pos));
-  vec3 deltaDist = abs(vec3(length(rayDir)) / rayDir);
-  vec3 rayStep = sign(rayDir);
-  vec3 sideDist = (sign(rayDir) * (mapPos - pos) + (sign(rayDir) * 0.5) + 0.5) * deltaDist;
-  vec3 mask = step(sideDist.xyz, sideDist.yzx) * step(sideDist.xyz, sideDist.zxy);
-
-  vec3 offset = vec3(0.0);//brick.pos.xyz * brick_dims;
-
-  float hit = 0.0;
-  vec3 prevPos = pos;
   float max_iterations = length(brick_dims);
-  for (int iterations = 0; iterations < max_iterations; iterations++) {
-    vec3 p = mapPos - offset;
-    if (all(greaterThanEqual(p, vec3(0.0))) && all(lessThan(p, brick_dims))) {
+  for (iterations = 0; iterations < max_iterations; iterations++) {
+    vec3 mm = step(vec3(dt.xyz), vec3(dt.yxy)) * step(vec3(dt.xyz), vec3(dt.zzx));
+    sideDist = mm * dir;
 
-      if (distance(mapPos, vec3(8.0)) - 8.0 < 0.0) {
-        hit = 1.0;
-        break;
+    pos += sideDist;
+    dt += sideDist * invDir;
+
+    if (all(greaterThanEqual(pos, vec3(0.0))) && all(lessThan(pos, brick_dims))) {
+      if (distance(floor(pos) + 0.5, vec3(8.0)) - 7.5 < 0.0) {
+        normal = -sideDist;
+        return 1.0;
       }
-
-      // uint loc = uint(
-      //   p.x +
-      //   p.y * brick_dims.x +
-      //   p.z * brick_dims.x * brick_dims.y
-      // );
-
-      // if (brick.occlusion[loc] > 0) {
-      //   hit = 1.0;
-      //   break;
-      // }
     }
-    mask = step(sideDist.xyz, sideDist.yzx) * step(sideDist.xyz, sideDist.zxy);
-    sideDist += mask * deltaDist;
-    mapPos += mask * rayStep;
   }
 
-  pos = floor(mapPos) + 0.5;
-  normal = mask;
-  return hit;
+  return 0.0;
 }
-
-
 
 void main() {
   Brick brick = bricks[brick_id];
@@ -119,7 +54,7 @@ void main() {
   vec3 normal;
   float iterations;
 
-  float hit = march_voxviz(
+  float hit = brick_march(
     brick,
     pos,
     dir,
@@ -134,9 +69,8 @@ void main() {
   );
 
   if (hit == 0.0) {
-    color = vec4(0.1);
     discard;
   } else {
-    color = vec4(normal, 1.0);
+    color = vec4((normal + 1.0) * 0.5, 1.0);
   }
 }
