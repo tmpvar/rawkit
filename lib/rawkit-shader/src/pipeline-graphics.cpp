@@ -154,7 +154,7 @@ VkResult ShaderState::create_graphics_pipeline(VkRenderPass render_pass) {
   pRasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
   pRasterizationState.lineWidth = 1.0f;
   pRasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-  pRasterizationState.cullMode = VK_CULL_MODE_NONE;
+  pRasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
 
   VkPipelineMultisampleStateCreateInfo      pMultisampleState = {};
   pMultisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;

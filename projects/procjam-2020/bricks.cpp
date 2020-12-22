@@ -220,17 +220,17 @@ void render_camera(Scene *scene) {
 }
 
 void fill_brick(Brick *brick) {
-  memset(&brick->occlusion, 0, sizeof(brick->occlusion));
-  for (int x=0; x<4; x++) {
-    for (int y=0; y<4; y++) {
-      for (int z=0; z<4; z++) {
-        int loc = x + y * 4 + z * 4 * 4;
-        // checkerboard
-        // brick.occlusion[0] = 6148914691236517000;
-        brick->occlusion[loc] = 1;
-      }
-    }
-  }
+  // memset(&brick->occlusion, 0, sizeof(brick->occlusion));
+  // for (int x=0; x<4; x++) {
+  //   for (int y=0; y<4; y++) {
+  //     for (int z=0; z<4; z++) {
+  //       int loc = x + y * 4 + z * 4 * 4;
+  //       // checkerboard
+  //       // brick.occlusion[0] = 6148914691236517000;
+  //       brick->occlusion[loc] = 1;
+  //     }
+  //   }
+  // }
 }
 
 void setup() {
