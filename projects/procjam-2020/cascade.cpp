@@ -46,6 +46,7 @@ struct Cascade {
   BrickColor *cpu_colors = NULL;
   rawkit_gpu_ssbo_t *gpu_colors;
 
+  vec3 center;
 
   // Rebuild tools
   mutex rebuild_mutex;
@@ -105,34 +106,35 @@ void cascade_init(Cascade *cascade, uint32_t level) {
   printf("init cascade #%u: %u^3 (%llu bricks) (%llu bytes)\n", level, CASCADE_DIAMETER, brick_count, total_bytes);
 }
 
-void cascade_rebuild_worker(Cascade *cascade, state_t *state) {
+void cascade_rebuild_worker(Cascade *cascade, state_t *state, vec3 center) {
   Prof p("cascade");
-  Camera camera = state->camera;
-  camera.pos *= 1.0f/(float)CASCADE_DIAMETER;
   float d = CASCADE_DIAMETER * 2.0f;
   float h = d * 0.5f;
 
   uint32_t count = 0;
   for (float x=0.0f; x<d; x++) {
-    for (float y=0.0f; y<d; y++) {
-      double depth = 1.0f;
+    for (float z=0.0f; z<d; z++) {
+      double depth = 0.2f;
+
+      // TODO: y is actually up :facepalm:
+      float bx = floor(x - center.x - h);
+      float bz = floor(z - center.z - h);
 
       depth = floor(perlin2d(
-        floor(x + (camera.pos.x - h)),
-        floor(y + (camera.pos.y - h)),
+        bx,
+        bz,
         0.05f,
         2
-      ) * 50.0f);
+      ) * 20.0f);
 
-      for (float z=depth-3.0f; z<depth; z++) {
+      for (float y=depth-2.0f; y<depth; y++) {
         uint32_t brick_idx = count++;
         Brick *brick = &cascade->cpu_bricks[brick_idx];
-        brick->pos.x = x;
-        brick->pos.y = z;
-        brick->pos.z = y;
+        brick->pos.x = x - h;
+        brick->pos.y = y;
+        brick->pos.z = z - h;
 
         BrickColor *brick_color = &cascade->cpu_colors[brick_idx];
-
 
         for (int cx=0; cx<8; cx++) {
           for (int cy=0; cy<8; cy++) {
@@ -157,7 +159,7 @@ void cascade_rebuild_worker(Cascade *cascade, state_t *state) {
   printf("marked rebuild complete\n");
 }
 
-void cascade_rebuild(state_t *state, Cascade *cascade) {
+void cascade_rebuild(state_t *state, Cascade *cascade, vec3 center) {
   int none = (int)RebuildState::NONE;
   int active = (int)RebuildState::ACTIVE;
   int complete = (int)RebuildState::COMPLETE;
@@ -185,6 +187,8 @@ void cascade_rebuild(state_t *state, Cascade *cascade) {
       rawkit_gpu_ssbo_transition(cascade->gpu_bricks, (
         VK_ACCESS_SHADER_READ_BIT
       ));
+
+      state->scene.cascade_center = vec4(center, 1.0);
     }
 
     // update brick colors
@@ -212,7 +216,8 @@ void cascade_rebuild(state_t *state, Cascade *cascade) {
     return;
   }
 
-  if (cascade->count && all(equal(floor(cascade->camera.pos * INV_CASCADE_DIAMETER), floor(state->camera.pos * INV_CASCADE_DIAMETER)))) {
+  if (cascade->count && all(equal(vec3(state->scene.cascade_center), center))) {
+  // (cascade->camera.pos * INV_CASCADE_DIAMETER), floor(state->camera.pos * INV_CASCADE_DIAMETER)))) {
     return;
   }
 
@@ -225,7 +230,7 @@ void cascade_rebuild(state_t *state, Cascade *cascade) {
       cascade->pending.join();
       printf("pending joined\n");
     }
-    cascade->pending = thread(cascade_rebuild_worker, cascade, state);
+    cascade->pending = thread(cascade_rebuild_worker, cascade, state, state->scene.cascade_center);
   }
 }
 
@@ -291,11 +296,11 @@ void loop() {
   rawkit_vg_translate(vg, window.x/2.0f, window.y/2.0f);
   // camera movement
   {
-    double move = dt * 10000.0;
+    double move = dt * 100.0;
 
     // w
     if (igIsKeyDown(87)) {
-      camera->pos.y -= move;
+      camera->pos.z -= move;
     }
 
     // a
@@ -305,7 +310,7 @@ void loop() {
 
     // s
     if (igIsKeyDown(83)) {
-      camera->pos.y += move;
+      camera->pos.z += move;
     }
 
     // d
@@ -313,7 +318,7 @@ void loop() {
       camera->pos.x -= move;
     }
 
-    igText("camera(%f.03, %f.03)", camera->pos.x, camera->pos.y);
+    igText("camera(%f.03, ..., %f.03)", camera->pos.x, camera->pos.z);
   }
 
   // setup state
@@ -332,28 +337,39 @@ void loop() {
       10000.0f
     );
 
-    vec3 eye = (
-      vec3(camera->pos.x, 0.0, camera->pos.y) * INV_CASCADE_DIAMETER +
-      vec3(CASCADE_DIAMETER * 0.5f, 50.0, CASCADE_DIAMETER * 0.5f)
-    );
+    camera->pos.y = 50.0f;
+    vec3 relative = vec3(state->scene.cascade_center - camera->pos);
+    relative.y = 20.0f;
+    igText("relative(%.01f, %.01f, %.01f)",relative.x, relative.y, relative.z);
     mat4 view = glm::lookAt(
-      eye,
-      eye + vec3(0.0, -0.75, -1.0),
+      relative,
+      vec3(relative) + vec3(0.0, -10.75, 19.0),
       vec3(0.0f, -1.0f, 0.0f)
     );
 
     state->scene.worldToScreen = proj * view;
     state->scene.brick_dims = vec4(16.0f);
-    state->scene.eye = vec4(eye, 1.0f);
+    state->scene.eye = vec4(relative, 1.0f);
+    // state->scene.eye = vec4(eye, 1.0f);
     state->scene.time = (float)rawkit_now();
+
   }
 
   // render 2d cascade
   {
 
+    float cascade_step_size = 8.0f;
+    vec3 cascade_center = vec3(floor(state->camera.pos / cascade_step_size) * cascade_step_size);
+    igText("center(%0.1f, %0.1f, %0.1f)",
+      cascade_center.x,
+      cascade_center.y,
+      cascade_center.z
+    );
+
     Cascade *cascade = &state->cascades[0];
+
     // update the cascade with dummy data for now
-    cascade_rebuild(state, cascade);
+    cascade_rebuild(state, cascade, cascade_center);
 
     // noise texture debug
     if (0) {

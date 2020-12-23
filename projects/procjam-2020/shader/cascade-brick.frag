@@ -45,7 +45,7 @@ float brick_march(in vec3 rayOrigin, in vec3 rayDir, out vec3 normal, out vec3 p
       //   normal = -sideDist;
       //   return 1.0;
       // }
-      if (distance(floor(pos) + 0.5, vec3(8.0)) - 18.5 < 0.0) {
+      if (distance(floor(pos) + 0.5, vec3(8.0)) - 11.5 < 0.0) {
         normal = -sideDist;
         return 1.0;
       }
@@ -56,7 +56,6 @@ float brick_march(in vec3 rayOrigin, in vec3 rayDir, out vec3 normal, out vec3 p
 }
 
 void main() {
-
   vec3 brickPos = rayOrigin * brick_dims;
   vec3 dir = normalize(rayOrigin - eye);
 
@@ -80,17 +79,15 @@ void main() {
     discard;
   } else {
     color = vec4((normal + 1.0) * 0.5, 1.0);
-
-
-    uint loc = uint(pos.x + pos.y*8 + pos.z*8*8);
+    uint loc = uint(pos.x + pos.y * 8 + pos.z*8*8);
 
     // color = vec4(pos.y / 20.0f);
     uint packed =  colors[brick_id].voxel[loc];
-    color = vec4(normal, 1.0) + vec4(
+    color = (vec4(normal, 1.0) + vec4(
       float((packed >> 24) & 0xFF) / 255.0,
       float((packed >> 16) & 0xFF) / 255.0,
       float((packed >> 8) & 0xFF) / 255.0,
       1.0 // use the alpha channel for materaial or similar.
-    );
+    )) * 0.5;
   }
 }

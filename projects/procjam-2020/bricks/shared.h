@@ -23,6 +23,7 @@ struct Scene {
   vec4 screen_dims;
   vec4 eye;
   vec4 brick_dims;
+  vec4 cascade_center;
   Camera camera;
   float time;
 };
@@ -40,7 +41,8 @@ struct BrickOcclusion {
 struct BrickColor {
   // 8^3 which means each voxel is colored by the interpolation
   // between neighboring color values.. It's either this, drop
-  // down to 16bit color or figure out a brick level compression scheme.
+  // down to 16bit color or figure out a brick level compression scheme. DXT1 should work fine here, but
+  // we'll probably want to turn this into a texture!
   uint voxel[512];
 };
 
