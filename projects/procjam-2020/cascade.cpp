@@ -111,7 +111,8 @@ void cascade_rebuild_worker(Cascade *cascade, state_t *state) {
   camera.pos *= 1.0f/(float)CASCADE_DIAMETER;
   float d = CASCADE_DIAMETER * 2.0f;
   float h = d * 0.5f;
-  cascade->count=0;
+
+  uint32_t count = 0;
   for (float x=0.0f; x<d; x++) {
     for (float y=0.0f; y<d; y++) {
       double depth = 1.0f;
@@ -124,7 +125,7 @@ void cascade_rebuild_worker(Cascade *cascade, state_t *state) {
       ) * 50.0f);
 
       for (float z=depth-3.0f; z<depth; z++) {
-        uint32_t brick_idx = cascade->count++;
+        uint32_t brick_idx = count++;
         Brick *brick = &cascade->cpu_bricks[brick_idx];
         brick->pos.x = x;
         brick->pos.y = z;
@@ -150,6 +151,7 @@ void cascade_rebuild_worker(Cascade *cascade, state_t *state) {
     }
   }
 
+  cascade->count = count;
   printf("\nmarking rebuild complete\n");
   cascade->rebuild_complete.store((int)RebuildState::COMPLETE);
   printf("marked rebuild complete\n");
