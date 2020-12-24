@@ -87,7 +87,7 @@ void main() {
   brick_id = gl_InstanceIndex;
 
   rayOrigin = positions[gl_VertexIndex];
-  eye = ubo.scene.eye.xyz;// - brick_pos.xyz;
+  eye = ubo.scene.eye.xyz + brick_pos.xyz;
 
   int face_idx = gl_VertexIndex / 3 / 2;
   normal = normals[face_idx];

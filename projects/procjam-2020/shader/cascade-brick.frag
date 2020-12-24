@@ -40,11 +40,6 @@ float brick_march(in vec3 rayOrigin, in vec3 rayDir, out vec3 normal, out vec3 p
     dt += sideDist * invDir;
 
     if (all(greaterThanEqual(pos, vec3(0.0))) && all(lessThan(pos, brick_dims))) {
-
-      // if (pos.y < 8.0) {
-      //   normal = -sideDist;
-      //   return 1.0;
-      // }
       if (distance(floor(pos) + 0.5, vec3(8.0)) - 11.5 < 0.0) {
         normal = -sideDist;
         return 1.0;
