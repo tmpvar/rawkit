@@ -130,9 +130,9 @@ void cascade_rebuild_worker(Cascade *cascade, state_t *state, vec3 center) {
       for (float y=depth-2.0f; y<depth; y++) {
         uint32_t brick_idx = count++;
         Brick *brick = &cascade->cpu_bricks[brick_idx];
-        brick->pos.x = x - h;
+        brick->pos.x = bx;
         brick->pos.y = y;
-        brick->pos.z = z - h;
+        brick->pos.z = bz;
 
         BrickColor *brick_color = &cascade->cpu_colors[brick_idx];
 
@@ -300,22 +300,32 @@ void loop() {
 
     // w
     if (igIsKeyDown(87)) {
-      camera->pos.z -= move;
+      camera->pos.z += move;
     }
 
     // a
     if (igIsKeyDown(65)) {
-      camera->pos.x += move;
+      camera->pos.x -= move;
     }
 
     // s
     if (igIsKeyDown(83)) {
-      camera->pos.z += move;
+      camera->pos.z -= move;
     }
 
     // d
     if (igIsKeyDown(68)) {
-      camera->pos.x -= move;
+      camera->pos.x += move;
+    }
+
+    // space
+    if (igIsKeyDown(341)) {
+      camera->pos.y -= move;
+    }
+
+    // control
+    if (igIsKeyDown(32)) {
+      camera->pos.y += move;
     }
 
     igText("camera(%f.03, ..., %f.03)", camera->pos.x, camera->pos.z);
@@ -337,13 +347,18 @@ void loop() {
       10000.0f
     );
 
-    camera->pos.y = 50.0f;
-    vec3 relative = vec3(state->scene.cascade_center - camera->pos);
-    relative.y = 20.0f;
-    igText("relative(%.01f, %.01f, %.01f)",relative.x, relative.y, relative.z);
+
+    // vec3 relative = vec3(state->scene.cascade_center - camera->pos);
+    // relative.y = 20.0f;
+    // igText("relative(%.01f, %.01f, %.01f)", relative.x, relative.y, relative.z);
+    vec3 relative(
+      camera->pos.x,
+      camera->pos.y,
+      camera->pos.z
+    );
     mat4 view = glm::lookAt(
       relative,
-      vec3(relative) + vec3(0.0, -10.75, 19.0),
+      relative + vec3(0.0, -10.75, 19.0),
       vec3(0.0f, -1.0f, 0.0f)
     );
 
@@ -358,8 +373,8 @@ void loop() {
   // render 2d cascade
   {
 
-    float cascade_step_size = 8.0f;
-    vec3 cascade_center = vec3(floor(state->camera.pos / cascade_step_size) * cascade_step_size);
+    float cascade_step_size = 1.0f;
+    vec3 cascade_center = vec3(ceil(state->camera.pos / cascade_step_size) * cascade_step_size);
     igText("center(%0.1f, %0.1f, %0.1f)",
       cascade_center.x,
       cascade_center.y,

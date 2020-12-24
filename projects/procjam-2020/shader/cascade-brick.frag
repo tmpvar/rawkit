@@ -24,7 +24,7 @@ vec3 brick_dims = vec3(16.0);
 #define BRICK_DIAMETER 4.0
 
 float brick_march(in vec3 rayOrigin, in vec3 rayDir, out vec3 normal, out vec3 pos) {
-  rayOrigin -= rayDir * 3.0;
+  rayOrigin -= rayDir * 4.1;
 	pos = floor(rayOrigin);
 	vec3 dir = sign(rayDir);
 	vec3 sideDist = pos + 0.5 + dir * 0.5 - rayOrigin;
