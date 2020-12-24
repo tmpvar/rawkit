@@ -599,9 +599,12 @@ rawkit_texture_t *_rawkit_texture_mem(
   options.source = nullptr;
   options.usage = (
     VK_IMAGE_USAGE_SAMPLED_BIT |
-    VK_IMAGE_USAGE_STORAGE_BIT |
     VK_IMAGE_USAGE_TRANSFER_DST_BIT
   );
+
+  if (format < VK_FORMAT_BC1_RGB_UNORM_BLOCK) {
+    options.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+  }
 
   options.format = format;
   options.size = rawkit_texture_compute_size(
