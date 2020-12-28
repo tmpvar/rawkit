@@ -89,7 +89,7 @@ void main() {
   normal = normals[face_idx];
 
 	gl_Position = ubo.scene.worldToScreen * vec4(
-    positions[gl_VertexIndex] + brick.pos.xyz,
+    rayOrigin + brick.pos.xyz,
     1.0
   );
 }
