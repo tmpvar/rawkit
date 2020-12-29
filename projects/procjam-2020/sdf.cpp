@@ -1,3 +1,34 @@
+/*
+  sdf.cpp - a quick bricks2 experiment testing if rendering bounded sdf ops with bricks
+  is efficient enough without maintaining a separate spacial datastructure.
+
+  STATUS:
+    Currently computing a single object (a grid of small spheres) and rendering each touched brick
+    with _all_ of the ops in the object (1024 ops as of this writing).
+
+    From what I can tell, the shader is stalling due to cache thrashing and the branches for each type
+    of op. Reducing the memory accesses and the branches equates to a ~2x jump in fps (15-30fps).
+
+  RESULT
+    With this approach we go back to the many pixels per voxel raytracing situation and add the extra
+    overhead of reading a large list of ops per ray step.
+
+    I can't seem to wrap my head around how this would work for dynamic modification. One of the goals for me
+    is a cnc milling simulation and with this approach I'd need to apply _many_ swept cylinders.
+
+  FUTURE
+    If work on this continues, there are several paths of exploration:
+    - instead of a list of ops per brick, denote what a brick is and render lists of bricks based on their type
+    - precompute lists of surface bricks with their contents filled.
+
+    To improve perf without adding a bunch of extra machinery + structure:
+    - more culling of bricks + tigher aabbs
+    - tune brick size
+    - compute op list at a brick level instead of having each brick read every op in the object
+*/
+
+
+
 #include <rawkit/rawkit.h>
 
 #define CPU_HOST
