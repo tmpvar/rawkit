@@ -1,0 +1,62 @@
+#version 450
+
+#include "../shared.h"
+
+#extension GL_ARB_gpu_shader_int64 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+
+layout( local_size_x = 32) in;
+
+layout (std430, binding = 0) uniform UBO {
+  Scene scene;
+} ubo;
+
+layout(std430, binding = 1) buffer PointBuffer {
+  Point points[];
+};
+
+layout (std430, binding = 2) buffer FrameBuffer {
+  uint64_t framebuffer[];
+};
+
+void main() {
+  uint id = gl_GlobalInvocationID.x;
+  Point p = points[id];
+
+  vec4 pos = ubo.scene.worldToScreen * vec4(p.x, p.y, p.z, 1.0);
+  pos.xyz = pos.xyz / pos.w;
+
+  if(pos.w <= 0.0 || pos.x < -1.0 || pos.x > 1.0 || pos.y < -1.0 || pos.y > 1.0){
+    return;
+  }
+
+  vec2 imgPos = (pos.xy * 0.5 + 0.5) * ubo.scene.screen_dims.xy;
+  ivec2 pixelCoords = ivec2(imgPos);
+  int width = int(ubo.scene.screen_dims.x);
+  int pixelID = pixelCoords.x + pixelCoords.y * width;
+
+  // compute depth in double precision all the way
+  // only needed for maximum depth precision, but slows down around 5-10%
+  //dvec4 pos64 = dvec4(v.x, v.y, v.z, 1.0);
+  //double depth64 = dot(uDepthLine, pos64);
+  //double depth = depth64;
+
+  // convert depth from single-precision float to a 64 bit fixed-precision integer.
+  double depth = pos.w;
+  int64_t u64Depth = int64_t(depth * 1000000.0lf);
+
+  int64_t val64 = (u64Depth << 24) | int64_t(p.color);
+
+
+  // 1 pixel
+  atomicMin(framebuffer[pixelID], val64);
+
+  // 4 pixels
+  // atomicMin(framebuffer[pixelID], val64);
+  // atomicMin(framebuffer[pixelID + 1], val64);
+  // atomicMin(framebuffer[pixelID + width], val64);
+  // atomicMin(framebuffer[pixelID + width + 1], val64);
+
+  // count fragments
+  //atomicAdd(ssFramebuffer[pixelID], 1l);
+}
