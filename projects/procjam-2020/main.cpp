@@ -44,7 +44,7 @@ vec4 sample_blue_noise(const rawkit_texture_t *tex, uint64_t loc) {
   );
 }
 
-vec3 world_dims(512.0);
+vec3 world_dims(256.0);
 
 typedef struct state_t {
   bool initialized;
@@ -355,7 +355,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
   }
   printf("filled occlusion data\n");
   // fill the ground
-  if (0) {
+  if (1) {
     vec4 init = sample_blue_noise(noise, seed);
     uint32_t max_y = (init.x * world_dims.y);
 
@@ -595,7 +595,7 @@ void world_build(rawkit_texture_t *world_texture, rawkit_texture_t *world_occlus
 
 
   // fill the world with reflection test
-  if (1) {
+  if (0) {
     uint64_t a = 0;
     for (uint32_t x=0; x<world_dims.x; x++) {
       for (uint32_t y=0; y<world_dims.y; y++) {

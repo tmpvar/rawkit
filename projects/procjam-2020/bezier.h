@@ -1,4 +1,3 @@
-#include "bricks/shared.h"
 #include "bricks/aabb.h"
 
 static vec3 bezier(vec3 p1, vec3 p2, vec3 p3, vec3 p4, float t) {

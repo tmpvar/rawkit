@@ -1,11 +1,11 @@
 #ifdef CPU_HOST
   #pragma once
   #define GLM_FORCE_RADIANS
-  #include "../glm/glm.hpp"
-  #include "../glm/gtc/matrix_transform.hpp"
-  #include "../glm/gtx/compatibility.hpp"
+  #include <glm/glm.hpp>
+  #include <glm/gtc/matrix_transform.hpp>
+  #include <glm/gtx/compatibility.hpp>
 
-  #include "../glm/glm.hpp"
+  #include <glm/glm.hpp>
   using namespace glm;
 
   typedef uint uint32_t;
@@ -31,7 +31,7 @@ struct Scene {
 
 struct Brick {
   vec4 pos;
-  uvec4 params; // op count, nop, nop, nop
+  uvec4 params; // op count, op, nop, nop
 };
 
 struct BrickOcclusion {

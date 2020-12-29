@@ -252,10 +252,15 @@ install(
   DESTINATION include/rawkit
 )
 
-
 install(
   DIRECTORY
     ${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/cglm
+  DESTINATION include
+)
+
+install(
+  DIRECTORY
+    ${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/glm
   DESTINATION include
 )
 
