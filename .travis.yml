@@ -19,8 +19,10 @@ before_install:
       choco install -y 7zip.commandline
       choco install visualstudio2019community
       choco install visualstudio2019-workload-nativedesktop
+      choco install openssl
       export VS160COMNTOOLS="/c/Program Files (x86)/Microsoft Visual Studio/2019/Community/Common7/Tools"
       python -m pip install --upgrade pip
+      pip3 install cryptography
       wget -q http://tmpvar.com/llvm-11-windows-release.7z -O llvm.7z
       7z x llvm.7z
       mv llvm C:/Users/travis/build/tmpvar/
