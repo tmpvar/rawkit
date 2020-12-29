@@ -142,7 +142,7 @@ VkResult rawkit_gpu_ssbo_transition(
   VkAccessFlags access
 );
 
-#define rawkit_gpu_ssbo(name, size) _rawkit_gpu_ssbo( \
+#define rawkit_gpu_ssbo(name, size) rawkit_gpu_ssbo_ex( \
   rawkit_default_gpu(), \
   name, \
   size, \
