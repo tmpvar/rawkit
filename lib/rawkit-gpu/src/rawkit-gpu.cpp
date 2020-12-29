@@ -529,7 +529,7 @@ uint32_t rawkit_gpu_get_tick_idx(rawkit_gpu_t *gpu) {
   return state->tick_idx;
 }
 
-rawkit_gpu_ssbo_t *_rawkit_gpu_ssbo(
+rawkit_gpu_ssbo_t *rawkit_gpu_ssbo_ex(
   rawkit_gpu_t *gpu,
   const char *name,
   uint64_t size,
@@ -600,7 +600,7 @@ VkResult rawkit_gpu_ssbo_transition(
   VkResult err = VK_SUCCESS;
   VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu);
   if (!command_buffer) {
-    printf("ERROR: _rawkit_gpu_ssbo: could not create command buffer\n");
+    printf("ERROR: rawkit_gpu_ssbo_ex: could not create command buffer\n");
     return err;
   }
   VkCommandBufferBeginInfo begin_info = {};
@@ -626,7 +626,7 @@ VkResult rawkit_gpu_ssbo_transition(
     end_info.pCommandBuffers = &command_buffer;
     err = vkEndCommandBuffer(command_buffer);
     if (err) {
-      printf("ERROR: _rawkit_gpu_ssbo: could not end command buffer");
+      printf("ERROR: rawkit_gpu_ssbo_ex: could not end command buffer");
       return err;
     }
 
@@ -637,7 +637,7 @@ VkResult rawkit_gpu_ssbo_transition(
       create.flags = 0;
       err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
       if (err) {
-        printf("ERROR: _rawkit_gpu_ssbo: create fence failed (%i)\n", err);
+        printf("ERROR: rawkit_gpu_ssbo_ex: create fence failed (%i)\n", err);
         return err;
       }
     }
@@ -645,7 +645,7 @@ VkResult rawkit_gpu_ssbo_transition(
     err = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, fence);
     rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
     if (err) {
-      printf("ERROR: _rawkit_gpu_ssbo: could not submit command buffer");
+      printf("ERROR: rawkit_gpu_ssbo_ex: could not submit command buffer");
       return err;
     }
   }

@@ -120,7 +120,8 @@ typedef struct rawkit_gpu_ssbo_t {
   rawkit_gpu_buffer_t *staging_buffer;
 } rawkit_gpu_ssbo_t;
 
-rawkit_gpu_ssbo_t *_rawkit_gpu_ssbo(
+// TODO: this should be rawkit_gpu_ssbo_ex
+rawkit_gpu_ssbo_t *rawkit_gpu_ssbo_ex(
   rawkit_gpu_t *gpu,
   const char *name,
   uint64_t size,
