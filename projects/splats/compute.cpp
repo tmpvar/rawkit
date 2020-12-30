@@ -115,6 +115,14 @@ void loop() {
     );
 
     if (inst) {
+      vkCmdFillBuffer(
+        inst->command_buffer,
+        points_ssbo->buffer->handle,
+        0,
+        points_ssbo->buffer->size,
+        0x00
+      );
+
       rawkit_shader_instance_param_ubo(inst, "UBO", &state->scene);
       rawkit_shader_instance_param_ssbo(inst, "PointBuffer", points_ssbo);
       rawkit_shader_instance_param_ssbo(inst, "PointStateBuffer", point_state_ssbo);
