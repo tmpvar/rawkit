@@ -221,7 +221,7 @@ VkResult rawkit_gpu_copy_buffer(
   );
 
   vkEndCommandBuffer(command_buffer);
-  VkFence fence;
+  VkFence fence = VK_NULL_HANDLE;
   {
     VkFenceCreateInfo create = {};
     create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -244,16 +244,16 @@ VkResult rawkit_gpu_copy_buffer(
       printf("ERROR: unable to submit command buffer to queue while copying buffer (%i)\n", err);
       return err;
     }
+  }
 
-    uint64_t timeout_ns = 100000000000;
-    err = vkWaitForFences(gpu->device, 1, &fence, VK_TRUE, timeout_ns);
-    if (err) {
-      printf("ERROR: unable to wait for queue while copying buffer (%i)\n", err);
-      return err;
-    }
-
-    vkDestroyFence(gpu->device, fence, NULL);
-    vkFreeCommandBuffers(gpu->device, pool, 1, &command_buffer);
+  // schedule the buffer for deletion
+  {
+    rawkit_gpu_queue_command_buffer_for_deletion(
+      gpu,
+      command_buffer,
+      fence,
+      pool
+    );
   }
 
   return VK_SUCCESS;
@@ -546,14 +546,14 @@ rawkit_gpu_ssbo_t *rawkit_gpu_ssbo_ex(
   );
 
   if (dirty) {
-    ssbo->resource_version = 0;
+    /*ssbo->resource_version = 0;
     if (ssbo->buffer) {
       rawkit_gpu_buffer_destroy(gpu, ssbo->buffer);
     }
 
     if (ssbo->staging_buffer) {
       rawkit_gpu_buffer_destroy(gpu, ssbo->staging_buffer);
-    }
+    }*/
 
     ssbo->buffer = rawkit_gpu_buffer_create(
       gpu,
