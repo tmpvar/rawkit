@@ -13,16 +13,23 @@ layout (std430, binding = 1) buffer FrameBuffer {
   uint64_t framebuffer[];
 };
 
+layout (binding = 2) uniform sampler2D framebuffer_texture;
+
+
 layout (location = 0) out vec4 color;
 
 in vec2 uv;
 
 void main() {
+  color = texture(framebuffer_texture, uv);
+  // color = vec4(uv, 0.0, 1.0);
+  return;
 
   vec2 dims = ubo.scene.screen_dims.xy;
-  vec2 pos = dims * uv;
-  uint id = int(pos.x + pos.y * dims.x);
+  vec2 pos = dims * uv;;
 
+
+  uint id = int(pos.x + pos.y * dims.x);
   uint64_t v = framebuffer[id];
   framebuffer[id] = 0xffffffffff000000UL;
 

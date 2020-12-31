@@ -19,21 +19,26 @@ layout (std430, binding = 2) buffer FrameBuffer {
   uint64_t framebuffer[];
 };
 
+void putPixel(ivec2 pos, int width, uint64_t value) {
+  int pixelID = pos.x + pos.y * width;
+  atomicMin(framebuffer[pixelID], value);
+}
+
 void main() {
   uint id = gl_GlobalInvocationID.x;
-  Point p = points[id];
+  Point point = points[id];
 
-  vec4 pos = ubo.scene.worldToScreen * vec4(p.x, p.y, p.z, 1.0);
+  vec4 pos = ubo.scene.worldToScreen * vec4(point.x, point.y, point.z, 1.0);
   pos.xyz = pos.xyz / pos.w;
 
   if(pos.w <= 0.0 || pos.x < -1.0 || pos.x > 1.0 || pos.y < -1.0 || pos.y > 1.0){
     return;
   }
 
-  vec2 imgPos = (pos.xy * 0.5 + 0.5) * ubo.scene.screen_dims.xy;
+  vec2 imgPos = (pos.xy + 0.5) * ubo.scene.screen_dims.xy * ubo.scene.screen_dims.z;
   ivec2 pixelCoords = ivec2(imgPos);
   int width = int(ubo.scene.screen_dims.x);
-  int pixelID = pixelCoords.x + pixelCoords.y * width;
+  // int pixelID = pixelCoords.x + pixelCoords.y * width;
 
   // compute depth in double precision all the way
   // only needed for maximum depth precision, but slows down around 5-10%
@@ -45,18 +50,25 @@ void main() {
   double depth = pos.w;
   int64_t u64Depth = int64_t(depth * 1000000.0lf);
 
-  int64_t val64 = (u64Depth << 24) | int64_t(p.color);
+  vec3 normal = (point.normal.xyz * 0.5 + 0.5) * 255.0;
 
+  int64_t color = int64_t(
+    uint(normal.x) << 0 |
+    uint(normal.y) << 8 |
+    uint(normal.z) << 16
+  );
 
-  // 1 pixel
-  atomicMin(framebuffer[pixelID], val64);
+  int64_t val64 = (u64Depth << 24) | color; //int64_t(p.color);
 
-  // 4 pixels
-  // atomicMin(framebuffer[pixelID], val64);
-  // atomicMin(framebuffer[pixelID + 1], val64);
-  // atomicMin(framebuffer[pixelID + width], val64);
-  // atomicMin(framebuffer[pixelID + width + 1], val64);
+  float dist = (1.0 - distance(vec3(point.x, point.y, point.z), ubo.scene.eye.xyz) / 1000.0) * 1.0;
 
-  // count fragments
-  //atomicAdd(ssFramebuffer[pixelID], 1l);
+  int r = int(ceil(dist));
+  ivec2 p = pixelCoords - ivec2(r);
+  ivec2 ub = pixelCoords + ivec2(r);
+
+  for (p.x; p.x<=ub.x; p.x++) {
+    for (p.y=pixelCoords.y - r; p.y<=ub.y; p.y++) {
+      putPixel(p, width, val64);
+    }
+  }
 }

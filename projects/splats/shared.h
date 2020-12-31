@@ -16,6 +16,7 @@
 
 
 struct Point {
+  vec4 normal;
   float x;
   float y;
   float z;
