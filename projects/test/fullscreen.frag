@@ -71,19 +71,22 @@ void main() {
   vec2 uv = tex_uv;
 
   float row = floor(uv.y / inv_partitions);
-  float row_offset = offsets[int(row)];
+  float col = floor(uv.x / inv_partitions);
 
-  row_offset = -abs(hash(vec2(row * 10.0, 0.0)).x) * range;
+  // float col_offset = -abs(hash(vec2(row * 10.0, col * 5.0)).x) * range;
+
+  vec2 offset = vec2(
+    -abs(hash(vec2(row * 10.0, 0.0)).x) * range,
+    -abs(hash(vec2(col * 10.0, 0.0)).x) * range
+  );
 
   uv = tex_uv;
-
-  float ot = max(lt - row_offset, 0.0);
-  float intensity = (2.0-ot) * ot + row_offset * t;
-
+  vec2 ot = max(lt - offset, vec2(0.0));
+  vec2 intensity = (2.0-ot) * ot + offset * t;
   //set offsets
-  vec2 rOffset = vec2(0.01, 0)*intensity;
-  vec2 gOffset = vec2(0.02, 0)*intensity;
-  vec2 bOffset = vec2(0.03, 0)*intensity;
+  vec2 rOffset = vec2(ubo.scene.xoffset + 0.01, ubo.scene.yoffset)*(intensity);
+  vec2 gOffset = vec2(ubo.scene.xoffset + 0.02, ubo.scene.yoffset)*(intensity);
+  vec2 bOffset = vec2(ubo.scene.xoffset + 0.03, ubo.scene.yoffset)*(intensity);
 
   vec4 rValue = texture(logo, uv - rOffset);
   vec4 gValue = texture(logo, uv - gOffset);

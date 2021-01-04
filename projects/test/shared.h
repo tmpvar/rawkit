@@ -21,6 +21,9 @@ struct Scene {
   float time_scale;
   float range;
 
+  float xoffset;
+  float yoffset;
+
   // vec4 eye;
   // vec4 brick_dims;
   float time;

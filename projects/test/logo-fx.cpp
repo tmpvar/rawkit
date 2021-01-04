@@ -61,6 +61,18 @@ void loop() {
     igSliderScalar("##range", ImGuiDataType_Float, &state->scene.range,  &dmin, &dmax, "range %f", 1.0f);
   }
 
+  {
+    float dmin = 0.00f;
+    float dmax = .5f;
+    igSliderScalar("##yoffset", ImGuiDataType_Float, &state->scene.yoffset,  &dmin, &dmax, "yoffset %f", 1.0f);
+  }
+  {
+    float dmin = 0.01f;
+    float dmax = .5f;
+    igSliderScalar("##xoffset", ImGuiDataType_Float, &state->scene.xoffset,  &dmin, &dmax, "xoffset %f", 1.0f);
+  }
+
+
   ImVec2 mouse = {0.5, 0.5};
   igGetMousePos(&mouse);
   state->scene.mouse = vec4(
@@ -70,7 +82,7 @@ void loop() {
     0.0
   );
 
-  igText("mpos(%f, %f)", state->scene.mouse.x, state->scene.mouse.y);
+
   auto viper_img = rawkit_texture("viper.png");
 
   // compute
