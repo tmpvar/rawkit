@@ -1,7 +1,8 @@
 #pragma once
 
+#include <intrin.h>
+
 // In the event that anyone uses GLM in a guest.
-// Eventually I'd like to ship a copy, but I haven't gone there yet.
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS

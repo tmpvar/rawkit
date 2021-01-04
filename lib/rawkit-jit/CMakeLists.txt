@@ -99,8 +99,14 @@ if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
+file(GLOB CLANG_INCLUDE_DIRS "${Clang_DIR}/../../clang/*/include")
+list(GET CLANG_INCLUDE_DIRS 0 CLANG_INCLUDE_DIR)
+
+message(STATUS "install prefix ${CLANG_INCLUDE_DIRS}")
+
 target_compile_options(rawkit-jit PUBLIC
   ${EXTRA_COMPILE_OPTIONS}
+  -DCLANG_INCLUDE_DIR="${CLANG_INCLUDE_DIR}"
 )
 
 target_link_options( ${PROJECT_NAME} PRIVATE
@@ -167,6 +173,14 @@ install(
   FILES
     ${CMAKE_CURRENT_LIST_DIR}/include/rawkit/jit.h
   DESTINATION include/rawkit
+)
+
+# Install all of the clang headers in an attempt to get intrinsics (which are implemented as static inline...)
+file(GLOB CLANG_HEADERS "${CLANG_INCLUDE_DIR}/*.h")
+install(
+  FILES
+  ${CLANG_HEADERS}
+  DESTINATION include/clang
 )
 
 install(TARGETS ${PROJECT_NAME}
