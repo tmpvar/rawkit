@@ -44,7 +44,7 @@ void int_vector_push_back(int_vector_t *vec, int32_t val) {
   if (vec->size >= vec->maxSize) {
     vec->maxSize *= 2;
 
-    int32_t *new_ptr = realloc(vec->vals, sizeof(int32_t) * vec->maxSize);
+    int32_t *new_ptr = (int32_t *)realloc(vec->vals, sizeof(int32_t) * vec->maxSize);
     if (!new_ptr) {
       printf("ERROR: could not realloc vector!\n");
       exit(1);
@@ -189,30 +189,30 @@ void init_state(bool reset) {
 
     {
       boundary_t boundary = {
+        .top = height,
+        .bottom = 0.0f,
         .left = -width * 0.5f - 0.1f,
         .right = -width * 0.5f,
-        .bottom = 0.0f,
-        .top = height
       };
       sb_push(state->boundaries, boundary);
     }
 
     {
       boundary_t boundary = {
-        .left = width * 0.25,
-        .right = width * 0.25 + 0.1,
+        .top = height,
         .bottom = 0.05f,
-        .top = height
+        .left = width * 0.25f,
+        .right = width * 0.25f + 0.1f,
       };
       sb_push(state->boundaries, boundary);
     }
 
     {
       boundary_t boundary = {
-        .left = 1 + width * 0.25,
-        .right = 1 +width * 0.75 + 0.1,
+        .top = height / 10.0f,
         .bottom = 0.0f,
-        .top = height / 10.0f
+        .left = 1.0f + width * 0.25f,
+        .right = 1.0f +width * 0.75f + 0.1f,
       };
       sb_push(state->boundaries, boundary);
     }
