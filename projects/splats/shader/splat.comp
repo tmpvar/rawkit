@@ -60,15 +60,17 @@ void main() {
 
   int64_t val64 = (u64Depth << 24) | color; //int64_t(p.color);
 
-  float dist = (1.0 - distance(vec3(point.x, point.y, point.z), ubo.scene.eye.xyz) / 1000.0) * 1.0;
+  float dist = (1.0 - distance(vec3(point.x, point.y, point.z), ubo.scene.eye.xyz) / 1000.0) * 3.0;
 
-  int r = int(ceil(dist));
+  int r = int(floor(dist));
   ivec2 p = pixelCoords - ivec2(r);
   ivec2 ub = pixelCoords + ivec2(r);
 
   for (p.x; p.x<=ub.x; p.x++) {
     for (p.y=pixelCoords.y - r; p.y<=ub.y; p.y++) {
-      putPixel(p, width, val64);
+      if (distance(vec2(p) + 0.5, pixelCoords) < dist * 0.85) {
+        putPixel(p, width, val64);
+      }
     }
   }
 }

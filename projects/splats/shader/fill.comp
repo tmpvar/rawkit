@@ -118,12 +118,15 @@ void main() {
   if (any(lessThan(pos, vec3(0.0))) || any(greaterThanEqual(pos, dims))) {
     return;
   }
-  vec3 samplePos = (vec3(p) - hd) * 0.04;
+  vec3 samplePos = (vec3(p) - hd) / 64.0;
   float d = doModel(samplePos);
   // float d = distance(pos, dims * 0.5) - 100.0;
-  if (d < 0.0 && d > -5.0) {
+  if (d <= 0.0 && d > -.025) {
     vec3 normal = calcNormal(samplePos);
 
+    if (dot(normal, vec3(p) - ubo.scene.eye.xyz) > 0.5) {
+      return;
+    }
 
     uint idx = atomicAdd(point_state.dispatch.x, 1);
     points[idx].normal = vec4(normal, d);

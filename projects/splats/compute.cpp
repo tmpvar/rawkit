@@ -31,8 +31,8 @@ void setup() {
 
   nearest_sampler = rawkit_texture_sampler(
     rawkit_default_gpu(),
-    VK_FILTER_LINEAR,
-    VK_FILTER_LINEAR,
+    VK_FILTER_NEAREST,
+    VK_FILTER_NEAREST,
     VK_SAMPLER_MIPMAP_MODE_NEAREST,
     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
