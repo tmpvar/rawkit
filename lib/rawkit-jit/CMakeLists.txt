@@ -175,8 +175,8 @@ install(
   DESTINATION include/rawkit
 )
 
-# Install all of the clang headers in an attempt to get intrinsics (which are implemented as static inline...)
-file(GLOB CLANG_HEADERS "${CLANG_INCLUDE_DIR}/*.h")
+# Install all of the clang intrinsics headers (which are implemented as static inline...)
+file(GLOB CLANG_HEADERS "${CLANG_INCLUDE_DIR}/*intrin*.h")
 install(
   FILES
   ${CLANG_HEADERS}

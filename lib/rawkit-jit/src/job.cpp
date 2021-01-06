@@ -205,7 +205,6 @@ JitJob *JitJob::create(int argc, const char **argv) {
   #endif
 
   Args.push_back(job->guest_include.c_str());
-  Args.push_back(job->system_include.c_str());
 
   #if defined(_WIN32)
     if (true || IsDebuggerPresent()) {
