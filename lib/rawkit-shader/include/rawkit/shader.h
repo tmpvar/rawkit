@@ -184,6 +184,12 @@ void _rawkit_shader_instance_param_ubo(
   sizeof(*value) \
 );
 
+void rawkit_shader_instance_param_push_constants(
+  rawkit_shader_instance_t *instance,
+  void *data,
+  uint64_t bytes
+);
+
 void rawkit_shader_instance_param_ssbo(
   rawkit_shader_instance_t *instance,
   const char *name,

@@ -516,6 +516,31 @@ void rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue q
 }
 
 
+void rawkit_shader_instance_param_push_constants(
+  rawkit_shader_instance_t *instance,
+  void *data,
+  uint64_t bytes
+) {
+  if (!instance || !instance->shader) {
+    return;
+  }
+
+  rawkit_shader_t *shader = instance->shader;
+  ShaderState *shader_state = (ShaderState *)shader->_state;
+
+  bool is_compute = rawkit_glsl_is_compute(shader_state->glsl);
+
+  vkCmdPushConstants(
+    instance->command_buffer,
+    shader_state->pipeline_layout,
+    is_compute ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_ALL_GRAPHICS,
+    0,
+    bytes,
+    data
+  );
+}
+
+
 void rawkit_shader_instance_apply_params(
   rawkit_shader_instance_t *instance,
   rawkit_shader_params_t params
