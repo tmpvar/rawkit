@@ -29,15 +29,19 @@ void main() {
     (idx >> 2) & 1
   );
 
-  Brick brick = bricks[idx >> 3];
-  eye = ubo.scene.eye.xyz - brick.pos.xyz;
+  uint brick_id = visibility[(idx >> 3)];
+  Brick brick = bricks[brick_id];
+  vec3 pos = brick.pos.xyz;
+
+
+  eye = ubo.scene.eye.xyz - pos;
 
   if (eye.x > 0.0) rayOrigin.x = 1.0 - rayOrigin.x;
   if (eye.y > 0.0) rayOrigin.y = 1.0 - rayOrigin.y;
   if (eye.z > 0.0) rayOrigin.z = 1.0 - rayOrigin.z;
 
 	gl_Position = ubo.scene.worldToScreen * vec4(
-    rayOrigin + brick.pos.xyz,
+    rayOrigin + pos,
     1.0
   );
 }

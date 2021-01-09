@@ -528,6 +528,7 @@ uint32_t rawkit_gpu_get_tick_idx(rawkit_gpu_t *gpu) {
   GPUState *state = (GPUState *)gpu->_state;
   return state->tick_idx;
 }
+#pragma optimize("", off)
 
 rawkit_gpu_ssbo_t *rawkit_gpu_ssbo_ex(
   rawkit_gpu_t *gpu,
@@ -581,6 +582,8 @@ rawkit_gpu_ssbo_t *rawkit_gpu_ssbo_ex(
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT
       )
     );
+
+    ssbo->resource_version++;
   }
 
   return ssbo;

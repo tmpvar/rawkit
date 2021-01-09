@@ -236,6 +236,7 @@ target_link_libraries(
 
   rawkit::vg
   rawkit::window
+  rawkit::vulkan
 
   serial
 )

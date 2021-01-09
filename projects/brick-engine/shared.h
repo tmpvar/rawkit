@@ -29,9 +29,34 @@ struct Scene {
   float time;
 };
 
+struct DrawIndexedIndirectCommand {
+  uint    indexCount;
+  uint    instanceCount;
+  uint    firstIndex;
+  int     vertexOffset;
+  uint    firstInstance;
+};
+
+// return a bounding rectangle given a square image diameter and a mip.
+// see: https://twitter.com/SebAaltonen/status/1327188239451611139
+uvec4 image_mip_rect(uint diameter, uint mip) {
+  uint pixels_mip = diameter >> mip;
+  uvec4 uv_rect = uvec4(0, 0, pixels_mip, pixels_mip);
+  if (mip > 0) {
+    uv_rect.x = diameter;
+    uv_rect.y = diameter - pixels_mip * 2;
+  }
+  return uv_rect;
+}
+
+struct DepthPyramidConstants {
+  uvec2 dimensions;
+  uint mip;
+  uint diameter;	// pow2 y dimension of mip 0 (texture x is 1.5x wider)
+};
+
 struct Brick {
   vec4 pos;
-  uvec4 params; // op count, op, nop, nop
 };
 
 struct BrickOcclusion {

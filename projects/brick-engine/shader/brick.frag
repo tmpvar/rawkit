@@ -10,12 +10,12 @@ layout(std430, binding = 2) readonly buffer Bricks {
 };
 
 in vec3 rayOrigin;
-in vec3 normal;
 flat in vec3 eye;
 flat in uint brick_id;
+flat in float lod;
 
 
-vec3 brick_dims = vec3(16.0);
+vec3 brick_dims = vec3(64.0);
 
 float brick_march(in Brick brick, in vec3 rayOrigin, in vec3 rayDir, out vec3 normal, out float iterations) {
   rayOrigin -= rayDir * 3.0;
@@ -34,7 +34,7 @@ float brick_march(in Brick brick, in vec3 rayOrigin, in vec3 rayDir, out vec3 no
     dt += sideDist * invDir;
 
     if (all(greaterThanEqual(pos, vec3(0.0))) && all(lessThan(pos, brick_dims))) {
-      if (distance(floor(pos) + 0.5, brick_dims * 0.5) - brick_dims.x * 0.55 < 0.0) {
+      if (distance(floor(pos) + 0.5, brick_dims * 0.5) - brick_dims.x * 0.5 < 0.0) {
         normal = -sideDist;
         return 1.0;
       }
@@ -46,6 +46,7 @@ float brick_march(in Brick brick, in vec3 rayOrigin, in vec3 rayDir, out vec3 no
 
 void main() {
   Brick brick = bricks[brick_id];
+
   vec3 pos = rayOrigin * brick_dims;
   vec3 dir = normalize(rayOrigin - eye);
 

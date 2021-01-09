@@ -1,0 +1,37 @@
+// Copy the depth attachment from the rendered frame into the
+// base of the depth pyramid
+// originally from: https://github.com/sebbbi/rust_test
+
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+#include "../shared.h"
+
+layout(push_constant) uniform PushConstants {
+  DepthPyramidConstants depth_pyramid;
+} push;
+
+layout (binding = 1) uniform sampler2D src_tex;
+layout (binding = 2, r32f) uniform writeonly image2D dst_tex;
+
+void main() {
+  ivec2 xy = ivec2(gl_GlobalInvocationID.xy);
+  vec2 step = vec2(textureSize(src_tex, 0)) / vec2(push.depth_pyramid.diameter);
+
+  ivec2 rect_min = ivec2(vec2(xy) * step);
+  ivec2 rect_max = ivec2(vec2(xy + ivec2(1, 1)) * step);
+
+  // Could use image gather to make loop 2x2 shorter
+  float z_min = 1.0;
+  for (int y = rect_min.y; y < rect_max.y; ++y) {
+    for (int x = rect_min.x; x < rect_max.x; ++x) {
+      float z = texelFetch(src_tex, ivec2(x, y), 0).x;
+      z_min = min(z_min, z);
+    }
+  }
+
+  imageStore(dst_tex, xy, vec4(z_min,0.0,0.0,0.0));
+}
