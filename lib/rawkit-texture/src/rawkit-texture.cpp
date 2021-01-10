@@ -906,7 +906,7 @@ VkResult rawkit_texture_transition(
   barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.srcAccessMask = RAWKIT_DEFAULT(extend.srcAccessMask, texture->image_access);
   barrier.dstAccessMask = RAWKIT_DEFAULT(extend.dstAccessMask, VK_ACCESS_SHADER_READ_BIT);
-  barrier.oldLayout = texture->image_layout;
+  barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; //texture->image_layout;
   barrier.newLayout = RAWKIT_DEFAULT(extend.newLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;

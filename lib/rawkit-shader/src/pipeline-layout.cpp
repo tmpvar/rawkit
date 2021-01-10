@@ -40,7 +40,9 @@ VkResult ShaderState::create_pipeline_layout() {
 
       VkDescriptorSetLayoutBinding o = {};
       o.descriptorType = rawkit_glsl_reflection_entry_to_vulkan_descriptor_type(entry);
-      o.stageFlags = stage_flags(entry->stage);
+
+      // TODO: how is this supposed to work?
+      o.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_ALL_GRAPHICS;//VK_PIPELINE_STAGE_ALL_COMMANDS_BIT; //stage_flags(entry->stage);
       o.binding = entry->binding;
       o.descriptorCount = 1;
       sets[entry->set].push_back(o);

@@ -25,6 +25,7 @@ typedef struct rawkit_texture_options_t {
   VkFormat format;
   VkDeviceSize size;
   VkImageUsageFlags usage;
+  bool is_depth;
   const rawkit_image_t *source;
 } rawkit_texture_options_t;
 

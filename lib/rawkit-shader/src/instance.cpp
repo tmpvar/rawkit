@@ -324,11 +324,22 @@ void rawkit_shader_instance_param_texture(
 
   VkImageMemoryBarrier barrier = {};
   barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   if (entry.writable) {
     barrier.dstAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
     barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
   } else {
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  }
+
+  if (texture->options.is_depth) {
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    // Stencil aspect should only be set on depth + stencil formats (VK_FORMAT_D16_UNORM_S8_UINT..VK_FORMAT_D32_SFLOAT_S8_UINT
+    if (texture->options.format >= VK_FORMAT_D16_UNORM_S8_UINT) {
+      barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+    }
+  } else {
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
   }
 
   // TODO: this throws validation errors when not in general.
@@ -533,7 +544,11 @@ void rawkit_shader_instance_param_push_constants(
   vkCmdPushConstants(
     instance->command_buffer,
     shader_state->pipeline_layout,
-    is_compute ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_ALL_GRAPHICS,
+    // TODO: dodge a validation error:
+    // vkCmdPushConstants(): stageFlags (VK_SHADER_STAGE_COMPUTE_BIT, offset (0), and size (16),
+    // must contain all stages in overlapping VkPushConstantRange stageFlags
+    //is_compute ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_ALL_GRAPHICS,
+    VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_ALL_GRAPHICS,
     0,
     bytes,
     data

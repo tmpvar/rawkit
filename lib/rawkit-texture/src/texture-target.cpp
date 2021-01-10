@@ -93,6 +93,8 @@ VkResult rawkit_texture_target_attachment(rawkit_texture_target_t *target, VkIma
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
       );
 
+      options.is_depth = true;
+
       if (rawkit_texture_init(target->depth, options)) {
         target->depth->resource_version++;
       }
@@ -348,6 +350,7 @@ rawkit_texture_target_t *rawkit_texture_target_begin(
 
 void rawkit_texture_target_end(rawkit_texture_target_t *target) {
   if (!target) {
+    printf("ERROR: rawkit_texture_target_end: target is invalid\n");
     return;
   }
   VkResult err;
