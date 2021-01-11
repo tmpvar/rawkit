@@ -7,63 +7,131 @@
 
 layout (local_size_x = 64) in;
 
-layout(push_constant) uniform PushConstants {
-  DepthPyramidConstants depth_pyramid;
-} push;
-
 layout (binding = 0) uniform UBO {
   Scene scene;
 } ubo;
 
-layout (binding = 1) uniform sampler2D tex;
+layout(binding = 1) uniform DepthPyramidUBO {
+  DepthPyramidConstants depth_pyramid;
+} push;
 
-layout(std430, binding = 2) buffer Bricks {
+layout (binding = 2) uniform sampler2D tex;
+
+layout(std430, binding = 3) buffer Bricks {
   Brick bricks[];
 };
 
-layout(std430, binding = 3) buffer Index {
+layout(std430, binding = 4) buffer Index {
   uint visibility[];
 };
 
-layout(std430, binding = 4) buffer Count {
+layout(std430, binding = 5) buffer Count {
   DrawIndexedIndirectCommand visible_count;
 };
 
-layout (binding = 5, r32ui) uniform uimage2D debug_tex;
+layout (binding = 6, r32ui) uniform uimage2D debug_tex;
 
 bool sampleVisibility(uvec2 coordinate, uvec4 mip_rect, float z)
 {
+
     // Unsigned overflow used to test min/max using a single comparison!
     if (coordinate.x - mip_rect.x < mip_rect.z)
     if (coordinate.y - mip_rect.y < mip_rect.w)
     {
         float s = texelFetch(tex, ivec2(coordinate), 0).x;
 
+
         // Debug plot to depth pyramid debug texture
         imageAtomicAdd(debug_tex, ivec2(coordinate), 1);
 
-        return s > z;
+        return s < z;
     }
     return false;
 }
 
+//Fast Quadric Proj: "GPU-Based Ray-Casting of Quadratic Surfaces" http://dl.acm.org/citation.cfm?id=2386396
+void quadricProj(in vec3 osPosition, in float voxelSize, in mat4 objectToScreenMatrix, in vec2 screenSize,
+    inout vec4 position, inout float pointSize)
+{
+    const vec4 quadricMat = vec4(1.0, 1.0, 1.0, -1.0);
+    float sphereRadius = voxelSize * 1.732051;
+    vec4 sphereCenter = vec4(osPosition.xyz, 1.0);
+    mat4 modelViewProj = transpose(objectToScreenMatrix);
+
+    mat3x4 matT = mat3x4( mat3(modelViewProj[0].xyz, modelViewProj[1].xyz, modelViewProj[3].xyz) * sphereRadius);
+    matT[0].w = dot(sphereCenter, modelViewProj[0]);
+    matT[1].w = dot(sphereCenter, modelViewProj[1]);
+    matT[2].w = dot(sphereCenter, modelViewProj[3]);
+
+    mat3x4 matD = mat3x4(matT[0] * quadricMat, matT[1] * quadricMat, matT[2] * quadricMat);
+    vec4 eqCoefs =
+        vec4(dot(matD[0], matT[2]), dot(matD[1], matT[2]), dot(matD[0], matT[0]), dot(matD[1], matT[1]))
+        / dot(matD[2], matT[2]);
+
+    vec4 outPosition = vec4(eqCoefs.x, eqCoefs.y, 0.0, 1.0);
+    vec2 AABB = sqrt(eqCoefs.xy*eqCoefs.xy - eqCoefs.zw);
+    AABB *= screenSize;
+
+    position.xy = outPosition.xy * position.w;
+    pointSize = max(AABB.x, AABB.y);
+}
+
 void main() {
     int instance = int(gl_GlobalInvocationID.x);
+
     vec4 instance_pos_rad = bricks[instance].pos;
     vec3 position = instance_pos_rad.xyz;
     float radius = instance_pos_rad.w * 10.0;
 
     visible_count.instanceCount = 1;
 
+    vec4 screen_position = vec4(1.0);
+    float pointSize = 0.0;
+    quadricProj(
+      position,
+      1.0,
+      ubo.scene.worldToScreen,
+      ubo.scene.screen_dims.xy,
+      screen_position,
+      pointSize
+    );
+
+    // TODO: the coordinate system is all screwed, but we're moving
+    //       ahead with a hack.
+    float mip = log2(pointSize * 1.8);
+
     vec4 position_screen = ubo.scene.worldToScreen * vec4(position, 1.0);
     position_screen.xyz /= position_screen.w;
-
+    position_screen.z = 1.0 - position_screen.z;
     position_screen.xy = position_screen.xy * 0.5 + 0.5;
 
+    // compute the texel pos
+    vec2 res = ubo.scene.screen_dims.xy;
+    vec2 pixel_pos = position_screen.xy * res;
+    vec2 ratio = vec2(push.depth_pyramid.diameter) / res;
+    vec2 texel_pos = pixel_pos * ratio;
+    position_screen.xy = texel_pos / push.depth_pyramid.diameter;
+
     // Cheap approximation of mip level (not 100% correct)
-    float radius_screen = radius / position_screen.w;
-    radius_screen *= 256;
-    float mip = log2(radius_screen);
+    // float radius_screen = radius / position_screen.w;
+    // radius_screen *= 256;
+    // float mip = log2(radius_screen);
+
+    // debug mip write
+    if (false) {
+      for (int dmip = 0; dmip < 7; dmip++) {
+
+        uvec4 mip_rect = image_mip_rect(push.depth_pyramid.diameter, dmip);
+        uvec2 coordinate = uvec2(position_screen.xy * vec2(mip_rect.zw) - vec2(0.5));
+        coordinate += mip_rect.xy;
+
+        sampleVisibility(coordinate + uvec2(0, 0), mip_rect, 1.0);
+        sampleVisibility(coordinate + uvec2(1, 0), mip_rect, 1.0);
+        sampleVisibility(coordinate + uvec2(0, 1), mip_rect, 1.0);
+        sampleVisibility(coordinate + uvec2(1, 1), mip_rect, 1.0);
+      }
+      // return;
+    }
 
     bool visible = false;
     if (position_screen.z > 0)
@@ -74,13 +142,20 @@ void main() {
         if (mip < 7)
         {
             // Calculate query rectangle
-            uvec4 mip_rect = image_mip_rect(push.depth_pyramid.diameter, clamp(int(mip), 0, 6));
+            // uvec4 mip_rect = image_mip_rect(push.depth_pyramid.diameter, clamp(int(mip), 0, 6));
 
+            // // uvec2 coordinate = uvec2(texel_pos * vec2(mip_rect.zw));
+            // // coordinate += mip_rect.xy;
+
+            // uvec2 coordinate = uvec2(position_screen.xy * vec2(mip_rect.zw) - vec2(0.5, 0.5));
+            // coordinate += mip_rect.xy;
+
+            uvec4 mip_rect = image_mip_rect(push.depth_pyramid.diameter, clamp(int(mip), 0, 6));
             uvec2 coordinate = uvec2(position_screen.xy * vec2(mip_rect.zw) - vec2(0.5, 0.5));
             coordinate += mip_rect.xy;
 
             // TODO: Use min filter or gather, bias Z by radius (front_z instead of center point!)
-            float front_z = position_screen.z;
+            float front_z = position_screen.z * 1.1;
             visible = false;
             visible = visible || sampleVisibility(coordinate + uvec2(0, 0), mip_rect, front_z);
             visible = visible || sampleVisibility(coordinate + uvec2(1, 0), mip_rect, front_z);
@@ -93,6 +168,6 @@ void main() {
     {
         // Append visible instance index to the buffer
         uint offset = atomicAdd(visible_count.indexCount, INDICES_PER_INSTANCE);
-        visibility[offset / INDICES_PER_INSTANCE] = instance;
+        visibility[(offset + 1) / INDICES_PER_INSTANCE] = instance;
     }
 }

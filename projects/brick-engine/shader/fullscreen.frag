@@ -14,7 +14,7 @@ layout (binding = 2, r32ui) uniform uimage2D culling_debug_tex;
 in vec2 uv;
 
 void main() {
-	outColor = texture(tex_color, uv);
+
 
   // vec3 color = vec3(0.0);
   // for (uint mip = 0; mip < 7; ++mip) {
@@ -29,11 +29,15 @@ void main() {
   //   else if (channel == 2) outColor.b += v;
   // }
 
-  outColor += vec4(
-    float(imageLoad(culling_debug_tex, ivec2(uv * gl_FragCoord.xy)).x),
-    0.0,
-    0.0,
-    1.0
-  );
+  if (uv.x >= 0.5) {
+    outColor = vec4(
+      float(imageLoad(culling_debug_tex, ivec2((uv - vec2(0.5, 0.0)) * vec2(2.0, 1.0) * gl_FragCoord.xy)).x),
+      0.0,
+      0.0,
+      1.0
+    );
+  } else {
+    outColor = texture(tex_color, uv * vec2(2.0, 1.0));
+  }
 
 }

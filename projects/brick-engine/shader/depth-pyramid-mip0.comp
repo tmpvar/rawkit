@@ -10,7 +10,7 @@ layout (local_size_x = 8, local_size_y = 8) in;
 
 #include "../shared.h"
 
-layout(push_constant) uniform PushConstants {
+layout(binding = 0) uniform DepthPyramidUBO {
   DepthPyramidConstants depth_pyramid;
 } push;
 

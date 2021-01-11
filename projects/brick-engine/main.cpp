@@ -1,3 +1,5 @@
+#define GLM_FORCE_SWIZZLE
+
 #include <rawkit/rawkit.h>
 #define CPU_HOST
 #include "shared.h"
@@ -241,59 +243,31 @@ struct DepthPyramid {
     };
 
     // populate depth pyramid base using the incoming depth texture
-    {
-      rawkit_shader_t *mip0_shader = rawkit_shader(
+    if (1) {
+      rawkit_shader_t *shader = rawkit_shader(
         rawkit_file("shader/depth-pyramid-mip0.comp")
       );
 
-      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(mip0_shader);
+      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(
+        rawkit_default_gpu(),
+        shader,
+        NULL,
+        0
+      );
       if (!inst) {
         return;
       }
 
-      rawkit_shader_instance_param_push_constants(
-        inst,
-        (void *)&constants,
-        sizeof(constants)
-      );
-
-      rawkit_shader_instance_param_texture(inst, "src_tex", depth_texture, NULL);
-      rawkit_shader_instance_param_texture(inst, "dst_tex", this->texture, NULL);
-      rawkit_shader_instance_dispatch_compute(
-        inst,
-        diameter,
-        diameter,
-        1
-      );
-
-
-      rawkit_shader_instance_end(inst);
-    }
-
-    // fill the remaining mips of the depth pyramid
-    {
-      rawkit_shader_t *mip0_shader = rawkit_shader(
-        rawkit_file("shader/depth-pyramid-mipN.comp")
-      );
-
-      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(mip0_shader);
-      if (!inst) {
-        return;
-      }
-
-      for (uint32_t mip=1; mip<this->mips; mip++) {
-        uint32_t mip2 = 1 << mip;
-        constants.mip = mip - 1;
-        rawkit_shader_instance_param_push_constants(
-          inst,
-          (void *)&constants,
-          sizeof(constants)
-        );
-        rawkit_shader_instance_param_texture(inst, "tex", this->texture, NULL);
+      // dispatch the shader
+      {
+        // push constants?
+        rawkit_shader_instance_param_ubo(inst, "DepthPyramidUBO", &constants);
+        rawkit_shader_instance_param_texture(inst, "src_tex", depth_texture, NULL);
+        rawkit_shader_instance_param_texture(inst, "dst_tex", this->texture, NULL);
         rawkit_shader_instance_dispatch_compute(
           inst,
-          diameter / mip2,
-          diameter / mip2,
+          diameter,
+          diameter,
           1
         );
       }
@@ -301,6 +275,38 @@ struct DepthPyramid {
       rawkit_shader_instance_end(inst);
     }
 
+    // fill the remaining mips of the depth pyramid
+    {
+      rawkit_shader_t *shader = rawkit_shader(
+        rawkit_file("shader/depth-pyramid-mipN.comp")
+      );
+
+      for (uint32_t mip=1; mip<this->mips; mip++) {
+        rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(
+          rawkit_default_gpu(),
+          shader,
+          NULL,
+          0
+        );
+        if (!inst) {
+          return;
+        }
+        uint32_t mip2 = 1 << mip;
+        constants.mip = mip - 1;
+
+        // push constants?
+        rawkit_shader_instance_param_ubo(inst, "DepthPyramidUBO", &constants);
+        rawkit_shader_instance_param_texture(inst, "tex", this->texture, NULL);
+        rawkit_shader_instance_dispatch_compute(
+          inst,
+          diameter / mip2,
+          diameter / mip2,
+          1
+        );
+        rawkit_shader_instance_end(inst);
+      }
+
+    }
   }
 
   Visibility compute_visibility(World *world, Scene *scene) {
@@ -328,7 +334,12 @@ struct DepthPyramid {
         rawkit_file("shader/culling.comp")
       );
 
-      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
+      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(
+        rawkit_default_gpu(),
+        shader,
+        NULL,
+        0
+      );
       if (!inst) {
         return visibility;
       }
@@ -343,12 +354,11 @@ struct DepthPyramid {
 
       // clear the debug image
       {
-        VkClearColorValue value = {};
-        // value.uint32[0] = 0;
+        VkClearColorValue value = {0};
 
         VkImageSubresourceRange range = {
           .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-          .baseMipLevel = 1,
+          .baseMipLevel = 0,
           .levelCount = 1,
           .baseArrayLayer = 0,
           .layerCount = 1,
@@ -357,7 +367,7 @@ struct DepthPyramid {
         vkCmdClearColorImage(
           inst->command_buffer,
           world->culling_debug_tex->image,
-          world->culling_debug_tex->image_layout,
+          VK_IMAGE_LAYOUT_GENERAL, //world->culling_debug_tex->image_layout,
           &value,
           1,
           &range
@@ -370,13 +380,10 @@ struct DepthPyramid {
         .diameter = this->diameter,
       };
 
-      rawkit_shader_instance_param_push_constants(
-        inst,
-        (void *)&constants,
-        sizeof(constants)
-      );
+      rawkit_shader_instance_param_ubo(inst, "DepthPyramidUBO", &constants);
       rawkit_shader_instance_param_ubo(inst, "UBO", scene);
       rawkit_shader_instance_param_texture(inst, "tex", this->texture, NULL);
+      rawkit_shader_instance_param_texture(inst, "debug_tex", world->culling_debug_tex, NULL);
       rawkit_shader_instance_param_ssbo(inst, "Bricks", world->brick_ssbo);
       rawkit_shader_instance_param_ssbo(inst, "Index", visibility.index);
       rawkit_shader_instance_param_ssbo(inst, "Count", visibility.count);
@@ -448,6 +455,7 @@ void setup() {
     float d = 32.0f;
     float s = 1.0f;
     float diagonal_length = glm::length(vec3(1.0f));
+#if 1
     for (float y=0.0; y<d; y++) {
       for (float x = 0.0f; x<d; x++) {
         for (float z = 0.0f; z<d; z++) {
@@ -460,10 +468,57 @@ void setup() {
         }
       }
     }
+#else
+   Brick brick = {
+      .pos = vec4(64.0f, 0.0f, 0.0f, diagonal_length)
+    };
+    // fill_brick(&brick);
+    obj->add_brick(brick);
+
+#endif
+
     sb_push(state->world.objects, obj);
     obj->upload();
   }
 }
+
+
+//Fast Quadric Proj: "GPU-Based Ray-Casting of Quadratic Surfaces" http://dl.acm.org/citation.cfm?id=2386396
+vec3 quadricProj(vec3 osPosition, float voxelSize, mat4 objectToScreenMatrix, vec2 screenSize)
+{
+    const vec4 quadricMat = vec4(1.0, 1.0, 1.0, -1.0);
+    float sphereRadius = voxelSize * 1.732051;
+    vec4 sphereCenter = vec4(osPosition.xyz, 1.0);
+    mat4 modelViewProj = transpose(objectToScreenMatrix);
+
+    mat3x4 matT = mat3x4(
+      mat3(
+        modelViewProj[0].xyz,
+        modelViewProj[1].xyz,
+        modelViewProj[3].xyz
+      ) * sphereRadius
+    );
+    matT[0].w = dot(sphereCenter, modelViewProj[0]);
+    matT[1].w = dot(sphereCenter, modelViewProj[1]);
+    matT[2].w = dot(sphereCenter, modelViewProj[3]);
+
+    mat3x4 matD = mat3x4(matT[0] * quadricMat, matT[1] * quadricMat, matT[2] * quadricMat);
+    vec4 eqCoefs = vec4(
+      dot(matD[0], matT[2]),
+      dot(matD[1], matT[2]),
+      dot(matD[0], matT[0]),
+      dot(matD[1], matT[1])
+    ) / dot(matD[2], matT[2]);
+
+    vec4 outPosition = vec4(eqCoefs.x, eqCoefs.y, 0.0, 1.0);
+    vec2 AABB = sqrt(eqCoefs.xy*eqCoefs.xy - eqCoefs.zw);
+    AABB *= screenSize;
+    return vec3(
+      outPosition.xy,
+      glm::max(AABB.x, AABB.y)
+    );
+}
+
 
 void loop() {
   rawkit_gpu_t *gpu = rawkit_default_gpu();
@@ -487,8 +542,6 @@ void loop() {
 
   // setup state
   {
-
-
     state->scene.screen_dims = vec4(
       (float)rawkit_window_width(),
       (float)rawkit_window_height(),
@@ -507,17 +560,28 @@ void loop() {
     mat4 proj = glm::perspective(
       glm::radians(90.0f),
       state->scene.screen_dims.x / state->scene.screen_dims.y,
-      10.0f,
-      10000000.0f
+      1.0f,
+      100000.0f
     );
+
+    mat4 clip = glm::mat4(
+      1.0f,  0.0f, 0.0f, 0.0f,
+      0.0f, -1.0f, 0.0f, 0.0f,
+      0.0f,  0.0f, 0.5f, 0.0f,
+      0.0f,  0.0f, 0.5f, 1.0f
+    );
+
+    proj[1][1] *= -1.0f;
 
     vec3 center = obj_count > 0
       ? (state->world.objects[0]->aabb.ub - state->world.objects[0]->aabb.lb)/2.0f
       : vec3(1.0);
 
 
-    float dist = length(center) * 1.5;
+    float dist = length(center) * 1.1;
     float now = (float)rawkit_now() * .5 + 5.0;
+    // now = 1.5;
+    // now = 3.14 * 1.5;
     vec3 eye = center + vec3(
       sin(now) * dist,
       0.0,
@@ -531,24 +595,27 @@ void loop() {
     );
 
     state->scene.worldToScreen = proj * view;
+
     state->scene.brick_dims = vec4(16.0f);
     state->scene.eye = vec4(eye, 1.0f);
     state->scene.time = (float)rawkit_now();
 
+    Brick *brick = &state->world.objects[0]->bricks[0];
 
-    vec4 zero = vec4(center, 1.0) * state->scene.worldToScreen;
-    igText("center(%f, %f, %f)",
-      center.x, center.y, center.z
-    );
-    igText("z(%f, %f, %f, %f)",
-      zero.x, zero.y, zero.z, zero.w
+    vec3 res = quadricProj(
+      brick->pos.xyz,
+      1.0f,
+      state->scene.worldToScreen,
+      state->scene.screen_dims.xy
     );
 
-    igText("z/w(%f, %f, %f)",
-      zero.x / zero.w,
-      zero.y / zero.w,
-      zero.z / zero.w
-    );
+    vec4 p = state->scene.worldToScreen * vec4(brick->pos.xyz, 1.0);
+    p /= p.w;
+    igText("pos(%f, %f, %f)", p.x, p.y, 1.0 - p.z);
+
+    res.xy = res.xy * 0.5f + 0.5f;
+
+    igText("computedRadius: %f (%f, %f); mip: %f", res.z, res.x* state->scene.screen_dims.x, res.y* state->scene.screen_dims.y, log2(1.0 / res.z * 1024.0));
 
   }
 
@@ -563,9 +630,16 @@ void loop() {
 
   // render all bricks
   {
-    rawkit_shader_t *world_shader = rawkit_shader(
+    const rawkit_file_t *files[2] = {
       !state->visibility.count ? rawkit_file("shader/brick.vert") : rawkit_file("shader/brick-indirect.vert"),
       rawkit_file("shader/brick.frag")
+    };
+
+    rawkit_shader_t *world_shader = rawkit_shader_ex(
+      gpu,
+      main_pass->render_pass,
+      2,
+      files
     );
 
 
@@ -573,7 +647,7 @@ void loop() {
       gpu,
       world_shader,
       main_pass->command_buffer,
-      0
+      rawkit_window_frame_index()
     );
 
     if (inst) {
@@ -610,11 +684,11 @@ void loop() {
       if (!state->visibility.count) {
         vkCmdDrawIndexed(
           inst->command_buffer,
-          state->world.active_bricks * 18, //state->index_buffer->size / sizeof(uint32_t),
-          1,
-          0,
-          0,
-          1
+          state->world.active_bricks * 18, // index count
+          1,                               // instance count
+          0,                               // first index
+          0,                               // vertex offset
+          1                                // first instance
         );
       } else {
         rawkit_shader_instance_param_ssbo(inst, "Index", state->visibility.index);
@@ -623,7 +697,7 @@ void loop() {
           state->visibility.count->buffer->handle,
           0, // offset
           1, // draw count
-          0
+          0  // stride
         );
       }
       rawkit_shader_instance_end(inst);
@@ -643,17 +717,51 @@ void loop() {
   if (igIsItemActive()) {
     state->visibility.count = NULL;
   } else {
-
-    // igButton("compute visibility", {150.0f, 20.0f});
-    // if (!state->visibility.count || igIsItemActive()) {
+    igButton("pause visibility", {150.0f, 20.0f});
+    if (!state->visibility.count || !igIsItemActive()) {
       state->visibility = depth_pyramid.compute_visibility(&state->world, &state->scene);
-    // }
+    }
+  }
+
+  {
+    float scale = 0.5;
+    ImTextureID texture = rawkit_imgui_texture(main_pass->color, main_pass->color->default_sampler);
+    if (!texture) {
+      return;
+    }
+
+    igImage(
+      texture,
+      (ImVec2){ 768.0f * scale, 512.0f * scale },
+      (ImVec2){ 0.0f, 0.0f }, // uv0
+      (ImVec2){ 1.0f, 1.0f }, // uv1
+      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
+      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+    );
   }
 
   float scale = 0.5;
-
   {
     ImTextureID texture = rawkit_imgui_texture(depth_pyramid.texture, depth_pyramid.texture->default_sampler);
+    if (!texture) {
+      return;
+    }
+
+    igImage(
+      texture,
+      (ImVec2){ 768.0f * scale, 512.0f * scale },
+      (ImVec2){ 0.0f, 0.0f }, // uv0
+      (ImVec2){ 1.0f, 1.0f }, // uv1
+      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
+      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+    );
+  }
+
+
+
+
+  {
+    ImTextureID texture = rawkit_imgui_texture(state->world.culling_debug_tex, state->world.culling_debug_tex->default_sampler);
     if (!texture) {
       return;
     }

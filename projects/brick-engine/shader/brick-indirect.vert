@@ -23,13 +23,20 @@ flat out float lod;
 
 void main() {
   uint idx = gl_VertexIndex;
+
   rayOrigin = vec3(
     (idx >> 0) & 1,
     (idx >> 1) & 1,
     (idx >> 2) & 1
   );
 
-  uint brick_id = visibility[(idx >> 3)];
+  uint instance_id = (idx >> 3);
+  if (instance_id == 0) {
+    gl_Position = vec4(-1000.0f);
+    return;
+  }
+
+  uint brick_id = visibility[instance_id];
   Brick brick = bricks[brick_id];
   vec3 pos = brick.pos.xyz;
 

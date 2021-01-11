@@ -12,10 +12,6 @@ layout(std430, binding = 1) readonly buffer Bricks {
   Brick bricks[];
 };
 
-layout(std430, binding = 2) buffer Index {
-  uint visibility[];
-};
-
 out vec3 rayOrigin;
 flat out vec3 eye;
 flat out uint brick_id;
