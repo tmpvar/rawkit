@@ -43,8 +43,7 @@ bool sampleVisibility(uvec2 coordinate, uvec4 mip_rect, float z)
 
         // Debug plot to depth pyramid debug texture
         imageAtomicAdd(debug_tex, ivec2(coordinate), 1);
-
-        return s < z;
+        return z < s;
     }
     return false;
 }
@@ -78,10 +77,10 @@ void quadricProj(in vec3 osPosition, in float voxelSize, in mat4 objectToScreenM
 
 void main() {
     int instance = int(gl_GlobalInvocationID.x);
-
     vec4 instance_pos_rad = bricks[instance].pos;
     vec3 position = instance_pos_rad.xyz;
-    float radius = instance_pos_rad.w * 10.0;
+    vec3 to_eye = normalize(position - ubo.scene.eye.xyz);
+    float radius = instance_pos_rad.w;
 
     visible_count.instanceCount = 1;
 
@@ -96,26 +95,11 @@ void main() {
       pointSize
     );
 
-    // TODO: the coordinate system is all screwed, but we're moving
-    //       ahead with a hack.
-    float mip = log2(pointSize * 1.8);
+    float mip = log2(pointSize);
 
-    vec4 position_screen = ubo.scene.worldToScreen * vec4(position, 1.0);
+    vec4 position_screen = ubo.scene.worldToScreen * vec4(position - to_eye * radius * 5.0, 1.0);
     position_screen.xyz /= position_screen.w;
-    position_screen.z = 1.0 - position_screen.z;
     position_screen.xy = position_screen.xy * 0.5 + 0.5;
-
-    // compute the texel pos
-    vec2 res = ubo.scene.screen_dims.xy;
-    vec2 pixel_pos = position_screen.xy * res;
-    vec2 ratio = vec2(push.depth_pyramid.diameter) / res;
-    vec2 texel_pos = pixel_pos * ratio;
-    position_screen.xy = texel_pos / push.depth_pyramid.diameter;
-
-    // Cheap approximation of mip level (not 100% correct)
-    // float radius_screen = radius / position_screen.w;
-    // radius_screen *= 256;
-    // float mip = log2(radius_screen);
 
     // debug mip write
     if (false) {
@@ -134,38 +118,26 @@ void main() {
     }
 
     bool visible = false;
-    if (position_screen.z > 0)
-    {
-        visible = true;
+    if (position_screen.z > 0) {
+      visible = true;
 
-        // We have only 7 levels in the pyramid. Skip occlusion culling if bounds is too big.
-        if (mip < 7)
-        {
-            // Calculate query rectangle
-            // uvec4 mip_rect = image_mip_rect(push.depth_pyramid.diameter, clamp(int(mip), 0, 6));
+      // We have only 7 levels in the pyramid. Skip occlusion culling if bounds is too big.
+      if (mip < 7) {
+        uvec4 mip_rect = image_mip_rect(push.depth_pyramid.diameter, clamp(int(mip), 0, 6));
+        uvec2 coordinate = uvec2(position_screen.xy * vec2(mip_rect.zw) - vec2(0.5, 0.5));
+        coordinate += mip_rect.xy;
 
-            // // uvec2 coordinate = uvec2(texel_pos * vec2(mip_rect.zw));
-            // // coordinate += mip_rect.xy;
-
-            // uvec2 coordinate = uvec2(position_screen.xy * vec2(mip_rect.zw) - vec2(0.5, 0.5));
-            // coordinate += mip_rect.xy;
-
-            uvec4 mip_rect = image_mip_rect(push.depth_pyramid.diameter, clamp(int(mip), 0, 6));
-            uvec2 coordinate = uvec2(position_screen.xy * vec2(mip_rect.zw) - vec2(0.5, 0.5));
-            coordinate += mip_rect.xy;
-
-            // TODO: Use min filter or gather, bias Z by radius (front_z instead of center point!)
-            float front_z = position_screen.z * 1.1;
-            visible = false;
-            visible = visible || sampleVisibility(coordinate + uvec2(0, 0), mip_rect, front_z);
-            visible = visible || sampleVisibility(coordinate + uvec2(1, 0), mip_rect, front_z);
-            visible = visible || sampleVisibility(coordinate + uvec2(0, 1), mip_rect, front_z);
-            visible = visible || sampleVisibility(coordinate + uvec2(1, 1), mip_rect, front_z);
-        }
+        // // TODO: Use min filter or gather, bias Z by radius (front_z instead of center point!)
+        float front_z = position_screen.z;
+        visible = false;
+        visible = visible || sampleVisibility(coordinate + uvec2(0, 0), mip_rect, front_z);
+        visible = visible || sampleVisibility(coordinate + uvec2(1, 0), mip_rect, front_z);
+        visible = visible || sampleVisibility(coordinate + uvec2(0, 1), mip_rect, front_z);
+        visible = visible || sampleVisibility(coordinate + uvec2(1, 1), mip_rect, front_z);
+      }
     }
 
-    if (visible)
-    {
+    if (visible) {
         // Append visible instance index to the buffer
         uint offset = atomicAdd(visible_count.indexCount, INDICES_PER_INSTANCE);
         visibility[(offset + 1) / INDICES_PER_INSTANCE] = instance;

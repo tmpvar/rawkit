@@ -14,6 +14,9 @@
   #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #endif
 
+#define MAX_DEPTH 1000.0
+
+
 struct Camera {
   vec4 pos;
   // TODO: orientation and vp matrix

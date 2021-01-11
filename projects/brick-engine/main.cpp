@@ -560,8 +560,8 @@ void loop() {
     mat4 proj = glm::perspective(
       glm::radians(90.0f),
       state->scene.screen_dims.x / state->scene.screen_dims.y,
-      1.0f,
-      100000.0f
+      1.1f,
+      (float)MAX_DEPTH
     );
 
     mat4 clip = glm::mat4(
@@ -594,7 +594,7 @@ void loop() {
       vec3(0.0f, 1.0f, 0.0f)
     );
 
-    state->scene.worldToScreen = proj * view;
+    state->scene.worldToScreen = clip * proj * view;
 
     state->scene.brick_dims = vec4(16.0f);
     state->scene.eye = vec4(eye, 1.0f);
@@ -609,13 +609,19 @@ void loop() {
       state->scene.screen_dims.xy
     );
 
+    igText("world pos(%f, %f, %f)", brick->pos.x, brick->pos.y, brick->pos.z);
     vec4 p = state->scene.worldToScreen * vec4(brick->pos.xyz, 1.0);
-    p /= p.w;
-    igText("pos(%f, %f, %f)", p.x, p.y, 1.0 - p.z);
+    igText("screen pos(%f, %f, %f) w=%f", p.x, p.y , p.z, p.w);
+    igText("xform pos(%f, %f, %f) w=%f mip=%f", p.x / p.w, p.y / p.w, p.z / p.w, p.w, log2(p.z / p.w * 256.0f));
+    igText("max bias pos(%f, %f, %f) mip=%f", p.x / p.w, p.y / p.w, (p.z + p.w) / 2.0f / MAX_DEPTH, log2((p.z + p.w) / 2.0f));
 
     res.xy = res.xy * 0.5f + 0.5f;
 
-    igText("computedRadius: %f (%f, %f); mip: %f", res.z, res.x* state->scene.screen_dims.x, res.y* state->scene.screen_dims.y, log2(1.0 / res.z * 1024.0));
+    igText("computedRadius: %f (%f, %f); mip: %f",
+     res.z, res.x, res.y,
+     log2(res.z)
+    );
+
 
   }
 

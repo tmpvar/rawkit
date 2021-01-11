@@ -51,4 +51,5 @@ void main() {
     rayOrigin + pos,
     1.0
   );
+
 }
