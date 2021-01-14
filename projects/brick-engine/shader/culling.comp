@@ -31,21 +31,20 @@ layout(std430, binding = 5) buffer Count {
 
 layout (binding = 6, r32ui) uniform uimage2D debug_tex;
 
-bool sampleVisibility(uvec2 coordinate, uvec4 mip_rect, float z)
-{
+bool sampleVisibility(uvec2 coordinate, uvec4 mip_rect, float z) {
 
-    // Unsigned overflow used to test min/max using a single comparison!
-    if (coordinate.x - mip_rect.x < mip_rect.z)
-    if (coordinate.y - mip_rect.y < mip_rect.w)
-    {
-        float s = texelFetch(tex, ivec2(coordinate), 0).x;
-
-
-        // Debug plot to depth pyramid debug texture
-        imageAtomicAdd(debug_tex, ivec2(coordinate), 1);
-        return z < s;
+  // Unsigned overflow used to test min/max using a single comparison!
+  if (coordinate.x - mip_rect.x < mip_rect.z) {
+    if (coordinate.y - mip_rect.y < mip_rect.w) {
+      float s = texelFetch(tex, ivec2(coordinate), 0).x;
+      // Debug plot to depth pyramid debug texture
+      imageAtomicAdd(debug_tex, ivec2(coordinate), 1);
+      return z < s + 4.0/MAX_DEPTH;
+      return floor(z * MAX_DEPTH) <= floor(s * MAX_DEPTH);
     }
-    return false;
+  }
+
+  return false;
 }
 
 //Fast Quadric Proj: "GPU-Based Ray-Casting of Quadratic Surfaces" http://dl.acm.org/citation.cfm?id=2386396
@@ -76,70 +75,98 @@ void quadricProj(in vec3 osPosition, in float voxelSize, in mat4 objectToScreenM
 }
 
 void main() {
-    int instance = int(gl_GlobalInvocationID.x);
-    vec4 instance_pos_rad = bricks[instance].pos;
-    vec3 position = instance_pos_rad.xyz;
-    vec3 to_eye = normalize(position - ubo.scene.eye.xyz);
-    float radius = instance_pos_rad.w;
+  visible_count.instanceCount = 1;
+  int instance = int(gl_GlobalInvocationID.x);
 
-    visible_count.instanceCount = 1;
+  vec4 instance_pos_rad = bricks[instance].pos;
+  vec3 position = instance_pos_rad.xyz + 0.5;
+  vec3 to_eye = normalize(position - ubo.scene.eye.xyz);
+  float radius = instance_pos_rad.w;
 
-    vec4 screen_position = vec4(1.0);
-    float pointSize = 0.0;
-    quadricProj(
-      position,
-      1.0,
-      ubo.scene.worldToScreen,
-      ubo.scene.screen_dims.xy,
-      screen_position,
-      pointSize
-    );
 
-    float mip = log2(pointSize);
+  vec4 near = ubo.scene.worldToScreen * vec4(position - to_eye * radius, 1.0);
+  // vec4 near = ubo.scene.worldToScreen * vec4(position, 1.0);
+  float near_z = near.z / near.w;
+  // near_z = (near.z + near.w) / 2.0;
 
-    vec4 position_screen = ubo.scene.worldToScreen * vec4(position - to_eye * radius * 5.0, 1.0);
-    position_screen.xyz /= position_screen.w;
-    position_screen.xy = position_screen.xy * 0.5 + 0.5;
+#if 1
+  vec4 screen_position = vec4(1.0);
+  float pointSize = 0.0;
+  quadricProj(
+    position,
+    1.0,
+    ubo.scene.worldToScreen,
+    ubo.scene.screen_dims.xy,
+    screen_position,
+    pointSize
+  );
 
-    // debug mip write
-    if (false) {
-      for (int dmip = 0; dmip < 7; dmip++) {
+  float mip = floor(log2(pointSize)) * 0.5;
 
-        uvec4 mip_rect = image_mip_rect(push.depth_pyramid.diameter, dmip);
-        uvec2 coordinate = uvec2(position_screen.xy * vec2(mip_rect.zw) - vec2(0.5));
-        coordinate += mip_rect.xy;
+  // vec4 position_screen = ubo.scene.worldToScreen * vec4(position - to_eye * radius * 5.0, 1.0);
+  vec4 position_screen = ubo.scene.worldToScreen * vec4(position, 1.0);
+  position_screen.xyz /= position_screen.w;
+  // position_screen.xy = position_screen.xy * 0.5 + 0.5;
+  position_screen.xy = screen_position.xy * 0.5 + 0.5;
+  near_z = screen_position.z;
+#else
+  vec4 position_screen = ubo.scene.worldToScreen * vec4(position, 1.0);
+  position_screen = near;
 
-        sampleVisibility(coordinate + uvec2(0, 0), mip_rect, 1.0);
-        sampleVisibility(coordinate + uvec2(1, 0), mip_rect, 1.0);
-        sampleVisibility(coordinate + uvec2(0, 1), mip_rect, 1.0);
-        sampleVisibility(coordinate + uvec2(1, 1), mip_rect, 1.0);
-      }
-      // return;
+  position_screen.xyz /= position_screen.w;
+  position_screen.xy = position_screen.xy * 0.5 + 0.5;
+
+  // Cheap approximation of mip level (not 100% correct)
+  float radius_screen = radius / position_screen.w;
+  radius_screen *= 256;
+  float mip = floor(log2(radius_screen));
+#endif
+
+  // debug mip write
+  if (false) {
+    for (int dmip = 0; dmip < 7; dmip++) {
+
+      uvec4 mip_rect = image_mip_rect(push.depth_pyramid.diameter, dmip);
+      uvec2 coordinate = uvec2(position_screen.xy * vec2(mip_rect.zw) - vec2(0.5));
+      coordinate += mip_rect.xy;
+
+      sampleVisibility(coordinate + uvec2(0, 0), mip_rect, 1.0);
+      sampleVisibility(coordinate + uvec2(1, 0), mip_rect, 1.0);
+      sampleVisibility(coordinate + uvec2(0, 1), mip_rect, 1.0);
+      sampleVisibility(coordinate + uvec2(1, 1), mip_rect, 1.0);
     }
+    // return;
+  }
 
-    bool visible = false;
-    if (position_screen.z > 0) {
+  bool visible = false;
+  if (position_screen.z > 0) {
+#if 1
+    visible = true;
+    // We have only 7 levels in the pyramid. Skip occlusion culling if bounds is too big.
+    if (mip < 7) {
+      uvec4 mip_rect = image_mip_rect(push.depth_pyramid.diameter, clamp(int(mip), 0, 6));
+      uvec2 coordinate = uvec2(position_screen.xy * vec2(mip_rect.zw) - vec2(0.5, 0.5));
+      coordinate += mip_rect.xy;
+
+      // TODO: Use min filter or gather, bias Z by radius (front_z instead of center point!)
+      float front_z = position_screen.z + radius / MAX_DEPTH * 2.125;
+
+      visible = false;
+      visible = visible || sampleVisibility(coordinate + uvec2(0, 0), mip_rect, front_z);
+      visible = visible || sampleVisibility(coordinate + uvec2(1, 0), mip_rect, front_z);
+      visible = visible || sampleVisibility(coordinate + uvec2(0, 1), mip_rect, front_z);
+      visible = visible || sampleVisibility(coordinate + uvec2(1, 1), mip_rect, front_z);
+    }
+  #else
+    if (floor(mip) == 6) {
       visible = true;
-
-      // We have only 7 levels in the pyramid. Skip occlusion culling if bounds is too big.
-      if (mip < 7) {
-        uvec4 mip_rect = image_mip_rect(push.depth_pyramid.diameter, clamp(int(mip), 0, 6));
-        uvec2 coordinate = uvec2(position_screen.xy * vec2(mip_rect.zw) - vec2(0.5, 0.5));
-        coordinate += mip_rect.xy;
-
-        // // TODO: Use min filter or gather, bias Z by radius (front_z instead of center point!)
-        float front_z = position_screen.z;
-        visible = false;
-        visible = visible || sampleVisibility(coordinate + uvec2(0, 0), mip_rect, front_z);
-        visible = visible || sampleVisibility(coordinate + uvec2(1, 0), mip_rect, front_z);
-        visible = visible || sampleVisibility(coordinate + uvec2(0, 1), mip_rect, front_z);
-        visible = visible || sampleVisibility(coordinate + uvec2(1, 1), mip_rect, front_z);
-      }
     }
+  #endif
+  }
 
-    if (visible) {
-        // Append visible instance index to the buffer
-        uint offset = atomicAdd(visible_count.indexCount, INDICES_PER_INSTANCE);
-        visibility[(offset + 1) / INDICES_PER_INSTANCE] = instance;
-    }
+  if (visible) {
+    // Append visible instance index to the buffer
+    uint offset = atomicAdd(visible_count.indexCount, INDICES_PER_INSTANCE);
+    visibility[offset / INDICES_PER_INSTANCE] = instance;
+  }
 }

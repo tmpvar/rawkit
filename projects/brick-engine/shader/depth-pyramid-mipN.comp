@@ -27,6 +27,6 @@ void main() {
     float z10 = imageLoad(tex, ivec2(src_rect.xy + xy2 + uvec2(1, 0))).x;
     float z11 = imageLoad(tex, ivec2(src_rect.xy + xy2 + uvec2(1, 1))).x;
 
-    float z_min = min(min(z00, z01), min(z10, z11));
+    float z_min = max(max(z00, z01), max(z10, z11));
     imageStore(tex, ivec2(dst_rect.xy + xy), vec4(z_min,0.0,0.0,0.0));
 }

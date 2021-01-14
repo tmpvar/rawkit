@@ -15,6 +15,50 @@ using namespace std;
 #define CUBE_VERTICES_COUNT 8
 #define INDICES_SIZE CUBE_INDICES_COUNT * ACTIVE_BRICK_COUNT * sizeof(uint32_t)
 
+
+void sledgehammer_buffer_sync(rawkit_gpu_buffer_t *buffer, VkCommandBuffer command_buffer) {
+  VkBufferMemoryBarrier memoryBarrier = {
+    .srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT |
+                    VK_ACCESS_INDEX_READ_BIT |
+                    VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT |
+                    VK_ACCESS_UNIFORM_READ_BIT |
+                    VK_ACCESS_INPUT_ATTACHMENT_READ_BIT |
+                    VK_ACCESS_SHADER_READ_BIT |
+                    VK_ACCESS_SHADER_WRITE_BIT |
+                    VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                    VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                    VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                    VK_ACCESS_TRANSFER_READ_BIT |
+                    VK_ACCESS_TRANSFER_WRITE_BIT |
+                    VK_ACCESS_HOST_READ_BIT |
+                    VK_ACCESS_HOST_WRITE_BIT,
+    .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT |
+                    VK_ACCESS_INDEX_READ_BIT |
+                    VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT |
+                    VK_ACCESS_UNIFORM_READ_BIT |
+                    VK_ACCESS_INPUT_ATTACHMENT_READ_BIT |
+                    VK_ACCESS_SHADER_READ_BIT |
+                    VK_ACCESS_SHADER_WRITE_BIT |
+                    VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                    VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                    VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                    VK_ACCESS_TRANSFER_READ_BIT |
+                    VK_ACCESS_TRANSFER_WRITE_BIT |
+                    VK_ACCESS_HOST_READ_BIT |
+                    VK_ACCESS_HOST_WRITE_BIT
+  };
+
+  rawkit_gpu_buffer_transition(
+    buffer,
+    command_buffer,
+    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // srcStageMask
+    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // dstStageMask
+    memoryBarrier
+  );
+}
+
 struct AABB {
   vec3 lb;
   vec3 ub;
@@ -58,6 +102,7 @@ struct Object {
   void render(rawkit_shader_instance_t *inst) {
     uint32_t instances = sb_count(this->bricks);
     igText("drawing %u instances", instances);
+    sledgehammer_buffer_sync(this->ssbo->buffer, inst->command_buffer);
     rawkit_shader_instance_param_ssbo(inst, "Bricks", this->ssbo);
     vkCmdDraw(inst->command_buffer, 36, instances, 0, 0);
   }
@@ -70,6 +115,8 @@ struct Object {
   }
 
 };
+
+
 
 VkResult rawkit_gpu_buffer_map(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *dst, VkDeviceSize offset, VkDeviceSize size, std::function<void(void *buf)> cb) {
   void *ptr;
@@ -162,6 +209,8 @@ struct World {
           );
         }
       }
+
+      sledgehammer_buffer_sync(this->brick_ssbo->buffer, inst->command_buffer);
     }
 
     uint32_t brick_idx = 0;
@@ -172,7 +221,11 @@ struct World {
         obj->render(inst);
     }
     #else
+      sledgehammer_buffer_sync(this->brick_ssbo->buffer, inst->command_buffer);
+      sledgehammer_buffer_sync(index_buffer, inst->command_buffer);
+
       rawkit_shader_instance_param_ssbo(inst, "Bricks", this->brick_ssbo);
+
       vkCmdBindIndexBuffer(
         inst->command_buffer,
         index_buffer->handle,
@@ -344,13 +397,7 @@ struct DepthPyramid {
         return visibility;
       }
 
-      vkCmdFillBuffer(
-        inst->command_buffer,
-        visibility.count->buffer->handle,
-        0,
-        visibility.count->buffer->size,
-        0
-      );
+
 
       // clear the debug image
       {
@@ -379,6 +426,62 @@ struct DepthPyramid {
         .mip = 0,
         .diameter = this->diameter,
       };
+
+
+      // // transition the indirect count buffer
+      // {
+      //   VkBufferMemoryBarrier extend = {
+      //     .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+      //   };
+      //   VkResult err = rawkit_gpu_buffer_transition(
+      //     visibility.count->buffer,
+      //     inst->command_buffer,
+      //     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+      //     VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      //     extend
+      //   );
+      // }
+      sledgehammer_buffer_sync(visibility.count->buffer, inst->command_buffer);
+      vkCmdFillBuffer(
+        inst->command_buffer,
+        visibility.count->buffer->handle,
+        0,
+        visibility.count->buffer->size,
+        0
+      );
+      sledgehammer_buffer_sync(visibility.count->buffer, inst->command_buffer);
+
+      // // transition the indirect count buffer
+      // {
+      //   VkBufferMemoryBarrier extend = {
+      //     .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+      //   };
+      //   VkResult err = rawkit_gpu_buffer_transition(
+      //     visibility.count->buffer,
+      //     inst->command_buffer,
+      //     VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      //     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+      //     extend
+      //   );
+      // }
+
+      // transition the visibility buffer
+      {
+        VkBufferMemoryBarrier extend = {
+          .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        };
+        VkResult err = rawkit_gpu_buffer_transition(
+          visibility.index->buffer,
+          inst->command_buffer,
+          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          extend
+        );
+      }
+
+      sledgehammer_buffer_sync(visibility.index->buffer, inst->command_buffer);
+      sledgehammer_buffer_sync(visibility.count->buffer, inst->command_buffer);
+      sledgehammer_buffer_sync(world->brick_ssbo->buffer, inst->command_buffer);
 
       rawkit_shader_instance_param_ubo(inst, "DepthPyramidUBO", &constants);
       rawkit_shader_instance_param_ubo(inst, "UBO", scene);
@@ -439,6 +542,7 @@ void setup() {
     }
 
     rawkit_gpu_buffer_update(gpu, state->index_buffer, mem, INDICES_SIZE);
+
     free(mem);
   }
 
@@ -452,7 +556,7 @@ void setup() {
     Object *obj = new Object;
     sprintf(tmp_str, "object#%u", object_id++);
     obj->name.assign(tmp_str);
-    float d = 32.0f;
+    float d = 64.0f;
     float s = 1.0f;
     float diagonal_length = glm::length(vec3(1.0f));
 #if 1
@@ -578,10 +682,10 @@ void loop() {
       : vec3(1.0);
 
 
-    float dist = length(center) * 1.1;
+    float dist = length(center) * 1.4;
     float now = (float)rawkit_now() * .5 + 5.0;
     // now = 1.5;
-    // now = 3.14 * 1.5;
+    // now = 3.14 * 3.0;
     vec3 eye = center + vec3(
       sin(now) * dist,
       0.0,
@@ -636,8 +740,11 @@ void loop() {
 
   // render all bricks
   {
+    bool indirect = state->visibility.count;
     const rawkit_file_t *files[2] = {
-      !state->visibility.count ? rawkit_file("shader/brick.vert") : rawkit_file("shader/brick-indirect.vert"),
+      !indirect
+        ? rawkit_file("shader/brick.vert")
+        : rawkit_file("shader/brick-indirect.vert"),
       rawkit_file("shader/brick.frag")
     };
 
@@ -687,7 +794,7 @@ void loop() {
 
       state->world.render(inst, state->index_buffer);
 
-      if (!state->visibility.count) {
+      if (!indirect) {
         vkCmdDrawIndexed(
           inst->command_buffer,
           state->world.active_bricks * 18, // index count
@@ -697,6 +804,39 @@ void loop() {
           1                                // first instance
         );
       } else {
+
+        // transition the indirect count buffer
+        // {
+        //   VkBufferMemoryBarrier extend = {
+        //     .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        //     .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
+        //   };
+        //   VkResult err = rawkit_gpu_buffer_transition(
+        //     state->visibility.count->buffer,
+        //     inst->command_buffer,
+        //     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        //     VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+        //     extend
+        //   );
+        // }
+
+        // transition the visibility buffer
+        // {
+        //   VkBufferMemoryBarrier extend = {
+        //     .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        //   };
+        //   VkResult err = rawkit_gpu_buffer_transition(
+        //     state->visibility.index->buffer,
+        //     inst->command_buffer,
+        //     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        //     VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+        //     extend
+        //   );
+        // }
+
+        sledgehammer_buffer_sync(state->visibility.index->buffer, inst->command_buffer);
+        sledgehammer_buffer_sync(state->visibility.count->buffer, inst->command_buffer);
+
         rawkit_shader_instance_param_ssbo(inst, "Index", state->visibility.index);
         vkCmdDrawIndexedIndirect(
           inst->command_buffer,
@@ -762,10 +902,6 @@ void loop() {
       (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
     );
   }
-
-
-
-
   {
     ImTextureID texture = rawkit_imgui_texture(state->world.culling_debug_tex, state->world.culling_debug_tex->default_sampler);
     if (!texture) {
@@ -783,7 +919,7 @@ void loop() {
   }
 
   // fill screen with texture
-  {
+  if (1) {
     rawkit_shader_t *shader = rawkit_shader(
       rawkit_file("shader/fullscreen.vert"),
       rawkit_file("shader/fullscreen.frag")
@@ -818,6 +954,61 @@ void loop() {
         &scissor
       );
       vkCmdDraw(inst->command_buffer, 3, 1, 0, 0);
+      rawkit_shader_instance_end(inst);
+    }
+  }
+
+  // render all bricks
+  if (false && state->visibility.count) {
+    rawkit_shader_t *world_shader = rawkit_shader(
+      rawkit_file("shader/brick-indirect.vert"),
+      rawkit_file("shader/brick.frag")
+    );
+
+    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(world_shader);
+
+    if (inst) {
+      rawkit_shader_instance_param_ubo(inst, "UBO", &state->scene);
+
+      VkViewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = state->scene.screen_dims.x,
+        .height = state->scene.screen_dims.y,
+        .minDepth = 0.0,
+        .maxDepth = 1.0
+      };
+
+      vkCmdSetViewport(
+        inst->command_buffer,
+        0,
+        1,
+        &viewport
+      );
+
+      VkRect2D scissor = {};
+      scissor.extent.width = viewport.width;
+      scissor.extent.height = viewport.height;
+      vkCmdSetScissor(
+        inst->command_buffer,
+        0,
+        1,
+        &scissor
+      );
+
+      state->world.render(inst, state->index_buffer);
+
+      sledgehammer_buffer_sync(state->visibility.index->buffer, inst->command_buffer);
+      sledgehammer_buffer_sync(state->visibility.count->buffer, inst->command_buffer);
+
+      rawkit_shader_instance_param_ssbo(inst, "Index", state->visibility.index);
+      vkCmdDrawIndexedIndirect(
+        inst->command_buffer,
+        state->visibility.count->buffer->handle,
+        0, // offset
+        1, // draw count
+        0  // stride
+      );
       rawkit_shader_instance_end(inst);
     }
   }

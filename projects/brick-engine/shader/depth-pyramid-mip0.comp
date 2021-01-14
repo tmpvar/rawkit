@@ -25,11 +25,11 @@ void main() {
   ivec2 rect_max = ivec2(vec2(xy + ivec2(1, 1)) * step);
 
   // Could use image gather to make loop 2x2 shorter
-  float z_min = 1.0;
+  float z_min = 0.0;
   for (int y = rect_min.y; y < rect_max.y; ++y) {
     for (int x = rect_min.x; x < rect_max.x; ++x) {
       float z = texelFetch(src_tex, ivec2(x, y), 0).x;
-      z_min = min(z_min, z);
+      z_min = max(z_min, z);
     }
   }
 

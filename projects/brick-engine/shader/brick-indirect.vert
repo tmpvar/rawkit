@@ -31,10 +31,10 @@ void main() {
   );
 
   uint instance_id = (idx >> 3);
-  if (instance_id == 0) {
-    gl_Position = vec4(-1000.0f);
-    return;
-  }
+  // if (instance_id == 0) {
+  //   gl_Position = vec4(-1000.0f);
+  //   return;
+  // }
 
   uint brick_id = visibility[instance_id];
   Brick brick = bricks[brick_id];
