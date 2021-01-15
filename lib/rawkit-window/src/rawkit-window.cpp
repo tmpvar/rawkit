@@ -57,6 +57,16 @@ uint32_t rawkit_window_frame_count() {
   return state->frame_count;
 }
 
+GLFWwindow *rawkit_glfw_window() {
+  rawkit_window_t *window = rawkit_hot_resource(resource_name, rawkit_window_t);
+  if (!window || !window->_state) {
+    return NULL;
+  }
+
+  WindowState *state = (WindowState *)window->_state;
+  return state->window;
+}
+
 // INTERNAL
 
 void rawkit_window_internal_set_frame_index(uint32_t val) {
@@ -85,4 +95,19 @@ void rawkit_window_internal_set_frame_count(uint32_t val) {
 
   WindowState *state = (WindowState *)window->_state;
   state->frame_count = val;
+}
+
+
+void rawkit_window_internal_set_glfw_window(GLFWwindow *glfw_window) {
+  rawkit_window_t *window = rawkit_hot_resource(resource_name, rawkit_window_t);
+  if (!window) {
+    return;
+  }
+
+  if (!window->_state) {
+    window->_state = (void*)new WindowState;
+  }
+
+  WindowState *state = (WindowState *)window->_state;
+  state->window = glfw_window;
 }

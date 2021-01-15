@@ -9,6 +9,7 @@
 #include <hot/host/string.h>
 #include <hot/host/cimgui.h>
 #include <hot/host/croaring.h>
+#include <hot/host/glfw.h>
 #include <hot/host/tinyfiledialogs.h>
 #include <hot/host/rawkit-core.h>
 #include <hot/host/rawkit-glsl.h>
@@ -22,6 +23,7 @@
 #include <hot/host/rawkit-image.h>
 #include <hot/host/rawkit-mesh.h>
 #include <hot/host/rawkit-vg.h>
+#include <hot/host/rawkit-window.h>
 #include <hot/host/uv.h>
 
 void host_hot_init_state(rawkit_jit_t *jit) {
@@ -52,6 +54,7 @@ void host_hot_init(rawkit_jit_t *jit) {
   // #if !defined(__linux__)
   //   host_init_stdlib(jit);
   // #endif
+  host_glfw_init(jit);
 
   host_init_rawkit_core(jit);
   host_init_rawkit_glsl(jit);
@@ -65,6 +68,7 @@ void host_hot_init(rawkit_jit_t *jit) {
   host_init_rawkit_image(jit);
   host_init_rawkit_mesh(jit);
   host_init_rawkit_vg(jit);
+  host_init_rawkit_window(jit);
   host_init_uv(jit);
 
   rawkit_jit_add_export(jit, "rawkit_now", (void *)&rawkit_now);

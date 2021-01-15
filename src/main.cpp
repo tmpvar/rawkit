@@ -407,11 +407,6 @@ int main(int argc, char **argv) {
     rawkit_jit_add_export(jit, "rawkit_current_framebuffer", rawkit_current_framebuffer);
     rawkit_jit_add_export(jit, "rawkit_randf", rawkit_randf);
 
-    rawkit_jit_add_export(jit, "rawkit_window_frame_index", rawkit_window_frame_index);
-    rawkit_jit_add_export(jit, "rawkit_window_frame_count", rawkit_window_frame_count);
-    rawkit_jit_add_export(jit, "rawkit_window_width", rawkit_window_width);
-    rawkit_jit_add_export(jit, "rawkit_window_height", rawkit_window_height);
-
     host_hot_init(jit);
 
     auto list = serial::list_ports();
