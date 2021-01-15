@@ -1,10 +1,11 @@
 #define GLM_FORCE_SWIZZLE
 
 #include <rawkit/rawkit.h>
+#include <GLFW/glfw3.h>
 #define CPU_HOST
 #include "shared.h"
 #include <stb_sb.h>
-
+#include "camera.hpp"
 #include <unordered_map>
 #include <string>
 #include <functional>
@@ -17,6 +18,7 @@ using namespace std;
 
 
 void sledgehammer_buffer_sync(rawkit_gpu_buffer_t *buffer, VkCommandBuffer command_buffer) {
+  return;
   VkBufferMemoryBarrier memoryBarrier = {
     .srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT |
                     VK_ACCESS_INDEX_READ_BIT |
@@ -245,6 +247,10 @@ struct Visibility {
 struct State {
   World world;
   Scene scene;
+  Camera *camera;
+  double last_time;
+  vec2 last_mouse_pos;
+  bool camera_rotating;
 
   rawkit_gpu_buffer_t *index_buffer;
   Visibility visibility;
@@ -507,8 +513,6 @@ struct DepthPyramid {
 
 
 void setup() {
-  printf("l: %f\n", length(vec3(1103, 872, 493)));
-
   rawkit_gpu_t *gpu = rawkit_default_gpu();
 
   State *state = rawkit_hot_state("state", State);
@@ -584,6 +588,23 @@ void setup() {
     sb_push(state->world.objects, obj);
     obj->upload();
   }
+
+  if (!state->camera) {
+
+    vec3 center = sb_count(state->world.objects) > 0
+      ? (state->world.objects[0]->aabb.ub - state->world.objects[0]->aabb.lb)/2.0f
+      : vec3(1.0);
+    state->camera = new Camera;
+    state->camera->type = Camera::CameraType::firstperson;
+    state->camera->flipY = true;
+    state->camera->setTranslation(center);
+    state->camera->setRotation(vec3(0.0));
+
+  }
+
+  if (state->last_time == 0.0) {
+    state->last_time = rawkit_now();
+  }
 }
 
 
@@ -644,8 +665,46 @@ void loop() {
     }
   }
 
+  double now = rawkit_now();
+  double dt = now - state->last_time;
+  state->last_time = now;
+  igText("dt: %f", dt);
+
+
+  // mouse look
+  if (1) {
+    GLFWwindow *window = rawkit_glfw_window();
+    if (window) {
+      igText("has window");
+      ImGuiIO *io = igGetIO();
+      if (io) {
+        igText("has io");
+        if (!io->WantCaptureMouse) {
+          if (igIsMouseDown(ImGuiMouseButton_Left)) {
+            if (glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED) {
+              glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+              if (glfwRawMouseMotionSupported()) {
+                glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+              }
+
+
+              double mx, my;
+              glfwGetCursorPos(window, &mx, &my);
+              state->last_mouse_pos = vec2(mx, my);
+            }
+          } else {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+           }
+        }
+      }
+    } else {
+      igText("no window...");
+    }
+  }
+
   // setup state
   {
+
     state->scene.screen_dims = vec4(
       (float)rawkit_window_width(),
       (float)rawkit_window_height(),
@@ -661,48 +720,105 @@ void loop() {
       VK_FORMAT_R32_UINT
     );
 
-    mat4 proj = glm::perspective(
-      glm::radians(90.0f),
+    // camera movement
+    {
+      double move = dt * 100.0;
+
+      // w
+      state->camera->keys.up = igIsKeyDown(87);
+
+      // a
+      state->camera->keys.left = igIsKeyDown(65);
+
+      // s
+      state->camera->keys.down = igIsKeyDown(83);
+
+      // d
+      state->camera->keys.right = igIsKeyDown(68);
+
+      // // space
+      // if (igIsKeyDown(341)) {
+      //   camera->pos.y -= move;
+      // }
+
+      // // control
+      // if (igIsKeyDown(32)) {
+      //   camera->pos.y += move;
+      // }
+    }
+
+    state->camera->setPerspective(
+      90.0f,
       state->scene.screen_dims.x / state->scene.screen_dims.y,
-      1.1f,
+      0.1f,
       (float)MAX_DEPTH
     );
+    state->camera->update(dt);
 
+
+    GLFWwindow *window = rawkit_glfw_window();
+    if (window && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) {
+      double mx, my;
+      glfwGetCursorPos(window, &mx, &my);
+
+      float sensitivity = 0.2;
+      vec2 diff = -vec2(
+        state->last_mouse_pos.x - mx,
+        state->last_mouse_pos.y - my
+      ) * sensitivity;
+
+      igText("rotating (%f, %f)",
+        diff.x,
+        diff.y
+      );
+      state->camera->rotate(vec3(
+        diff.y,
+        diff.x,
+        0.0
+      ));
+
+      vec2 screen_center = state->scene.screen_dims * 0.5f;
+      state->last_mouse_pos = vec2(mx, my);
+    }
+
+    state->camera->setMovementSpeed(100.0);
+    igText("camera(%f, %f, %f)", state->camera->position.x, state->camera->position.y, state->camera->position.z);
     mat4 clip = glm::mat4(
       1.0f,  0.0f, 0.0f, 0.0f,
       0.0f, -1.0f, 0.0f, 0.0f,
       0.0f,  0.0f, 0.5f, 0.0f,
       0.0f,  0.0f, 0.5f, 1.0f
     );
+    state->scene.worldToScreen = clip * state->camera->matrices.perspective * state->camera->matrices.view;
 
-    proj[1][1] *= -1.0f;
+    // proj[1][1] *= -1.0f;
 
     vec3 center = obj_count > 0
       ? (state->world.objects[0]->aabb.ub - state->world.objects[0]->aabb.lb)/2.0f
       : vec3(1.0);
 
 
-    float dist = length(center) * 1.4;
+    float dist = length(center) * .1;
     float now = (float)rawkit_now() * .5 + 5.0;
     // now = 1.5;
     // now = 3.14 * 3.0;
-    vec3 eye = center + vec3(
-      sin(now) * dist,
-      0.0,
-      cos(now) * dist
-    );
+    // state->camera->position = center + vec3(
+    //   sin(now) * dist,
+    //   0.0,
+    //   cos(now) * dist
+    // );
 
-    mat4 view = glm::lookAt(
-      eye,
-      center,
-      vec3(0.0f, 1.0f, 0.0f)
-    );
+    // mat4 view = glm::lookAt(
+    //   state->camera->position,
+    //   center,
+    //   vec3(0.0f, 1.0f, 0.0f)
+    // );
 
-    state->scene.worldToScreen = clip * proj * view;
-
+    // state->scene.worldToScreen = clip * state->camera->matrices.perspective * view;
     state->scene.brick_dims = vec4(16.0f);
-    state->scene.eye = vec4(eye, 1.0f);
-    state->scene.time = (float)rawkit_now();
+    // state->scene.eye = vec4(state->camera->position, 1.0f);
+    state->scene.eye = state->camera->viewPos;
+    state->scene.time = now;
 
     Brick *brick = &state->world.objects[0]->bricks[0];
 
@@ -863,8 +979,11 @@ void loop() {
   if (igIsItemActive()) {
     state->visibility.count = NULL;
   } else {
+
     igButton("pause visibility", {150.0f, 20.0f});
-    if (!state->visibility.count || !igIsItemActive()) {
+    igText("space: %i", igIsKeyDown(32));
+
+    if (!state->visibility.count || (!igIsItemActive() && /* space */ !igIsKeyDown(32))) {
       state->visibility = depth_pyramid.compute_visibility(&state->world, &state->scene);
     }
   }
@@ -954,61 +1073,6 @@ void loop() {
         &scissor
       );
       vkCmdDraw(inst->command_buffer, 3, 1, 0, 0);
-      rawkit_shader_instance_end(inst);
-    }
-  }
-
-  // render all bricks
-  if (false && state->visibility.count) {
-    rawkit_shader_t *world_shader = rawkit_shader(
-      rawkit_file("shader/brick-indirect.vert"),
-      rawkit_file("shader/brick.frag")
-    );
-
-    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(world_shader);
-
-    if (inst) {
-      rawkit_shader_instance_param_ubo(inst, "UBO", &state->scene);
-
-      VkViewport viewport = {
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = state->scene.screen_dims.x,
-        .height = state->scene.screen_dims.y,
-        .minDepth = 0.0,
-        .maxDepth = 1.0
-      };
-
-      vkCmdSetViewport(
-        inst->command_buffer,
-        0,
-        1,
-        &viewport
-      );
-
-      VkRect2D scissor = {};
-      scissor.extent.width = viewport.width;
-      scissor.extent.height = viewport.height;
-      vkCmdSetScissor(
-        inst->command_buffer,
-        0,
-        1,
-        &scissor
-      );
-
-      state->world.render(inst, state->index_buffer);
-
-      sledgehammer_buffer_sync(state->visibility.index->buffer, inst->command_buffer);
-      sledgehammer_buffer_sync(state->visibility.count->buffer, inst->command_buffer);
-
-      rawkit_shader_instance_param_ssbo(inst, "Index", state->visibility.index);
-      vkCmdDrawIndexedIndirect(
-        inst->command_buffer,
-        state->visibility.count->buffer->handle,
-        0, // offset
-        1, // draw count
-        0  // stride
-      );
       rawkit_shader_instance_end(inst);
     }
   }

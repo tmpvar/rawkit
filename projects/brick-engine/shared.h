@@ -16,19 +16,12 @@
 
 #define MAX_DEPTH 1000.0
 
-
-struct Camera {
-  vec4 pos;
-  // TODO: orientation and vp matrix
-};
-
 struct Scene {
   mat4 worldToScreen;
   vec4 screen_dims;
   vec4 eye;
   vec4 brick_dims;
   vec4 cascade_center;
-  Camera camera;
   float time;
 };
 
