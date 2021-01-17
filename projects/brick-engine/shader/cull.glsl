@@ -2,26 +2,11 @@
 	(Created by Jonathan Dupuy 2014.11.13)
 
 */
-#ifndef DCF_INCLUDE_DC_FRUSTUM_GLSL
-#define DCF_INCLUDE_DC_FRUSTUM_GLSL
-#line 7
-
-//////////////////////////////////////////////////////////////////////////////
-//
-// Frustum Culling API
-//
-
-bool dj_culltest(mat4 mvp, vec3 bmin, vec3 bmax);
-
-//
-//
-//// end header file /////////////////////////////////////////////////////
-#endif // DCF_INCLUDE_DC_FRUSTUM_GLSL
 
 // *************************************************************************************************
 // Frustum Implementation
 
-struct dc__frustum {
+struct dc_frustum {
 	vec4 planes[6];
 };
 
@@ -33,7 +18,7 @@ struct dc__frustum {
  * This procedure computes the planes of the frustum and normalizes
  * them.
  */
-void dcf__load(out dc__frustum frustum, mat4 mvp)
+void dcf_load(out dc_frustum frustum, mat4 mvp)
 {
 	for (int i = 0; i < 3; ++i)
 	for (int j = 0; j < 2; ++j) {
@@ -53,7 +38,7 @@ void dcf__load(out dc__frustum frustum, mat4 mvp)
  * See the View Frustum Culling tutorial @ LightHouse3D.com
  * http://www.lighthouse3d.com/tutorials/view-frustum-culling/geometric-approach-testing-boxes-ii/
  */
-vec3 dcf__nvertex(vec3 bmin, vec3 bmax, vec3 n)
+vec3 dcf_nvertex(vec3 bmin, vec3 bmax, vec3 n)
 {
 	bvec3 b = greaterThan(n, vec3(0));
 	return mix(bmin, bmax, b);
@@ -70,17 +55,14 @@ vec3 dcf__nvertex(vec3 bmin, vec3 bmax, vec3 n)
 bool dj_culltest(mat4 mvp, vec3 bmin, vec3 bmax)
 {
 	float a = 1.0;
-	dc__frustum f;
+	dc_frustum f;
 
-	dcf__load(f, mvp);
+	dcf_load(f, mvp);
 	for (int i = 0; i < 6 && a >= 0.0; ++i) {
-		vec3 n = dcf__nvertex(bmin, bmax, f.planes[i].xyz);
+		vec3 n = dcf_nvertex(bmin, bmax, f.planes[i].xyz);
 
 		a = dot(vec4(n, 1.0), f.planes[i]);
 	}
 
 	return (a >= 0.0);
 }
-
-
-

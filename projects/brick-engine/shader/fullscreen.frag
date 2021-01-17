@@ -28,7 +28,7 @@ void main() {
   //   else if (channel == 1) outColor.g += v;
   //   else if (channel == 2) outColor.b += v;
   // }
-#if 1
+#if 0
   if (uv.x >= 0.5) {
     outColor = vec4(
       float(imageLoad(culling_debug_tex, ivec2((uv - vec2(0.5, 0.0)) * vec2(2.0, 1.0) * gl_FragCoord.xy)).x),

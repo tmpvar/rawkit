@@ -11,7 +11,7 @@
 #include <functional>
 using namespace std;
 
-#define ACTIVE_BRICK_COUNT 1000000
+#define ACTIVE_BRICK_COUNT 2000000
 #define CUBE_INDICES_COUNT 18
 #define CUBE_VERTICES_COUNT 8
 #define INDICES_SIZE CUBE_INDICES_COUNT * ACTIVE_BRICK_COUNT * sizeof(uint32_t)
@@ -560,11 +560,11 @@ void setup() {
     Object *obj = new Object;
     sprintf(tmp_str, "object#%u", object_id++);
     obj->name.assign(tmp_str);
-    float d = 64.0f;
+    float d = 128.0f;
     float s = 1.0f;
     float diagonal_length = glm::length(vec3(1.0f));
 #if 1
-    for (float y=0.0; y<d; y++) {
+    for (float y=0.0; y<d*0.5; y++) {
       for (float x = 0.0f; x<d; x++) {
         for (float z = 0.0f; z<d; z++) {
 
@@ -722,7 +722,7 @@ void loop() {
 
     // camera movement
     {
-      double move = dt * 100.0;
+      // double move = dt * 100.0;
 
       // w
       state->camera->keys.up = igIsKeyDown(87);
@@ -781,7 +781,7 @@ void loop() {
       state->last_mouse_pos = vec2(mx, my);
     }
 
-    state->camera->setMovementSpeed(100.0);
+    state->camera->setMovementSpeed(10.0);
     igText("camera(%f, %f, %f)", state->camera->position.x, state->camera->position.y, state->camera->position.z);
     mat4 clip = glm::mat4(
       1.0f,  0.0f, 0.0f, 0.0f,

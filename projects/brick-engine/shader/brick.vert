@@ -15,7 +15,7 @@ layout(std430, binding = 1) readonly buffer Bricks {
 out vec3 rayOrigin;
 flat out vec3 eye;
 flat out uint brick_id;
-flat out float lod;
+flat out float mip;
 
 void main() {
   uint idx = gl_VertexIndex;
@@ -26,14 +26,23 @@ void main() {
   );
 
   Brick brick = bricks[idx >> 3];
-  eye = ubo.scene.eye.xyz - brick.pos.xyz;
+  vec3 pos = brick.pos.xyz;
+
+  mip = brick_mip(
+    pos,
+    1.0,
+    ubo.scene.worldToScreen,
+    ubo.scene.screen_dims.xy
+  );
+
+  eye = ubo.scene.eye.xyz - pos;
 
   if (eye.x > 0.0) rayOrigin.x = 1.0 - rayOrigin.x;
   if (eye.y > 0.0) rayOrigin.y = 1.0 - rayOrigin.y;
   if (eye.z > 0.0) rayOrigin.z = 1.0 - rayOrigin.z;
 
 	gl_Position = ubo.scene.worldToScreen * vec4(
-    rayOrigin + brick.pos.xyz,
+    rayOrigin + pos,
     1.0
   );
 }

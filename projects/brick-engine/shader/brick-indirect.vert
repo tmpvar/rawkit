@@ -3,6 +3,7 @@
   #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 
 #include "../shared.h"
+#include "quadric-proj.glsl"
 
 layout (std430, binding = 0) uniform UBO {
   Scene scene;
@@ -19,7 +20,8 @@ layout(std430, binding = 2) buffer Index {
 out vec3 rayOrigin;
 flat out vec3 eye;
 flat out uint brick_id;
-flat out float lod;
+flat out float mip;
+
 
 void main() {
   uint idx = gl_VertexIndex;
@@ -31,15 +33,17 @@ void main() {
   );
 
   uint instance_id = (idx >> 3);
-  // if (instance_id == 0) {
-  //   gl_Position = vec4(-1000.0f);
-  //   return;
-  // }
 
   uint brick_id = visibility[instance_id];
   Brick brick = bricks[brick_id];
   vec3 pos = brick.pos.xyz;
 
+  mip = brick_mip(
+    pos,
+    1.0,
+    ubo.scene.worldToScreen,
+    ubo.scene.screen_dims.xy
+  );
 
   eye = ubo.scene.eye.xyz - pos;
 
