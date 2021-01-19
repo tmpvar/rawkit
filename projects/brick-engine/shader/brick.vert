@@ -25,7 +25,8 @@ void main() {
     (idx >> 2) & 1
   );
 
-  Brick brick = bricks[idx >> 3];
+  brick_id = idx >> 3;
+  Brick brick = bricks[brick_id];
   vec3 pos = brick.pos.xyz;
 
   mip = brick_mip(

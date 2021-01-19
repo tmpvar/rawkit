@@ -818,7 +818,7 @@ void loop() {
     state->scene.brick_dims = vec4(16.0f);
     // state->scene.eye = vec4(state->camera->position, 1.0f);
     state->scene.eye = state->camera->viewPos;
-    state->scene.time = now;
+    state->scene.time = (float)rawkit_now();
 
     Brick *brick = &state->world.objects[0]->bricks[0];
 

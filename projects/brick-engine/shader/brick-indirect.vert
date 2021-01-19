@@ -34,7 +34,7 @@ void main() {
 
   uint instance_id = (idx >> 3);
 
-  uint brick_id = visibility[instance_id];
+  brick_id = visibility[instance_id];
   Brick brick = bricks[brick_id];
   vec3 pos = brick.pos.xyz;
 
