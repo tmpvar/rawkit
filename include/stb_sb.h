@@ -2,6 +2,7 @@
 // a vector<>-like dynamic array for C
 //
 // version history:
+//      1.05 -  tmpvar: add sb_reset
 //      1.04 -  fix warning
 //      1.03 -  compile as C++ maybe
 //      1.02 -  tweaks to syntax for no good reason
