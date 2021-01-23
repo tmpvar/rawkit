@@ -149,6 +149,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
     Args.push_back("-std=c++17");
   }
 
+  Args.push_back("-DRAWKIT_GUEST");
   #if defined(_WIN32)
     Args.push_back("-fms-extensions");
     Args.push_back("-fms-compatibility");
@@ -160,6 +161,15 @@ JitJob *JitJob::create(int argc, const char **argv) {
     Args.push_back("-D_CRT_NONSTDC_NO_WARNINGS");
     Args.push_back("-D_SCL_SECURE_NO_DEPRECATE");
     Args.push_back("-D_SCL_SECURE_NO_WARNINGS");
+    /*
+      <command line>:9:9 note: previous definition is here
+      E:\c\rawkit\build\install\include\clang\xmmintrin.h:2070:9 warning: '_MM_HINT_T0' macro redefined
+      C:\Program Files (x86)\Windows Kits\10\include\10.0.18362.0\um\winnt.h:3332:9 note: previous definition is here
+      E:\c\rawkit\build\install\include\clang\xmmintrin.h:2072:9 warning: '_MM_HINT_T2' macro redefined
+      C:\Program Files (x86)\Windows Kits\10\include\10.0.18362.0\um\winnt.h:3334:9 note: previous definition is here
+    */
+    // Args.push_back("-DWIN32_LEAN_AND_MEAN");
+    Args.push_back("-DNOGDI");
   #endif
 
   #ifdef __linux__
