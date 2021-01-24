@@ -9,9 +9,9 @@ using namespace glm;
 #include "mouse.h"
 #include <stb_sb.h>
 
-#define GRAVITY vec2(0.0, -90.8)
+#define GRAVITY vec2(0.0, -9.8)
 #define TAU 6.283185307179586
-#define MAX_PARTICLES 300
+#define MAX_PARTICLES 660
 
 struct Constraint {
   uint32_t a;
@@ -109,14 +109,17 @@ void setup() {
 
   // build up a floor polygon
   {
-    Polygon *polygon = new Polygon("floor");
-    polygon->append(vec2(0.0, 0.0));
-    polygon->append(vec2(state->screen.x, 0.0));
-    polygon->append(vec2(state->screen.x, 100.0));
-    polygon->append(vec2(state->screen.x*0.5, 10.0));
-    polygon->append(vec2(0.0, 100.0));
-    polygon->rebuild_sdf();
-    sb_push(state->polygons, polygon);
+    if (!sb_count(state->polygons)) {
+      Polygon *polygon = new Polygon("floor");
+      polygon->append(vec2(0.0, 0.0));
+      polygon->append(vec2(state->screen.x, 0.0));
+      polygon->append(vec2(state->screen.x, 100.0));
+      polygon->append(vec2(state->screen.x*0.05, 10.0));
+      // polygon->append(vec2(state->screen.x*0.75, 20.0));
+      polygon->append(vec2(0.0, 100.0));
+      polygon->rebuild_sdf();
+      sb_push(state->polygons, polygon);
+    }
   }
 
   {
@@ -159,28 +162,24 @@ vec2 projectSDFConstraint(vec2 pos, Polygon *polygon, float radius) {
     d = distance(nearest, pos);
   }
 
-  local_pos = floor(clamp(
+  local_pos = clamp(
     local_pos,
     vec2(0.0f),
     (polygon->aabb.ub - polygon->aabb.lb) - 1.0f
-  ));
+  );
 
-  d += (polygon->sdf->sample_interp(local_pos) + polygon->sdf->sample_interp(local_pos + 0.5f)) * 0.5f;
-  if (d > 5.0f) {
+  d += polygon->sdf->sample_interp(local_pos);
+  if (d > radius) {
     return pos;
   }
 
-  float diff = radius - d;
+  float diff = abs(-radius +  d) ;
   vec2 ndir = normalize(polygon->sdf->calcNormal(local_pos));
 
   // TODO: actual mass ratio
-  float massRatio = 0.5;
+  float massRatio = 1.0;
 
-  // TODO: why does this need to be dampened - without it, small intersections
-  //       result in very large velocities
-  float damp = 0.1f;
-
-  return pos + massRatio * diff * damp * ndir;
+  return pos + massRatio * diff * ndir;// * 0.5f;
 }
 
 void loop() {
@@ -246,7 +245,7 @@ void loop() {
   uint32_t constraint_count = sb_count(state->constraints);
 
   // process the constraints
-  float substeps = 10.0;
+  float substeps = 20.0;
   float substep_dt = dt/substeps;
 
   float elasticity = 0.5f;
@@ -372,7 +371,7 @@ void loop() {
     vec2 mouse = state->mouse.pos;
     mouse.y = state->screen.y - mouse.y;
 
-    vec2 next_pos = projectSDFConstraint(mouse, state->polygons[0], radius);
+    vec2 next_pos = projectSDFConstraint(mouse, state->polygons[0], 20);
 
     rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0x0, 0xFF, 0x0));
     rawkit_vg_fill_color(vg, rawkit_vg_RGB(0x0, 0xFF, 0xFF));

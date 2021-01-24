@@ -338,16 +338,16 @@ typedef struct SDF {
   vec2 calcNormal(vec2 p ) {
 
     //get d, and also its sign (i.e. inside or outside)
-    float d = this->sample(p);
+    float d = this->sample_interp(p);
     float sign = d >= 0 ? 1.0f : -1.0f;
     float maxval = FLT_MAX * sign;
 
     //read neighbour distances, ignoring border pixels
-
-    float x0 = this->sample_interp(p + vec2(-1.0, 0.0));
-    float x1 = this->sample_interp(p + vec2( 1.0, 0.0));
-    float y0 = this->sample_interp(p + vec2(0.0, -1.0));
-    float y1 = this->sample_interp(p + vec2(0.0, 1.0));
+    float o = 2.5;
+    float x0 = this->sample_interp(p + vec2(-o,  0.0));
+    float x1 = this->sample_interp(p + vec2( o,  0.0));
+    float y0 = this->sample_interp(p + vec2( 0.0, -o));
+    float y1 = this->sample_interp(p + vec2( 0.0,  o));
 
     //use the smallest neighbour in each direction to calculate the partial deriviates
     float xgrad = sign*x0 < sign*x1 ? -(x0-d) : (x1-d);
