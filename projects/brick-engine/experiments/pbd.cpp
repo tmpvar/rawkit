@@ -11,7 +11,7 @@ using namespace glm;
 
 #define GRAVITY vec2(0.0, -90.8)
 #define TAU 6.283185307179586
-#define MAX_PARTICLES 1000
+#define MAX_PARTICLES 400
 
 struct Constraint {
   uint32_t a;
@@ -109,7 +109,8 @@ void setup() {
 
   // build up a floor polygon
   if (1) {
-    if (!sb_count(state->polygons)) {
+    uint32_t c = sb_count(state->polygons);
+    if (!c) {
       {
         Polygon *polygon = new Polygon("floor");
         polygon->pos = vec2(0.0);
@@ -127,7 +128,7 @@ void setup() {
 
       {
         Polygon *polygon = new Polygon("rotate");
-        polygon->pos = vec2(500.0, 200.0);
+        polygon->pos = vec2(500.0, 100.0);
         polygon->append(vec2(0.0, 0.0));
         polygon->append(vec2(200.0, 0.0));
         polygon->append(vec2(200.0, 200.0));
@@ -135,6 +136,10 @@ void setup() {
         polygon->append(vec2(0.0, 0.0));
         polygon->rebuild_sdf();
         sb_push(state->polygons, polygon);
+      }
+    } else {
+      for (uint32_t i=0; i<c; i++) {
+        state->polygons[i]->rebuild_sdf();
       }
     }
   }
@@ -171,15 +176,14 @@ void projectConstraint(vec2 *positions, Constraint constraint) {
 }
 
 vec2 projectSDFConstraint(vec2 pos, Polygon *polygon, float radius) {
-  vec2 local_pos = pos - polygon->aabb.lb;
-  float d = polygon->sample_bilinear(local_pos);
+  float d = polygon->sample_bilinear_world(pos);
 
   if (d > radius) {
     return pos;
   }
 
   float diff = abs(-radius +  d);
-  vec2 ndir = polygon->calcNormal(local_pos);
+  vec2 ndir = polygon->calc_normal_world(pos);
 
   // TODO: actual mass ratio
   float massRatio = 1.0;
@@ -248,17 +252,6 @@ void loop() {
     }
   }
 
-  // add constraints for a square
-  {
-    add_constraint(0, 1, 1);
-    add_constraint(1, 2, 1);
-    add_constraint(2, 3, 1);
-    add_constraint(3, 0, 1);
-
-    add_constraint(0, 2, 1);
-    add_constraint(1, 3, 1);
-  }
-
   uint32_t constraint_count = sb_count(state->constraints);
 
   // process the constraints
@@ -278,10 +271,10 @@ void loop() {
         for (uint32_t particle_idx=0; particle_idx<particle_count; particle_idx++) {
           for (uint32_t polygon_idx=0; polygon_idx<polygon_count; polygon_idx++) {
             state->next_positions[particle_idx] = projectSDFConstraint(
-              state->next_positions[particle_idx] - state->polygons[polygon_idx]->pos,
+              state->next_positions[particle_idx],
               state->polygons[polygon_idx],
               radius
-            ) + state->polygons[polygon_idx]->pos;
+            );
           }
         }
       }
@@ -334,6 +327,8 @@ void loop() {
 
   // render polygons
   {
+    state->polygons[1]->rot += 5.0 * dt;
+
     for (uint32_t i=0; i<polygon_count; i++) {
       state->polygons[i]->render(vg);
     }
@@ -375,6 +370,38 @@ void loop() {
     }
   }
 
+  // compute debug normal at mouse pos
+  // debug local transform
+  {
+    vec2 mouse = vec2(
+      state->mouse.pos.x,
+      (float)rawkit_window_height() - state->mouse.pos.y
+    );
+    // vec2 local_pos = state->polygons[0]->worldToLocal(mouse);
+
+    rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0, 0xFF));
+
+    rawkit_vg_begin_path(vg);
+      rawkit_vg_arc(
+        vg,
+        mouse.x,
+        mouse.y,
+        radius,
+        0.0,
+        TAU,
+        1
+      );
+      rawkit_vg_fill(vg);
+    igText("normal");
+    vec2 normal = state->polygons[0]->calc_normal_world(mouse);
+    rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0, 0xFF));
+    rawkit_vg_stroke_width(vg, 2.0);
+    rawkit_vg_begin_path(vg);
+      rawkit_vg_move_to(vg, mouse.x, mouse.y);
+      rawkit_vg_line_to(vg, mouse.x + normal.x * 100.0f, mouse.y + normal.y * 100.0f);
+      rawkit_vg_stroke(vg);
+  }
+
   // debug mouse constraint projection
   {
     for (uint32_t i=0; i<polygon_count; i++) {
@@ -383,22 +410,28 @@ void loop() {
         (float)rawkit_window_height() - state->mouse.pos.y
       );
       Polygon *polygon = state->polygons[i];
-      polygon->sdf->debug_dist();
-      vec2 ppos = polygon->pos;
-      vec2 sample_pos = mouse - ppos;
-      igText("%s d(%f)", polygon->name, polygon->sample(sample_pos));
-      vec2 next_pos = projectSDFConstraint(sample_pos, polygon, 20);
 
+      {
+        vec2 normal = polygon->calc_normal_world(mouse);
+        rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0, 0xFF));
+        rawkit_vg_stroke_width(vg, 2.0);
+        rawkit_vg_begin_path(vg);
+          rawkit_vg_move_to(vg, mouse.x, mouse.y);
+          rawkit_vg_line_to(vg, mouse.x + normal.x * 100.0f, mouse.y + normal.y * 100.0f);
+          rawkit_vg_stroke(vg);
+      }
+
+      igBegin(polygon->name, 0, 0);
+      polygon->sdf->debug_dist();
+      igEnd();
+      igText("%s d(%f)", polygon->name, polygon->sample_world(mouse));
+      vec2 next_pos = projectSDFConstraint(mouse, polygon, 20);
       rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0x0, 0xFF, 0x0));
       rawkit_vg_stroke_width(vg, 2.0);
-      rawkit_vg_fill_color(vg, rawkit_vg_RGB(0x0, 0xFF, 0xFF));
-        rawkit_vg_begin_path(vg);
-          vec2 start = ppos + sample_pos;
-          vec2 end = ppos + next_pos;
-
-          rawkit_vg_move_to(vg, start.x, start.y);
-          rawkit_vg_line_to(vg, end.x, end.y);
-          rawkit_vg_stroke(vg);
+      rawkit_vg_begin_path(vg);
+        rawkit_vg_move_to(vg, mouse.x, mouse.y);
+        rawkit_vg_line_to(vg, next_pos.x, next_pos.y);
+        rawkit_vg_stroke(vg);
 
     }
   }

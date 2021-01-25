@@ -6,13 +6,14 @@
 #include "aabb.h"
 #include "sdf.h"
 #include <glm/glm.hpp>
+#include <glm/gtx/rotate_vector.hpp>
 using namespace glm;
 
 static char polygon_tmp_str[4096] = "";
 
 typedef struct Polygon {
-  vec2 pos;
-  float rot;
+  vec2 pos = vec2(0.0);
+  float rot = 0.0;
 
 
   SDF *sdf = NULL;
@@ -32,11 +33,16 @@ typedef struct Polygon {
     // see: https://github.com/dy/bitmap-sdf/blob/master/index.js#L92
     uint32_t count = sb_count(this->points);
     if (!count) return;
+
+    printf("rebuild sdf for %s\n", this->name);
+
     this->aabb.lb = vec2(FLT_MAX);
     this->aabb.ub = vec2(-FLT_MAX);
     for (uint32_t i=0; i<count; i++) {
       this->aabb.grow(this->points[i]);
     }
+
+
 
     // TODO: changing this will break the sdf->write call below
     AABB inflated = this->aabb.copy_inflated(0.0f);
@@ -61,17 +67,20 @@ typedef struct Polygon {
         // adapted from triangle
         // http://www.iquilezles.org/www/articles/distfunctions2d/distfunctions2d.htm
         float s = 1.0;
-        float d = dot(p - this->points[0], p - this->points[0]);
+        vec2 cur = this->points[0];
+
+        float d = dot(p - cur, p - cur);
         for(int i=0; i<count; i++) {
           // distance
-          int i2 = (i+1)%count;
-          vec2 e = this->points[i2] - this->points[i];
-          vec2 v = p - this->points[i];
+          cur = this->points[i];
+          vec2 next = this->points[(i+1)%count];
+          vec2 e = next - cur;
+          vec2 v = p - cur;
           vec2 pq = v - e * clamp( dot(v,e) / dot(e,e), 0.0f, 1.0f );
           d = min( d, dot(pq, pq));
 
           // winding number from http://geomalgorithms.com/a03-_inclusion.html
-          vec2 v2 = p - this->points[i2];
+          vec2 v2 = p - next;
           float val3 = e.x * v.y - e.y * v.x; //isLeft
           bvec3 cond = bvec3(
             v.y >= 0.0f,
@@ -98,7 +107,21 @@ typedef struct Polygon {
     sb_push(this->points, point);
   }
 
-  float sample(vec2 p) {
+  vec2 worldToLocal(vec2 p) {
+    // translate p into grid space
+    vec2 local_center = (this->aabb.ub - this->aabb.lb) * 0.5f;
+    vec2 world_center = local_center + this->pos;
+
+    vec2 diff = p - world_center;
+    vec2 grid_pos = rotate(diff, -this->rot);
+    return grid_pos + local_center;
+  }
+
+  float sample_world(vec2 p) {
+    return this->sample_local(this->worldToLocal(p));
+  }
+
+  float sample_local(vec2 p) {
     if (!this->sdf || this->dirty) {
       this->rebuild_sdf();
     }
@@ -106,33 +129,37 @@ typedef struct Polygon {
     return this->sdf->sample(p);
   }
 
-  float sample_bilinear(vec2 p) {
+  float sample_bilinear_world(vec2 p) {
+    return this->sample_bilinear_local(this->worldToLocal(p));
+  }
+
+  float sample_bilinear_local(vec2 p) {
     float lx = floor(p.x);
     float ly = floor(p.y);
     vec2 lb = floor(p);
     vec2 ub = lb + 1.0f;
     return (
-      this->sample(vec2(lb.x, lb.y)) * (ub.x - p.x)  * (ub.y - p.y)  +
-      this->sample(vec2(ub.x, lb.y)) * (p.x  - lb.x) * (ub.y - p.y)  +
-      this->sample(vec2(lb.x, ub.y)) * (ub.x - p.x)  * (p.y  - lb.y) +
-      this->sample(vec2(ub.x, ub.y)) * (p.x  - lb.x) * (p.y  - lb.y)
+      this->sample_local(vec2(lb.x, lb.y)) * (ub.x - p.x)  * (ub.y - p.y)  +
+      this->sample_local(vec2(ub.x, lb.y)) * (p.x  - lb.x) * (ub.y - p.y)  +
+      this->sample_local(vec2(lb.x, ub.y)) * (ub.x - p.x)  * (p.y  - lb.y) +
+      this->sample_local(vec2(ub.x, ub.y)) * (p.x  - lb.x) * (p.y  - lb.y)
     );
   }
 
 
   // grabbed from https://github.com/chriscummings100/signeddistancefields/blob/master/Assets/SignedDistanceFields/SignedDistanceFieldGenerator.cs
-  vec2 calcNormal(vec2 p) {
+  vec2 calc_normal_world(vec2 p) {
     //get d, and also its sign (i.e. inside or outside)
-    float d = this->sample_bilinear(p);
+    float d = this->sample_bilinear_world(p);
     float sign = d >= 0 ? 1.0f : -1.0f;
     float maxval = FLT_MAX * sign;
 
     //read neighbour distances, ignoring border pixels
-    float o = 1.5f;
-    float x0 = this->sample_bilinear(p + vec2(-o,  0.0));
-    float x1 = this->sample_bilinear(p + vec2( o,  0.0));
-    float y0 = this->sample_bilinear(p + vec2( 0.0, -o));
-    float y1 = this->sample_bilinear(p + vec2( 0.0,  o));
+    float o = 2.0f;
+    float x0 = this->sample_bilinear_world(p + vec2(-o,  0.0));
+    float x1 = this->sample_bilinear_world(p + vec2( o,  0.0));
+    float y0 = this->sample_bilinear_world(p + vec2( 0.0, -o));
+    float y1 = this->sample_bilinear_world(p + vec2( 0.0,  o));
 
     //use the smallest neighbour in each direction to calculate the partial deriviates
     float xgrad = sign*x0 < sign*x1 ? -(x0-d) : (x1-d);
@@ -145,37 +172,24 @@ typedef struct Polygon {
     uint32_t count = sb_count(this->points);
     if (!count) return;
 
+    rawkit_vg_save(vg);
+    // this->rot = 0.5;//rawkit_now();
+    vec2 bounds = this->aabb.ub - this->aabb.lb;
+    vec2 center = bounds * 0.5f;
+
+    rawkit_vg_translate(vg, this->pos.x + center.x, this->pos.y + center.y);
+    rawkit_vg_rotate(vg, this->rot);
+    rawkit_vg_translate(vg, -center.x, -center.y);
     rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
     rawkit_vg_begin_path(vg);
-    vec2 p = this->points[0] + this->pos;
+    vec2 p = this->points[0];
     rawkit_vg_move_to(vg, p.x, p.y);
     for (uint32_t i=1; i<count; i++) {
-      p = this->points[i] + this->pos;
+      p = this->points[i];
       rawkit_vg_line_to(vg, p.x, p.y);
     }
     rawkit_vg_close_path(vg);
     rawkit_vg_fill(vg);
-
-    // rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0x00, 0x00));
-    // rawkit_vg_begin_path(vg);
-    //   rawkit_vg_rect(
-    //     vg,
-    //     this->aabb.lb.x,
-    //     this->aabb.lb.y,
-    //     this->aabb.ub.x - this->aabb.lb.x,
-    //     this->aabb.ub.y - this->aabb.lb.y
-    //   );
-    //   rawkit_vg_stroke(vg);
-;
-      //   rawkit_vg_rect(
-      //     vg,
-      //     this->aabb.lb.x,
-      //     this->aabb.lb.y,
-      //     this->aabb.ub.x - this->aabb.lb.x,
-      //     this->aabb.ub.y - this->aabb.lb.y
-      //   );
-      //   rawkit_vg_stroke(vg);
-
     rawkit_vg_restore(vg);
 
   }
