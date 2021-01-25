@@ -506,7 +506,8 @@ void loop() {
       0,
       world_res[0],
       world_res[1],
-      target->color
+      target->color,
+      target->color->default_sampler
     );
     rawkit_vg_restore(vg);
   }
