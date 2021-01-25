@@ -9,9 +9,9 @@ using namespace glm;
 #include "mouse.h"
 #include <stb_sb.h>
 
-#define GRAVITY vec2(0.0, -9.8)
+#define GRAVITY vec2(0.0, -90.8)
 #define TAU 6.283185307179586
-#define MAX_PARTICLES 660
+#define MAX_PARTICLES 1000
 
 struct Constraint {
   uint32_t a;
@@ -86,16 +86,16 @@ void setup() {
       sb_push(state->velocities, vel);
     }
   } else {
-      sb_push(state->positions, vec2(100.0, 0.0) + vec2(100.0, 100.0));
+      sb_push(state->positions, vec2(100.0, 500.0) + vec2(100.0, 100.0));
       sb_push(state->velocities, vec2(.0, 0.0));
 
-      sb_push(state->positions, vec2(100.0, 0.0) + vec2(200.0, 100.0));
+      sb_push(state->positions, vec2(100.0, 500.0) + vec2(500.0, 100.0));
       sb_push(state->velocities, vec2(.0, 0.0));
 
-      sb_push(state->positions, vec2(100.0, 0.0) + vec2(200.0, 200.0));
+      sb_push(state->positions, vec2(100.0, 500.0) + vec2(200.0, 200.0));
       sb_push(state->velocities, vec2(.0, 0.0));
 
-      sb_push(state->positions, vec2(100.0, 0.0) + vec2(100.0, 200.0));
+      sb_push(state->positions, vec2(100.0, 500.0) + vec2(100.0, 200.0));
       sb_push(state->velocities, vec2(.0, 0.0));
 
       add_constraint(0, 1, 1);
@@ -108,17 +108,34 @@ void setup() {
   }
 
   // build up a floor polygon
-  {
+  if (1) {
     if (!sb_count(state->polygons)) {
-      Polygon *polygon = new Polygon("floor");
-      polygon->append(vec2(0.0, 0.0));
-      polygon->append(vec2(state->screen.x, 0.0));
-      polygon->append(vec2(state->screen.x, 100.0));
-      polygon->append(vec2(state->screen.x*0.05, 10.0));
-      // polygon->append(vec2(state->screen.x*0.75, 20.0));
-      polygon->append(vec2(0.0, 100.0));
-      polygon->rebuild_sdf();
-      sb_push(state->polygons, polygon);
+      {
+        Polygon *polygon = new Polygon("floor");
+        polygon->pos = vec2(0.0);
+        polygon->append(vec2(0.0, 0.0));
+        polygon->append(vec2(state->screen.x, 0.0));
+        polygon->append(vec2(state->screen.x, 800.0));
+        polygon->append(vec2(state->screen.x - 30.0f, 800.0));
+        polygon->append(vec2(state->screen.x - 100.0f, 200.0));
+        polygon->append(vec2(300.0, 30.0));
+        polygon->append(vec2(0.0, 800.0));
+
+        polygon->rebuild_sdf();
+        sb_push(state->polygons, polygon);
+      }
+
+      {
+        Polygon *polygon = new Polygon("rotate");
+        polygon->pos = vec2(500.0, 200.0);
+        polygon->append(vec2(0.0, 0.0));
+        polygon->append(vec2(200.0, 0.0));
+        polygon->append(vec2(200.0, 200.0));
+        polygon->append(vec2(0.0, 200.0));
+        polygon->append(vec2(0.0, 0.0));
+        polygon->rebuild_sdf();
+        sb_push(state->polygons, polygon);
+      }
     }
   }
 
@@ -147,46 +164,35 @@ void projectConstraint(vec2 *positions, Constraint constraint) {
   }
 
   // TODO: compute the mass ratio from another list
-  float massRatio = 0.5; // invMassA / (invMassA + invMassB)
+  float massRatio = 0.25; // invMassA / (invMassA + invMassB)
 
   positions[constraint.a] = a - massRatio * diff * ndir;
   positions[constraint.b] = b + massRatio * diff * ndir;
 }
 
 vec2 projectSDFConstraint(vec2 pos, Polygon *polygon, float radius) {
-  float d = 0.0f;
   vec2 local_pos = pos - polygon->aabb.lb;
-  if (!polygon->aabb.contains(pos)) {
-    vec2 nearest = polygon->aabb.nearest(pos);
-    local_pos = nearest - polygon->aabb.lb;
-    d = distance(nearest, pos);
-  }
+  float d = polygon->sdf->sample_interp(local_pos);
 
-  local_pos = clamp(
-    local_pos,
-    vec2(0.0f),
-    (polygon->aabb.ub - polygon->aabb.lb) - 1.0f
-  );
-
-  d += polygon->sdf->sample_interp(local_pos);
   if (d > radius) {
     return pos;
   }
 
-  float diff = abs(-radius +  d) ;
+  float diff = abs(-radius +  d);
   vec2 ndir = normalize(polygon->sdf->calcNormal(local_pos));
 
   // TODO: actual mass ratio
   float massRatio = 1.0;
 
-  return pos + massRatio * diff * ndir;// * 0.5f;
+  return pos + massRatio * diff * ndir;
 }
 
 void loop() {
   State *state = rawkit_hot_state("state", State);
   state->mouse.tick();
   double now = rawkit_now();
-  float dt = now - state->last_time;
+  float dt = min(.02, now - state->last_time);
+  dt = 0.005;
   state->last_time = now;
 
   state->screen = vec2(
@@ -242,6 +248,17 @@ void loop() {
     }
   }
 
+  // add constraints for a square
+  {
+    add_constraint(0, 1, 1);
+    add_constraint(1, 2, 1);
+    add_constraint(2, 3, 1);
+    add_constraint(3, 0, 1);
+
+    add_constraint(0, 2, 1);
+    add_constraint(1, 3, 1);
+  }
+
   uint32_t constraint_count = sb_count(state->constraints);
 
   // process the constraints
@@ -261,10 +278,10 @@ void loop() {
         for (uint32_t particle_idx=0; particle_idx<particle_count; particle_idx++) {
           for (uint32_t polygon_idx=0; polygon_idx<polygon_count; polygon_idx++) {
             state->next_positions[particle_idx] = projectSDFConstraint(
-              state->next_positions[particle_idx],
+              state->next_positions[particle_idx] - state->polygons[polygon_idx]->pos,
               state->polygons[polygon_idx],
               radius
-            );
+            ) + state->polygons[polygon_idx]->pos;
           }
         }
       }
@@ -279,34 +296,30 @@ void loop() {
           |
           |
       */
-      {
-        for (uint32_t i=0; i<particle_count; i++) {
-          vec2 *pos = &state->next_positions[i];
-          if (pos->x - radius <= 0.0 && state->velocities[i].x < 0.0) {
-            state->velocities[i] = reflect_elastic(state->velocities[i], vec3(1.0, 0.0, 0.0), elasticity);
-            pos->x = radius*2.0f + -pos->x;
-          }
-
-          if (pos->x + radius >= state->screen.x && state->velocities[i].x > 0.0) {
-            state->velocities[i] = reflect_elastic(state->velocities[i], vec3(-1.0, 0.0, 0.0), elasticity);
-            pos->x = state->screen.x - (state->screen.x - pos->x + radius);
-          }
-
-          if (pos->y - radius <= 0.0 && state->velocities[i].y < 0.0) {
-            state->velocities[i] = reflect_elastic(state->velocities[i], vec3(0.0, 1.0, 0.0), elasticity);
-            pos->y = radius*2.0 + -pos->y;
-          }
-
-          if (pos->y + radius >= state->screen.y && state->velocities[i].y > 0.0) {
-            state->velocities[i] = reflect_elastic(state->velocities[i], vec3(0.0, -1.0, 0.0), elasticity);
-            pos->y = state->screen.y - (state->screen.y - pos->y + radius);
-          }
-        }
-      }
-
-
     }
   }
+
+  {
+    for (uint32_t i=0; i<particle_count; i++) {
+      vec2 *pos = &state->next_positions[i];
+      if (pos->x < radius) {
+        pos->x = radius;
+      }
+
+      if (pos->x > state->screen.x - radius) {
+        pos->x = state->screen.x - radius;
+      }
+
+      if (pos->y < radius) {
+        pos->y = radius;
+      }
+
+      if (pos->y > (state->screen.y - radius)) {
+        pos->y = state->screen.y - radius;
+      }
+    }
+  }
+
 
   // apply results
   {
@@ -327,14 +340,17 @@ void loop() {
     }
     // if (c>0 && state->polygons[0] && state->polygons[0]->sdf) {
     //   state->polygons[0]->rebuild_sdf();
-    //   state->polygons[0]->sdf->debug_dist();
+    // state->polygons[1]->sdf->debug_dist();
     // }
   }
 
 
   // draw all of the particles
   {
+    rawkit_vg_fill_color(vg, rawkit_vg_RGB(0x00, 0x00, 0xFF));
     for (uint32_t i=0; i<particle_count; i++) {
+      rawkit_vg_fill_color(vg, rawkit_vg_HSL((float)i/(float)particle_count, 0.5, 0.5));
+
       rawkit_vg_begin_path(vg);
         rawkit_vg_arc(
           vg,
@@ -368,17 +384,28 @@ void loop() {
 
   // debug mouse constraint projection
   {
-    vec2 mouse = state->mouse.pos;
-    mouse.y = state->screen.y - mouse.y;
+    for (uint32_t i=0; i<polygon_count; i++) {
+      vec2 mouse = vec2(
+        state->mouse.pos.x,
+        (float)rawkit_window_height() - state->mouse.pos.y
+      );
+      Polygon *polygon = state->polygons[i];
+      vec2 ppos = polygon->pos;
+      vec2 sample_pos = mouse - ppos;
+      igText("%s d(%f)", polygon->name, polygon->sample(sample_pos));
+      vec2 next_pos = projectSDFConstraint(sample_pos, polygon, 20);
 
-    vec2 next_pos = projectSDFConstraint(mouse, state->polygons[0], 20);
+      rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0x0, 0xFF, 0x0));
+      rawkit_vg_stroke_width(vg, 2.0);
+      rawkit_vg_fill_color(vg, rawkit_vg_RGB(0x0, 0xFF, 0xFF));
+        rawkit_vg_begin_path(vg);
+          vec2 start = ppos + sample_pos;
+          vec2 end = ppos + next_pos;
 
-    rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0x0, 0xFF, 0x0));
-    rawkit_vg_fill_color(vg, rawkit_vg_RGB(0x0, 0xFF, 0xFF));
-      rawkit_vg_begin_path(vg);
-        rawkit_vg_move_to(vg, mouse.x, mouse.y);
-        rawkit_vg_line_to(vg, next_pos.x, next_pos.y);
-        rawkit_vg_stroke(vg);
+          rawkit_vg_move_to(vg, start.x, start.y);
+          rawkit_vg_line_to(vg, end.x, end.y);
+          rawkit_vg_stroke(vg);
 
+    }
   }
 }
