@@ -172,14 +172,14 @@ void projectConstraint(vec2 *positions, Constraint constraint) {
 
 vec2 projectSDFConstraint(vec2 pos, Polygon *polygon, float radius) {
   vec2 local_pos = pos - polygon->aabb.lb;
-  float d = polygon->sdf->sample_interp(local_pos);
+  float d = polygon->sample_bilinear(local_pos);
 
   if (d > radius) {
     return pos;
   }
 
   float diff = abs(-radius +  d);
-  vec2 ndir = normalize(polygon->sdf->calcNormal(local_pos));
+  vec2 ndir = polygon->calcNormal(local_pos);
 
   // TODO: actual mass ratio
   float massRatio = 1.0;
@@ -334,14 +334,9 @@ void loop() {
 
   // render polygons
   {
-
     for (uint32_t i=0; i<polygon_count; i++) {
       state->polygons[i]->render(vg);
     }
-    // if (c>0 && state->polygons[0] && state->polygons[0]->sdf) {
-    //   state->polygons[0]->rebuild_sdf();
-    // state->polygons[1]->sdf->debug_dist();
-    // }
   }
 
 
@@ -363,8 +358,6 @@ void loop() {
         );
         rawkit_vg_fill(vg);
     }
-
-
   }
 
   // draw the constraints as lines
@@ -390,6 +383,7 @@ void loop() {
         (float)rawkit_window_height() - state->mouse.pos.y
       );
       Polygon *polygon = state->polygons[i];
+      polygon->sdf->debug_dist();
       vec2 ppos = polygon->pos;
       vec2 sample_pos = mouse - ppos;
       igText("%s d(%f)", polygon->name, polygon->sample(sample_pos));
