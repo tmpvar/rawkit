@@ -15,6 +15,7 @@ typedef struct Polygon {
   vec2 pos = vec2(0.0);
   float rot = 0.0;
 
+  vec2 center_of_mass = vec2(0.0);
 
   SDF *sdf = NULL;
   AABB aabb;
@@ -42,7 +43,8 @@ typedef struct Polygon {
       this->aabb.grow(this->points[i]);
     }
 
-
+    uint32_t inside_cell_count = 0;
+    uvec2 inside_cell_sum(0);
 
     // TODO: changing this will break the sdf->write call below
     AABB inflated = this->aabb.copy_inflated(0.0f);
@@ -60,6 +62,7 @@ typedef struct Polygon {
 
     vec2 p(0.0);
     vec2 dims = inflated.ub - inflated.lb;
+
     for (p.x = 0.0; p.x < dims.x; p.x++) {
       for (p.y = 0.0; p.y < dims.y; p.y++) {
         // from: https://www.shadertoy.com/view/3d23WK
@@ -96,9 +99,16 @@ typedef struct Polygon {
         }
 
         float signed_distance = glm::sqrt(d) * s;
+
+        if (signed_distance <= 0.0) {
+          inside_cell_sum += uvec2(p);
+          inside_cell_count++;
+        }
+
         this->sdf->write(uvec2(p - inflated.lb), signed_distance);
       }
     }
+    this->center_of_mass = vec2(inside_cell_sum / inside_cell_count);
     this->dirty = false;
   }
 
@@ -189,8 +199,22 @@ typedef struct Polygon {
       rawkit_vg_line_to(vg, p.x, p.y);
     }
     rawkit_vg_close_path(vg);
-    rawkit_vg_fill(vg);
+    rawkit_vg_stroke(vg);
     rawkit_vg_restore(vg);
+
+
+    rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0, 0));
+    rawkit_vg_begin_path(vg);
+      rawkit_vg_arc(
+        vg,
+        this->pos.x + this->center_of_mass.x,
+        this->pos.y + this->center_of_mass.y,
+        4.0,
+        0.0,
+        6.283185307179586,
+        1
+      );
+      rawkit_vg_fill(vg);
 
   }
 } Polygon;
