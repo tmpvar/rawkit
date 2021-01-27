@@ -61,7 +61,10 @@ typedef struct SDF {
       p.x < 0.0f || p.x >= this->dims.x ||
       p.y < 0.0f || p.y >= this->dims.y
     ) {
-      return sdBox(p - this->half_dims, this->half_dims);
+      return max(
+        sdBox(p - this->half_dims, this->half_dims),
+        this->sample(clamp(p, vec2(0.0f), vec2(this->dims) - 1.0f))
+      );
     }
 
     uint64_t i = (
