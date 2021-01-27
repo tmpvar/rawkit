@@ -46,7 +46,7 @@ typedef struct Polygon {
     uint32_t inside_cell_count = 0;
     uvec2 inside_cell_sum(0);
 
-    // TODO: changing this will break the sdf->write call below
+    // TODO: changing this may break the sdf->write call below
     AABB inflated = this->aabb.copy_inflated(0.0f);
 
     if (!this->sdf) {

@@ -11,7 +11,7 @@ using namespace glm;
 
 #define GRAVITY vec2(0.0, -90.8)
 #define TAU 6.283185307179586
-#define MAX_PARTICLES 400
+#define MAX_PARTICLES 50
 
 struct Constraint {
   uint32_t a;
@@ -77,8 +77,8 @@ void setup() {
       );
 
       vec2 vel(
-        (rawkit_randf() * 2.0 - 1.0) * 10.0f,
-        (rawkit_randf() * 2.0 - 1.0) * 10.0f
+        (rawkit_randf() * 2.0 - 1.0) * 100.0f,
+        (rawkit_randf() * 2.0 - 1.0) * 100.0f
       );
 
 
@@ -175,28 +175,36 @@ void projectConstraint(vec2 *positions, Constraint constraint) {
   positions[constraint.b] = b + massRatio * diff * ndir;
 }
 
-vec2 projectSDFConstraint(vec2 prev_pos, vec2 pos, Polygon *polygon, float radius) {
-  float d = polygon->sample_bilinear_world(pos);
+vec2 projectSDFConstraint(vec2 prev_pos, vec2 pos, vec2 *velocity, Polygon *polygon, float radius) {
+  float d = polygon->sample_bilinear_world(pos) - radius;
 
-  if (d > radius) {
+  if (d > 0.0) {
     return pos;
   }
 
   vec2 ndir = prev_pos - pos;
-
-  float diff = abs(-radius +  d);
   vec2 sdf_normal = polygon->calc_normal_world(pos);
+  float diff = abs(d);
 
   // TODO: actual mass ratio
   float massRatio = 1.0;
 
   // move back to the surface
-  vec2 ret = pos + massRatio * diff * sdf_normal;
+  // TODO: this is not quite right, but I'm not sure how to setup `ret` such
+  //       that the next velocity calculation results in `reflect(ndir, sdf_normal)`
+  /*
+    prev ret
+      \  .
+      -o-.--
+        \.
+        pos
+  */
+  vec2 ret = pos + massRatio * 2.0f * diff * sdf_normal;
 
   // append the reflection vector
-  // TODO: this add synthetic friction but it shouldn't
-  ret += reflect(normalize(ndir), sdf_normal) * (length(pos - ret) * 0.95f);
-
+  // TODO: this adds synthetic friction but it shouldn't
+  // ret += reflect(normalize(pos - ret), sdf_normal) * diff;
+  // *velocity += reflect(normalize(ndir), sdf_normal) * diff;
   return ret;
 }
 
@@ -205,7 +213,7 @@ void loop() {
   state->mouse.tick();
   double now = rawkit_now();
   float dt = min(.02, now - state->last_time);
-  dt = 0.005;
+  // dt = 0.005;
   state->last_time = now;
 
   state->screen = vec2(
@@ -235,6 +243,9 @@ void loop() {
   {
     for (uint32_t i=0; i<particle_count; i++) {
       state->next_positions[i] = state->positions[i] + state->velocities[i] * dt;
+      // reset velocities so we can adjust them from inside constraints
+      // this is useful in the SDF collision constraint
+      state->velocities[i] = vec2(0.0f);
     }
   }
 
@@ -282,6 +293,7 @@ void loop() {
             state->next_positions[particle_idx] = projectSDFConstraint(
               state->positions[particle_idx],
               state->next_positions[particle_idx],
+              &state->velocities[particle_idx],
               state->polygons[polygon_idx],
               radius
             );
@@ -303,22 +315,34 @@ void loop() {
   }
 
   {
+    float damp = 0.1f;
     for (uint32_t i=0; i<particle_count; i++) {
-      vec2 *pos = &state->next_positions[i];
-      if (pos->x < radius) {
-        pos->x = radius;
+      vec2 prev_pos = state->positions[i];
+      vec2 pos = state->next_positions[i];
+      vec2 ndir = pos - prev_pos;
+
+      if (prev_pos.x < radius) {
+        state->next_positions[i].x = radius;
+        float d = abs(radius - pos.x);
+        state->next_positions[i] += reflect(normalize(ndir), vec2(1.0, 0.0)) * d * damp;
       }
 
-      if (pos->x > state->screen.x - radius) {
-        pos->x = state->screen.x - radius;
+      if (prev_pos.x > state->screen.x - radius) {
+        state->next_positions[i].x = state->screen.x - radius;
+        float d = abs((state->screen.x - radius) - pos.x);
+        state->next_positions[i] += reflect(normalize(ndir), vec2(-1.0, 0.0)) * d * damp;
       }
 
-      if (pos->y < radius) {
-        pos->y = radius;
+      if (prev_pos.y < radius) {
+        state->next_positions[i].y = radius;
+        float d = abs(radius - pos.y);
+        state->next_positions[i] += reflect(normalize(ndir), vec2(0.0, 1.0)) * d * damp;
       }
 
-      if (pos->y > (state->screen.y - radius)) {
-        pos->y = state->screen.y - radius;
+      if (pos.y > (state->screen.y - radius)) {
+        state->next_positions[i].y = state->screen.y - radius;
+        float d = abs((state->screen.y - radius) - pos.y);
+        state->next_positions[i] += reflect(normalize(ndir), vec2(0.0, -1.0)) * d * damp;
       }
     }
   }
@@ -327,7 +351,7 @@ void loop() {
   // apply results
   {
     for (uint32_t i=0; i<particle_count; i++) {
-      state->velocities[i] = (state->next_positions[i] - state->positions[i]) / dt;
+      state->velocities[i] += (state->next_positions[i] - state->positions[i]) / dt;
       state->positions[i] = state->next_positions[i];
     }
   }
@@ -336,7 +360,7 @@ void loop() {
   igText("sim time: %f", (rawkit_now() - now) * 1000.0);
 
   // render polygons
-  {
+  if (polygon_count > 1) {
     state->polygons[1]->rot += 5.0 * dt;
 
     for (uint32_t i=0; i<polygon_count; i++) {
@@ -380,38 +404,6 @@ void loop() {
     }
   }
 
-  // compute debug normal at mouse pos
-  // debug local transform
-  {
-    vec2 mouse = vec2(
-      state->mouse.pos.x,
-      (float)rawkit_window_height() - state->mouse.pos.y
-    );
-    // vec2 local_pos = state->polygons[0]->worldToLocal(mouse);
-
-    rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0, 0xFF));
-
-    rawkit_vg_begin_path(vg);
-      rawkit_vg_arc(
-        vg,
-        mouse.x,
-        mouse.y,
-        radius,
-        0.0,
-        TAU,
-        1
-      );
-      rawkit_vg_fill(vg);
-    igText("normal");
-    vec2 normal = state->polygons[0]->calc_normal_world(mouse);
-    rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0, 0xFF));
-    rawkit_vg_stroke_width(vg, 2.0);
-    rawkit_vg_begin_path(vg);
-      rawkit_vg_move_to(vg, mouse.x, mouse.y);
-      rawkit_vg_line_to(vg, mouse.x + normal.x * 100.0f, mouse.y + normal.y * 100.0f);
-      rawkit_vg_stroke(vg);
-  }
-
   // debug mouse constraint projection
   {
     for (uint32_t i=0; i<polygon_count; i++) {
@@ -420,9 +412,9 @@ void loop() {
         (float)rawkit_window_height() - state->mouse.pos.y
       );
       Polygon *polygon = state->polygons[i];
+      vec2 normal = polygon->calc_normal_world(mouse);
 
       {
-        vec2 normal = polygon->calc_normal_world(mouse);
         rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0, 0xFF));
         rawkit_vg_stroke_width(vg, 2.0);
         rawkit_vg_begin_path(vg);
@@ -435,7 +427,8 @@ void loop() {
       polygon->sdf->debug_dist();
       igEnd();
       igText("%s d(%f)", polygon->name, polygon->sample_world(mouse));
-      vec2 next_pos = projectSDFConstraint(mouse, mouse, polygon, 20);
+      vec2 nop;
+      vec2 next_pos = projectSDFConstraint(mouse-normal, mouse, &nop, polygon, 20);
       rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0x0, 0xFF, 0x0));
       rawkit_vg_stroke_width(vg, 2.0);
       rawkit_vg_begin_path(vg);
