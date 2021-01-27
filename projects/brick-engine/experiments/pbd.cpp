@@ -175,20 +175,29 @@ void projectConstraint(vec2 *positions, Constraint constraint) {
   positions[constraint.b] = b + massRatio * diff * ndir;
 }
 
-vec2 projectSDFConstraint(vec2 pos, Polygon *polygon, float radius) {
+vec2 projectSDFConstraint(vec2 prev_pos, vec2 pos, Polygon *polygon, float radius) {
   float d = polygon->sample_bilinear_world(pos);
 
   if (d > radius) {
     return pos;
   }
 
+  vec2 ndir = prev_pos - pos;
+
   float diff = abs(-radius +  d);
-  vec2 ndir = polygon->calc_normal_world(pos);
+  vec2 sdf_normal = polygon->calc_normal_world(pos);
 
   // TODO: actual mass ratio
   float massRatio = 1.0;
 
-  return pos + massRatio * diff * ndir;
+  // move back to the surface
+  vec2 ret = pos + massRatio * diff * sdf_normal;
+
+  // append the reflection vector
+  // TODO: this add synthetic friction but it shouldn't
+  ret += reflect(normalize(ndir), sdf_normal) * (length(pos - ret) * 0.95f);
+
+  return ret;
 }
 
 void loop() {
@@ -271,6 +280,7 @@ void loop() {
         for (uint32_t particle_idx=0; particle_idx<particle_count; particle_idx++) {
           for (uint32_t polygon_idx=0; polygon_idx<polygon_count; polygon_idx++) {
             state->next_positions[particle_idx] = projectSDFConstraint(
+              state->positions[particle_idx],
               state->next_positions[particle_idx],
               state->polygons[polygon_idx],
               radius
@@ -425,7 +435,7 @@ void loop() {
       polygon->sdf->debug_dist();
       igEnd();
       igText("%s d(%f)", polygon->name, polygon->sample_world(mouse));
-      vec2 next_pos = projectSDFConstraint(mouse, polygon, 20);
+      vec2 next_pos = projectSDFConstraint(mouse, mouse, polygon, 20);
       rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0x0, 0xFF, 0x0));
       rawkit_vg_stroke_width(vg, 2.0);
       rawkit_vg_begin_path(vg);
