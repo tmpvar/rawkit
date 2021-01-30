@@ -11,10 +11,18 @@ using namespace glm;
 
 #define GRAVITY vec2(0.0, -90.8)
 #define TAU 6.283185307179586
-#define MAX_PARTICLES 50
+#define MAX_PARTICLES 60 + 1
+
+enum class BodyType {
+  POINT = 0,
+  POLYGON
+};
 
 struct Constraint {
+  BodyType a_type = BodyType::POINT;
   uint32_t a;
+
+  BodyType b_type = BodyType::POINT;
   uint32_t b;
   // distance constraint only...
   float rest_length;
@@ -27,6 +35,7 @@ struct State {
   vec2 screen;
   vec2 *positions;
   vec2 *velocities;
+  float *inv_masses;
   vec2 *next_positions;
 
   Constraint *constraints;
@@ -69,8 +78,14 @@ void setup() {
   sb_reset(state->constraints);
 
   // randomly position some particles
-  if (1) {
-    for (uint32_t i=0; i<MAX_PARTICLES; i++) {
+  {
+    // mouse
+    sb_push(state->positions, vec2(0.0));
+    sb_push(state->velocities, vec2(0.0));
+    sb_push(state->inv_masses, 0.0);
+
+    // i=1 is leaving space for the mouse as a particle
+    for (uint32_t i=1; i<MAX_PARTICLES; i++) {
       vec2 pos(
         rawkit_randf() * state->screen.x,
         (rawkit_randf() * (state->screen.y - 200.0f)) + 200.f
@@ -84,51 +99,46 @@ void setup() {
 
       sb_push(state->positions, pos);
       sb_push(state->velocities, vel);
+      sb_push(state->inv_masses, 1.0);
     }
-  } else {
-      sb_push(state->positions, vec2(100.0, 500.0) + vec2(100.0, 100.0));
-      sb_push(state->velocities, vec2(.0, 0.0));
-
-      sb_push(state->positions, vec2(100.0, 500.0) + vec2(500.0, 100.0));
-      sb_push(state->velocities, vec2(.0, 0.0));
-
-      sb_push(state->positions, vec2(100.0, 500.0) + vec2(200.0, 200.0));
-      sb_push(state->velocities, vec2(.0, 0.0));
-
-      sb_push(state->positions, vec2(100.0, 500.0) + vec2(100.0, 200.0));
-      sb_push(state->velocities, vec2(.0, 0.0));
-
-      add_constraint(0, 1, 1);
-      add_constraint(1, 2, 1);
-      add_constraint(2, 3, 1);
-      add_constraint(3, 0, 1);
-
-      add_constraint(0, 2, 1);
-      add_constraint(1, 3, 1);
   }
 
   // build up a floor polygon
   if (1) {
     uint32_t c = sb_count(state->polygons);
     if (!c) {
-      {
-        Polygon *polygon = new Polygon("floor");
-        polygon->pos = vec2(0.0);
-        polygon->append(vec2(0.0, 0.0));
-        polygon->append(vec2(state->screen.x, 0.0));
-        polygon->append(vec2(state->screen.x, 800.0));
-        polygon->append(vec2(state->screen.x - 30.0f, 800.0));
-        polygon->append(vec2(state->screen.x - 100.0f, 200.0));
-        polygon->append(vec2(300.0, 30.0));
-        polygon->append(vec2(0.0, 800.0));
+      // {
+      //   Polygon *polygon = new Polygon("floor");
+      //   polygon->pos = vec2(0.0);
+      //   polygon->append(vec2(0.0, 0.0));
+      //   polygon->append(vec2(state->screen.x, 0.0));
+      //   polygon->append(vec2(state->screen.x, 800.0));
+      //   polygon->append(vec2(state->screen.x - 30.0f, 800.0));
+      //   polygon->append(vec2(state->screen.x - 100.0f, 200.0));
+      //   polygon->append(vec2(300.0, 30.0));
+      //   polygon->append(vec2(0.0, 800.0));
 
+      //   polygon->rebuild_sdf();
+      //   sb_push(state->polygons, polygon);
+      // }
+
+      {
+        Polygon *polygon = new Polygon("square 1");
+        polygon->pos = vec2(300.0, 300.0);
+        polygon->append(vec2(0.0, 0.0));
+        polygon->append(vec2(100.0, 100.0));
+        polygon->append(vec2(200.0, 0.0));
+        polygon->append(vec2(200.0, 200.0));
+        polygon->append(vec2(100.0, 150.0));
+        polygon->append(vec2(0.0, 200.0));
+        polygon->append(vec2(0.0, 0.0));
         polygon->rebuild_sdf();
         sb_push(state->polygons, polygon);
       }
 
       {
-        Polygon *polygon = new Polygon("rotate");
-        polygon->pos = vec2(500.0, 100.0);
+        Polygon *polygon = new Polygon("square 2");
+        polygon->pos = vec2(600.0, 300.0);
         polygon->append(vec2(0.0, 0.0));
         polygon->append(vec2(200.0, 0.0));
         polygon->append(vec2(200.0, 200.0));
@@ -140,6 +150,8 @@ void setup() {
     } else {
       for (uint32_t i=0; i<c; i++) {
         state->polygons[i]->rebuild_sdf();
+        state->polygons[i]->pos = vec2(300.0 + (float)i * 300.0, 300.0);
+        state->polygons[i]->rot = 0.0f;
       }
     }
   }
@@ -156,9 +168,11 @@ void setup() {
   }
 }
 
-void projectConstraint(vec2 *positions, Constraint constraint) {
-  vec2 a = positions[constraint.a];
-  vec2 b = positions[constraint.b];
+void projectConstraint(State *state, Constraint constraint) {
+  vec2 a = state->next_positions[constraint.a];
+  float inv_mass_a = state->inv_masses[constraint.a];
+  vec2 b = state->next_positions[constraint.b];
+  float inv_mass_b = state->inv_masses[constraint.b];
 
   vec2 ndir = normalize(a - b);
   float d = distance(a, b);
@@ -167,16 +181,58 @@ void projectConstraint(vec2 *positions, Constraint constraint) {
   if (constraint.contact && d > constraint.rest_length) {
     return;
   }
+  float inv_mass_sum = (inv_mass_a + inv_mass_b);
 
-  // TODO: compute the mass ratio from another list
-  float massRatio = 0.25; // invMassA / (invMassA + invMassB)
 
-  positions[constraint.a] = a - massRatio * diff * ndir;
-  positions[constraint.b] = b + massRatio * diff * ndir;
+  float mass_ratio_a = 0.5f;
+  float mass_ratio_b = 0.5f;
+  if (inv_mass_sum != 0.0f) {
+    mass_ratio_a = inv_mass_a / inv_mass_sum;
+    mass_ratio_b = inv_mass_b / inv_mass_sum;
+  }
+  state->next_positions[constraint.a] = a - mass_ratio_a * diff * ndir;
+  state->next_positions[constraint.b] = b + mass_ratio_b * diff * ndir;
 }
 
-vec2 projectSDFConstraint(vec2 prev_pos, vec2 pos, vec2 *velocity, Polygon *polygon, float radius) {
+
+float angle(vec2 a, vec2 b) {
+  vec2 d = a - b;
+  return -atan2(d.y, d.x);
+}
+
+vec2 projectSDFConstraint(vec2 prev_pos, vec2 pos, vec2 *velocity, Polygon *polygon, float radius, float inv_mass = 1.0f) {
   float d = polygon->sample_bilinear_world(pos) - radius;
+
+  if (d > 0.0) {
+    return pos;
+  }
+
+  vec2 ndir = prev_pos - pos;
+  vec2 sdf_normal = polygon->calc_normal_world(pos);
+  float diff = d;
+
+  float inv_mass_sum = (inv_mass + polygon->inv_mass);
+  float particle_ratio = inv_mass / inv_mass_sum;
+  float polygon_ratio = polygon->inv_mass / inv_mass_sum;
+
+  vec2 new_poly_pos = polygon->pos + polygon_ratio * diff * sdf_normal;
+  vec2 particle_pos = pos - particle_ratio * diff * sdf_normal;
+
+  float old_angle = angle(polygon->pos, pos);
+  float new_angle = angle(polygon->pos, pos - diff * sdf_normal);
+
+  float w = (polygon->aabb.ub.x - polygon->aabb.lb.x);
+  float angle_diff = (new_angle - old_angle) * polygon_ratio;
+  polygon->rot += angle_diff;// * w / distance(polygon->pos, pos);
+  polygon->angular_velocity += angle_diff;
+  polygon->pos = new_poly_pos;
+
+  return particle_pos;
+}
+
+vec2 projectSDFConstraint1(vec2 prev_pos, vec2 pos, vec2 *velocity, Polygon *polygon, float radius, float inv_mass = 1.0f) {
+  vec2 local = polygon->worldToLocal(pos);
+  float d = polygon->sample_bilinear_local(local) - radius;
 
   if (d > 0.0) {
     return pos;
@@ -187,7 +243,9 @@ vec2 projectSDFConstraint(vec2 prev_pos, vec2 pos, vec2 *velocity, Polygon *poly
   float diff = abs(d);
 
   // TODO: actual mass ratio
-  float massRatio = 1.0;
+  float inv_mass_sum = (inv_mass + polygon->inv_mass);
+  float particle_ratio = inv_mass / inv_mass_sum;
+  float polygon_ratio = polygon->inv_mass / inv_mass_sum;
 
   // move back to the surface
   // TODO: this is not quite right, but I'm not sure how to setup `ret` such
@@ -199,13 +257,48 @@ vec2 projectSDFConstraint(vec2 prev_pos, vec2 pos, vec2 *velocity, Polygon *poly
         \.
         pos
   */
-  vec2 ret = pos + massRatio * 2.0f * diff * sdf_normal;
+  vec2 particle_pos = pos + particle_ratio * diff * sdf_normal;
+  vec2 new_local = local + polygon_ratio * diff * sdf_normal;
+
+  // TODO: this assumes a square.
+  vec2 world_center = pos + polygon->center_of_mass;
+
+  // vec2 od = local - polygon->center_of_mass;
+  // vec2 nd = new_local - polygon->center_of_mass;
+
+  vec2 od = pos - world_center;
+  vec2 nd = new_local - polygon->center_of_mass;
+
+  float old_angle = -atan2(od.y, od.x);
+  float new_angle = -atan2(nd.y, nd.x);
+
+  float w = polygon->aabb.ub.x - polygon->aabb.lb.x;
+
+  vec2 dd = nd - od;
+  if (dd.y == 0.0) {
+    dd.y = 0.000000000000001;
+  }
+  // float angle = atan2(dd.x/dd.y, 1.0);
+  float angle = new_angle - old_angle;
+  printf("angle(%f) = %f - %f\n", angle, old_angle, new_angle);
+  // polygon->rot += angle * length(nd) * polygon_ratio;
+  polygon->rot += angle * w / length(nd) * polygon_ratio * 0.1;
+  polygon->angular_velocity += angle * w / length(nd) * polygon_ratio * 0.1;
+  // polygon->angular_velocity += (angle * w / length(nd) * polygon_ratio);
+
+  // compute the angular delta between center->local and center->new_local
+  // and apply it to rot/angular_velocity
+  // based on the distance from the center of mass (for now..)
+  // TODO: use the computed inertial tensor
+
+
+
 
   // append the reflection vector
   // TODO: this adds synthetic friction but it shouldn't
   // ret += reflect(normalize(pos - ret), sdf_normal) * diff;
   // *velocity += reflect(normalize(ndir), sdf_normal) * diff;
-  return ret;
+  return particle_pos;
 }
 
 void loop() {
@@ -241,11 +334,25 @@ void loop() {
 
   // integrate velocity w/ position to find the next potential location
   {
-    for (uint32_t i=0; i<particle_count; i++) {
+    for (uint32_t i=1; i<particle_count; i++) {
       state->next_positions[i] = state->positions[i] + state->velocities[i] * dt;
       // reset velocities so we can adjust them from inside constraints
       // this is useful in the SDF collision constraint
       state->velocities[i] = vec2(0.0f);
+    }
+  }
+
+  // integrate velocity w/ position to find the next potential location
+  {
+    for (uint32_t i=1; i<polygon_count; i++) {
+      Polygon *polygon = state->polygons[i];
+      polygon->angular_velocity *= 0.99f;
+      polygon->rot += polygon->angular_velocity * dt;
+
+      // state->next_positions[i] = state->positions[i] + state->velocities[i] * dt;
+      // // reset velocities so we can adjust them from inside constraints
+      // // this is useful in the SDF collision constraint
+      // state->velocities[i] = vec2(0.0f);
     }
   }
 
@@ -272,6 +379,36 @@ void loop() {
     }
   }
 
+  // mouse particle -> polygons
+  {
+    vec2 mouse = vec2(
+      state->mouse.pos.x,
+      (float)rawkit_window_height() - state->mouse.pos.y
+    );
+
+    state->next_positions[0] = mouse;
+    state->positions[0] = mouse;
+    state->velocities[0] = vec2(0.0f);
+
+
+    // these get added below
+    // for (uint32_t polygon_idx=0; polygon_idx<polygon_count; polygon_idx++) {
+    //   Polygon *polygon = state->polygons[polygon_idx];
+
+    //   vec2 local = polygon->worldToLocal(mouse);
+
+    //   Constraint constraint = {
+    //     .a = 0, // mouse
+    //     .b_type = BodyType::POLYGON,
+    //     .b = polygon_idx,
+    //     .rest_length = radius,
+    //     .contact = true
+    //   };
+
+    //   sb_push(state->constraints, constraint);
+    // }
+  }
+
   uint32_t constraint_count = sb_count(state->constraints);
 
   // process the constraints
@@ -283,7 +420,7 @@ void loop() {
 
     for (float substep = 0.0; substep < substeps; substep++) {
       for (uint32_t i=0; i<constraint_count; i++) {
-        projectConstraint(state->next_positions, state->constraints[i]);
+        projectConstraint(state, state->constraints[i]);
         // state->positions[i] = state->next_positions[i];
       }
       // polygon collisions
@@ -295,7 +432,8 @@ void loop() {
               state->next_positions[particle_idx],
               &state->velocities[particle_idx],
               state->polygons[polygon_idx],
-              radius
+              radius,
+              particle_idx == 0 ? 0.0f : 1.0f
             );
           }
         }
@@ -316,7 +454,7 @@ void loop() {
 
   {
     float damp = 0.1f;
-    for (uint32_t i=0; i<particle_count; i++) {
+    for (uint32_t i=1; i<particle_count; i++) {
       vec2 prev_pos = state->positions[i];
       vec2 pos = state->next_positions[i];
       vec2 ndir = pos - prev_pos;
@@ -361,7 +499,7 @@ void loop() {
 
   // render polygons
   if (polygon_count > 1) {
-    state->polygons[1]->rot += 5.0 * dt;
+    // state->polygons[1]->rot += 5.0 * dt;
 
     for (uint32_t i=0; i<polygon_count; i++) {
       state->polygons[i]->render(vg);
@@ -405,7 +543,7 @@ void loop() {
   }
 
   // debug mouse constraint projection
-  {
+  if (0) {
     for (uint32_t i=0; i<polygon_count; i++) {
       vec2 mouse = vec2(
         state->mouse.pos.x,

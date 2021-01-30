@@ -13,7 +13,9 @@ static char polygon_tmp_str[4096] = "";
 
 typedef struct Polygon {
   vec2 pos = vec2(0.0);
-  float rot = 0.0;
+  float rot = 0.0f;
+  float angular_velocity = 0.0f;
+
 
   vec2 center_of_mass = vec2(0.0);
 
@@ -22,18 +24,34 @@ typedef struct Polygon {
   vec2 *points = NULL;
   char *name = NULL;
 
+  float density = 0.02f;
+
+  float mass = 0.0f;
+  float inv_mass = 1.0f;
+
+  mat2 inertia;
+  mat2 inv_inertia;
+
   bool dirty = false;
   Polygon(const char *name) {
     if (name) {
       this->name = (char *)calloc(strlen(name) + 1, 1);
       strcpy(this->name, name);
     }
+
+
   }
 
+
   void rebuild_sdf() {
+    // if no new points have been added
+    if (!this->dirty) return;
+
     // see: https://github.com/dy/bitmap-sdf/blob/master/index.js#L92
     uint32_t count = sb_count(this->points);
     if (!count) return;
+
+
 
     printf("rebuild sdf for %s\n", this->name);
 
@@ -60,9 +78,9 @@ typedef struct Polygon {
       );
     }
 
+    printf("compute sdf for %s\n", this->name);
     vec2 p(0.0);
     vec2 dims = inflated.ub - inflated.lb;
-
     for (p.x = 0.0; p.x < dims.x; p.x++) {
       for (p.y = 0.0; p.y < dims.y; p.y++) {
         // from: https://www.shadertoy.com/view/3d23WK
@@ -108,7 +126,57 @@ typedef struct Polygon {
         this->sdf->write(uvec2(p - inflated.lb), signed_distance);
       }
     }
-    this->center_of_mass = vec2(inside_cell_sum / inside_cell_count);
+
+    printf("polygon %s:\n", this->name);
+    printf("  inside_cell_sum(%u, %u)\n", inside_cell_sum.x, inside_cell_sum.y);
+    // TODO: this assumes a square.. we need to handle arbitrary polygons.
+    float area = dims.x * dims.y;
+    this->mass = (area * this->density);
+    printf("  mass(%f) = dims(%f, %f) * density(%f)\n", this->mass, dims.x, dims.y, this->density);
+    //((float)inside_cell_count * this->density) * 0.00000000001;
+    this->inv_mass = 1.0f / this->mass;
+    // compute the inertial tensor
+    {
+      vec2 b2 = 4.0f * pow(dims, vec2(2.0f));
+      // float x = 1.0f / 12.0f * this->mass * b2.x;
+      float x = this->mass / area;
+
+      mat2 I(
+        x  , 0.0,
+        0.0, x
+      );
+      vec2 pos = this->aabb.lb;
+
+      // Transform tensor to local space
+      // I = local.rotation * I * -this->rot;
+      // I += (identity * dot(pos, pos) - glm::outerProduct(pos, pos)) * this->mass;
+      mat2 identity(1.0);
+      this->inertia = I;
+      this->inv_inertia = inverse(I);
+      printf("  inertia\n    (%f, %f,\n    %f, %f)\n", I[0][0], I[0][1], I[1][0], I[1][1]);
+      printf("  inv_inertia\n    (%f, %f,\n    %f, %f)\n",
+        this->inv_inertia[0][0],
+        this->inv_inertia[0][1],
+        this->inv_inertia[1][0],
+        this->inv_inertia[1][1]
+      );
+    }
+
+
+    this->center_of_mass = vec2(inside_cell_sum) / (float)inside_cell_count;
+
+    // recenter so that the center of mass is (0,0)
+    {
+      vec2 diff = this->center_of_mass;
+      this->center_of_mass = vec2(0.0);
+      this->aabb.lb -= diff;
+      this->aabb.ub -= diff;
+
+      for(int i=0; i<count; i++) {
+        this->points[i] -= diff;
+      }
+    }
+
     this->dirty = false;
   }
 
@@ -118,13 +186,10 @@ typedef struct Polygon {
   }
 
   vec2 worldToLocal(vec2 p) {
-    // translate p into grid space
-    vec2 local_center = (this->aabb.ub - this->aabb.lb) * 0.5f;
-    vec2 world_center = local_center + this->pos;
-
+    vec2 world_center = this->pos;
     vec2 diff = p - world_center;
     vec2 grid_pos = rotate(diff, -this->rot);
-    return grid_pos + local_center;
+    return grid_pos + this->aabb.ub;
   }
 
   float sample_world(vec2 p) {
@@ -183,38 +248,50 @@ typedef struct Polygon {
     if (!count) return;
 
     rawkit_vg_save(vg);
-    // this->rot = 0.5;//rawkit_now();
-    vec2 bounds = this->aabb.ub - this->aabb.lb;
-    vec2 center = bounds * 0.5f;
+      vec2 center = this->center_of_mass;
 
-    rawkit_vg_translate(vg, this->pos.x + center.x, this->pos.y + center.y);
-    rawkit_vg_rotate(vg, this->rot);
-    rawkit_vg_translate(vg, -center.x, -center.y);
-    rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
-    rawkit_vg_begin_path(vg);
-    vec2 p = this->points[0];
-    rawkit_vg_move_to(vg, p.x, p.y);
-    for (uint32_t i=1; i<count; i++) {
-      p = this->points[i];
-      rawkit_vg_line_to(vg, p.x, p.y);
-    }
-    rawkit_vg_close_path(vg);
-    rawkit_vg_stroke(vg);
-    rawkit_vg_restore(vg);
+      rawkit_vg_translate(vg, this->pos.x, this->pos.y);
+      rawkit_vg_rotate(vg, this->rot);
 
-
-    rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0, 0));
-    rawkit_vg_begin_path(vg);
-      rawkit_vg_arc(
+      rawkit_vg_draw_texture(
         vg,
-        this->pos.x + this->center_of_mass.x,
-        this->pos.y + this->center_of_mass.y,
-        4.0,
-        0.0,
-        6.283185307179586,
-        1
+        this->aabb.lb.x,
+        this->aabb.lb.y,
+        this->aabb.ub.x - this->aabb.lb.x,
+        this->aabb.ub.y - this->aabb.lb.y,
+        this->sdf->tex,
+        this->sdf->tex->default_sampler
       );
-      rawkit_vg_fill(vg);
 
+
+
+      rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
+      rawkit_vg_begin_path(vg);
+      vec2 p = this->points[0];
+      rawkit_vg_move_to(vg, p.x, p.y);
+      for (uint32_t i=1; i<count; i++) {
+        p = this->points[i];
+        rawkit_vg_line_to(vg, p.x, p.y);
+      }
+      rawkit_vg_close_path(vg);
+      rawkit_vg_stroke(vg);
+
+
+
+
+      // draw the center of mass
+      rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0, 0));
+      rawkit_vg_begin_path(vg);
+        rawkit_vg_arc(
+          vg,
+          0.0,
+          0.0,
+          4.0,
+          0.0,
+          6.283185307179586,
+          1
+        );
+        rawkit_vg_fill(vg);
+    rawkit_vg_restore(vg);
   }
 } Polygon;
