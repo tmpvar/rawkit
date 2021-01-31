@@ -1,5 +1,5 @@
 #include <hot/guest/hot/state.h>
-
+#include <stdlib.h>
 #include <string.h>
 #include <unordered_map>
 using namespace std;
@@ -32,7 +32,10 @@ void *hotState(HotStateID id, size_t size, void *default_value) {
       }
     }
 
-    delete it->second->value;
+    if (it->second->value) {
+      free(it->second->value);
+    }
+
     it->second->value = new_value;
     it->second->size = size;
     return new_value;
