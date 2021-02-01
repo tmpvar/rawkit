@@ -13,11 +13,14 @@ static char polygon_tmp_str[4096] = "";
 
 typedef struct Polygon {
   vec2 pos = vec2(0.0);
+  vec2 prev_pos = vec2(0.0);
   float rot = 0.0f;
+  float prev_rot = 0.0f;
   float angular_velocity = 0.0f;
-
+  vec2 velocity = vec2(0.0);
 
   vec2 center_of_mass = vec2(0.0);
+  vec2 center_of_mass_offset = vec2(0.0);
 
   SDF *sdf = NULL;
   AABB aabb;
@@ -38,8 +41,6 @@ typedef struct Polygon {
       this->name = (char *)calloc(strlen(name) + 1, 1);
       strcpy(this->name, name);
     }
-
-
   }
 
 
@@ -50,8 +51,6 @@ typedef struct Polygon {
     // see: https://github.com/dy/bitmap-sdf/blob/master/index.js#L92
     uint32_t count = sb_count(this->points);
     if (!count) return;
-
-
 
     printf("rebuild sdf for %s\n", this->name);
 
@@ -167,17 +166,21 @@ typedef struct Polygon {
 
     // recenter so that the center of mass is (0,0)
     {
+      vec2 center = (this->aabb.ub - this->aabb.lb) * 0.5f;
+      this->center_of_mass_offset = this->center_of_mass - center;
       vec2 diff = this->center_of_mass;
       this->center_of_mass = vec2(0.0);
-      this->aabb.lb -= diff;
-      this->aabb.ub -= diff;
+      this->aabb.lb = vec2(FLT_MAX);
+      this->aabb.ub = vec2(-FLT_MAX);
 
       for(int i=0; i<count; i++) {
         this->points[i] -= diff;
+        this->aabb.grow(this->points[i]);
       }
     }
 
     this->dirty = false;
+    this->sdf->upload();
   }
 
   void append(vec2 point) {
@@ -186,11 +189,10 @@ typedef struct Polygon {
   }
 
   vec2 worldToLocal(vec2 p) {
-    vec2 world_center = this->pos;
-    vec2 diff = p - world_center;
+    vec2 diff = p - this->pos;
     vec2 grid_pos = rotate(diff, -this->rot);
-    return grid_pos + this->aabb.ub;
-  }
+    return grid_pos + this->aabb.ub + this->center_of_mass_offset * 2.0f;
+ }
 
   float sample_world(vec2 p) {
     return this->sample_local(this->worldToLocal(p));
@@ -248,11 +250,8 @@ typedef struct Polygon {
     if (!count) return;
 
     rawkit_vg_save(vg);
-      vec2 center = this->center_of_mass;
-
       rawkit_vg_translate(vg, this->pos.x, this->pos.y);
       rawkit_vg_rotate(vg, this->rot);
-
       rawkit_vg_draw_texture(
         vg,
         this->aabb.lb.x,

@@ -32,8 +32,12 @@ typedef struct SDF {
     this->half_dims = vec2(this->dims) * 0.5f;
   }
 
-  void debug_dist() {
+  void upload() {
     rawkit_texture_update_buffer(this->tex, this->tex_buf);
+  }
+
+  void debug_dist() {
+    this->upload();
     {
       ImTextureID texture = rawkit_imgui_texture(this->tex, this->tex->default_sampler);
       if (!texture) {

@@ -11,7 +11,7 @@ using namespace glm;
 
 #define GRAVITY vec2(0.0, -90.8)
 #define TAU 6.283185307179586
-#define MAX_PARTICLES 60 + 1
+#define MAX_PARTICLES 200 + 1
 
 enum class BodyType {
   POINT = 0,
@@ -128,6 +128,7 @@ void setup() {
         polygon->append(vec2(0.0, 0.0));
         polygon->append(vec2(100.0, 100.0));
         polygon->append(vec2(200.0, 0.0));
+        polygon->append(vec2(400.0, 100.0));
         polygon->append(vec2(200.0, 200.0));
         polygon->append(vec2(100.0, 150.0));
         polygon->append(vec2(0.0, 200.0));
@@ -142,7 +143,6 @@ void setup() {
         polygon->append(vec2(0.0, 0.0));
         polygon->append(vec2(200.0, 0.0));
         polygon->append(vec2(200.0, 200.0));
-        polygon->append(vec2(0.0, 200.0));
         polygon->append(vec2(0.0, 0.0));
         polygon->rebuild_sdf();
         sb_push(state->polygons, polygon);
@@ -151,7 +151,9 @@ void setup() {
       for (uint32_t i=0; i<c; i++) {
         state->polygons[i]->rebuild_sdf();
         state->polygons[i]->pos = vec2(300.0 + (float)i * 300.0, 300.0);
+        state->polygons[i]->prev_pos = state->polygons[i]->pos;
         state->polygons[i]->rot = 0.0f;
+        state->polygons[i]->velocity = vec2(0.0);
       }
     }
   }
@@ -344,9 +346,15 @@ void loop() {
 
   // integrate velocity w/ position to find the next potential location
   {
-    for (uint32_t i=1; i<polygon_count; i++) {
+    for (uint32_t i=0; i<polygon_count; i++) {
       Polygon *polygon = state->polygons[i];
       polygon->angular_velocity *= 0.99f;
+      polygon->prev_pos = polygon->pos;
+
+      polygon->velocity += dt * polygon->inv_mass * GRAVITY;
+      polygon->pos += polygon->velocity * dt;
+
+      polygon->prev_rot = polygon->rot;
       polygon->rot += polygon->angular_velocity * dt;
 
       // state->next_positions[i] = state->positions[i] + state->velocities[i] * dt;
@@ -498,10 +506,10 @@ void loop() {
   igText("sim time: %f", (rawkit_now() - now) * 1000.0);
 
   // render polygons
-  if (polygon_count > 1) {
-    // state->polygons[1]->rot += 5.0 * dt;
-
+  {
     for (uint32_t i=0; i<polygon_count; i++) {
+      state->polygons[i]->velocity = 0.95f * (state->polygons[i]->pos - state->polygons[i]->prev_pos) / dt;
+      state->polygons[i]->angular_velocity = 0.95f * (state->polygons[i]->rot - state->polygons[i]->prev_rot) / dt;
       state->polygons[i]->render(vg);
     }
   }
