@@ -316,6 +316,25 @@ void loop() {
     (float)rawkit_window_height()
   );
 
+  vec2 mouse = vec2(
+    state->mouse.pos.x,
+    (float)rawkit_window_height() - state->mouse.pos.y
+  );
+
+
+  // add a polygon under the mouse with the `space` key
+  if (igIsKeyDown(32)) {
+    Polygon *polygon = new Polygon("shared-square-sdf");
+    polygon->pos = mouse;
+    polygon->append(vec2(0.0, 0.0));
+    polygon->append(vec2(100.0, 0.0));
+    polygon->append(vec2(100.0, 100.0));
+    polygon->append(vec2(0.0, 100.0));
+    polygon->rebuild_sdf();
+    sb_push(state->polygons, polygon);
+  }
+
+
   rawkit_vg_t *vg = rawkit_default_vg();
   rawkit_vg_scale(vg, 1.0, -1.0);
   rawkit_vg_translate(vg, 0.0, -(float)rawkit_window_height());
@@ -389,10 +408,6 @@ void loop() {
 
   // mouse particle -> polygons
   {
-    vec2 mouse = vec2(
-      state->mouse.pos.x,
-      (float)rawkit_window_height() - state->mouse.pos.y
-    );
 
     state->next_positions[0] = mouse;
     state->positions[0] = mouse;
@@ -516,7 +531,7 @@ void loop() {
     for (uint32_t polygon_idx=0; polygon_idx<polygon_count; polygon_idx++) {
       Polygon *polygon = state->polygons[polygon_idx];
       uint32_t polygon_particle_count = sb_count(polygon->points);
-      igText("poly %s count(%u)", polygon->name, polygon_particle_count);
+
       for (uint32_t i=0; i<polygon_particle_count; i++) {
         vec2 pos = rotate(polygon->points[i], polygon->rot) + polygon->pos;
         vec2 next_pos = glm::clamp(pos, vec2(0.0), state->screen);

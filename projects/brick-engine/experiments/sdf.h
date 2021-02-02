@@ -19,7 +19,7 @@ typedef struct SDF {
   rawkit_texture_t *tex;
   rawkit_cpu_buffer_t *tex_buf;
   rawkit_cpu_buffer_t *dist_buf;
-  bool dirty = false;
+  bool dirty = true;
   SDF(const char *name, vec3 dims)
     : dims(dims), name(name)
   {

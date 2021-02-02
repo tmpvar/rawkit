@@ -250,12 +250,6 @@ typedef struct Polygon {
     uint32_t count = sb_count(this->points);
     if (!count) return;
 
-
-    igText("poly %s", this->name);
-    igText("  dims(%f, %f)", this->aabb.ub.x - this->aabb.lb.x, this->aabb.ub.y - this->aabb.lb.x);
-    igText("  mass(%f)", this->mass);
-    igText("  inv_mass(%f)", this->inv_mass);
-
     rawkit_vg_save(vg);
       rawkit_vg_translate(vg, this->pos.x, this->pos.y);
       rawkit_vg_rotate(vg, this->rot);
