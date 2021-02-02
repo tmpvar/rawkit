@@ -3,6 +3,8 @@
 #include <glm/glm.hpp>
 using namespace glm;
 
+#include <functional>
+
 static char sdf_tmp_str[4096] = "";
 
 // from https://www.iquilezles.org/www/articles/distfunctions2d/distfunctions2d.htm
@@ -10,6 +12,27 @@ static float sdBox(vec2 p, vec2 b ) {
   vec2 d = abs(p)-b;
   return length(max(d, 0.0f)) + min(max(d.x,d.y),0.0f);
 }
+
+static vec2 calc_sdf_normal(vec2 p, std::function<float(vec2)> sample) {
+  //get d, and also its sign (i.e. inside or outside)
+  float d = sample(p);
+  float sign = d >= 0 ? 1.0f : -1.0f;
+  float maxval = FLT_MAX * sign;
+
+  //read neighbour distances, ignoring border pixels
+  float o = 2.0f;
+  float x0 = sample(p + vec2(-o,  0.0));
+  float x1 = sample(p + vec2( o,  0.0));
+  float y0 = sample(p + vec2( 0.0, -o));
+  float y1 = sample(p + vec2( 0.0,  o));
+
+  //use the smallest neighbour in each direction to calculate the partial deriviates
+  float xgrad = sign*x0 < sign*x1 ? -(x0-d) : (x1-d);
+  float ygrad = sign*y0 < sign*y1 ? -(y0-d) : (y1-d);
+
+  return normalize(vec2(xgrad, ygrad));
+}
+
 
 typedef struct SDF {
   const char *name;

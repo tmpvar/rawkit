@@ -28,7 +28,7 @@ typedef struct Polygon {
   vec2 *points = NULL;
   char *name = NULL;
 
-  float density = 0.02f;
+  float density = .02f;
 
   float mass = 0.0f;
   float inv_mass = 1.0f;
@@ -129,13 +129,14 @@ typedef struct Polygon {
 
     printf("polygon %s:\n", this->name);
     printf("  inside_cell_sum(%u, %u)\n", inside_cell_sum.x, inside_cell_sum.y);
-    // TODO: this assumes a square.. we need to handle arbitrary polygons.
-    float area = dims.x * dims.y;
-    this->mass = (area * this->density);
+    float area = (dims.x * dims.y) / (25.0f);
+    // this->mass = (area * this->density) * 0.02;
+    this->mass = (float)inside_cell_count / 25.0f * density;
     printf("  mass(%f) = dims(%f, %f) * density(%f)\n", this->mass, dims.x, dims.y, this->density);
-    //((float)inside_cell_count * this->density) * 0.00000000001;
     this->inv_mass = 1.0f / this->mass;
+
     // compute the inertial tensor
+    // TODO: this assumes a square.. we need to handle arbitrary polygons.
     {
       vec2 b2 = 4.0f * pow(dims, vec2(2.0f));
       // float x = 1.0f / 12.0f * this->mass * b2.x;
