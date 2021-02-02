@@ -202,7 +202,7 @@ float angle(vec2 a, vec2 b) {
   return -atan2(d.y, d.x);
 }
 
-vec2 projectSDFConstraint(vec2 prev_pos, vec2 pos, vec2 *velocity, Polygon *polygon, float radius, float inv_mass = 1.0f) {
+vec2 projectSDFConstraint(vec2 prev_pos, vec2 pos, Polygon *polygon, float radius, float inv_mass = 1.0f) {
   float d = polygon->sample_bilinear_world(pos) - radius;
 
   if (d > 0.0) {
@@ -431,14 +431,13 @@ void loop() {
         projectConstraint(state, state->constraints[i]);
         // state->positions[i] = state->next_positions[i];
       }
-      // polygon collisions
+      // polygon vs particle collisions
       {
         for (uint32_t particle_idx=0; particle_idx<particle_count; particle_idx++) {
           for (uint32_t polygon_idx=0; polygon_idx<polygon_count; polygon_idx++) {
             state->next_positions[particle_idx] = projectSDFConstraint(
               state->positions[particle_idx],
               state->next_positions[particle_idx],
-              &state->velocities[particle_idx],
               state->polygons[polygon_idx],
               radius,
               particle_idx == 0 ? 0.0f : 1.0f
@@ -447,19 +446,37 @@ void loop() {
         }
       }
 
-      // wall collisions
-      // TODO: make these valid plane vs particle constraints
-      /*
-         pos
-          |
-          |
-          | -> +normal
-          |
-          |
-      */
+      // poly vs poly
+      {
+        float damp = 0.1f;
+        for (uint32_t a_idx=0; a_idx<polygon_count; a_idx++) {
+          Polygon *a = state->polygons[a_idx];
+          uint32_t polygon_particle_count = sb_count(a->points);
+          for (uint32_t b_idx=0; b_idx<polygon_count; b_idx++) {
+            if (a_idx==b_idx) {
+              continue;
+            }
+
+            Polygon *b = state->polygons[b_idx];
+            for (uint32_t i=0; i<polygon_particle_count; i++) {
+              vec2 pos = rotate(a->points[i], a->rot) + a->pos;
+              vec2 prev_pos = rotate(a->points[i], a->prev_rot) + a->prev_pos;
+
+              vec2 next_pos = projectSDFConstraint(prev_pos, pos, b, 1.0f, a->inv_mass);
+
+              // vec2 next_pos = glm::clamp(pos, vec2(0.0), state->screen);
+
+              // TODO: apply proper angular + positional corrections
+              // TODO: apply to b as well
+              a->pos += (next_pos - pos);
+            }
+          }
+        }
+      }
     }
   }
 
+  // loose particle vs wall
   {
     float damp = 0.1f;
     for (uint32_t i=1; i<particle_count; i++) {
@@ -467,19 +484,19 @@ void loop() {
       vec2 pos = state->next_positions[i];
       vec2 ndir = pos - prev_pos;
 
-      if (prev_pos.x < radius) {
+      if (pos.x < radius) {
         state->next_positions[i].x = radius;
         float d = abs(radius - pos.x);
         state->next_positions[i] += reflect(normalize(ndir), vec2(1.0, 0.0)) * d * damp;
       }
 
-      if (prev_pos.x > state->screen.x - radius) {
+      if (pos.x > state->screen.x - radius) {
         state->next_positions[i].x = state->screen.x - radius;
         float d = abs((state->screen.x - radius) - pos.x);
         state->next_positions[i] += reflect(normalize(ndir), vec2(-1.0, 0.0)) * d * damp;
       }
 
-      if (prev_pos.y < radius) {
+      if (pos.y < radius) {
         state->next_positions[i].y = radius;
         float d = abs(radius - pos.y);
         state->next_positions[i] += reflect(normalize(ndir), vec2(0.0, 1.0)) * d * damp;
@@ -489,6 +506,23 @@ void loop() {
         state->next_positions[i].y = state->screen.y - radius;
         float d = abs((state->screen.y - radius) - pos.y);
         state->next_positions[i] += reflect(normalize(ndir), vec2(0.0, -1.0)) * d * damp;
+      }
+    }
+  }
+
+  // sdf particle vs wall
+  {
+    float damp = 0.1f;
+    for (uint32_t polygon_idx=0; polygon_idx<polygon_count; polygon_idx++) {
+      Polygon *polygon = state->polygons[polygon_idx];
+      uint32_t polygon_particle_count = sb_count(polygon->points);
+      igText("poly %s count(%u)", polygon->name, polygon_particle_count);
+      for (uint32_t i=0; i<polygon_particle_count; i++) {
+        vec2 pos = rotate(polygon->points[i], polygon->rot) + polygon->pos;
+        vec2 next_pos = glm::clamp(pos, vec2(0.0), state->screen);
+
+        // TODO: apply proper angular + positional corrections
+        polygon->pos += (next_pos - pos);
       }
     }
   }
@@ -573,8 +607,7 @@ void loop() {
       polygon->sdf->debug_dist();
       igEnd();
       igText("%s d(%f)", polygon->name, polygon->sample_world(mouse));
-      vec2 nop;
-      vec2 next_pos = projectSDFConstraint(mouse-normal, mouse, &nop, polygon, 20);
+      vec2 next_pos = projectSDFConstraint(mouse-normal, mouse, polygon, 20);
       rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0x0, 0xFF, 0x0));
       rawkit_vg_stroke_width(vg, 2.0);
       rawkit_vg_begin_path(vg);

@@ -7,6 +7,7 @@
 #include "sdf.h"
 #include <glm/glm.hpp>
 #include <glm/gtx/rotate_vector.hpp>
+#include <glm/gtx/compatibility.hpp>
 using namespace glm;
 
 static char polygon_tmp_str[4096] = "";
@@ -249,19 +250,27 @@ typedef struct Polygon {
     uint32_t count = sb_count(this->points);
     if (!count) return;
 
+
+    igText("poly %s", this->name);
+    igText("  dims(%f, %f)", this->aabb.ub.x - this->aabb.lb.x, this->aabb.ub.y - this->aabb.lb.x);
+    igText("  mass(%f)", this->mass);
+    igText("  inv_mass(%f)", this->inv_mass);
+
     rawkit_vg_save(vg);
       rawkit_vg_translate(vg, this->pos.x, this->pos.y);
       rawkit_vg_rotate(vg, this->rot);
-      rawkit_vg_draw_texture(
-        vg,
-        this->aabb.lb.x,
-        this->aabb.lb.y,
-        this->aabb.ub.x - this->aabb.lb.x,
-        this->aabb.ub.y - this->aabb.lb.y,
-        this->sdf->tex,
-        this->sdf->tex->default_sampler
-      );
 
+      if (0) {
+        rawkit_vg_draw_texture(
+          vg,
+          this->aabb.lb.x,
+          this->aabb.lb.y,
+          this->aabb.ub.x - this->aabb.lb.x,
+          this->aabb.ub.y - this->aabb.lb.y,
+          this->sdf->tex,
+          this->sdf->tex->default_sampler
+        );
+      }
 
 
       rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
@@ -274,9 +283,6 @@ typedef struct Polygon {
       }
       rawkit_vg_close_path(vg);
       rawkit_vg_stroke(vg);
-
-
-
 
       // draw the center of mass
       rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0, 0));
