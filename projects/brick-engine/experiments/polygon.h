@@ -5,12 +5,40 @@
 #include <stdlib.h>
 #include "aabb.h"
 #include "sdf.h"
+#include "segseg.h"
 #include <glm/glm.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/compatibility.hpp>
 using namespace glm;
 
+#include <vector>
+using namespace std;
+
 static char polygon_tmp_str[4096] = "";
+
+typedef struct PolygonIntersection {
+  uint32_t start_idx;
+  uint32_t end_idx;
+  vec2 pos;
+} PolygonIntersection;
+
+float orientation(vec2 start, vec2 end, vec2 point) {
+
+  float v = (
+    (end.y - start.y) *
+    (point.x - end.x) -
+    (end.x - start.x) *
+    (point.y - end.y)
+  );
+
+  printf("orient start(%f, %f) end(%f, %f) point(%f, %f) -> %f\n", start.x, start.y, end.x, end.y, point.x, point.y, v);
+
+  if (v == 0.0f) {
+    return v;
+  }
+
+  return v < 0.0f ? -1.0f : 1.0f;
+}
 
 typedef struct Polygon {
   vec2 pos = vec2(0.0);
@@ -98,7 +126,7 @@ typedef struct Polygon {
           vec2 e = next - cur;
           vec2 v = p - cur;
           vec2 pq = v - e * clamp( dot(v,e) / dot(e,e), 0.0f, 1.0f );
-          d = min( d, dot(pq, pq));
+          d = glm::min( d, dot(pq, pq));
 
           // winding number from http://geomalgorithms.com/a03-_inclusion.html
           vec2 v2 = p - next;
@@ -294,4 +322,65 @@ typedef struct Polygon {
         rawkit_vg_fill(vg);
     rawkit_vg_restore(vg);
   }
+
+  PolygonIntersection *isect_segment(vec2 start, vec2 end) {
+    PolygonIntersection *ret = nullptr;
+    uint32_t count = sb_count(this->points);
+    if (!count) return nullptr;
+
+    vec2 prev = glm::rotate(this->points[count - 1], this->rot) + this->pos;
+    for (uint32_t i=0; i<count; i++) {
+
+      vec2 cur = glm::rotate(this->points[i], this->rot) + this->pos;
+      vec2 res(0.0);
+      if (segseg(prev, cur, start, end, &res) == SEGSEG_DO_INTERSECT) {
+        PolygonIntersection isect = {
+          .start_idx = i == 0 ? count - 1 : i - 1,
+          .end_idx = i,
+          .pos = res
+        };
+
+        sb_push(ret, isect);
+      }
+      prev = cur;
+    }
+
+    return ret;
+  }
+
+  Polygon **split_by_segment(vec2 start, vec2 end) {
+    uint32_t count = sb_count(this->points);
+    if (!count) return nullptr;
+
+
+    vec2 prev = glm::rotate(this->points[count - 1], this->rot) + this->pos;
+    float o_init = orientation(start, end, prev);
+    Polygon **polygons = nullptr;
+
+    sprintf(polygon_tmp_str, "%s::split((%f,%f)->(%f,%f))@orient(%f)", this->name, start.x, start.y, end.x, end.y, o_init);
+    sb_push(polygons, new Polygon(polygon_tmp_str));
+
+    for (uint32_t i=0; i<count; i++) {
+      vec2 cur = glm::rotate(this->points[i], this->rot) + this->pos;
+      float o_cur = orientation(start, end, cur);
+      // TODO: add the intersection point to both polygons
+      if (o_cur != o_init) {
+        o_init = o_cur;
+        sprintf(polygon_tmp_str, "%s::split((%f,%f)->(%f,%f))@orient(%f)", this->name, start.x, start.y, end.x, end.y, o_init);
+        sb_push(polygons, new Polygon(polygon_tmp_str));
+      }
+
+
+      printf("add point to polygon: %u\n", sb_count(polygons) - 1);
+      sb_push(sb_last(polygons)->points, this->points[i]);
+
+      // vec2 res(0.0);
+      // if (segseg(prev, cur, start, end, &res) == SEGSEG_DO_INTERSECT) {
+
+      // }
+    }
+
+    return polygons;
+  }
+
 } Polygon;
