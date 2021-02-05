@@ -456,7 +456,7 @@ typedef struct Polygon {
               inside[i].z = d - (abs(existing_circle.z) + radius);
             }
 
-            if (abs(inside[i].z) < 0.5f) {
+            if (inside[i].z > -0.001f) {
               inside[i].w = 0.0f;
             }
 
@@ -633,7 +633,7 @@ typedef struct Polygon {
         );
       }
 
-      if (1) {
+      if (0) {
         rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
         rawkit_vg_begin_path(vg);
         vec2 p = this->points[0];
@@ -667,7 +667,8 @@ typedef struct Polygon {
         igText("circle count: %u", circle_count);
         for (uint32_t i=0; i<circle_count; i++) {
           vec4 circle = this->circles[i];
-          rawkit_vg_stroke_color(vg, rawkit_vg_HSL(circle.w / 4.0f, 0.6f, 0.5f));
+          rawkit_vg_stroke_color(vg, rawkit_vg_HSL(0.0, 0.6f, 0.5f));
+          rawkit_vg_fill_color(vg, rawkit_vg_HSL(circle.z / 400.0f, 0.6f, 0.5f));
           rawkit_vg_begin_path(vg);
 #if 1
             rawkit_vg_arc(
