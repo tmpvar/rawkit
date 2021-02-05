@@ -5,13 +5,15 @@
 #include <glm/glm.hpp>
 using namespace glm;
 
+
 #include "polygon.h"
 #include "mouse.h"
 #include <stb_sb.h>
 
-#define GRAVITY vec2(0.0, -90.8)
+//#define GRAVITY vec2(0.0, -90.8)
+#define GRAVITY vec2(0.0, -0.0)
 #define TAU 6.283185307179586
-#define MAX_PARTICLES 200 + 1
+#define MAX_PARTICLES 0 + 1
 
 enum class BodyType {
   POINT = 0,
@@ -334,7 +336,7 @@ void loop() {
   State *state = rawkit_hot_state("state", State);
   state->mouse.tick();
   double now = rawkit_now();
-  float dt = min(.02, now - state->last_time);
+  float dt = glm::min(.02, now - state->last_time);
   // dt = 0.005;
   state->last_time = now;
 
@@ -570,6 +572,55 @@ void loop() {
   {
     for (uint32_t i=0; i<polygon_count; i++) {
       state->polygons[i]->render(vg);
+    }
+
+
+
+
+    // attempt to slice every polgyon with a segment that extends from screen center to the mouser pos
+    vec2 center = state->screen * 0.5f;
+
+    rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0, 0));
+    rawkit_vg_begin_path(vg);
+      rawkit_vg_move_to(vg, center.x, center.y);
+      rawkit_vg_line_to(vg, mouse.x, mouse.y);
+      rawkit_vg_stroke(vg);
+
+    rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0x00, 0x00));
+    for (uint32_t i=0; i<polygon_count; i++) {
+      auto isects = state->polygons[i]->isect_segment(center, mouse);
+      uint32_t count = sb_count(isects);
+      if (count > 1) {
+
+        // TODO: we're going to need a proper algorithm here.
+        // if (igIsMouseReleased(ImGuiMouseButton_Left)) {
+        //   auto polygons = state->polygons[i]->split_by_segment(center, mouse);
+
+        //   for (uint32_t pidx=0; pidx<sb_count(polygons); pidx++) {
+        //     sb_push(state->polygons, polygons[pidx]);
+        //   }
+
+        //   printf("polygons: %u\n", sb_count(polygons));
+        //   // sb_free(polygons);
+        // }
+
+
+        for (uint32_t j=0; j<count; j++) {
+          rawkit_vg_begin_path(vg);
+            rawkit_vg_arc(
+              vg,
+              isects[j].pos.x,
+              isects[j].pos.y,
+              radius,
+              0.0,
+              TAU,
+              1
+            );
+            rawkit_vg_fill(vg);
+        }
+      }
+
+      sb_free(isects);
     }
   }
 

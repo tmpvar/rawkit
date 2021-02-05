@@ -5,8 +5,8 @@ using namespace glm;
 
 
 struct AABB {
-  vec2 lb;
-  vec2 ub;
+  vec2 lb = vec2(FLT_MAX);
+  vec2 ub = vec2(-FLT_MAX);
 
   void grow(vec2 point) {
     this->lb = min(this->lb, point);

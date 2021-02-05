@@ -54,6 +54,9 @@ typedef struct Polygon {
   SDF *sdf = NULL;
   AABB aabb;
   vec2 *points = NULL;
+
+  // circle packing
+  vec4 *circles = NULL;
   char *name = NULL;
 
   float density = 1.0f / 25.0f;
@@ -72,6 +75,20 @@ typedef struct Polygon {
     }
   }
 
+  void rebase_on_origin() {
+    vec2 lb = this->aabb.lb;
+    if (all(equal(lb, vec2(0.0)))) {
+      return;
+    }
+
+    uint32_t count = sb_count(this->points);
+    for (uint32_t i=0; i<count; i++) {
+      this->points[i] -= lb;
+    }
+    this->pos = (this->aabb.lb + this->aabb.ub) * 0.5f;
+    this->aabb.ub -= lb;
+    this->aabb.lb = vec2(0.0);
+  }
 
   void rebuild_sdf() {
     // if no new points have been added
@@ -213,8 +230,329 @@ typedef struct Polygon {
     this->sdf->upload();
   }
 
+  // the actual recursive packing algorithm
+  void circle_pack_split_region(vec2 lb, vec2 ub, uint32_t depth = 0, vec4 best_parent = vec4(-1.0f)) {
+    if (depth > 5) {
+      // printf("break depth\n");
+      return;
+    }
+
+    vec2 cp = (lb + ub) * 0.5f;
+    float dist = this->sample_local(cp);// + this->aabb.ub + this->center_of_mass_offset * 2.0f);
+    float udist = abs(dist);
+    float radius = glm::min(
+      glm::abs(ub.x - cp.x),
+      glm::abs(ub.y - cp.y)
+    );
+
+    // if (radius < .01f) {
+    //   return;
+    // }
+
+    vec4 circle = vec4(cp, radius, (float)depth);
+    printf("dist(%f) radius(%f)\n", dist, radius);
+    uint32_t new_depth = depth + 1;
+#if 0
+    // a crossing
+    if (dist < -radius || dist > radius) {
+      return;
+    }
+
+    if (best_parent.x != -1.0f) {
+      printf("not first: %f -> %f\n", circle.z, abs(distance(vec2(best_parent), cp) - (circle.z + best_parent.z)));
+      circle.z = glm::min(
+        circle.z,
+        abs(distance(vec2(best_parent), cp) - (circle.z + best_parent.z))
+      );
+    }
+
+    // fully inside
+    // if (dist + radius < 0.0f) {
+    //   if (depth == 0) {//} && distance(vec2(best_parent), cp) + radius < best_parent.z) {
+    //     return;
+    //   }
+
+      // sb_push(this->circles, circle);
+    //   // best_parent = circle;
+    //      return;
+    //  }
+      best_parent = circle;
+      sb_push(this->circles, circle);
+
+    // // crossing
+    // if (dist <= 0.0f && dist + radius >= 0.0f) {
+
+    // }
+
+    // if (udist > radius) {
+    //   return;
+    // }
+
+
+    // // skip splits that could occur inside the best parent
+    // if (depth > 0) {
+    //   float dist = distance(vec2(best_parent), cp);
+
+    //   // if this cell is completely inside the best parent then stop
+    //   if (dist + radius < best_parent.z) {
+    //     return;
+    //   }
+
+    //   // cell is outside parent, so it will be the children's new best parent
+    //   if (abs(dist - best_parent.z) > radius) {
+    //     best_parent = circle;
+    //     sb_push(this->circles, circle);
+    //   }
+    // } else {
+    //   if (radius > udist) {
+    //     //new_depth = 0;
+    //   } else {
+    //     sb_push(this->circles, circle);
+    //     best_parent = circle;
+    //   }
+    // }
+    // printf("split (%f, %f) -> (%f, %f)\n", lb.x, lb.y, ub.x, ub.y);
+#else
+
+    float a = glm::sign(this->sample_local(cp + vec2(-radius, -radius)));
+    float b = glm::sign(this->sample_local(cp + vec2( radius, -radius)));
+    float c = glm::sign(this->sample_local(cp + vec2( radius,  radius)));
+    float d = glm::sign(this->sample_local(cp + vec2(-radius,  radius)));
+
+    bool crossing = (
+      a != b ||
+      b != c ||
+      c != d ||
+      d != glm::sign(dist)
+    );
+
+    if (dist < -radius || dist > radius) {
+      printf("bail..\n");
+      return;
+    }
+
+    if (crossing) {
+      sb_push(this->circles, circle);
+    }
+    // if (!crossing) {
+    //   return;
+    // }
+
+
+    // if (new_depth > 0) {
+    //   if (dist > 0.0f) {
+    //     return;
+    //   }
+    // }
+
+    best_parent = circle;
+
+
+
+    // // only begin work after we've split to a reasonable level
+    // if (best_parent.x == -1.0f) {
+    //   if (dist <= radius) {
+    //     best_parent = circle;
+    //     sb_push(this->circles, circle);
+    //   }
+    // } else {
+    //   if (distance(vec2(best_parent), cp) - radius > best_parent.z) {
+    //     best_parent = circle;
+    //     sb_push(this->circles, circle);
+    //   }
+    // }
+#endif
+
+    // lower left
+    this->circle_pack_split_region(
+      lb,
+      cp,
+      new_depth,
+      best_parent
+    );
+
+    // lower right
+    this->circle_pack_split_region(
+      vec2(cp.x, lb.y),
+      vec2(ub.x, cp.y),
+      new_depth,
+      best_parent
+    );
+
+    // upper right
+    this->circle_pack_split_region(
+      cp,
+      ub,
+      new_depth,
+      best_parent
+    );
+
+    // upper left
+    this->circle_pack_split_region(
+      vec2(lb.x, cp.y),
+      vec2(cp.x, ub.y),
+      new_depth,
+      best_parent
+    );
+  }
+
+  static int circle_distance_sort(const void *ap, const void *bp) {
+    const vec4 *a = (vec4 *)ap;
+    const vec4 *b = (vec4 *)bp;
+
+    // sort by validity first
+    if (a->w != b->w) {
+      return a->w == 1.0f ? -1 : 1;
+    }
+
+    // order by distance ascending
+    return a->z <= b->z ? -1 : 1;
+  }
+
+  void circle_pack_inner_sphere_tree(vec2 lb, vec2 ub) {
+
+    // compute a list of pixels that are inside the shape
+    vec4 *inside = nullptr;
+    {
+      vec4 p(0.0);
+      for (p.x = lb.x; p.x < ub.x; p.x++) {
+        for (p.y = lb.y; p.y < ub.y; p.y++) {
+          // maximum radius (e.g, unsigned distance to the nearest surface)
+          p.z = this->sample_local(p);
+          p.w = 1.0f;
+          if (p.z <= 0.0f) {
+            sb_push(inside, p);
+          }
+        }
+      }
+    }
+
+    // sort the list by distance ascending
+    uint32_t inside_count = sb_count(inside);
+    {
+      qsort(inside, inside_count, sizeof(vec4), Polygon::circle_distance_sort);
+    }
+
+    // place the first circle
+    sb_push(this->circles, vec4(inside[0].x, inside[0].y, inside[0].z, 0));
+
+    // loop through the rest of the circles and add them to the list if
+    // the do not intersect any previously placed circle
+    int sentinel = 100;
+    while (inside_count && sentinel--) {
+      for (uint32_t i=1; i<inside_count; i++) {
+        vec4 circle = inside[i];
+        float radius = abs(circle.z);
+        // test the current circle against all previous circles
+        uint32_t circle_count = sb_count(this->circles);
+        bool skip = false;
+        for (uint32_t cidx=0; cidx<circle_count; cidx++) {
+          vec4 existing_circle = this->circles[cidx];
+          float d = distance(vec2(circle), vec2(existing_circle));
+          if (d < abs(existing_circle.z) + radius) {
+            if (d < abs(existing_circle.z)) {
+              inside[i].w = 0.0f;
+            } else {
+              inside[i].z = d - (abs(existing_circle.z) + radius);
+            }
+
+            if (abs(inside[i].z) < 0.5f) {
+              inside[i].w = 0.0f;
+            }
+
+            skip = true;
+            break;
+          }
+        }
+
+        if (!skip) {
+          inside[i].w = 0.0f;
+          sb_push(this->circles, vec4(circle.x, circle.y, radius, 0));
+        }
+      }
+
+      // sort the list to bring pending entries back to the top and then
+      // resize the array
+      {
+        qsort(inside, inside_count, sizeof(vec4), Polygon::circle_distance_sort);
+        uint32_t i=0;
+        for (i=0; i<inside_count; i++) {
+          if (inside[i].w == 0.0f) {
+            break;
+          }
+        }
+        stb__sbn(inside) = i;
+        inside_count = i;
+      }
+    }
+  }
+
+  void circle_pack_uniform(vec2 lb, vec2 ub) {
+    vec2 p;
+    float radius = 5.0f;
+    for (p.x=lb.x-radius; p.x<=ub.x+radius*2.0f; p.x+=radius*2.0f) {
+      for (p.y=lb.y-radius; p.y<=ub.y+radius*2.0f; p.y+=radius*2.0f) {
+        float dist = this->sample_local(p);
+        if (dist <= -radius) {
+          if(dist + radius >= -radius * 3.0) {
+            sb_push(this->circles, vec4(
+              p.x,
+              p.y,
+              radius,
+              0
+            ));
+
+            // this->circle_pack_split_region(
+            //   p - vec2(radius),
+            //   p + vec2(radius)
+            // );
+          } else {
+            sb_push(this->circles, vec4(
+              p.x,
+              p.y,
+              radius,
+              0
+            ));
+          }
+        } else if (dist + radius < 0.0f) {
+          sb_push(this->circles, vec4(
+            p.x,
+            p.y,
+            radius,
+            0
+          ));
+        }
+      }
+    }
+  }
+
+  void circle_pack() {
+    sb_reset(this->circles);
+    printf("circle_pack (%f, %f) -> (%f, %f)\n",
+      this->aabb.lb.x,
+      this->aabb.lb.y,
+      this->aabb.ub.x,
+      this->aabb.ub.y
+    );
+
+    vec2 diff = this->aabb.ub - this->aabb.lb;
+    float m = glm::max(diff.x, diff.y);
+
+    uint32_t approach = 2;
+
+    switch(approach) {
+      // naive uniform grid
+      case 0: this->circle_pack_uniform(vec2(0.0), diff); break;
+      // naive quadtree that is broken
+      case 1: this->circle_pack_split_region(vec2(0.0), diff); break;
+      // adaption of the approach described in "Inner Sphere Trees for Proximity and Penetration Queries"
+      case 2: this->circle_pack_inner_sphere_tree(vec2(0.0), diff); break;
+    }
+  }
+
   void append(vec2 point) {
     this->dirty = true;
+    this->aabb.grow(point);
     sb_push(this->points, point);
   }
 
@@ -295,31 +633,64 @@ typedef struct Polygon {
         );
       }
 
+      if (1) {
+        rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
+        rawkit_vg_begin_path(vg);
+        vec2 p = this->points[0];
+        rawkit_vg_move_to(vg, p.x, p.y);
+        for (uint32_t i=1; i<count; i++) {
+          p = this->points[i];
+          rawkit_vg_line_to(vg, p.x, p.y);
+        }
+        rawkit_vg_close_path(vg);
+        rawkit_vg_stroke(vg);
 
-      rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
-      rawkit_vg_begin_path(vg);
-      vec2 p = this->points[0];
-      rawkit_vg_move_to(vg, p.x, p.y);
-      for (uint32_t i=1; i<count; i++) {
-        p = this->points[i];
-        rawkit_vg_line_to(vg, p.x, p.y);
+        // draw the center of mass
+        rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0, 0));
+        rawkit_vg_begin_path(vg);
+          rawkit_vg_arc(
+            vg,
+            0.0,
+            0.0,
+            4.0,
+            0.0,
+            6.283185307179586,
+            1
+          );
+          rawkit_vg_fill(vg);
       }
-      rawkit_vg_close_path(vg);
-      rawkit_vg_stroke(vg);
 
-      // draw the center of mass
-      rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0, 0));
-      rawkit_vg_begin_path(vg);
-        rawkit_vg_arc(
-          vg,
-          0.0,
-          0.0,
-          4.0,
-          0.0,
-          6.283185307179586,
-          1
-        );
-        rawkit_vg_fill(vg);
+
+      // draw the packed circles
+      {
+        uint32_t circle_count = sb_count(this->circles);
+        igText("circle count: %u", circle_count);
+        for (uint32_t i=0; i<circle_count; i++) {
+          vec4 circle = this->circles[i];
+          rawkit_vg_stroke_color(vg, rawkit_vg_HSL(circle.w / 4.0f, 0.6f, 0.5f));
+          rawkit_vg_begin_path(vg);
+#if 1
+            rawkit_vg_arc(
+              vg,
+              circle.x + this->aabb.lb.x,
+              circle.y + this->aabb.lb.y,
+              circle.z, // radius
+              0.0,
+              6.283185307179586,
+              1
+            );
+#else
+          rawkit_vg_rect(
+            vg,
+            circle.x + this->aabb.lb.x,
+            circle.y + this->aabb.lb.y,
+            circle.z,
+            circle.z
+          );
+#endif
+          rawkit_vg_stroke(vg);
+        }
+      }
     rawkit_vg_restore(vg);
   }
 

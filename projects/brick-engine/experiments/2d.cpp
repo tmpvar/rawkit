@@ -53,7 +53,17 @@ void loop() {
       state->pending_polygon->append(state->mouse.pos);
       printf("point appended\n");
     } else if (state->pending_polygon) {
+
+      // rebase the polygon on the origin
+      AABB aabb = state->pending_polygon->aabb;
+      printf("add (%f, %f) -> (%f, %f)\n", aabb.lb.x, aabb.lb.y, aabb.ub.x, aabb.ub.y);
+      state->pending_polygon->rebase_on_origin();
+      aabb = state->pending_polygon->aabb;
+      printf("add after (%f, %f) -> (%f, %f)\n", aabb.lb.x, aabb.lb.y, aabb.ub.x, aabb.ub.y);
+
+
       state->pending_polygon->rebuild_sdf();
+      state->pending_polygon->circle_pack();
       sb_push(state->polygons, state->pending_polygon);
       state->pending_polygon = NULL;
     }
@@ -89,19 +99,19 @@ void loop() {
 
 
 
-        for (float x= -0.5; x<=0.5; x+=0.1) {
-          vec2 off(x, 0);
-          vec2 normal = state->polygons[i]->sdf->calcNormal(off + state->mouse.pos - state->polygons[i]->aabb.lb);
-          normal = normalize(normal);
-          igText("normal(%f, %f)", normal.x, normal.y);
+        // for (float x= -0.5; x<=0.5; x+=0.1) {
+        //   vec2 off(x, 0);
+        //   vec2 normal = state->polygons[i]->sdf->(off + state->mouse.pos - state->polygons[i]->aabb.lb);
+        //   normal = normalize(normal);
+        //   igText("normal(%f, %f)", normal.x, normal.y);
 
-          rawkit_vg_begin_path(vg);
-            rawkit_vg_move_to(vg, state->mouse.pos.x, state->mouse.pos.y);
-            vec2 end = state->mouse.pos + normal * 100.0f;
-            rawkit_vg_line_to(vg, end.x, end.y);
-            rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0, 0xFF));
-            rawkit_vg_stroke(vg);
-        }
+        //   rawkit_vg_begin_path(vg);
+        //     rawkit_vg_move_to(vg, state->mouse.pos.x, state->mouse.pos.y);
+        //     vec2 end = state->mouse.pos + normal * 100.0f;
+        //     rawkit_vg_line_to(vg, end.x, end.y);
+        //     rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0, 0xFF));
+        //     rawkit_vg_stroke(vg);
+        // }
       }
 
       rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
