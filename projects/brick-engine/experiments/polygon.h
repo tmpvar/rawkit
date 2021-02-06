@@ -6,6 +6,7 @@
 #include "aabb.h"
 #include "sdf.h"
 #include "segseg.h"
+#include "context-2d.h"
 #include <glm/glm.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/compatibility.hpp>
@@ -620,51 +621,39 @@ typedef struct Polygon {
     return normalize(vec2(xgrad, ygrad));
   }
 
-  void render(rawkit_vg_t *vg) {
+  void render(Context2D ctx) {
     uint32_t count = sb_count(this->points);
     if (!count) return;
 
-    rawkit_vg_save(vg);
-      rawkit_vg_translate(vg, this->pos.x, this->pos.y);
-      rawkit_vg_rotate(vg, this->rot);
+    ctx.save();
+      ctx.translate(this->pos);
+      ctx.rotate(this->rot);
 
       if (0) {
-        rawkit_vg_draw_texture(
-          vg,
-          this->aabb.lb.x,
-          this->aabb.lb.y,
-          this->aabb.ub.x - this->aabb.lb.x,
-          this->aabb.ub.y - this->aabb.lb.y,
-          this->sdf->tex,
-          this->sdf->tex->default_sampler
+        ctx.drawTexture(
+          this->aabb.lb,
+          this->aabb.ub - this->aabb.lb,
+          this->sdf->tex
         );
       }
 
       if (0) {
-        rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
-        rawkit_vg_begin_path(vg);
+        ctx.strokeColor(rgb(0xFF, 0xFF, 0xFF));
+        ctx.beginPath();
         vec2 p = this->points[0];
-        rawkit_vg_move_to(vg, p.x, p.y);
+        ctx.moveTo(p);
         for (uint32_t i=1; i<count; i++) {
           p = this->points[i];
-          rawkit_vg_line_to(vg, p.x, p.y);
+          ctx.lineTo(p);
         }
-        rawkit_vg_close_path(vg);
-        rawkit_vg_stroke(vg);
+        ctx.closePath();
+        ctx.stroke();
 
         // draw the center of mass
-        rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0, 0));
-        rawkit_vg_begin_path(vg);
-          rawkit_vg_arc(
-            vg,
-            0.0,
-            0.0,
-            4.0,
-            0.0,
-            6.283185307179586,
-            1
-          );
-          rawkit_vg_fill(vg);
+        ctx.fillColor(rgb(0xFF, 0, 0));
+        ctx.beginPath();
+          ctx.arc(vec2(0.0), 4.0);
+          ctx.fill();
       }
 
 
@@ -674,19 +663,11 @@ typedef struct Polygon {
         igText("circle count: %u", circle_count);
         for (uint32_t i=0; i<circle_count; i++) {
           vec4 circle = this->circles[i];
-          rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0x99, 0x99, 0x99));
-          rawkit_vg_fill_color(vg, rawkit_vg_HSL(circle.z / 400.0f, 0.6f, 0.5f));
-          rawkit_vg_begin_path(vg);
+          ctx.strokeColor(rgb(0x99, 0x99, 0x99));
+          ctx.fillColor(hsl(circle.z / 400.0f, 0.6f, 0.5f));
+          ctx.beginPath();
 #if 1
-            rawkit_vg_arc(
-              vg,
-              circle.x + this->aabb.lb.x,
-              circle.y + this->aabb.lb.y,
-              circle.z, // radius
-              0.0,
-              6.283185307179586,
-              1
-            );
+            ctx.arc(vec2(circle) + this->aabb.lb, circle.z);
 #else
           rawkit_vg_rect(
             vg,
@@ -696,10 +677,10 @@ typedef struct Polygon {
             circle.z
           );
 #endif
-          rawkit_vg_stroke(vg);
+          ctx.stroke();
         }
       }
-    rawkit_vg_restore(vg);
+    ctx.restore();
   }
 
   PolygonIntersection *isect_segment(vec2 start, vec2 end) {

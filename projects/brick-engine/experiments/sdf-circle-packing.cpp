@@ -2,6 +2,7 @@
 
 #include "polygon.h"
 #include "mouse.h"
+#include "context-2d.h"
 
 struct Segment {
   vec2 start;
@@ -63,7 +64,8 @@ void loop() {
   State *state = rawkit_hot_state("state", State);
   uint32_t polygon_count = sb_count(state->polygons);
   state->mouse.tick();
-  rawkit_vg_t *vg = rawkit_default_vg();
+
+  Context2D ctx;
 
   // construct a segment from screen center to the mouse
 
@@ -84,11 +86,11 @@ void loop() {
       perform_cut = true;
     }
 
-    rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
-    rawkit_vg_begin_path(vg);
-      rawkit_vg_move_to(vg, state->cutter.start.x, state->cutter.start.y);
-      rawkit_vg_line_to(vg, state->cutter.end.x,   state->cutter.end.y);
-    rawkit_vg_stroke(vg);
+    ctx.strokeColor(rgb(0xFFFFFFFF));
+    ctx.beginPath();
+      ctx.moveTo(state->cutter.start);
+      ctx.lineTo(state->cutter.end);
+      ctx.stroke();
 
 
     if (perform_cut) {
@@ -100,7 +102,7 @@ void loop() {
 
       for (uint32_t i=0; i<polygon_count; i++) {
         Polygon *polygon = state->polygons[i];
-        polygon->render(vg);
+        polygon->render(ctx);
 
         // cut
         {
@@ -163,13 +165,13 @@ void loop() {
 
   for (uint32_t i=0; i<polygon_count; i++) {
     Polygon *polygon = state->polygons[i];
-    polygon->render(vg);
+    polygon->render(ctx);
 
     // simulate a cut
     if (0) {
-      rawkit_vg_save(vg);
-        rawkit_vg_translate(vg, polygon->pos.x, polygon->pos.y);
-        rawkit_vg_rotate(vg, polygon->rot);
+      ctx.save();
+        ctx.translate(polygon->pos);
+        ctx.rotate(polygon->rot);
         // draw the packed circles
         {
           uint32_t circle_count = sb_count(polygon->circles);
@@ -186,27 +188,22 @@ void loop() {
             vec2 closest = segment_closest_point(start, end, vec2(circle));
 
             if (distance(closest, vec2(circle)) < abs(circle.z)) {
-              rawkit_vg_fill_color(vg, rawkit_vg_RGB(0, 0, 0xff));
+              ctx.fillColor(rgb(0x0, 0x0, 0xff));
             } else if (side > 0.0f) {
-              rawkit_vg_fill_color(vg, rawkit_vg_RGB(0, 0xFF, 0));
+              ctx.fillColor(rgb(0x0, 0xFF, 0x0));
             } else {
-              rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0, 0));
+              ctx.fillColor(rgb(0xFF, 0, 0));
             }
 
-            rawkit_vg_begin_path(vg);
-              rawkit_vg_arc(
-                vg,
-                circle.x + polygon->aabb.lb.x,
-                circle.y + polygon->aabb.lb.y,
-                abs(circle.w),// * 0.75f, // radius
-                0.0,
-                6.283185307179586,
-                1
+            ctx.beginPath();
+              ctx.arc(
+                vec2(circle) + polygon->aabb.lb,
+                abs(circle.w)// * 0.75f, // radius
               );
-              rawkit_vg_fill(vg);
+              ctx.fill();
           }
         }
-      rawkit_vg_restore(vg);
+      ctx.restore();
     }
   }
 
@@ -218,29 +215,21 @@ void loop() {
 
     // simulate a cut
     {
-      rawkit_vg_save(vg);
-        rawkit_vg_fill_color(vg, rawkit_vg_HSL((float)i/(float)cut_result_count, 0.6f, 0.6f));
-        rawkit_vg_translate(vg, 600, 100.0f + (float)i * 200.0f);
+      ctx.save();
+        ctx.fillColor(hsl((float)i/(float)cut_result_count, 0.6f, 0.6f));
+        ctx.translate(vec2(600, 100.0f + (float)i * 200.0f));
         // draw the packed circles
         {
           uint32_t circle_count = sb_count(polygon->circles);
           igText("  %u: %u circles", i, circle_count);
           for (uint32_t i=0; i<circle_count; i++) {
             vec4 circle = polygon->circles[i];
-            rawkit_vg_begin_path(vg);
-              rawkit_vg_arc(
-                vg,
-                circle.x,
-                circle.y,
-                abs(circle.w),// * 0.75f, // radius
-                0.0,
-                6.283185307179586,
-                1
-              );
-              rawkit_vg_fill(vg);
+            ctx.beginPath();
+              ctx.arc(vec2(circle), abs(circle.z));
+              ctx.fill();
           }
         }
-      rawkit_vg_restore(vg);
+      ctx.restore();
     }
   }
 }
