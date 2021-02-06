@@ -50,23 +50,23 @@ void loop() {
         printf("create new polygon: %s\n", tmp_str);
         state->pending_polygon = new Polygon(tmp_str);
       }
-      printf("append point: %f, %f", state->mouse.pos.x, state->mouse.pos.y);
       state->pending_polygon->append(state->mouse.pos);
-      printf("point appended\n");
     } else if (state->pending_polygon) {
+      uint32_t pc = sb_count(state->pending_polygon->points);
+      if (pc < 3) {
+        delete state->pending_polygon;
+        state->pending_polygon = nullptr;
+      } else {
+        // rebase the polygon on the origin
+        AABB aabb = state->pending_polygon->aabb;
+        state->pending_polygon->rebase_on_origin();
+        aabb = state->pending_polygon->aabb;
 
-      // rebase the polygon on the origin
-      AABB aabb = state->pending_polygon->aabb;
-      printf("add (%f, %f) -> (%f, %f)\n", aabb.lb.x, aabb.lb.y, aabb.ub.x, aabb.ub.y);
-      state->pending_polygon->rebase_on_origin();
-      aabb = state->pending_polygon->aabb;
-      printf("add after (%f, %f) -> (%f, %f)\n", aabb.lb.x, aabb.lb.y, aabb.ub.x, aabb.ub.y);
-
-
-      state->pending_polygon->rebuild_sdf();
-      state->pending_polygon->circle_pack();
-      sb_push(state->polygons, state->pending_polygon);
-      state->pending_polygon = NULL;
+        state->pending_polygon->rebuild_sdf();
+        state->pending_polygon->circle_pack();
+        sb_push(state->polygons, state->pending_polygon);
+        state->pending_polygon = NULL;
+      }
     }
   }
 

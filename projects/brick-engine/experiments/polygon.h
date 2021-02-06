@@ -559,6 +559,16 @@ typedef struct Polygon {
   }
 
   void append(vec2 point) {
+
+    // avoid adding contiguous dupes
+    if (sb_count(this->points)) {
+      vec2 pc = sb_last(this->points);
+      if (all(equal(pc, point))) {
+        return;
+      }
+    }
+
+
     this->dirty = true;
     this->aabb.grow(point);
     sb_push(this->points, point);
@@ -663,6 +673,9 @@ typedef struct Polygon {
         igText("circle count: %u", circle_count);
         for (uint32_t i=0; i<circle_count; i++) {
           vec4 circle = this->circles[i];
+          if (circle.z < 5.0) {
+            continue;
+          }
           ctx.strokeColor(rgb(0x99, 0x99, 0x99));
           ctx.fillColor(hsl(circle.z / 400.0f, 0.6f, 0.5f));
           ctx.beginPath();
