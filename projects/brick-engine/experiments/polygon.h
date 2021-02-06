@@ -31,8 +31,6 @@ float orientation(vec2 start, vec2 end, vec2 point) {
     (point.y - end.y)
   );
 
-  printf("orient start(%f, %f) end(%f, %f) point(%f, %f) -> %f\n", start.x, start.y, end.x, end.y, point.x, point.y, v);
-
   if (v == 0.0f) {
     return v;
   }
@@ -401,8 +399,8 @@ typedef struct Polygon {
     const vec4 *b = (vec4 *)bp;
 
     // sort by validity first
-    if (a->w != b->w) {
-      return a->w == 1.0f ? -1 : 1;
+    if (glm::sign(a->w) != glm::sign(b->w)) {
+      return a->w > 0.0f ? 1 : -1;
     }
 
     // order by distance ascending
@@ -419,7 +417,7 @@ typedef struct Polygon {
         for (p.y = lb.y; p.y < ub.y; p.y++) {
           // maximum radius (e.g, unsigned distance to the nearest surface)
           p.z = this->sample_local(p);
-          p.w = 1.0f;
+          p.w = this->sample_local(p);
           if (p.z <= 0.0f) {
             sb_push(inside, p);
           }
@@ -434,7 +432,7 @@ typedef struct Polygon {
     }
 
     // place the first circle
-    sb_push(this->circles, vec4(inside[0].x, inside[0].y, inside[0].z, 0));
+    sb_push(this->circles, vec4(inside[0].x, inside[0].y, inside[0].z, inside[0].z));
 
     // loop through the rest of the circles and add them to the list if
     // the do not intersect any previously placed circle
@@ -451,14 +449,18 @@ typedef struct Polygon {
           float d = distance(vec2(circle), vec2(existing_circle));
           if (d < abs(existing_circle.z) + radius) {
             if (d < abs(existing_circle.z)) {
-              inside[i].w = 0.0f;
+              inside[i].w = 1.0f;
             } else {
               inside[i].z = d - (abs(existing_circle.z) + radius);
             }
 
             if (inside[i].z > -0.001f) {
-              inside[i].w = 0.0f;
+              inside[i].w = 1.0f;
             }
+
+            // if (abs(inside[i].z) < 0.001f) {
+            //   inside[i].w = 1.0f;
+            // }
 
             skip = true;
             break;
@@ -466,8 +468,13 @@ typedef struct Polygon {
         }
 
         if (!skip) {
-          inside[i].w = 0.0f;
-          sb_push(this->circles, vec4(circle.x, circle.y, radius, 0));
+          inside[i].w = 1.0f;
+          sb_push(this->circles, vec4(
+            circle.x, // center x
+            circle.y, // center y
+            radius,   // reduced packing radius
+            circle.w  // actual signed-distance
+          ));
         }
       }
 
@@ -667,7 +674,7 @@ typedef struct Polygon {
         igText("circle count: %u", circle_count);
         for (uint32_t i=0; i<circle_count; i++) {
           vec4 circle = this->circles[i];
-          rawkit_vg_stroke_color(vg, rawkit_vg_HSL(0.0, 0.6f, 0.5f));
+          rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0x99, 0x99, 0x99));
           rawkit_vg_fill_color(vg, rawkit_vg_HSL(circle.z / 400.0f, 0.6f, 0.5f));
           rawkit_vg_begin_path(vg);
 #if 1

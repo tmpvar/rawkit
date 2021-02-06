@@ -16,6 +16,7 @@
 
 #pragma once
 #include <glm/glm.hpp>
+#include <glm/gtx/norm.hpp>
 using namespace glm;
 
 enum segseg_result {
@@ -85,3 +86,10 @@ segseg_result segseg(vec2 p1, vec2 p2, vec2 p3, vec2 p4, vec2 *res) {
 
   return SEGSEG_DO_INTERSECT;
 }
+
+vec2 segment_closest_point(vec2 a, vec2 b, vec2 p) {
+  vec2 pa = p - a;
+  vec2 ab = b - a;
+  float t = glm::clamp(dot(pa, ab) / length2(ab), 0.0f, 1.0f);
+  return a + ab * t;
+};
