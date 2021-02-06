@@ -78,6 +78,11 @@ class Context2D {
       return this;
     }
 
+    Context2D *scale(vec2 amount) {
+      rawkit_vg_scale(vg, amount.x, amount.y);
+      return this;
+    }
+
     Context2D *moveTo(glm::vec2 p) {
       rawkit_vg_move_to(vg, p.x, p.y);
       return this;
@@ -139,5 +144,14 @@ class Context2D {
       return this;
     }
 
-
+    Context2D *rect(vec2 pos, vec2 dims) {
+      rawkit_vg_rect(
+        vg,
+        pos.x,
+        pos.y,
+        dims.x,
+        dims.y
+      );
+      return this;
+    }
 };

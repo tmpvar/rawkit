@@ -637,7 +637,7 @@ typedef struct Polygon {
         );
       }
 
-      if (0) {
+      if (1) {
         ctx.strokeColor(rgb(0xFF, 0xFF, 0xFF));
         ctx.beginPath();
         vec2 p = this->points[0];
@@ -666,18 +666,8 @@ typedef struct Polygon {
           ctx.strokeColor(rgb(0x99, 0x99, 0x99));
           ctx.fillColor(hsl(circle.z / 400.0f, 0.6f, 0.5f));
           ctx.beginPath();
-#if 1
             ctx.arc(vec2(circle) + this->aabb.lb, circle.z);
-#else
-          rawkit_vg_rect(
-            vg,
-            circle.x + this->aabb.lb.x,
-            circle.y + this->aabb.lb.y,
-            circle.z,
-            circle.z
-          );
-#endif
-          ctx.stroke();
+            ctx.stroke();
         }
       }
     ctx.restore();

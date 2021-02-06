@@ -6,6 +6,7 @@ using namespace glm;
 #include <string.h>
 
 #include "polygon.h"
+#include "context-2d.h"
 #include "mouse.h"
 #define TAU 6.283185307179586
 
@@ -37,7 +38,7 @@ void setup() {
 void loop() {
   auto state = rawkit_hot_state("state", State);
   state->mouse.tick();
-  auto vg = rawkit_default_vg();
+  Context2D ctx;
 
   // poly draw handler
   {
@@ -72,25 +73,20 @@ void loop() {
   // render polygons
   {
     if (state->pending_polygon) {
-      state->pending_polygon->render(vg);
+      state->pending_polygon->render(ctx);
     }
 
     uint32_t c = sb_count(state->polygons);
+    ctx.fillColor(rgb(0xFF, 0, 0));
     for (uint32_t i=0; i<c; i++) {
-        vec2 nearest = state->polygons[i]->aabb.nearest(state->mouse.pos);
-        igText("nearest(%f, %f)", nearest.x, nearest.y);
-        rawkit_vg_begin_path(vg);
-        rawkit_vg_arc(
-          vg,
-          nearest.x,
-          nearest.y,
-          2.0,
-          0.0,
-          TAU,
-          1
-        );
-        rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0, 0));
-        rawkit_vg_fill(vg);
+        // vec2 nearest = state->polygons[i]->aabb.nearest(state->mouse.pos);
+        // igText("nearest(%f, %f)", nearest.x, nearest.y);
+        // ctx.beginPath();
+        // ctx.arc(
+        //   nearest,
+        //   2.0
+        // );
+        // ctx.fill();
       if (state->polygons[i]->aabb.contains(state->mouse.pos)) {
         // igText("mouse over %i (d=%f)",
         //   i,
@@ -99,23 +95,23 @@ void loop() {
 
 
 
+        // ctx.strokeColor(rgb(0xFF, 0, 0xFF));
         // for (float x= -0.5; x<=0.5; x+=0.1) {
         //   vec2 off(x, 0);
         //   vec2 normal = state->polygons[i]->sdf->(off + state->mouse.pos - state->polygons[i]->aabb.lb);
         //   normal = normalize(normal);
         //   igText("normal(%f, %f)", normal.x, normal.y);
 
-        //   rawkit_vg_begin_path(vg);
-        //     rawkit_vg_move_to(vg, state->mouse.pos.x, state->mouse.pos.y);
+        //   ctx.beginPath();
+        //     ctx.moveTo(state->mouse.pos);
         //     vec2 end = state->mouse.pos + normal * 100.0f;
-        //     rawkit_vg_line_to(vg, end.x, end.y);
-        //     rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0, 0xFF));
-        //     rawkit_vg_stroke(vg);
+        //     ctx.lineTo(end);
+        //     ctx.stroke();
         // }
       }
 
-      rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
-      state->polygons[i]->render(vg);
+      ctx.fillColor(rgb(0xFF, 0xFF, 0xFF));
+      state->polygons[i]->render(ctx);
     }
     // if (c>0 && state->polygons[0] && state->polygons[0]->sdf) {
     //   state->polygons[0]->rebuild_sdf();

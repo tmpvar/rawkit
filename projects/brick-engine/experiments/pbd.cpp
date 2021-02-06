@@ -334,6 +334,7 @@ vec2 projectSDFConstraint1(vec2 prev_pos, vec2 pos, vec2 *velocity, Polygon *pol
 
 void loop() {
   State *state = rawkit_hot_state("state", State);
+  Context2D ctx;
   state->mouse.tick();
   double now = rawkit_now();
   float dt = glm::min(.02, now - state->last_time);
@@ -364,9 +365,8 @@ void loop() {
   }
 
 
-  rawkit_vg_t *vg = rawkit_default_vg();
-  rawkit_vg_scale(vg, 1.0, -1.0);
-  rawkit_vg_translate(vg, 0.0, -(float)rawkit_window_height());
+  ctx.scale(vec2(1.0f, -1.0f));
+  ctx.translate(vec2(0.0, -(float)rawkit_window_height()));
 
   uint32_t particle_count = sb_count(state->positions);
   uint32_t polygon_count = sb_count(state->polygons);
@@ -571,22 +571,19 @@ void loop() {
   // render polygons
   {
     for (uint32_t i=0; i<polygon_count; i++) {
-      state->polygons[i]->render(vg);
+      state->polygons[i]->render(ctx);
     }
-
-
-
 
     // attempt to slice every polgyon with a segment that extends from screen center to the mouser pos
     vec2 center = state->screen * 0.5f;
 
-    rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0, 0));
-    rawkit_vg_begin_path(vg);
-      rawkit_vg_move_to(vg, center.x, center.y);
-      rawkit_vg_line_to(vg, mouse.x, mouse.y);
-      rawkit_vg_stroke(vg);
+    ctx.strokeColor(rgb(0xFF, 0, 0));
+    ctx.beginPath();
+      ctx.moveTo(center);
+      ctx.lineTo(mouse);
+      ctx.stroke();
 
-    rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0x00, 0x00));
+    ctx.fillColor(rgb(0xFF, 0x00, 0x00));
     for (uint32_t i=0; i<polygon_count; i++) {
       auto isects = state->polygons[i]->isect_segment(center, mouse);
       uint32_t count = sb_count(isects);
@@ -606,17 +603,12 @@ void loop() {
 
 
         for (uint32_t j=0; j<count; j++) {
-          rawkit_vg_begin_path(vg);
-            rawkit_vg_arc(
-              vg,
-              isects[j].pos.x,
-              isects[j].pos.y,
-              radius,
-              0.0,
-              TAU,
-              1
+          ctx.beginPath();
+            ctx.arc(
+              isects[j].pos,
+              radius
             );
-            rawkit_vg_fill(vg);
+            ctx.fill();
         }
       }
 
@@ -626,36 +618,28 @@ void loop() {
 
   // draw all of the particles
   {
-    rawkit_vg_fill_color(vg, rawkit_vg_RGB(0x00, 0x00, 0xFF));
+    ctx.fillColor(rgb(0x00, 0x00, 0xFF));
     for (uint32_t i=0; i<particle_count; i++) {
-      rawkit_vg_fill_color(vg, rawkit_vg_HSL((float)i/(float)particle_count, 0.5, 0.5));
+      ctx.fillColor(hsl((float)i/(float)particle_count, 0.5, 0.5));
 
-      rawkit_vg_begin_path(vg);
-        rawkit_vg_arc(
-          vg,
-          state->positions[i].x,
-          state->positions[i].y,
-          radius,
-          0.0,
-          TAU,
-          1
+      ctx.beginPath();
+        ctx.arc(
+          state->positions[i],
+          radius
         );
-        rawkit_vg_fill(vg);
+        ctx.fill();
     }
   }
 
   // draw the constraints as lines
   {
-    rawkit_vg_stroke_color(vg, rawkit_vg_RGB(0xFF, 0xFF, 0xFF));
+    ctx.strokeColor(rgb(0xFF, 0xFF, 0xFF));
     for (uint32_t i=0; i<constraint_count; i++) {
       Constraint *c = &state->constraints[i];
-
-      vec2 a = state->positions[c->a];
-      vec2 b = state->positions[c->b];
-      rawkit_vg_begin_path(vg);
-        rawkit_vg_move_to(vg, a.x, a.y);
-        rawkit_vg_line_to(vg, b.x, b.y);
-        rawkit_vg_stroke(vg);
+      ctx.beginPath();
+        ctx.moveTo(state->positions[c->a]);
+        ctx.lineTo(state->positions[c->b]);
+        ctx.stroke();
     }
   }
 }
