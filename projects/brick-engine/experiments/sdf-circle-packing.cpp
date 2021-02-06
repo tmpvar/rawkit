@@ -109,6 +109,9 @@ void loop() {
           Polygon *left = new Polygon(polygon_tmp_str);
           sprintf(polygon_tmp_str, "%s-split-right", polygon->name);
           Polygon *right = new Polygon(polygon_tmp_str);
+          sprintf(polygon_tmp_str, "%s-split-isect", polygon->name);
+          Polygon *isect = new Polygon(polygon_tmp_str);
+
 
           uint32_t circle_count = sb_count(polygon->circles);
           for (uint32_t i=0; i<circle_count; i++) {
@@ -124,23 +127,33 @@ void loop() {
             vec2 closest = segment_closest_point(start, end, vec2(circle));
 
             if (distance(closest, vec2(circle)) < abs(circle.z)) {
-              // TODO: further preprocessing
+              sb_push(isect->circles, circle);
             } else if (side > 0.0f) {
               sb_push(left->circles, circle);
-              //rawkit_vg_fill_color(vg, rawkit_vg_RGB(0, 0xFF, 0));
             } else {
-              //rawkit_vg_fill_color(vg, rawkit_vg_RGB(0xFF, 0, 0));
               sb_push(right->circles, circle);
             }
           }
 
-          if (!sb_count(left->circles) || !sb_count(right->circles)) {
+          if (!sb_count(left->circles) || !sb_count(right->circles) || !sb_count(isect->circles)) {
             delete left;
             delete right;
+            delete isect;
             continue;
           }
-          sb_push(state->polygon_cut_results, left);
-          sb_push(state->polygon_cut_results, right);
+
+          if (sb_count(left->circles)) {
+            sb_push(state->polygon_cut_results, left);
+          }
+
+          if (sb_count(right->circles)) {
+            sb_push(state->polygon_cut_results, right);
+          }
+
+          if (sb_count(isect->circles)) {
+            sb_push(state->polygon_cut_results, isect);
+          }
+
         }
       }
     }
