@@ -9,6 +9,8 @@ struct Mouse {
   bool down;
   bool was_down;
 
+  float wheel = 0.0f;
+
   void tick() {
     this->last_pos = this->pos;
     this->was_down = this->down;
@@ -23,6 +25,8 @@ struct Mouse {
     );
 
     if (io && !io->WantCaptureMouse) {
+      this->wheel = io->MouseWheel;
+
       if (igIsMouseDown(ImGuiMouseButton_Left)) {
         if (!this->down) {
           this->down_pos = this->pos;

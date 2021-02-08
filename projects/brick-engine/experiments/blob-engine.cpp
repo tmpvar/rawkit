@@ -1,18 +1,22 @@
 #include <rawkit/rawkit.h>
 #include "context-2d.h"
+#include "camera-2d.h"
 #include "sdf.h"
 #include "blob.h"
 #include "mouse.h"
 
+
+
 struct State {
   Mouse mouse;
   Blob **blobs;
+  Camera2D camera;
 };
 
 
 void setup () {
   State *state = rawkit_hot_state("state", State);
-
+  state->camera.setup();
   // add a blob
   {
     uint32_t blob_count = sb_count(state->blobs);
@@ -90,15 +94,23 @@ void setup () {
 
 void loop() {
   State *state = rawkit_hot_state("state", State);
+  state->mouse.tick();
+
   Context2D ctx;
+
+
+  state->camera.tick(
+    igIsMouseDown(ImGuiMouseButton_Middle),
+    state->mouse.pos,
+    state->mouse.wheel
+  );
+  igText("camera translation(%f, %f)", state->camera.translation.x, state->camera.translation.y);
+  state->camera.begin();
+
   ctx.fillColor(rgb(0x99, 0x99, 0x99));
   ctx.strokeColor(rgb(0x99, 0xFF, 0x99));
 
-
-
   uint32_t blob_count = sb_count(state->blobs);
-  float scale = 2.5f;
-  float inv_scale = 1.0f / scale;
   for (uint32_t i=0; i<blob_count; i++) {
     Blob *blob = state->blobs[i];
     blob->sdf->debug_dist();
@@ -107,8 +119,7 @@ void loop() {
 
       ctx.save();
         ctx.translate(vec2(0.0, .0f + float(i) * 200.0f));
-        ctx.scale(vec2(scale));
-        ctx.strokeWidth(inv_scale);
+        ctx.strokeWidth(1.0f / state->camera.scale);
 
 
         uint32_t circle_count = sb_count(blob->circles);
@@ -118,7 +129,7 @@ void loop() {
 
           ctx.beginPath();
             ctx.arc(circle.pos, circle.radius);
-            ctx.fill();
+            ctx.stroke();
         }
 
         // uint32_t circle_edges_count = sb_count(blob->circle_edges);
@@ -133,6 +144,8 @@ void loop() {
     }
 
   }
+
+  state->camera.end();
 
 }
 
