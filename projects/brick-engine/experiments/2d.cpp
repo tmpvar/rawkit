@@ -30,7 +30,7 @@ void setup() {
     polygon->append(vec2((float)rawkit_window_width(), 0.0));
     polygon->append(vec2((float)rawkit_window_width(), 100.0));
     polygon->append(vec2(0.0, 100.0));
-    polygon->rebuild_sdf();
+    polygon->build_sdf();
     sb_push(state->polygons, polygon);
   }
 }
@@ -62,7 +62,7 @@ void loop() {
         state->pending_polygon->rebase_on_origin();
         aabb = state->pending_polygon->aabb;
 
-        state->pending_polygon->rebuild_sdf();
+        state->pending_polygon->build_sdf();
         state->pending_polygon->circle_pack();
         sb_push(state->polygons, state->pending_polygon);
         state->pending_polygon = NULL;
@@ -114,7 +114,7 @@ void loop() {
       state->polygons[i]->render(ctx);
     }
     // if (c>0 && state->polygons[0] && state->polygons[0]->sdf) {
-    //   state->polygons[0]->rebuild_sdf();
+    //   state->polygons[0]->build_sdf();
     //   state->polygons[0]->sdf->debug_dist();
     // }
   }

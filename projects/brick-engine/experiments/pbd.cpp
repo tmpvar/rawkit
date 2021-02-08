@@ -120,7 +120,7 @@ void setup() {
       //   polygon->append(vec2(300.0, 30.0));
       //   polygon->append(vec2(0.0, 800.0));
 
-      //   polygon->rebuild_sdf();
+      //   polygon->build_sdf();
       //   sb_push(state->polygons, polygon);
       // }
 
@@ -135,7 +135,7 @@ void setup() {
         polygon->append(vec2(100.0, 150.0));
         polygon->append(vec2(0.0, 200.0));
         polygon->append(vec2(0.0, 0.0));
-        polygon->rebuild_sdf();
+        polygon->build_sdf();
         sb_push(state->polygons, polygon);
       }
 
@@ -146,12 +146,12 @@ void setup() {
         polygon->append(vec2(200.0, 0.0));
         polygon->append(vec2(200.0, 200.0));
         polygon->append(vec2(0.0, 0.0));
-        polygon->rebuild_sdf();
+        polygon->build_sdf();
         sb_push(state->polygons, polygon);
       }
     } else {
       for (uint32_t i=0; i<c; i++) {
-        state->polygons[i]->rebuild_sdf();
+        state->polygons[i]->build_sdf();
         state->polygons[i]->pos = vec2(300.0 + (float)i * 300.0, 300.0);
         state->polygons[i]->prev_pos = state->polygons[i]->pos;
         state->polygons[i]->rot = 0.0f;
@@ -360,7 +360,7 @@ void loop() {
     polygon->append(vec2(100.0, 0.0));
     polygon->append(vec2(100.0, 100.0));
     polygon->append(vec2(0.0, 100.0));
-    polygon->rebuild_sdf();
+    polygon->build_sdf();
     sb_push(state->polygons, polygon);
   }
 

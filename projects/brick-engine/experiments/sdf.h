@@ -3,6 +3,8 @@
 #include <glm/glm.hpp>
 using namespace glm;
 
+#define PI 3.1415926f
+
 #include <functional>
 
 static char sdf_tmp_str[4096] = "";
@@ -33,6 +35,67 @@ static vec2 calc_sdf_normal(vec2 p, std::function<float(vec2)> sample) {
   return normalize(vec2(xgrad, ygrad));
 }
 
+// distance meater from https://www.shadertoy.com/view/ldK3zD
+// the meter uses the "fusion" gradient, which goes from dark magenta (0) to white (1)
+// (often seen in heatmaps in papers etc)
+//
+
+vec3 fusion(float x) {
+	float t = glm::clamp(x, 0.0f, 1.0f);
+	return glm::clamp(
+    vec3(
+      sqrt(t),
+      t*t*t,
+      glm::max(sin(PI*1.75f*t), pow(t, 12.0f))
+    ),
+    0.0f,
+    1.0f
+  );
+}
+
+// HDR version
+vec3 fusionHDR(float x) {
+	float t = clamp(x, 0.0f, 1.0f);
+	return fusion(sqrt(t))*(0.5f + 2.0f * t);
+}
+
+
+//
+// distance meter function. needs a bit more than just the distance
+// to estimate the zoom level that it paints at.
+//
+// if you have real opengl, you can additionally use derivatives (dFdx, dFdy)
+// to detect discontinuities, i had to strip that for webgl
+//
+// visualizing the magnitude of the gradient is also useful
+//
+
+vec3 distanceMeter(float dist, float rayLength, vec3 rayDir, float camHeight) {
+    float idealGridDistance = 20.0f/rayLength*pow(abs(rayDir.y),0.8f);
+    float nearestBase = floor(log(idealGridDistance)/log(10.0f));
+    float relativeDist = abs(dist/camHeight);
+
+    float largerDistance = glm::pow(10.0f,nearestBase+1.0f);
+    float smallerDistance = glm::pow(10.0f,nearestBase);
+
+
+    vec3 col = fusionHDR(log(1.+relativeDist));
+    col = max(vec3(0.),col);
+    if (sign(dist) < 0.) {
+        col = vec3(col.g, col.r, col.b)*3.f;
+    }
+
+    float l0 = (glm::pow(0.5f+0.5f*cos(dist * PI * 2.f * smallerDistance),10.0f));
+    float l1 = (glm::pow(0.5f+0.5f*cos(dist * PI * 2.f * largerDistance),10.0f));
+
+    float x = fract(log(idealGridDistance)/log(10.0f));
+    l0 = glm::mix(l0, 0.0f, glm::smoothstep(0.5f,1.0f,x));
+    l1 = glm::mix(0.0f, l1, glm::smoothstep(0.0f,0.5f,x));
+
+    col *= 0.1f+0.9f*(1.0f-l0)*(1.0f-l1);
+    return col;
+}
+
 
 typedef struct SDF {
   const char *name;
@@ -47,11 +110,11 @@ typedef struct SDF {
     : dims(dims), name(name)
   {
     this->diagonal_length = length(vec2(dims));
-    this->tex = rawkit_texture_mem(name, dims.x, dims.y, dims.z, VK_FORMAT_R32_SFLOAT);
+    this->tex = rawkit_texture_mem(name, dims.x, dims.y, dims.z, VK_FORMAT_R32G32B32_SFLOAT);
     sprintf(sdf_tmp_str, "%s::tex_buf", name);
     this->tex_buf = rawkit_cpu_buffer(sdf_tmp_str, this->tex->options.size);
     sprintf(sdf_tmp_str, "%s::dist_buf", name);
-    this->dist_buf = rawkit_cpu_buffer(sdf_tmp_str, this->tex->options.size);
+    this->dist_buf = rawkit_cpu_buffer(sdf_tmp_str, static_cast<uint64_t>(dims.x * dims.y * sizeof(float)));
     this->half_dims = vec2(this->dims) * 0.5f;
   }
 
@@ -60,6 +123,35 @@ typedef struct SDF {
   }
 
   void debug_dist() {
+    if (this->dirty) {
+      this->dirty = false;
+      vec2 p(0.0);
+      for (p.x = 0.0; p.x < dims.x; p.x++) {
+        for (p.y = 0.0; p.y < dims.y; p.y++) {
+
+          uint64_t src = static_cast<uint64_t>(
+            p.x +
+            p.y * dims.x
+          );
+
+          uint64_t dst = static_cast<uint64_t>(
+            p.x +
+            p.y * dims.x
+          );
+
+          float dist = ((float *)this->dist_buf->data)[src];
+          vec3 col = distanceMeter(
+            dist * 150.0f,
+            40000.0f,
+            vec3(0.0, 1.0, 0.0),
+            50000.0f
+          );
+
+          ((vec3 *)this->tex_buf->data)[dst] = col;
+        }
+      }
+    }
+
     this->upload();
     {
       ImTextureID texture = rawkit_imgui_texture(this->tex, this->tex->default_sampler);
@@ -68,7 +160,8 @@ typedef struct SDF {
         return;
       }
 
-      igText("sdf->tex dims(%f, %f)",
+      igText("sdf->tex '%s' dims(%f, %f)",
+        this->name,
         (float)this->tex->options.width, (float)this->tex->options.height
       );
       // render the actual image
@@ -114,7 +207,6 @@ typedef struct SDF {
       return;
     }
     ((float *)this->dist_buf->data)[i] = val;
-    // debugging
-    ((float *)this->tex_buf->data)[i] = (val / length(this->half_dims)) * 0.5f + 0.5f;
+    this->dirty = true;
   }
 } SDF;

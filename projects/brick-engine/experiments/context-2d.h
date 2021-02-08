@@ -2,6 +2,7 @@
 
 #include <rawkit/rawkit.h>
 #include <glm/glm.hpp>
+using namespace glm;
 
 class Color {
   public:
@@ -111,6 +112,12 @@ class Context2D {
 
     Context2D *stroke() {
       rawkit_vg_stroke(vg);
+      return this;
+    }
+
+
+    Context2D *strokeWidth(float v) {
+      rawkit_vg_stroke_width(vg, v);
       return this;
     }
 

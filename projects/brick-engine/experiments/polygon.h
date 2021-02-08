@@ -23,22 +23,6 @@ typedef struct PolygonIntersection {
   vec2 pos;
 } PolygonIntersection;
 
-float orientation(vec2 start, vec2 end, vec2 point) {
-
-  float v = (
-    (end.y - start.y) *
-    (point.x - end.x) -
-    (end.x - start.x) *
-    (point.y - end.y)
-  );
-
-  if (v == 0.0f) {
-    return v;
-  }
-
-  return v < 0.0f ? -1.0f : 1.0f;
-}
-
 typedef struct Polygon {
   vec2 pos = vec2(0.0);
   vec2 prev_pos = vec2(0.0);
@@ -89,7 +73,7 @@ typedef struct Polygon {
     this->aabb.lb = vec2(0.0);
   }
 
-  void rebuild_sdf() {
+  void build_sdf(SDF *target_sdf = nullptr) {
     // if no new points have been added
     if (!this->dirty) return;
 
@@ -111,15 +95,18 @@ typedef struct Polygon {
     // TODO: changing this may break the sdf->write call below
     AABB inflated = this->aabb.copy_inflated(0.0f);
 
-    if (!this->sdf) {
-      this->sdf = new SDF(
-        this->name,
-        vec3(
-          inflated.width(),
-          inflated.height(),
-          1.0
-        )
-      );
+    if (!target_sdf) {
+      if (!this->sdf) {
+        this->sdf = new SDF(
+          this->name,
+          vec3(
+            inflated.width(),
+            inflated.height(),
+            1.0
+          )
+        );
+      }
+      target_sdf = this->sdf;
     }
 
     printf("compute sdf for %s\n", this->name);
@@ -167,7 +154,7 @@ typedef struct Polygon {
           inside_cell_count++;
         }
 
-        this->sdf->write(uvec2(p - inflated.lb), signed_distance);
+        target_sdf->write(uvec2(p - inflated.lb), signed_distance);
       }
     }
 
@@ -226,7 +213,7 @@ typedef struct Polygon {
     }
 
     this->dirty = false;
-    this->sdf->upload();
+    target_sdf->upload();
   }
 
   // the actual recursive packing algorithm
@@ -586,7 +573,7 @@ typedef struct Polygon {
 
   float sample_local(vec2 p) {
     if (!this->sdf || this->dirty) {
-      this->rebuild_sdf();
+      this->build_sdf();
     }
 
     return this->sdf->sample(p);
@@ -650,6 +637,7 @@ typedef struct Polygon {
       if (1) {
         ctx.strokeColor(rgb(0xFF, 0xFF, 0xFF));
         ctx.beginPath();
+
         vec2 p = this->points[0];
         ctx.moveTo(p);
         for (uint32_t i=1; i<count; i++) {

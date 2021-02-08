@@ -93,3 +93,25 @@ vec2 segment_closest_point(vec2 a, vec2 b, vec2 p) {
   float t = glm::clamp(dot(pa, ab) / length2(ab), 0.0f, 1.0f);
   return a + ab * t;
 };
+
+vec2 line_closest_point(vec2 a, vec2 b, vec2 p) {
+  vec2 pa = p - a;
+  vec2 ab = b - a;
+  float t = dot(pa, ab) / length2(ab);
+  return a + ab * t;
+};
+
+float orientation(vec2 start, vec2 end, vec2 point) {
+  float v = (
+    (end.y - start.y) *
+    (point.x - end.x) -
+    (end.x - start.x) *
+    (point.y - end.y)
+  );
+
+  if (v == 0.0f) {
+    return v;
+  }
+
+  return v < 0.0f ? -1.0f : 1.0f;
+}

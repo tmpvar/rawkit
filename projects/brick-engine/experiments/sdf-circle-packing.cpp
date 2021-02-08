@@ -32,7 +32,7 @@ void setup() {
     Polygon *polygon = new Polygon("poly");
     polygon->pos = vec2(300.0, 300.0);
 
-#if 0
+#if 1
     polygon->append(vec2(0.0, 0.0));
     polygon->append(vec2(200.0, 0.0));
     polygon->append(vec2(200.0, 200.0));
@@ -50,7 +50,7 @@ void setup() {
     polygon->append(vec2(0.0, 200.0));
     polygon->append(vec2(0.0, 0.0));
 #endif
-    polygon->rebuild_sdf();
+    polygon->build_sdf();
 
     polygon->circle_pack();
 
