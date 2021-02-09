@@ -11,9 +11,9 @@ using namespace glm;
 #include <stb_sb.h>
 
 //#define GRAVITY vec2(0.0, -90.8)
-#define GRAVITY vec2(0.0, -0.0)
+#define GRAVITY vec2(0.0, -9.0)
 #define TAU 6.283185307179586
-#define MAX_PARTICLES 0 + 1
+#define MAX_PARTICLES 10 + 1
 
 enum class BodyType {
   POINT = 0,
@@ -261,77 +261,6 @@ vec2 projectWallConstraint(vec2 pos, vec2 screen, float radius, float inv_mass =
   return sdf_normal * d;
 }
 
-vec2 projectSDFConstraint1(vec2 prev_pos, vec2 pos, vec2 *velocity, Polygon *polygon, float radius, float inv_mass = 1.0f) {
-  vec2 local = polygon->worldToLocal(pos);
-  float d = polygon->sample_bilinear_local(local) - radius;
-
-  if (d > 0.0) {
-    return pos;
-  }
-
-  vec2 ndir = prev_pos - pos;
-  vec2 sdf_normal = polygon->calc_normal_world(pos);
-  float diff = abs(d);
-
-  // TODO: actual mass ratio
-  float inv_mass_sum = (inv_mass + polygon->inv_mass);
-  float particle_ratio = inv_mass / inv_mass_sum;
-  float polygon_ratio = polygon->inv_mass / inv_mass_sum;
-
-  // move back to the surface
-  // TODO: this is not quite right, but I'm not sure how to setup `ret` such
-  //       that the next velocity calculation results in `reflect(ndir, sdf_normal)`
-  /*
-    prev ret
-      \  .
-      -o-.--
-        \.
-        pos
-  */
-  vec2 particle_pos = pos + particle_ratio * diff * sdf_normal;
-  vec2 new_local = local + polygon_ratio * diff * sdf_normal;
-
-  // TODO: this assumes a square.
-  vec2 world_center = pos + polygon->center_of_mass;
-
-  // vec2 od = local - polygon->center_of_mass;
-  // vec2 nd = new_local - polygon->center_of_mass;
-
-  vec2 od = pos - world_center;
-  vec2 nd = new_local - polygon->center_of_mass;
-
-  float old_angle = -atan2(od.y, od.x);
-  float new_angle = -atan2(nd.y, nd.x);
-
-  float w = polygon->aabb.ub.x - polygon->aabb.lb.x;
-
-  vec2 dd = nd - od;
-  if (dd.y == 0.0) {
-    dd.y = 0.000000000000001;
-  }
-  // float angle = atan2(dd.x/dd.y, 1.0);
-  float angle = new_angle - old_angle;
-  printf("angle(%f) = %f - %f\n", angle, old_angle, new_angle);
-  // polygon->rot += angle * length(nd) * polygon_ratio;
-  polygon->rot += angle * w / length(nd) * polygon_ratio * 0.1;
-  polygon->angular_velocity += angle * w / length(nd) * polygon_ratio * 0.1;
-  // polygon->angular_velocity += (angle * w / length(nd) * polygon_ratio);
-
-  // compute the angular delta between center->local and center->new_local
-  // and apply it to rot/angular_velocity
-  // based on the distance from the center of mass (for now..)
-  // TODO: use the computed inertial tensor
-
-
-
-
-  // append the reflection vector
-  // TODO: this adds synthetic friction but it shouldn't
-  // ret += reflect(normalize(pos - ret), sdf_normal) * diff;
-  // *velocity += reflect(normalize(ndir), sdf_normal) * diff;
-  return particle_pos;
-}
-
 void loop() {
   State *state = rawkit_hot_state("state", State);
   Context2D ctx;
@@ -572,47 +501,6 @@ void loop() {
   {
     for (uint32_t i=0; i<polygon_count; i++) {
       state->polygons[i]->render(ctx);
-    }
-
-    // attempt to slice every polgyon with a segment that extends from screen center to the mouser pos
-    vec2 center = state->screen * 0.5f;
-
-    ctx.strokeColor(rgb(0xFF, 0, 0));
-    ctx.beginPath();
-      ctx.moveTo(center);
-      ctx.lineTo(mouse);
-      ctx.stroke();
-
-    ctx.fillColor(rgb(0xFF, 0x00, 0x00));
-    for (uint32_t i=0; i<polygon_count; i++) {
-      auto isects = state->polygons[i]->isect_segment(center, mouse);
-      uint32_t count = sb_count(isects);
-      if (count > 1) {
-
-        // TODO: we're going to need a proper algorithm here.
-        // if (igIsMouseReleased(ImGuiMouseButton_Left)) {
-        //   auto polygons = state->polygons[i]->split_by_segment(center, mouse);
-
-        //   for (uint32_t pidx=0; pidx<sb_count(polygons); pidx++) {
-        //     sb_push(state->polygons, polygons[pidx]);
-        //   }
-
-        //   printf("polygons: %u\n", sb_count(polygons));
-        //   // sb_free(polygons);
-        // }
-
-
-        for (uint32_t j=0; j<count; j++) {
-          ctx.beginPath();
-            ctx.arc(
-              isects[j].pos,
-              radius
-            );
-            ctx.fill();
-        }
-      }
-
-      sb_free(isects);
     }
   }
 
