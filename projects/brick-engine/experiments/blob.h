@@ -67,9 +67,19 @@ struct Blob {
 
   // center of mass oriented
   vec2 pos = vec2(0.0);
+  vec2 prev_pos = vec2(0.0);
   float rot = 0.0f;
+  float prev_rot = 0.0f;
   // relative to grid (0, 0)
   vec2 center_of_mass = vec2(0.0);
+
+  vec2 velocity = vec2(0.0f);
+  float angular_velocity = 0.0f;
+
+  float mass = 1.0f;
+  float inv_mass = 1.0f;
+  float density = 1.0f;
+
 
   SDF *sdf = nullptr;
   // relative to grid (0, 0)
@@ -115,6 +125,9 @@ struct Blob {
       static_cast<float>(sum_x / total),
       static_cast<float>(sum_y / total)
     );
+
+    this->mass = static_cast<float>(total) * this->density;
+    this->inv_mass = 1.0f / this->mass;
   }
 
   vec2 worldToGrid(vec2 p) {
@@ -466,6 +479,60 @@ struct Blob {
           }
         }
       }
+    }
+  }
+
+  void render(Context2D ctx) {
+    // draw the packed circles
+    {
+      ctx.save();
+        ctx.translate(this->pos);
+        ctx.rotate(this->rot);
+        ctx.translate(-this->center_of_mass);
+
+        uint32_t circle_count = sb_count(this->circles);
+        igText("  circle count: %u", circle_count);
+        igText("  pos: %f, %f", this->pos.x, this->pos.y);
+        igText("  COM: %f, %f", this->center_of_mass.x, this->center_of_mass.y);
+        ctx.strokeColor(rgb(0xFF, 0xFF, 0xFF));
+        for (uint32_t ci=0; ci<circle_count; ci++) {
+          PackedCircle circle = this->circles[ci];
+
+          ctx.beginPath();
+            ctx.arc(circle.pos, circle.radius);
+            ctx.stroke();
+        }
+
+        // aabb debugging
+        if (0) {
+          ctx.fillColor(rgb(0xFF, 0, 0));
+          ctx.beginPath();
+            ctx.arc(vec2(0.0), 1.0f);
+            ctx.fill();
+
+          ctx.fillColor(rgb(0xFF, 0, 0xFF));
+          ctx.beginPath();
+            ctx.arc(this->center_of_mass, 1.0f);
+            ctx.fill();
+
+          ctx.strokeColor(rgb(0x00, 0xFF, 0x00));
+          ctx.beginPath();
+            ctx.moveTo(vec2(0.0));
+            ctx.lineTo(vec2(this->dims.x, 0.0));
+            ctx.lineTo(this->dims);
+            ctx.lineTo(vec2(0.0, this->dims.y));
+            ctx.lineTo(vec2(0.0));
+            ctx.stroke();
+        }
+        // uint32_t circle_edges_count = sb_count(this->circle_edges);
+        // for (uint32_t cei=0; cei<circle_edges_count; cei++) {
+        //   Edge e = this->circle_edges[cei];
+        //   ctx.beginPath();
+        //     ctx.moveTo(this->circles[e.a].pos);
+        //     ctx.lineTo(blthisob->circles[e.b].pos);
+        //     ctx.stroke();
+        // }
+      ctx.restore();
     }
   }
 

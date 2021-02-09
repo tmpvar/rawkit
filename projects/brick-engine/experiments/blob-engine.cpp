@@ -144,6 +144,7 @@ void loop() {
 
   ctx.fillColor(rgb(0x99, 0x99, 0x99));
   ctx.strokeColor(rgb(0x99, 0xFF, 0x99));
+  ctx.strokeWidth(1.0f / state->camera.scale);
 
   uint32_t blob_count = sb_count(state->blobs);
 
@@ -228,61 +229,8 @@ void loop() {
       printf("NULL SDF %u\n", __LINE__);
     }
 
-    // draw the packed circles
-    {
-      ctx.save();
-        ctx.translate(blob->pos);
-        ctx.rotate(blob->rot);
-        ctx.translate(-blob->center_of_mass);
 
-        ctx.strokeWidth(1.0f / state->camera.scale);
-
-
-        uint32_t circle_count = sb_count(blob->circles);
-        igText("  circle count: %u", circle_count);
-        igText("  pos: %f, %f", blob->pos.x, blob->pos.y);
-        igText("  COM: %f, %f", blob->center_of_mass.x, blob->center_of_mass.y);
-        ctx.strokeColor(rgb(0xFF, 0xFF, 0xFF));
-        for (uint32_t ci=0; ci<circle_count; ci++) {
-          PackedCircle circle = blob->circles[ci];
-
-          ctx.beginPath();
-            ctx.arc(circle.pos, circle.radius);
-            ctx.stroke();
-        }
-
-        // aabb debugging
-        if (1) {
-          ctx.fillColor(rgb(0xFF, 0, 0));
-          ctx.beginPath();
-            ctx.arc(vec2(0.0), 1.0f);
-            ctx.fill();
-
-          ctx.fillColor(rgb(0xFF, 0, 0xFF));
-          ctx.beginPath();
-            ctx.arc(blob->center_of_mass, 1.0f);
-            ctx.fill();
-
-          ctx.strokeColor(rgb(0x00, 0xFF, 0x00));
-          ctx.beginPath();
-            ctx.moveTo(vec2(0.0));
-            ctx.lineTo(vec2(blob->dims.x, 0.0));
-            ctx.lineTo(blob->dims);
-            ctx.lineTo(vec2(0.0, blob->dims.y));
-            ctx.lineTo(vec2(0.0));
-            ctx.stroke();
-        }
-        // uint32_t circle_edges_count = sb_count(blob->circle_edges);
-        // for (uint32_t cei=0; cei<circle_edges_count; cei++) {
-        //   Edge e = blob->circle_edges[cei];
-        //   ctx.beginPath();
-        //     ctx.moveTo(blob->circles[e.a].pos);
-        //     ctx.lineTo(blob->circles[e.b].pos);
-        //     ctx.stroke();
-        // }
-      ctx.restore();
-    }
-
+    blob->render(ctx);
 
     // draw the previous cut lines
     if (0) {
