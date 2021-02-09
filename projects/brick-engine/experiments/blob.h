@@ -65,18 +65,14 @@ struct Blob {
   char *name = nullptr;
   vec2 dims;
 
-  // corner oriented
+  // center of mass oriented
   vec2 pos = vec2(0.0);
-  vec2 prev_pos = vec2(0.0);
   float rot = 0.0f;
-  float prev_rot = 0.0f;
-  float angular_velocity = 0.0f;
-  vec2 velocity = vec2(0.0);
   // relative to grid (0, 0)
   vec2 center_of_mass = vec2(0.0);
 
-  // TODO: add translation + rotation
   SDF *sdf = nullptr;
+  // relative to grid (0, 0)
   PackedCircle *circles = nullptr;
   Edge *circle_edges = nullptr;
   Node *circle_nodes = nullptr;
@@ -122,8 +118,11 @@ struct Blob {
   }
 
   vec2 worldToGrid(vec2 p) {
-    vec2 diff = p - this->pos;
-    vec2 grid_pos = rotate(diff, -this->rot) + this->center_of_mass;
+    vec2 grid_pos = p - this->pos;
+    grid_pos = rotate(grid_pos, -this->rot);
+    // TODO: this causes breakage while slicing with a line
+    //       but without it, the line mouse is in the wrong grid space location
+    grid_pos += this->center_of_mass;
     return grid_pos;
   }
 
@@ -179,10 +178,11 @@ struct Blob {
   }
 
   Blob **slice_with_line(vec2 a, vec2 b) {
-    // TODO: proper transform to local space
-    a -= this->pos;
-    b -= this->pos;
+    a = this->worldToGrid(a);
+    b = this->worldToGrid(b);
 
+
+    printf("slice (%f, %f) -> (%f, %f)\n", a.x, a.y, b.x, b.y);
 
     AABB aabb = {
       .lb = vec2(0.0),
@@ -194,13 +194,9 @@ struct Blob {
     // create two blobs for the left and right of the line
     sprintf(blob_tmp_str, "%s-sl", this->name);
     Blob *left = new Blob(blob_tmp_str, this->dims);
-    left->pos = this->pos;
-
     sprintf(blob_tmp_str, "%s-sr", this->name);
     Blob *right = new Blob(blob_tmp_str, this->dims);
-    right->pos = this->pos;
 
-    // TODO: transform into local space once we start rotating + translating
     vec2 p;
     for (p.x=0.0f; p.x<this->dims.x; p.x++) {
       for (p.y=0.0f; p.y<this->dims.y; p.y++) {
@@ -215,8 +211,17 @@ struct Blob {
     }
 
     Blob **blobs = nullptr;
-    left->compute_center_of_mass();
-    right->compute_center_of_mass();
+
+    vec2 corner = this->pos - this->center_of_mass;
+
+    // left->compute_center_of_mass();
+    left->center_of_mass = this->center_of_mass;
+    left->pos = this->pos;//corner + left->center_of_mass;
+    left->rot = this->rot;
+    // right->compute_center_of_mass();
+    right->center_of_mass = this->center_of_mass;
+    right->pos = this->pos;//corner + right->center_of_mass;
+    right->rot = this->rot;
     sb_push(blobs, left);
     sb_push(blobs, right);
 
@@ -337,8 +342,6 @@ struct Blob {
         island_aabb.lb = floor(island_aabb.lb);
         island_aabb.ub = ceil(island_aabb.ub);
 
-        island->pos = this->pos + island_aabb.lb;
-
         island->dims = vec2(
           island_aabb.width(),
           island_aabb.height()
@@ -349,9 +352,8 @@ struct Blob {
           island->circles[c].pos -= island_aabb.lb;
         }
 
-printf("blob %u\n", __LINE__);
+
         island->sdf = new SDF(island->name, vec3(island->dims, 0.0));
-printf("blob %u island->sdf=%p, this->sdf=%p\n", __LINE__, island->sdf, this->sdf);
         vec2 p;
 
         for (p.x = 0.0; p.x<island->dims.x; p.x++) {
@@ -362,9 +364,21 @@ printf("blob %u island->sdf=%p, this->sdf=%p\n", __LINE__, island->sdf, this->sd
         }
 
         island->compute_center_of_mass();
+
+        {
+          vec2 a = -this->center_of_mass + island_aabb.lb + island->center_of_mass;
+          vec2 b = rotate(a, this->rot);
+
+          island->rot = atan2(
+            a.x * b.y - a.y * b.x, // cross product
+            glm::dot(a, b)
+          );
+
+          island->pos = this->pos + b;
+        }
       }
     }
-printf("blob %u\n", __LINE__);
+
     return islands;
   }
 

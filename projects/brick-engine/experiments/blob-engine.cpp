@@ -80,16 +80,17 @@ void setup () {
     );
 
     blob->pos = polygon->pos;
-
-
     polygon->build_sdf(blob->sdf);
     delete polygon;
 
     blob->compute_center_of_mass();
+    blob->pos += blob->center_of_mass;
+    blob->rot = 0.9f;
     blob->circle_pack();
     blob->circle_graph();
     blob->extract_islands();
     sb_push(state->blobs, blob);
+
 
     // slice
     if (0) {
@@ -193,10 +194,8 @@ void loop() {
                 continue;
               }
               // TODO: move islands away from each other along the cut normal
-
-              vec2 center = islands[j]->pos + islands[j]->dims * 0.5f;
+              vec2 center = islands[j]->pos;
               float o = cut.orientation(center);
-
               islands[j]->pos -= (o * cut_normal) * 10.0f;
 
               sb_push(new_blobs, islands[j]);
@@ -233,6 +232,9 @@ void loop() {
     {
       ctx.save();
         ctx.translate(blob->pos);
+        ctx.rotate(blob->rot);
+        ctx.translate(-blob->center_of_mass);
+
         ctx.strokeWidth(1.0f / state->camera.scale);
 
 
