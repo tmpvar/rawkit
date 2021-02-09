@@ -121,6 +121,63 @@ struct Blob {
     );
   }
 
+  vec2 worldToGrid(vec2 p) {
+    vec2 diff = p - this->pos;
+    vec2 grid_pos = rotate(diff, -this->rot) + this->center_of_mass;
+    return grid_pos;
+  }
+
+  float sample_world(vec2 p) {
+    return this->sample_local(this->worldToGrid(p));
+  }
+
+  float sample_local(vec2 p) {
+    if (!this->sdf) {
+      printf("Blob::sample_local: no sdf to sample from\n");
+      return FLT_MAX;
+    }
+
+    return this->sdf->sample(p);
+  }
+
+  float sample_bilinear_world(vec2 p) {
+    return this->sample_bilinear_local(this->worldToGrid(p));
+  }
+
+  float sample_bilinear_local(vec2 p) {
+    float lx = floor(p.x);
+    float ly = floor(p.y);
+    vec2 lb = floor(p);
+    vec2 ub = lb + 1.0f;
+    return (
+      this->sample_local(vec2(lb.x, lb.y)) * (ub.x - p.x)  * (ub.y - p.y)  +
+      this->sample_local(vec2(ub.x, lb.y)) * (p.x  - lb.x) * (ub.y - p.y)  +
+      this->sample_local(vec2(lb.x, ub.y)) * (ub.x - p.x)  * (p.y  - lb.y) +
+      this->sample_local(vec2(ub.x, ub.y)) * (p.x  - lb.x) * (p.y  - lb.y)
+    );
+  }
+
+  // grabbed from https://github.com/chriscummings100/signeddistancefields/blob/master/Assets/SignedDistanceFields/SignedDistanceFieldGenerator.cs
+  vec2 calc_normal_world(vec2 p) {
+    //get d, and also its sign (i.e. inside or outside)
+    float d = this->sample_bilinear_world(p);
+    float sign = d >= 0 ? 1.0f : -1.0f;
+    float maxval = FLT_MAX * sign;
+
+    //read neighbour distances, ignoring border pixels
+    float o = 2.0f;
+    float x0 = this->sample_bilinear_world(p + vec2(-o,  0.0));
+    float x1 = this->sample_bilinear_world(p + vec2( o,  0.0));
+    float y0 = this->sample_bilinear_world(p + vec2( 0.0, -o));
+    float y1 = this->sample_bilinear_world(p + vec2( 0.0,  o));
+
+    //use the smallest neighbour in each direction to calculate the partial deriviates
+    float xgrad = sign*x0 < sign*x1 ? -(x0-d) : (x1-d);
+    float ygrad = sign*y0 < sign*y1 ? -(y0-d) : (y1-d);
+
+    return normalize(vec2(xgrad, ygrad));
+  }
+
   Blob **slice_with_line(vec2 a, vec2 b) {
     // TODO: proper transform to local space
     a -= this->pos;
