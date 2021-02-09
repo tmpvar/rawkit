@@ -85,6 +85,7 @@ void setup () {
     polygon->build_sdf(blob->sdf);
     delete polygon;
 
+    blob->compute_center_of_mass();
     blob->circle_pack();
     blob->circle_graph();
     blob->extract_islands();
@@ -238,6 +239,7 @@ void loop() {
         uint32_t circle_count = sb_count(blob->circles);
         igText("  circle count: %u", circle_count);
         igText("  pos: %f, %f", blob->pos.x, blob->pos.y);
+        igText("  COM: %f, %f", blob->center_of_mass.x, blob->center_of_mass.y);
         ctx.strokeColor(rgb(0xFF, 0xFF, 0xFF));
         for (uint32_t ci=0; ci<circle_count; ci++) {
           PackedCircle circle = blob->circles[ci];
@@ -248,10 +250,15 @@ void loop() {
         }
 
         // aabb debugging
-        if (0) {
+        if (1) {
           ctx.fillColor(rgb(0xFF, 0, 0));
           ctx.beginPath();
             ctx.arc(vec2(0.0), 1.0f);
+            ctx.fill();
+
+          ctx.fillColor(rgb(0xFF, 0, 0xFF));
+          ctx.beginPath();
+            ctx.arc(blob->center_of_mass, 1.0f);
             ctx.fill();
 
           ctx.strokeColor(rgb(0x00, 0xFF, 0x00));

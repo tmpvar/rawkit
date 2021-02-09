@@ -64,7 +64,17 @@ struct NodeQueue {
 struct Blob {
   char *name = nullptr;
   vec2 dims;
+
+  // corner oriented
   vec2 pos = vec2(0.0);
+  vec2 prev_pos = vec2(0.0);
+  float rot = 0.0f;
+  float prev_rot = 0.0f;
+  float angular_velocity = 0.0f;
+  vec2 velocity = vec2(0.0);
+  // relative to grid (0, 0)
+  vec2 center_of_mass = vec2(0.0);
+
   // TODO: add translation + rotation
   SDF *sdf = nullptr;
   PackedCircle *circles = nullptr;
@@ -87,6 +97,29 @@ struct Blob {
     delete this->sdf;
   }
 
+  void compute_center_of_mass() {
+    vec2 p;
+    uint64_t sum_x = 0;
+    uint64_t sum_y = 0;
+    uint64_t total = 0;
+
+    for (p.x=0.0f; p.x<this->dims.x; p.x++) {
+      for (p.y=0.0f; p.y<this->dims.y; p.y++) {
+        if (this->sdf->sample(p) <= 0.0) {
+
+          sum_x += static_cast<uint64_t>(p.x);
+          sum_y += static_cast<uint64_t>(p.y);
+
+          total++;
+        }
+      }
+    }
+
+    this->center_of_mass = vec2(
+      static_cast<float>(sum_x / total),
+      static_cast<float>(sum_y / total)
+    );
+  }
 
   Blob **slice_with_line(vec2 a, vec2 b) {
     // TODO: proper transform to local space
@@ -125,6 +158,8 @@ struct Blob {
     }
 
     Blob **blobs = nullptr;
+    left->compute_center_of_mass();
+    right->compute_center_of_mass();
     sb_push(blobs, left);
     sb_push(blobs, right);
 
@@ -268,6 +303,8 @@ printf("blob %u island->sdf=%p, this->sdf=%p\n", __LINE__, island->sdf, this->sd
             island->sdf->write(uvec2(p), d);
           }
         }
+
+        island->compute_center_of_mass();
       }
     }
 printf("blob %u\n", __LINE__);
