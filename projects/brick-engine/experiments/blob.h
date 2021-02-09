@@ -64,6 +64,7 @@ struct NodeQueue {
 struct Blob {
   char *name = nullptr;
   vec2 dims;
+  vec2 pos = vec2(0.0);
   // TODO: add translation + rotation
   SDF *sdf = nullptr;
   PackedCircle *circles = nullptr;
@@ -88,14 +89,26 @@ struct Blob {
 
 
   Blob **slice_with_line(vec2 a, vec2 b) {
+    // TODO: proper transform to local space
+    a -= this->pos;
+    b -= this->pos;
 
+
+    AABB aabb = {
+      .lb = vec2(0.0),
+      .ub = this->dims
+    };
+    if (!aabb.isect_line(a, b)) {
+      return nullptr;
+    }
     // create two blobs for the left and right of the line
-    sprintf(blob_tmp_str, "%s-slice-left", this->name);
+    sprintf(blob_tmp_str, "%s-sl", this->name);
     Blob *left = new Blob(blob_tmp_str, this->dims);
+    left->pos = this->pos;
 
-    sprintf(blob_tmp_str, "%s-slice-right", this->name);
+    sprintf(blob_tmp_str, "%s-sr", this->name);
     Blob *right = new Blob(blob_tmp_str, this->dims);
-
+    right->pos = this->pos;
 
     // TODO: transform into local space once we start rotating + translating
     vec2 p;
@@ -105,6 +118,7 @@ struct Blob {
         vec2 closest = line_closest_point(a, b, p + 0.5f);
         float ldist = distance(closest, p + 0.5f);
         uvec2 grid_pos(p);
+
         right->sdf->write(grid_pos, glm::max(ldist * glm::sign(o), this->sdf->sample(p)));
         left->sdf->write(grid_pos, glm::max(ldist * -glm::sign(o), this->sdf->sample(p)));
       }
@@ -113,6 +127,7 @@ struct Blob {
     Blob **blobs = nullptr;
     sb_push(blobs, left);
     sb_push(blobs, right);
+
     return blobs;
   }
 
@@ -186,7 +201,7 @@ struct Blob {
           continue;
         }
 
-        sprintf(blob_tmp_str, "%s-island#%u", this->name, sb_count(islands));
+        sprintf(blob_tmp_str, "%s-i%u", this->name, sb_count(islands));
         sb_push(islands, new Blob(blob_tmp_str));
         queue.push(visited_idx);
 
@@ -195,9 +210,11 @@ struct Blob {
           if (visited[node_idx]) {
             continue;
           }
-          visited[node_idx] = 1;
 
-          sb_push(sb_last(islands)->circles, this->circles[node_idx]);
+          visited[node_idx] = 1;
+          PackedCircle circle = this->circles[node_idx];
+          Blob *island = sb_last(islands);
+          sb_push(island->circles, circle);
 
           Node node = this->circle_nodes[node_idx];
 
@@ -228,36 +245,38 @@ struct Blob {
         island_aabb.lb = floor(island_aabb.lb);
         island_aabb.ub = ceil(island_aabb.ub);
 
+        island->pos = this->pos + island_aabb.lb;
+
         island->dims = vec2(
           island_aabb.width(),
           island_aabb.height()
         );
 
-        island->sdf = new SDF(island->name, vec3(island->dims, 0.0));
-        vec2 p;
-        for (p.x = 0.0; p.x<island->dims.x; p.x++) {
-          for (p.y = 0.0; p.y<island->dims.y; p.y++) {
-
-            float d = this->sdf->sample(p + island_aabb.lb);
-            island->sdf->write(
-              uvec2(p),
-              this->sdf->sample(p + island_aabb.lb)
-            );
-          }
+        // move circles into local space
+        for (uint32_t c = 0; c<circle_count; c++) {
+          island->circles[c].pos -= island_aabb.lb;
         }
 
-        sb_reset(island->circles);
-        island->circle_pack();
+printf("blob %u\n", __LINE__);
+        island->sdf = new SDF(island->name, vec3(island->dims, 0.0));
+printf("blob %u island->sdf=%p, this->sdf=%p\n", __LINE__, island->sdf, this->sdf);
+        vec2 p;
 
+        for (p.x = 0.0; p.x<island->dims.x; p.x++) {
+          for (p.y = 0.0; p.y<island->dims.y; p.y++) {
+            float d = this->sdf->sample(p + island_aabb.lb);
+            island->sdf->write(uvec2(p), d);
+          }
+        }
       }
     }
-
+printf("blob %u\n", __LINE__);
     return islands;
   }
 
-
-
   void circle_pack() {
+    sb_reset(this->circles);
+
     // compute a list of pixels that are inside the shape
     PackedCircle *inside = nullptr;
     printf("circle_pack: build inside list\n");
@@ -268,16 +287,21 @@ struct Blob {
           c.signed_distance = this->sdf->sample(c.pos);
           c.radius = abs(c.signed_distance);
           c.skip = false;
-          if (c.signed_distance <= 0.0f) {
+          if (c.signed_distance < 0.0f) {
             sb_push(inside, c);
           }
         }
       }
     }
 
-    printf("circle_pack: sort inside list\n");
     // sort the list by distance ascending
     uint32_t inside_count = sb_count(inside);
+
+    if (!inside_count) {
+      printf("circle_pack: inside count is 0\n");
+      return;
+    }
+
     {
       qsort(inside, inside_count, sizeof(PackedCircle), Blob::sort_circles_by_radius);
     }

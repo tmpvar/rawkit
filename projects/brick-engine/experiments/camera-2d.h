@@ -72,6 +72,10 @@ struct Camera2D {
       this->ctx.translate(this->translation);
   }
 
+  glm::vec2 pointToWorld(glm::vec2 point) {
+    return point/this->scale - this->translation;
+  }
+
   void end() {
     this->ctx.restore();
   }

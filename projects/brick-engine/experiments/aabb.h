@@ -4,6 +4,17 @@
 using namespace glm;
 
 
+
+float static aabb_orientation(vec2 start, vec2 end, vec2 point) {
+  return glm::sign(
+    (end.y - start.y) *
+    (point.x - end.x) -
+    (end.x - start.x) *
+    (point.y - end.y)
+  );
+}
+
+
 struct AABB {
   vec2 lb = vec2(FLT_MAX);
   vec2 ub = vec2(-FLT_MAX);
@@ -50,5 +61,13 @@ struct AABB {
       .lb = this->lb - r,
       .ub = this->ub + r
     };
+  }
+
+  bool isect_line(vec2 start, vec2 end) {
+    float a = aabb_orientation(start, end, this->lb);
+    float b = aabb_orientation(start, end, vec2(this->ub.x, this->lb.y));
+    float c = aabb_orientation(start, end, vec2(this->ub.x, this->ub.y));
+    float d = aabb_orientation(start, end, vec2(this->lb.x, this->ub.y));
+    return (a != b || b != c || c != d);
   }
 };

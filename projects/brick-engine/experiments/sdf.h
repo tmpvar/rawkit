@@ -98,17 +98,26 @@ vec3 distanceMeter(float dist, float rayLength, vec3 rayDir, float camHeight) {
 
 
 typedef struct SDF {
-  const char *name;
+  char *name = nullptr;
   vec3 dims;
   vec2 half_dims;
   float diagonal_length;
-  rawkit_texture_t *tex;
-  rawkit_cpu_buffer_t *tex_buf;
-  rawkit_cpu_buffer_t *dist_buf;
+  rawkit_texture_t *tex = nullptr;
+  rawkit_cpu_buffer_t *tex_buf = nullptr;
+  rawkit_cpu_buffer_t *dist_buf = nullptr;
   bool dirty = true;
   SDF(const char *name, vec3 dims)
-    : dims(dims), name(name)
+    : dims(dims)
   {
+    if (name != nullptr) {
+      this->name = (char *)calloc(strlen(name) + 1, 1);
+      strcpy(this->name, name);
+    } else {
+      printf("SDF name was null..\n");
+    }
+
+    printf("create SDF '%s' dims(%f, %f)\n", this->name, this->dims.x, this->dims.y);
+
     this->diagonal_length = length(vec2(dims));
     this->tex = rawkit_texture_mem(name, dims.x, dims.y, dims.z, VK_FORMAT_R32G32B32_SFLOAT);
     sprintf(sdf_tmp_str, "%s::tex_buf", name);
@@ -116,6 +125,12 @@ typedef struct SDF {
     sprintf(sdf_tmp_str, "%s::dist_buf", name);
     this->dist_buf = rawkit_cpu_buffer(sdf_tmp_str, static_cast<uint64_t>(dims.x * dims.y * sizeof(float)));
     this->half_dims = vec2(this->dims) * 0.5f;
+  }
+
+  ~SDF() {
+    if (this->name) {
+      free(this->name);
+    }
   }
 
   void upload() {
@@ -183,7 +198,7 @@ typedef struct SDF {
     ) {
       return max(
         sdBox(p - this->half_dims, this->half_dims),
-        this->sample(clamp(p, vec2(0.0f), vec2(this->dims) - 1.0f))
+        this->sample(glm::clamp(p, vec2(0.0), vec2(this->dims) - 1.0f))
       );
     }
 
@@ -203,7 +218,7 @@ typedef struct SDF {
       static_cast<uint64_t>(p.x) +
       static_cast<uint64_t>(p.y * this->dims.x)
     );
-    if (i >= this->tex_buf->size) {
+    if (i >= this->dist_buf->size) {
       return;
     }
     ((float *)this->dist_buf->data)[i] = val;
