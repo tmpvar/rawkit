@@ -5,15 +5,15 @@
 #include <glm/glm.hpp>
 using namespace glm;
 
-
 #include "blob.h"
 #include "mouse.h"
+#include "segment.h"
 #include <stb_sb.h>
 
 //#define GRAVITY vec2(0.0, -90.8)
-#define GRAVITY vec2(0.0, -9.0)
+#define GRAVITY vec2(0.0, -90.0)
 #define TAU 6.283185307179586
-#define MAX_PARTICLES 0 + 1
+#define MAX_PARTICLES 2 + 1
 
 enum class BodyType {
   POINT = 0,
@@ -178,22 +178,22 @@ void projectConstraint(State *state, Constraint constraint, float dt) {
 
 
 float angle(vec2 a, vec2 b) {
+  CNAN(a);
+  CNAN(b);
   vec2 d = a - b;
-  return -atan2(d.y, d.x);
-}
+  CNAN(d);
 
-vec2 projectSDFConstraintDelta(vec2 pos, Blob *blob, float radius) {
-  float d = blob->sample_bilinear_world(pos) - radius;
-
-  if (d > 0.0) {
-    return pos;
-  }
-
-  return blob->calc_normal_world(pos) * d;
+  float r = -atan2(d.y, d.x);
+  CNAN(r);
+  return r;
 }
 
 vec2 projectSDFConstraint(vec2 prev_pos, vec2 pos, Blob *blob, float radius, float dt, float inv_mass = 1.0f) {
   float d = blob->sample_bilinear_world(pos) - radius;
+
+  CNAN(prev_pos);
+  CNAN(pos);
+  CNAN(radius);
 
   if (d > 0.0) {
     return pos;
@@ -222,6 +222,80 @@ vec2 projectSDFConstraint(vec2 prev_pos, vec2 pos, Blob *blob, float radius, flo
   return particle_pos;
 }
 
+void projectBlobVsBlobConstraint(Blob *a, Blob *b, float dt) {
+  // test a's circles against b's sdf
+
+  uint32_t a_circle_count = sb_count(a->circles);
+  for (uint32_t i=0; i<a_circle_count; i++) {
+    PackedCircle circle = a->circles[i];
+
+    if (circle.radius <= 0.0f) {
+      printf("detected circle with <= 0 radius\n");
+      continue;
+    }
+
+    vec2 pos = CNAN(rotate(circle.pos - a->center_of_mass, a->rot) + a->pos);
+    vec2 prev_pos = CNAN(rotate(circle.pos - a->center_of_mass, a->prev_rot) + a->prev_pos);
+
+    float d = b->sample_bilinear_world(pos) - circle.radius;
+    if (d > 0.0) {
+      continue;
+    }
+
+    float mass = CNAN(glm::pi<float>() * glm::pow(circle.radius, 2.0f) * a->density);
+
+    double inv_mass = CNAN(1.0 / mass);
+    vec2 sdf_normal = CNAN(b->calc_normal_world(pos));
+
+    double inv_mass_sum = CNAN(inv_mass + b->inv_mass);
+    float a_ratio = CNAN(inv_mass / inv_mass_sum);
+    CNAN(a_ratio);
+    float b_ratio = CNAN(b->inv_mass / inv_mass_sum);
+    CNAN(b_ratio);
+
+
+    b->pos -= CNAN(abs(d) * b_ratio * sdf_normal * dt);
+    a->pos += CNAN(abs(d) * a_ratio * sdf_normal * dt);
+
+    // float old_angle = angle(a->pos, pos);
+    // float new_angle = angle(a->pos, pos - diff * sdf_normal);
+
+    // float w = a->dims.x;
+    // float angle_diff = (new_angle - old_angle) * a_ratio;
+    // a->rot += angle_diff;// * w / distance(blob->pos, pos);
+    // a->angular_velocity += angle_diff;
+
+
+    // TODO: apply proper angular + positional corrections
+    // TODO: apply to b as well
+    // a->pos += (next_pos - pos);
+  }
+
+
+
+  // vec2 ndir = prev_pos - pos;
+  // vec2 sdf_normal = blob->calc_normal_world(pos);
+  // float diff = d * 0.5;
+
+  // float inv_mass_sum = (inv_mass + blob->inv_mass);
+  // float particle_ratio = inv_mass / inv_mass_sum;
+  // float blob_ratio = blob->inv_mass / inv_mass_sum;
+
+  // vec2 new_poly_pos = blob->pos + blob_ratio * diff * sdf_normal;
+  // vec2 particle_pos = pos - particle_ratio * diff * sdf_normal;
+
+  // float old_angle = angle(blob->pos, pos);
+  // float new_angle = angle(blob->pos, pos - diff * sdf_normal);
+
+  // float w = blob->dims.x;
+  // float angle_diff = (new_angle - old_angle) * blob_ratio;
+  // blob->rot += angle_diff;// * w / distance(blob->pos, pos);
+  // blob->angular_velocity += angle_diff;
+  // blob->pos = new_poly_pos;
+
+  // return particle_pos;
+}
+
 
 vec2 projectWallConstraint(vec2 pos, vec2 screen, float radius, float inv_mass = 1.0f) {
   vec2 center = screen * 0.5f;
@@ -240,6 +314,11 @@ vec2 projectWallConstraint(vec2 pos, vec2 screen, float radius, float inv_mass =
 }
 
 void loop() {
+
+  if (nan_found) {
+    igText("nan found .. stopping");
+    return;
+  }
   State *state = rawkit_hot_state("state", State);
   Context2D ctx;
   state->mouse.tick();
@@ -272,11 +351,83 @@ void loop() {
   // }
 
 
+  uint32_t blob_count = sb_count(state->blobs);
+  if (state->mouse.was_down && !state->mouse.down) {
+    Segment cut = {
+      .start = vec2(
+        state->mouse.down_pos.x,
+        (float)rawkit_window_height() - state->mouse.down_pos.y
+      ),
+      .end = mouse
+    };
+
+    vec2 cut_normal = cut.normal();
+
+    Blob **new_blobs = nullptr;
+    printf("brick-engine %u\n", __LINE__);
+    for (uint32_t i=0; i<blob_count; i++) {
+      Blob *blob = state->blobs[i];
+      if (!blob) {
+        printf("invalid blob!\n");
+        continue;
+      }
+      {
+        Blob **blobs = blob->slice_with_line(
+          cut.start,
+          cut.end
+        );
+
+        if (!blobs) {
+          sb_push(new_blobs, blob);
+          continue;
+        }
+
+        delete blob;
+        state->blobs[i] = nullptr;
+
+        uint32_t blob_count = sb_count(blobs);
+        for (uint32_t i=0; i<blob_count; i++) {
+          if (!blobs[i]) {
+            continue;
+          }
+
+            blobs[i]->circle_pack();
+          #if 1
+            blobs[i]->circle_graph();
+            Blob **islands = blobs[i]->extract_islands();
+            uint32_t island_count = sb_count(islands);
+            for (uint32_t j=0; j<island_count; j++) {
+              if (!islands[j]) {
+                continue;
+              }
+              // TODO: move islands away from each other along the cut normal
+              vec2 center = islands[j]->pos;
+              float o = cut.orientation(center);
+              islands[j]->pos -= (o * cut_normal) * 10.0f;
+
+              sb_push(new_blobs, islands[j]);
+            }
+            delete blobs[i];
+            blobs[i] = nullptr;
+          #else
+            sb_push(new_blobs, blobs[i]);
+          #endif
+        }
+
+        sb_free(blobs);
+      }
+    }
+
+    sb_free(state->blobs);
+    state->blobs = new_blobs;
+    blob_count = sb_count(state->blobs);
+  }
+
+
   ctx.scale(vec2(1.0f, -1.0f));
   ctx.translate(vec2(0.0, -(float)rawkit_window_height()));
 
   uint32_t particle_count = sb_count(state->positions);
-  uint32_t blob_count = sb_count(state->blobs);
 
   // TODO: pull these into their own lists
   float invMass = 1.0;
@@ -317,7 +468,7 @@ void loop() {
   // process the constraints
   float substeps = 10.0f;
   float substep_dt = dt/substeps;
-
+igText("substep_dt(%f)", substep_dt);
   float elasticity = 0.5f;
   {
 
@@ -330,9 +481,9 @@ void loop() {
       // prepare blob positions and rotations
       for (uint32_t i=0; i<blob_count; i++) {
         Blob *blob = state->blobs[i];
-        blob->prev_pos = blob->pos;
-        blob->rot = fmodf(blob->rot, TAU);
-        blob->prev_rot = blob->rot;
+        blob->prev_pos = CNAN(blob->pos);
+        blob->rot = CNAN(fmodf(blob->rot, TAU));
+        blob->prev_rot = CNAN(blob->rot);
       }
 
       // integrate with external forces
@@ -366,19 +517,23 @@ void loop() {
           vec2 gravity(0.0);
           for (uint32_t i=0; i<blob_circle_count; i++) {
             PackedCircle circle = blob->circles[i];
-            vec2 pos = rotate(circle.pos - blob->center_of_mass, blob->rot) + blob->pos;
-            vec2 delta = substep_dt * GRAVITY * blob->inv_mass * 3.1459f * circle.radius  * circle.radius;
+            vec2 pos = CNAN(rotate(circle.pos - blob->center_of_mass, blob->rot) + blob->pos);
+            vec2 delta = CNAN(substep_dt * GRAVITY * blob->inv_mass * glm::pi<float>() * glm::pow(circle.radius, 2.0f));
             blob->velocity += delta;
           }
 
-          blob->pos += blob->velocity * substep_dt;
-          blob->rot += blob->angular_velocity * substep_dt;
+          blob->pos += CNAN(blob->velocity * substep_dt);
+          blob->rot += CNAN(blob->angular_velocity * substep_dt);
         }
       }
 
       // blob vs particle collisions
-      {
+      if (1) {
         for (uint32_t particle_idx=0; particle_idx<particle_count; particle_idx++) {
+          if (particle_idx == 0 && state->mouse.down) {
+            continue;
+          }
+
           for (uint32_t blob_idx=0; blob_idx<blob_count; blob_idx++) {
             state->next_positions[particle_idx] = projectSDFConstraint(
               state->positions[particle_idx],
@@ -387,13 +542,13 @@ void loop() {
               radius,
               substep_dt,
               // 1.0f
-              particle_idx == 0 ? 0.001f : 1.0f
+              particle_idx == 0 ? 0.01f : 1.0f
             );
           }
         }
       }
 
-      // poly vs poly
+      // blob vs blob
       {
         float damp = 0.1f;
         for (uint32_t a_idx=0; a_idx<blob_count; a_idx++) {
@@ -403,45 +558,34 @@ void loop() {
             if (a_idx==b_idx) {
               continue;
             }
-
-            Blob *b = state->blobs[b_idx];
-
-            for (uint32_t i=0; i<=blob_circle_count; i++) {
-              PackedCircle circle = a->circles[i];
-              vec2 pos = (i==blob_circle_count)
-                ? a->pos
-                : rotate(circle.pos - a->center_of_mass, a->rot) + a->pos;
-
-
-              vec2 prev_pos = (i==blob_circle_count)
-                ? a->prev_pos
-                : rotate(circle.pos - a->center_of_mass, a->prev_rot) + a->prev_pos;
-
-              vec2 next_pos = projectSDFConstraint(prev_pos, pos, b, 1.0f, a->inv_mass);
-
-              // vec2 next_pos = glm::clamp(pos, vec2(0.0), state->screen);
-
-              // TODO: apply proper angular + positional corrections
-              // TODO: apply to b as well
-              a->pos += (next_pos - pos);
-            }
+            projectBlobVsBlobConstraint(a, state->blobs[b_idx], substep_dt);
           }
         }
       }
 
       // sdf vs wall
-      {
+      if (1) {
         for (uint32_t blob_idx=0; blob_idx<blob_count; blob_idx++) {
           Blob *blob = state->blobs[blob_idx];
+
+          // blob->pos = glm::clamp(
+          //   blob->pos,
+          //   vec2(0.0),
+          //   vec2(
+          //     (float)rawkit_window_width(),
+          //     (float)rawkit_window_height()
+          //   )
+          // );
+          // continue;
+
+
           uint32_t blob_circle_count = sb_count(blob->circles);
 
           for (uint32_t i=0; i<blob_circle_count; i++) {
             PackedCircle circle = blob->circles[i];
             vec2 pos = rotate(circle.pos - blob->center_of_mass, blob->rot) + blob->pos;
             vec2 delta = projectWallConstraint(pos, state->screen, circle.radius);
-
             // TODO: apply proper angular + positional corrections
-
             vec2 new_poly_pos = blob->pos - delta;
 
             float old_angle = angle(blob->pos, pos);
@@ -450,9 +594,9 @@ void loop() {
             float w = blob->dims.x;
             float angle_diff = (new_angle - old_angle);
             blob->rot += angle_diff;// * (1.0 - distance(blob->pos, pos) / w);
-            blob->angular_velocity += angle_diff;
             blob->pos = new_poly_pos;
           }
+
         }
       }
 

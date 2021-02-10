@@ -14,6 +14,10 @@ using namespace std;
 
 static char blob_tmp_str[4096] = "";
 
+bool nan_found = false;
+#define CNAN(v) (v!=v ? (nan_found = true), printf("nan found %s:%u\n", __FILE__, __LINE__), v : v)
+
+
 struct PackedCircle {
   vec2 pos;
   float radius;
@@ -171,23 +175,44 @@ struct Blob {
 
   // grabbed from https://github.com/chriscummings100/signeddistancefields/blob/master/Assets/SignedDistanceFields/SignedDistanceFieldGenerator.cs
   vec2 calc_normal_world(vec2 p) {
-    //get d, and also its sign (i.e. inside or outside)
-    float d = this->sample_bilinear_world(p);
-    float sign = d >= 0 ? 1.0f : -1.0f;
-    float maxval = FLT_MAX * sign;
 
-    //read neighbour distances, ignoring border pixels
-    float o = 2.0f;
-    float x0 = this->sample_bilinear_world(p + vec2(-o,  0.0));
-    float x1 = this->sample_bilinear_world(p + vec2( o,  0.0));
-    float y0 = this->sample_bilinear_world(p + vec2( 0.0, -o));
-    float y1 = this->sample_bilinear_world(p + vec2( 0.0,  o));
+    #if 1
+      //get d, and also its sign (i.e. inside or outside)
+      float d = CNAN(this->sample_bilinear_world(p));
+      float sign = d >= 0 ? 1.0f : -1.0f;
+      float maxval = CNAN(FLT_MAX * sign);
 
-    //use the smallest neighbour in each direction to calculate the partial deriviates
-    float xgrad = sign*x0 < sign*x1 ? -(x0-d) : (x1-d);
-    float ygrad = sign*y0 < sign*y1 ? -(y0-d) : (y1-d);
+      //read neighbour distances, ignoring border pixels
+      float o = 1.0f;
+      float x0 = CNAN(this->sample_bilinear_world(p + vec2(-o,  0.0)));
+      float x1 = CNAN(this->sample_bilinear_world(p + vec2( o,  0.0)));
+      float y0 = CNAN(this->sample_bilinear_world(p + vec2( 0.0, -o)));
+      float y1 = CNAN(this->sample_bilinear_world(p + vec2( 0.0,  o)));
 
-    return normalize(vec2(xgrad, ygrad));
+      //use the smallest neighbour in each direction to calculate the partial deriviates
+      float xgrad = CNAN(sign*x0 < sign*x1 ? -(x0-d) : (x1-d));
+      float ygrad = CNAN(sign*y0 < sign*y1 ? -(y0-d) : (y1-d));
+
+      vec2 n = normalize(vec2(xgrad, ygrad));
+      if (n!=n) {
+        return vec2(0.0);
+      }
+      return n;
+    #else
+      float o = 1.0f;
+      vec2 n(
+        this->sample_bilinear_world(p + vec2(o,  0.0)) - this->sample_bilinear_world(p - vec2(o,  0.0)),
+        this->sample_bilinear_world(p + vec2(0.0,  o)) - this->sample_bilinear_world(p - vec2(0.0,  o))
+      );
+
+      vec2 nn = normalize(n);
+      // NaN..
+      if (nn!=nn) {
+        return vec2(0.0);
+      }
+      return nn;
+
+    #endif
   }
 
   Blob **slice_with_line(vec2 a, vec2 b) {
@@ -227,14 +252,18 @@ struct Blob {
 
     vec2 corner = this->pos - this->center_of_mass;
 
-    // left->compute_center_of_mass();
     left->center_of_mass = this->center_of_mass;
-    left->pos = this->pos;//corner + left->center_of_mass;
+    left->pos = this->pos;
     left->rot = this->rot;
-    // right->compute_center_of_mass();
+    left->velocity = this->velocity;
+    left->angular_velocity = this->angular_velocity;
+
     right->center_of_mass = this->center_of_mass;
-    right->pos = this->pos;//corner + right->center_of_mass;
+    right->pos = this->pos;
     right->rot = this->rot;
+    right->velocity = this->velocity;
+    right->angular_velocity = this->angular_velocity;
+
     sb_push(blobs, left);
     sb_push(blobs, right);
 
@@ -388,6 +417,8 @@ struct Blob {
           );
 
           island->pos = this->pos + b;
+          island->velocity = this->velocity;
+          island->angular_velocity = this->angular_velocity;
         }
       }
     }

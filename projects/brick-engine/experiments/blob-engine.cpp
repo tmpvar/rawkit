@@ -4,24 +4,7 @@
 #include "sdf.h"
 #include "blob.h"
 #include "mouse.h"
-
-struct Segment {
-  vec2 start;
-  vec2 end;
-  vec2 normal() {
-    vec2 n = normalize(end - start);
-    return vec2(-n.y, n.x);
-  }
-
-  float orientation(vec2 p) {
-    return glm::sign(
-      (this->end.y - this->start.y) *
-      (p.x         - this->end.x)   -
-      (this->end.x - this->start.x) *
-      (p.y         - this->end.y)
-    );
-  }
-};
+#include "segment.h"
 
 struct State {
   Mouse mouse;
