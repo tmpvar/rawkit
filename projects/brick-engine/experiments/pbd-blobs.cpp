@@ -109,32 +109,35 @@ void setup() {
   if (1) {
     uint32_t c = sb_count(state->blobs);
     if (!c) {
-      Polygon *polygon = new Polygon("poly");
-      polygon->pos = vec2(300.0, 300.0);
 
-      polygon->append(vec2(0.0, 0.0));
-      polygon->append(vec2(200.0, 0.0));
-      polygon->append(vec2(200.0, 200.0));
-      polygon->append(vec2(150.0, 200.0));
-      polygon->append(vec2(150.0, 50.0));
-      polygon->append(vec2(0.0, 200.0));
+      for (uint32_t i=0; i<2; i++) {
+        Polygon *polygon = new Polygon("poly");
+        polygon->pos = vec2(300.0, 300.0);
 
-      Blob *blob = new Blob(
-        "square",
-        vec2(polygon->aabb.width(), polygon->aabb.height())
-      );
+        polygon->append(vec2(0.0, 0.0));
+        polygon->append(vec2(200.0, 0.0));
+        polygon->append(vec2(200.0, 200.0));
+        polygon->append(vec2(150.0, 200.0));
+        polygon->append(vec2(150.0, 50.0));
+        polygon->append(vec2(0.0, 200.0));
+        sprintf(blob_tmp_str, "blob#%u", i);
+        Blob *blob = new Blob(
+          blob_tmp_str,
+          vec2(polygon->aabb.width(), polygon->aabb.height())
+        );
 
-      blob->pos = polygon->pos;
-      polygon->build_sdf(blob->sdf);
-      delete polygon;
+        blob->pos = vec2(100.0f + (float)i * 250.0f, 100.0f);
+        polygon->build_sdf(blob->sdf);
 
-      blob->compute_center_of_mass();
-      blob->pos += blob->center_of_mass;
-      blob->rot = 0.9f;
-      blob->circle_pack();
-      blob->circle_graph();
-      blob->extract_islands();
-      sb_push(state->blobs, blob);
+        blob->compute_center_of_mass();
+        blob->pos += blob->center_of_mass;
+        blob->rot = 0.9f;
+        blob->circle_pack();
+        blob->circle_graph();
+        blob->extract_islands();
+        sb_push(state->blobs, blob);
+        delete polygon;
+      }
     }
   }
 

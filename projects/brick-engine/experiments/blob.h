@@ -67,7 +67,7 @@ struct NodeQueue {
 
 struct Blob {
   char *name = nullptr;
-  vec2 dims;
+  vec2 dims = vec2(0);
 
   // center of mass oriented
   vec2 pos = vec2(0.0);
