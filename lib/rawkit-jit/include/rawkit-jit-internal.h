@@ -138,6 +138,9 @@ class JitJob {
     std::string path;
     std::string guest_include;
     std::string system_include;
+    std::string clang_include;
+    std::string clang_system_include;
+
     ghc::filesystem::path exe_path;
     void *main_addr;
     clang::driver::Driver *driver;

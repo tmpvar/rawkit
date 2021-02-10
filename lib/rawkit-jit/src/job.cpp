@@ -7,7 +7,7 @@ namespace fs = ghc::filesystem;
 using namespace clang;
 using namespace clang::driver;
 using namespace llvm::opt;
-
+#pragma optimize("", off)
 std::string GetExecutablePath(const char *Argv0, void *MainAddr) {
   return llvm::sys::fs::getMainExecutable(Argv0, MainAddr);
 }
@@ -78,7 +78,12 @@ JitJob::JitJob() {
     llvm::InitializeNativeTargetAsmPrinter();
   }
 
-  this->system_include.assign("-I" + (this->exe_path.parent_path() / "include").string());
+  this->system_include.assign("-I" + (this->exe_path.parent_path().parent_path() / "include").string());
+  this->clang_include.assign("-I" + (this->exe_path.parent_path().parent_path() / "include" / "clang").string());
+
+  #ifdef CLANG_INCLUDE_DIR
+    this->clang_system_include.assign("-I" + fs::absolute(fs::path(CLANG_INCLUDE_DIR)).string());
+  #endif
   this->dirty = true;
 }
 
@@ -207,6 +212,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
   Args.push_back("-fsyntax-only");
   Args.push_back("-fno-builtin");
   Args.push_back("-O3");
+  Args.push_back("-march=native");
 
   /*
   Args.push_back("-fsyntax-only");
@@ -217,9 +223,13 @@ JitJob *JitJob::create(int argc, const char **argv) {
   Args.push_back("-fsanitize=integer-divide-by-zero");
   */
 
-  Args.push_back(job->guest_include.c_str());
+  // use clang includes first
+  Args.push_back(job->clang_include.c_str());
+  #ifdef CLANG_INCLUDE_DIR
+    Args.push_back(job->clang_system_include.c_str());
+  #endif
 
-  Args.push_back(job->system_include.c_str());
+  Args.push_back(job->guest_include.c_str());
 
   #if defined(_WIN32)
     if (true || IsDebuggerPresent()) {

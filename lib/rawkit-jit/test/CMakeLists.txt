@@ -2,6 +2,7 @@ add_executable(rawkit-jit-test
   ${CMAKE_CURRENT_LIST_DIR}/rawkit-jit-api-test.cpp
   ${CMAKE_CURRENT_LIST_DIR}/rawkit-jit-internal-call-test.cpp
   ${CMAKE_CURRENT_LIST_DIR}/rawkit-jit-internal-test.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/rawkit-jit-intrinsics-test.cpp
   ${CMAKE_CURRENT_LIST_DIR}/test.cpp
 )
 

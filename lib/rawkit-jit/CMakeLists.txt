@@ -13,6 +13,7 @@ set(LLVM_SEARCH_PATHS
   # ubuntu llvm@10
   /usr/lib/llvm-10
   /usr/lib/cmake/llvm
+  /usr/lib/cmake
 )
 
 
@@ -100,8 +101,14 @@ if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
+file(GLOB CLANG_INCLUDE_DIRS "${Clang_DIR}/../../clang/*/include")
+list(GET CLANG_INCLUDE_DIRS 0 CLANG_INCLUDE_DIR)
+
+message(STATUS "install prefix ${CLANG_INCLUDE_DIRS}")
+
 target_compile_options(rawkit-jit PUBLIC
   ${EXTRA_COMPILE_OPTIONS}
+  -DCLANG_INCLUDE_DIR="${CLANG_INCLUDE_DIR}"
 )
 
 target_link_options( ${PROJECT_NAME} PRIVATE
@@ -166,6 +173,17 @@ install(
   DESTINATION include/rawkit
 )
 
+# TODO: confirm this is required on mac
+if (CMAKE_SYSTEM_NAME STREQUAL Windows OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
+  # Install all of the clang intrinsics headers (which are implemented as static inline...)
+  file(GLOB CLANG_HEADERS "${CLANG_INCLUDE_DIR}/*mintrin*.h")
+  install(
+    FILES
+    ${CLANG_HEADERS}
+    DESTINATION include/clang
+  )
+endif()
+
 install(TARGETS ${PROJECT_NAME}
   EXPORT ${PROJECT_NAME}Targets
   LIBRARY DESTINATION lib
@@ -184,3 +202,4 @@ if (RAWKIT_JIT_BUILD_TESTS)
   enable_testing()
   add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/test)
 endif()
+
