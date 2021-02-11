@@ -68,7 +68,6 @@ struct NodeQueue {
 struct Blob {
   char *name = nullptr;
   vec2 dims = vec2(0);
-
   // center of mass oriented
   vec2 pos = vec2(0.0);
   vec2 prev_pos = vec2(0.0);
@@ -141,6 +140,10 @@ struct Blob {
     //       but without it, the line mouse is in the wrong grid space location
     grid_pos += this->center_of_mass;
     return grid_pos;
+  }
+
+  vec2 gridToWorld(vec2 p) {
+    return rotate(p - this->center_of_mass, this->rot) + this->pos;
   }
 
   float sample_world(vec2 p) {
@@ -519,7 +522,15 @@ struct Blob {
       ctx.save();
         ctx.translate(this->pos);
         ctx.rotate(this->rot);
+
+        ctx.fillColor(rgb(0xFF, 0, 0));
+        ctx.beginPath();
+          ctx.arc(vec2(0.0), 1.0f);
+          ctx.fill();
+
         ctx.translate(-this->center_of_mass);
+
+        ctx.drawTexture(vec2(0.0), this->dims, this->sdf->tex);
 
         uint32_t circle_count = sb_count(this->circles);
         igText("  circle count: %u", circle_count);
@@ -534,12 +545,9 @@ struct Blob {
             ctx.stroke();
         }
 
+
         // aabb debugging
         if (0) {
-          ctx.fillColor(rgb(0xFF, 0, 0));
-          ctx.beginPath();
-            ctx.arc(vec2(0.0), 1.0f);
-            ctx.fill();
 
           ctx.fillColor(rgb(0xFF, 0, 0xFF));
           ctx.beginPath();
@@ -566,5 +574,29 @@ struct Blob {
       ctx.restore();
     }
   }
+};
 
+struct CircleBlob: public Blob {
+  CircleBlob(const char *name, float radius)
+    : Blob(name)
+  {
+    this->dims = vec2(radius * 2.0f);
+    this->sdf = new SDF(this->name, this->dims, CircleBlob::sdf_sample_fn);
+    PackedCircle c = {
+      .pos = vec2(radius),
+      .radius = radius,
+      .signed_distance = -radius,
+    };
+    sb_push(this->circles, c);
+
+    this->center_of_mass = vec2(radius);
+    this->mass = glm::pi<float>() * pow(radius, 2.0f);
+    this->inv_mass = 1.0f / mass;
+    this->sdf->upload();
+  }
+
+  static float sdf_sample_fn(SDF *sdf, vec2 p) {
+    float r = sdf->dims.x * 0.5f;
+    return glm::distance(vec2(r), p) - r;
+  }
 };

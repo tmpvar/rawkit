@@ -96,18 +96,22 @@ vec3 distanceMeter(float dist, float rayLength, vec3 rayDir, float camHeight) {
     return col;
 }
 
+typedef struct SDF SDF;
+typedef float(*SDFSampleFunction)(SDF *sdf, vec2 p);
 
 typedef struct SDF {
   char *name = nullptr;
-  vec3 dims;
-  vec2 half_dims;
-  float diagonal_length;
+  vec2 dims = vec2(0.0f);
+  vec2 half_dims = vec2(0.0f);
+  float diagonal_length = 0.0f;
   rawkit_texture_t *tex = nullptr;
   rawkit_cpu_buffer_t *tex_buf = nullptr;
   rawkit_cpu_buffer_t *dist_buf = nullptr;
+  SDFSampleFunction sample_fn = nullptr;
   bool dirty = true;
-  SDF(const char *name, vec3 dims)
-    : dims(dims)
+
+  SDF(const char *name, vec2 dims, SDFSampleFunction sample_fn = nullptr)
+    : dims(dims), sample_fn(sample_fn)
   {
     if (name != nullptr) {
       this->name = (char *)calloc(strlen(name) + 1, 1);
@@ -118,13 +122,16 @@ typedef struct SDF {
 
     printf("create SDF '%s' dims(%f, %f)\n", this->name, this->dims.x, this->dims.y);
 
-    this->diagonal_length = length(vec2(dims));
-    this->tex = rawkit_texture_mem(name, dims.x, dims.y, dims.z, VK_FORMAT_R32G32B32_SFLOAT);
+    this->diagonal_length = length(dims);
+    this->tex = rawkit_texture_mem(name, dims.x, dims.y, 1, VK_FORMAT_R32G32B32_SFLOAT);
     sprintf(sdf_tmp_str, "%s::tex_buf", name);
     this->tex_buf = rawkit_cpu_buffer(sdf_tmp_str, this->tex->options.size);
-    sprintf(sdf_tmp_str, "%s::dist_buf", name);
-    this->dist_buf = rawkit_cpu_buffer(sdf_tmp_str, static_cast<uint64_t>(dims.x * dims.y * sizeof(float)));
-    this->half_dims = vec2(this->dims) * 0.5f;
+
+    if (!sample_fn) {
+      sprintf(sdf_tmp_str, "%s::dist_buf", name);
+      this->dist_buf = rawkit_cpu_buffer(sdf_tmp_str, static_cast<uint64_t>(dims.x * dims.y * sizeof(float)));
+      this->half_dims = vec2(this->dims) * 0.5f;
+    }
   }
 
   ~SDF() {
@@ -134,27 +141,13 @@ typedef struct SDF {
   }
 
   void upload() {
-    rawkit_texture_update_buffer(this->tex, this->tex_buf);
-  }
-
-  void debug_dist() {
     if (this->dirty) {
       this->dirty = false;
       vec2 p(0.0);
       for (p.x = 0.0; p.x < dims.x; p.x++) {
         for (p.y = 0.0; p.y < dims.y; p.y++) {
 
-          uint64_t src = static_cast<uint64_t>(
-            p.x +
-            p.y * dims.x
-          );
-
-          uint64_t dst = static_cast<uint64_t>(
-            p.x +
-            p.y * dims.x
-          );
-
-          float dist = ((float *)this->dist_buf->data)[src];
+          float dist = this->sample(p);
           vec3 col = distanceMeter(
             dist * 150.0f,
             40000.0f,
@@ -162,11 +155,19 @@ typedef struct SDF {
             50000.0f
           );
 
+          uint64_t dst = static_cast<uint64_t>(
+            p.x +
+            p.y * dims.x
+          );
           ((vec3 *)this->tex_buf->data)[dst] = col;
         }
       }
     }
 
+    rawkit_texture_update_buffer(this->tex, this->tex_buf);
+  }
+
+  void debug_dist() {
     this->upload();
     {
       ImTextureID texture = rawkit_imgui_texture(this->tex, this->tex->default_sampler);
@@ -200,6 +201,10 @@ typedef struct SDF {
         sdBox(p - this->half_dims, this->half_dims),
         this->sample(glm::clamp(p, vec2(0.0), vec2(this->dims) - 1.0f))
       );
+    }
+
+    if (this->sample_fn) {
+      return this->sample_fn(this, p);
     }
 
     uint64_t i = (
