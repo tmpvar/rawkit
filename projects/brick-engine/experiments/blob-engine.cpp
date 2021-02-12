@@ -72,8 +72,12 @@ void setup () {
     blob->circle_pack();
     blob->circle_graph();
     blob->extract_islands();
-    sb_push(state->blobs, blob);
+    sb_push(state->blobs, (Blob *)blob);
 
+    sb_push(state->blobs, (Blob *)new CircleBlob(
+      "circle",
+      100.0f
+    ));
 
     // slice
     if (0) {

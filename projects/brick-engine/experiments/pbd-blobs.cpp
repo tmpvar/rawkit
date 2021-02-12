@@ -240,7 +240,7 @@ void projectBlobVsBlobConstraint(Blob *a, Blob *b, float dt) {
     vec2 pos = CNAN(rotate(circle.pos - a->center_of_mass, a->rot) + a->pos);
     vec2 prev_pos = CNAN(rotate(circle.pos - a->center_of_mass, a->prev_rot) + a->prev_pos);
 
-    float d = b->sample_bilinear_world(pos) - circle.radius;
+    float d = b->sample_bilinear_world(pos) - abs(circle.signed_distance);
     if (d > 0.0) {
       continue;
     }
@@ -628,7 +628,7 @@ igText("substep_dt(%f)", substep_dt);
   // render blobs
   {
     for (uint32_t i=0; i<blob_count; i++) {
-      state->blobs[i]->render(ctx);
+      state->blobs[i]->render_circles(ctx);
     }
   }
 

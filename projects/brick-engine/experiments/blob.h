@@ -83,6 +83,9 @@ struct Blob {
   float inv_mass = 1.0f;
   float density = 1.0f;
 
+  float inertia = 1.0f;
+  float inv_inertia = 1.0f;
+
 
   SDF *sdf = nullptr;
   // relative to grid (0, 0)
@@ -131,6 +134,11 @@ struct Blob {
 
     this->mass = static_cast<float>(total) * this->density;
     this->inv_mass = 1.0f / this->mass;
+
+
+    float r = length(center_of_mass);
+    this->inertia = this->mass * r * r;
+    this->inv_inertia = (this->inertia == 0.0f) ? 1.0f : 1.0f / this->inertia;
   }
 
   vec2 worldToGrid(vec2 p) {
@@ -266,6 +274,8 @@ struct Blob {
     right->rot = this->rot;
     right->velocity = this->velocity;
     right->angular_velocity = this->angular_velocity;
+
+
 
     sb_push(blobs, left);
     sb_push(blobs, right);
@@ -409,7 +419,8 @@ struct Blob {
         }
 
         island->compute_center_of_mass();
-
+        island->sdf->upload();
+        island->circle_pack();
         {
           vec2 a = -this->center_of_mass + island_aabb.lb + island->center_of_mass;
           vec2 b = rotate(a, this->rot);
@@ -516,6 +527,24 @@ struct Blob {
     }
   }
 
+  void render_circles(Context2D ctx) {
+    ctx.save();
+    ctx.translate(this->pos);
+    ctx.rotate(this->rot);
+    ctx.translate(-this->center_of_mass);
+
+    uint32_t circle_count = sb_count(this->circles);
+    ctx.strokeColor(rgb(0xFF, 0xFF, 0xFF));
+    for (uint32_t ci=0; ci<circle_count; ci++) {
+      PackedCircle circle = this->circles[ci];
+
+      ctx.beginPath();
+        ctx.arc(circle.pos, circle.radius);
+        ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   void render(Context2D ctx) {
     // draw the packed circles
     {
@@ -532,18 +561,18 @@ struct Blob {
 
         ctx.drawTexture(vec2(0.0), this->dims, this->sdf->tex);
 
-        uint32_t circle_count = sb_count(this->circles);
-        igText("  circle count: %u", circle_count);
-        igText("  pos: %f, %f", this->pos.x, this->pos.y);
-        igText("  COM: %f, %f", this->center_of_mass.x, this->center_of_mass.y);
-        ctx.strokeColor(rgb(0xFF, 0xFF, 0xFF));
-        for (uint32_t ci=0; ci<circle_count; ci++) {
-          PackedCircle circle = this->circles[ci];
+        // uint32_t circle_count = sb_count(this->circles);
+        // igText("  circle count: %u", circle_count);
+        // igText("  pos: %f, %f", this->pos.x, this->pos.y);
+        // igText("  COM: %f, %f", this->center_of_mass.x, this->center_of_mass.y);
+        // ctx.strokeColor(rgb(0xFF, 0xFF, 0xFF));
+        // for (uint32_t ci=0; ci<circle_count; ci++) {
+        //   PackedCircle circle = this->circles[ci];
 
-          ctx.beginPath();
-            ctx.arc(circle.pos, circle.radius);
-            ctx.stroke();
-        }
+        //   ctx.beginPath();
+        //     ctx.arc(circle.pos, circle.radius);
+        //     ctx.stroke();
+        // }
 
 
         // aabb debugging
@@ -582,21 +611,57 @@ struct CircleBlob: public Blob {
   {
     this->dims = vec2(radius * 2.0f);
     this->sdf = new SDF(this->name, this->dims, CircleBlob::sdf_sample_fn);
-    PackedCircle c = {
-      .pos = vec2(radius),
-      .radius = radius,
-      .signed_distance = -radius,
-    };
-    sb_push(this->circles, c);
-
-    this->center_of_mass = vec2(radius);
-    this->mass = glm::pi<float>() * pow(radius, 2.0f);
-    this->inv_mass = 1.0f / mass;
+    this->compute_center_of_mass();
+    this->circle_pack();
     this->sdf->upload();
   }
 
   static float sdf_sample_fn(SDF *sdf, vec2 p) {
     float r = sdf->dims.x * 0.5f;
     return glm::distance(vec2(r), p) - r;
+  }
+};
+
+struct BoxBlob: public Blob {
+  BoxBlob(const char *name, vec2 dims)
+    : Blob(name)
+  {
+    this->dims = dims;
+    this->sdf = new SDF(this->name, this->dims, BoxBlob::sdf_sample_fn);
+    this->compute_center_of_mass();
+
+    double w = dims.x / 100.0;
+    double h = dims.y / 100.0;
+
+    double Ix = (h * h * h * w) / 12.0;
+    double Iy = (w * w * w * h) / 12.0;
+
+    this->inertia = Ix / Iy;
+    this->inv_inertia = 1.0 / this->inertia;
+    printf("inertia: %f\n", this->inertia);
+
+
+
+    this->circle_pack();
+    this->sdf->upload();
+  }
+
+  static float sdf_sample_fn(SDF *sdf, vec2 p) {
+    vec2 half = sdf->dims * 0.5f;
+    return sdBox(p - half, half);
+  }
+};
+
+struct BoundsBlob: public Blob {
+  BoundsBlob(const char *name, vec2 dims)
+    : Blob(name)
+  {
+    this->dims = dims;
+    this->sdf = new SDF(this->name, this->dims, BoundsBlob::sdf_sample_fn);
+  }
+
+  static float sdf_sample_fn(SDF *sdf, vec2 p) {
+    vec2 half = sdf->dims * 0.5f;
+    return -sdBox(p - half, half);
   }
 };

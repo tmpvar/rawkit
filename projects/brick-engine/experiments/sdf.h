@@ -193,6 +193,10 @@ typedef struct SDF {
   }
 
   float sample(vec2 p) {
+    if (this->sample_fn) {
+      return this->sample_fn(this, p);
+    }
+
     if (
       p.x < 0.0f || p.x >= this->dims.x ||
       p.y < 0.0f || p.y >= this->dims.y
@@ -203,15 +207,11 @@ typedef struct SDF {
       );
     }
 
-    if (this->sample_fn) {
-      return this->sample_fn(this, p);
-    }
 
     uint64_t i = (
       static_cast<uint64_t>(p.x) +
       static_cast<uint64_t>(p.y * this->dims.x)
     );
-
 
     float d = ((float *)this->dist_buf->data)[i];
 
