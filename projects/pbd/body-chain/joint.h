@@ -32,18 +32,18 @@ void applyBodyPairCorrection(
     float w0 = 0.0f;
     if (body0) {
       if (pos0) {
-        body0->getInverseMass(normal, *pos0);
+        w0 = body0->getInverseMass(normal, *pos0);
       } else {
-        body0->getInverseMass(normal);
+        w0 = body0->getInverseMass(normal);
       }
     }
 
     float w1 = 0.0f;
     if (body1) {
       if (pos1) {
-        body1->getInverseMass(normal, *pos1);
+        w1 = body1->getInverseMass(normal, *pos1);
       } else {
-        body1->getInverseMass(normal);
+        w1 = body1->getInverseMass(normal);
       }
     };
 
@@ -260,6 +260,7 @@ struct Joint {
       // simple attachment
       this->updateGlobalPoses();
       vec3 corr = this->globalPose1.p - this->globalPose0.p;
+
       applyBodyPairCorrection(
         this->body0,
         this->body1,

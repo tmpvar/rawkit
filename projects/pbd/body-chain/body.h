@@ -79,7 +79,7 @@ struct Body {
     );
 
     if (dq.w < 0.0) {
-      this->omega = vec3(-this->omega.x, -this->omega.y, -this->omega.z);
+      this->omega = -this->omega;
     }
 
     // NOTE(tmpvar): commented out in the original impl
