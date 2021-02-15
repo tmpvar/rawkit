@@ -22,54 +22,42 @@ void applyBodyPairCorrection(
   const vec3 *pos1 = nullptr,
   bool velocityLevel = false
 ) {
-    float C = corr.length();
-    if ( C == 0.0f) {
-      return;
-    }
+  float C = corr.length();
+  if ( C == 0.0f) {
+    return;
+  }
 
-    vec3 normal = normalize(corr);
+  vec3 normal = normalize(corr);
 
-    float w0 = 0.0f;
-    if (body0) {
-      if (pos0) {
-        w0 = body0->getInverseMass(normal, *pos0);
-      } else {
-        w0 = body0->getInverseMass(normal);
-      }
-    }
+  float w0 = body0
+    ? body0->getInverseMass(normal, pos0)
+    : 0.0f;
 
-    float w1 = 0.0f;
-    if (body1) {
-      if (pos1) {
-        w1 = body1->getInverseMass(normal, *pos1);
-      } else {
-        w1 = body1->getInverseMass(normal);
-      }
-    };
 
-    float w = w0 + w1;
-    if (w == 0.0f) {
-      return;
-    }
+  float w1 = body1
+    ? body1->getInverseMass(normal, pos1)
+    : 0.0f;
 
-    float lambda = -C / (w + compliance / dt / dt);
-    normal *= -lambda;
-    if (body0) {
-      if (pos0) {
-        body0->applyCorrection(normal, *pos0, velocityLevel);
-      } else {
-        body0->applyCorrection(normal, velocityLevel);
-      }
-    }
+  float w = w0 + w1;
+  if (isnan(w) || w == 0.0f) {
+    return;
+  }
 
-    if (body1) {
-      normal *= -1.0f;
-      if (pos1) {
-        body1->applyCorrection(normal, *pos1, velocityLevel);
-      } else {
-        body1->applyCorrection(normal, velocityLevel);
-      }
-    }
+  float den = (w + compliance / dt / dt);
+  if (isnan(den) || den == 0.0f) {
+    return;
+  }
+
+  float lambda = -C / den;
+  normal *= -lambda;
+  if (body0) {
+    body0->applyCorrection(normal, pos0, velocityLevel);
+  }
+
+  if (body1) {
+    normal *= -1.0f;
+    body1->applyCorrection(normal, pos1, velocityLevel);
+  }
 }
 
 void limitAngle(
@@ -153,20 +141,19 @@ struct Joint {
   }
 
   void updateGlobalPoses() {
-      this->globalPose0.copy(&this->localPose0);
-      if (this->body0) {
-        this->body0->pose.transformPose(&this->globalPose0);
-      }
+    this->globalPose0.copy(&this->localPose0);
+    if (this->body0) {
+      this->body0->pose.transformPose(&this->globalPose0);
+    }
 
-      this->globalPose1.copy(&this->localPose1);
-      if (this->body1) {
-        this->body1->pose.transformPose(&this->globalPose1);
-      }
+    this->globalPose1.copy(&this->localPose1);
+    if (this->body1) {
+      this->body1->pose.transformPose(&this->globalPose1);
+    }
   }
 
   void solvePos(float dt) {
     this->updateGlobalPoses();
-
     // orientation
     // NOTE(tmpvar): I think this is broken in the initial impl
     if (this->type == JointType::FIXED) {
@@ -179,149 +166,150 @@ struct Joint {
       applyBodyPairCorrection(body0, body1, omega, this->compliance, dt);
     }
 
-      if (this->type == JointType::HINGE) {
-          // align axes
-          vec3 a0 = getQuatAxis0(this->globalPose0.q);
-          vec3 a1 = getQuatAxis0(this->globalPose1.q);
-          applyBodyPairCorrection(this->body0, this->body1, cross(a0, a1), 0.0, dt);
+    if (this->type == JointType::HINGE) {
+      // align axes
+      vec3 a0 = getQuatAxis0(this->globalPose0.q);
+      vec3 a1 = getQuatAxis0(this->globalPose1.q);
+      applyBodyPairCorrection(this->body0, this->body1, cross(a0, a1), 0.0, dt);
 
-          // limits
-          if (this->hasSwingLimits) {
-              this->updateGlobalPoses();
-              vec3 n = getQuatAxis0(this->globalPose0.q);
-              vec3 b0 = getQuatAxis1(this->globalPose0.q);
-              vec3 b1 = getQuatAxis1(this->globalPose1.q);
-              limitAngle(
-                this->body0,
-                this->body1,
-                n,
-                b0,
-                b1,
-                this->minSwingAngle,
-                this->maxSwingAngle,
-                this->swingLimitsCompliance,
-                dt
-              );
-          }
+      // limits
+      if (this->hasSwingLimits) {
+        this->updateGlobalPoses();
+        vec3 n = getQuatAxis0(this->globalPose0.q);
+        vec3 b0 = getQuatAxis1(this->globalPose0.q);
+        vec3 b1 = getQuatAxis1(this->globalPose1.q);
+        limitAngle(
+          this->body0,
+          this->body1,
+          n,
+          b0,
+          b1,
+          this->minSwingAngle,
+          this->maxSwingAngle,
+          this->swingLimitsCompliance,
+          dt
+        );
+      }
+    }
+
+    if (this->type == JointType::SPHERICAL) {
+      // swing limits
+      if (this->hasSwingLimits) {
+        this->updateGlobalPoses();
+        vec3 a0 = getQuatAxis0(this->globalPose0.q);
+        vec3 a1 = getQuatAxis0(this->globalPose1.q);
+        limitAngle(
+          this->body0,
+          this->body1,
+          normalize(cross(a0, a1)),
+          a0,
+          a1,
+          this->minSwingAngle,
+          this->maxSwingAngle,
+          this->swingLimitsCompliance,
+          dt
+        );
       }
 
-      if (this->type == JointType::SPHERICAL) {
-        // swing limits
-        if (this->hasSwingLimits) {
+      // twist limits
+      if (this->hasTwistLimits) {
           this->updateGlobalPoses();
-          vec3 a0 = getQuatAxis0(this->globalPose0.q);
-          vec3 a1 = getQuatAxis0(this->globalPose1.q);
+          vec3 n0 = getQuatAxis0(this->globalPose0.q);
+          vec3 n1 = getQuatAxis0(this->globalPose1.q);
+          vec3 n = normalize(n0 + n1);
+          vec3 a0 = normalize(
+            getQuatAxis1(this->globalPose0.q) + n * -dot(n, a0)
+          );
+          vec3 a1 = normalize(
+            getQuatAxis1(this->globalPose1.q) + n * -dot(n, a1)
+          );
+
+          // handling gimbal lock problem
+          float maxCorr = dot(n0, n1) > -0.5
+            ? 2.0 * glm::pi<float>()
+            : 1.0 * dt;
+
           limitAngle(
             this->body0,
             this->body1,
-            normalize(cross(a0, a1)),
+            n,
             a0,
             a1,
-            this->minSwingAngle,
-            this->maxSwingAngle,
-            this->swingLimitsCompliance,
-            dt
+            this->minTwistAngle,
+            this->maxTwistAngle,
+            this->twistLimitCompliance,
+            dt,
+            maxCorr
           );
-        }
-        // twist limits
-        if (this->hasTwistLimits) {
-            this->updateGlobalPoses();
-            vec3 n0 = getQuatAxis0(this->globalPose0.q);
-            vec3 n1 = getQuatAxis0(this->globalPose1.q);
-            vec3 n = normalize(n0 + n1);
-            vec3 a0 = normalize(
-              getQuatAxis1(this->globalPose0.q) + n * -dot(n, a0)
-            );
-            vec3 a1 = normalize(
-              getQuatAxis1(this->globalPose1.q) + n * -dot(n, a1)
-            );
+      }
+    }
 
-            // handling gimbal lock problem
-            float maxCorr = dot(n0, n1) > -0.5
-              ? 2.0 * glm::pi<float>()
-              : 1.0 * dt;
+    // position
+    // simple attachment
+    this->updateGlobalPoses();
+    vec3 corr = this->globalPose1.p - this->globalPose0.p;
 
-            limitAngle(
-              this->body0,
-              this->body1,
-              n,
-              a0,
-              a1,
-              this->minTwistAngle,
-              this->maxTwistAngle,
-              this->twistLimitCompliance,
-              dt,
-              maxCorr
-            );
-        }
+    applyBodyPairCorrection(
+      this->body0,
+      this->body1,
+      corr,
+      this->compliance,
+      dt,
+      &this->globalPose0.p,
+      &this->globalPose1.p
+    );
+  }
+
+  void solveVel(float dt) {
+    // Gauss-Seidel lets us make damping unconditionally stable in a
+    // very simple way. We clamp the correction for each constraint
+    // to the magnitude of the currect velocity making sure that
+    // we never subtract more than there actually is.
+
+    if (this->rotDamping > 0.0f) {
+      vec3 omega(0.0);
+      if (this->body0) {
+        omega -= this->body0->omega;
+      }
+      if (this->body1) {
+        omega += this->body1->omega;
       }
 
-      // position
-      // simple attachment
-      this->updateGlobalPoses();
-      vec3 corr = this->globalPose1.p - this->globalPose0.p;
-
+      omega *= glm::min(1.0f, this->rotDamping * dt);
       applyBodyPairCorrection(
         this->body0,
         this->body1,
-        corr,
-        this->compliance,
+        omega,
+        0.0f,
         dt,
-        &this->globalPose0.p,
-        &this->globalPose1.p
+        nullptr,
+        nullptr,
+        true
       );
     }
 
-    void solveVel(float dt) {
-      // Gauss-Seidel lets us make damping unconditionally stable in a
-      // very simple way. We clamp the correction for each constraint
-      // to the magnitude of the currect velocity making sure that
-      // we never subtract more than there actually is.
-
-      if (this->rotDamping > 0.0f) {
-        vec3 omega(0.0);
-        if (this->body0) {
-          omega -= this->body0->omega;
-        }
-        if (this->body1) {
-          omega += this->body1->omega;
-        }
-
-        omega *= glm::min(1.0f, this->rotDamping * dt);
-        applyBodyPairCorrection(
-          this->body0,
-          this->body1,
-          omega,
-          0.0f,
-          dt,
-          nullptr,
-          nullptr,
-          true
-        );
+    if (this->posDamping > 0.0) {
+      this->updateGlobalPoses();
+      vec3 vel(0.0);
+      if (this->body0) {
+        vel -= this->body0->getVelocityAt(this->globalPose0.p);
       }
 
-      if (this->posDamping > 0.0) {
-        this->updateGlobalPoses();
-        vec3 vel(0.0);
-        if (this->body0) {
-          vel -= this->body0->getVelocityAt(this->globalPose0.p);
-        }
-
-        if (this->body1) {
-          vel += this->body1->getVelocityAt(this->globalPose1.p);
-        }
-
-        vel *= glm::min(1.0f, this->posDamping * dt);
-        applyBodyPairCorrection(
-          this->body0,
-          this->body1,
-          vel,
-          0.0,
-          dt,
-          &this->globalPose0.p,
-          &this->globalPose1.p,
-          true
-        );
+      if (this->body1) {
+        vel += this->body1->getVelocityAt(this->globalPose1.p);
       }
+
+      vel *= glm::min(1.0f, this->posDamping * dt);
+      applyBodyPairCorrection(
+        this->body0,
+        this->body1,
+        vel,
+        0.0,
+        dt,
+        &this->globalPose0.p,
+        &this->globalPose1.p,
+        true
+      );
     }
+  }
 };

@@ -6,6 +6,7 @@ struct Body {
   Pose pose;
   Pose prevPose;
   Pose origPose;
+  vec3 size;
 
   vec3 vel = vec3(0.0f);
   vec3 omega = vec3(0.0f);
@@ -21,14 +22,11 @@ struct Body {
     this->omega = vec3(0.0, 0.0, 0.0);
     this->invMass = 1.0;
     this->invInertia = vec3(1.0, 1.0, 1.0);
-
-    // this->mesh = mesh;
-    // this->mesh.position.copy(this->pose.p);
-    // this->mesh.quaternion.copy(this->pose.q);
-    // mesh.userData.physicsBody = this;
+    this->size = vec3(0.0);
   }
 
   void setBox(vec3 size, float density = 1.0f) {
+    this->size = size;
     float mass = size.x * size.y * size.z * density;
     this->invMass = 1.0 / mass;
     mass /= 12.0;
@@ -43,23 +41,14 @@ struct Body {
     // safety clamping. This happens very rarely if the solver
     // wants to turn the body by more than 30 degrees in the
     // orders of milliseconds
-
     float maxPhi = 0.5f;
     float phi = length(rot);
     if (phi * scale > maxRotationPerSubstep) {
       scale = maxRotationPerSubstep / phi;
     }
 
-    quat dq(rot.x * scale, rot.y * scale, rot.z * scale, 0.0);
-    dq *= this->pose.q;
-
-    this->pose.q = quat(
-      this->pose.q.x + 0.5 * dq.x,
-      this->pose.q.y + 0.5 * dq.y,
-      this->pose.q.z + 0.5 * dq.z,
-      this->pose.q.w + 0.5 * dq.w
-    );
-    this->pose.q = normalize(this->pose.q);
+    quat dq =  this->pose.q * quat(rot.x * scale, rot.y * scale, rot.z * scale, 0.0);
+    this->pose.q = normalize(this->pose.q + dq * 0.5f);
   }
 
   void integrate(float dt, vec3 gravity, float maxRotationPerSubstep = 0.5f) {
@@ -83,55 +72,60 @@ struct Body {
     }
 
     // NOTE(tmpvar): commented out in the original impl
-    // this->omega.multiplyScalar(1.0 - 1.0 * dt);
-    // this->vel.multiplyScalar(1.0 - 1.0 * dt);
+    // this->omega *= (1.0f - 1.0f * dt);
+    // this->vel *= (1.0f - 1.0f * dt);
 
     // this->mesh.position.copy(this->pose.p);
     // this->mesh.quaternion.copy(this->pose.q);
   }
 
-  vec3 getVelocityAt(vec3 pos) {
+  vec3 getVelocityAt(const vec3 &pos) {
     return this->vel - cross(
       pos - this->pose.p,
       this->omega
     );
   }
 
-  float getInverseMass(vec3 normal) {
-    vec3 n = this->pose.invRotate(normal);
-    return (
+  float getInverseMass(const vec3 &normal, const vec3 *pos = nullptr) {
+    vec3 n = pos == nullptr
+      ? normal
+      : cross((*pos) - this->pose.p, normal);
+
+    n = this->pose.invRotate(n);
+    float w = (
       n.x * n.x * this->invInertia.x +
       n.y * n.y * this->invInertia.y +
       n.z * n.z * this->invInertia.z
     );
+
+    if (pos != nullptr) {
+      w += this->invMass;
+    }
+    return w;
   }
 
-  float getInverseMass(vec3 normal, vec3 pos) {
-    vec3 n = cross(pos - this->pose.p, normal);
-    return this->getInverseMass(n) + this->invMass;
-  }
+  void applyCorrection(const vec3 &corr, const vec3 *pos = nullptr, bool velocityLevel = false) {
+    vec3 dq;
 
-  void applyCorrection(vec3 corr, bool velocityLevel = false) {
-    vec3 dq = this->pose.invRotate(corr);
+    if (pos == nullptr) {
+      dq = corr;
+    } else {
+      if (velocityLevel) {
+        this->vel += corr * this->invMass;
+      } else {
+        this->pose.p += corr * this->invMass;
+      }
+      dq = cross((*pos) - this->pose.p, corr);
+    }
+
+    dq = this->pose.invRotate(dq);
     dq *= this->invInertia;
+
     dq = this->pose.rotate(dq);
     if (velocityLevel) {
       this->omega += dq;
     } else {
       this->applyRotation(dq);
     }
-  }
-
-  void applyCorrection(vec3 corr, vec3 pos, bool velocityLevel = false) {
-    vec3 dq = corr;
-    if (velocityLevel) {
-      this->vel += corr * this->invMass;
-    } else {
-      this->pose.p += corr * this->invMass;
-    }
-
-    dq = cross(pos - this->pose.p, corr);
-
-    this->applyCorrection(dq);
   }
 };
