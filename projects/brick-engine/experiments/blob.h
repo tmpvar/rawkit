@@ -136,8 +136,7 @@ struct Blob {
     this->inv_mass = 1.0f / this->mass;
 
 
-    float r = length(center_of_mass);
-    this->inertia = this->mass * r * r;
+    this->inertia = center_of_mass.x / center_of_mass.y;
     this->inv_inertia = (this->inertia == 0.0f) ? 1.0f : 1.0f / this->inertia;
   }
 
@@ -612,6 +611,9 @@ struct CircleBlob: public Blob {
     this->dims = vec2(radius * 2.0f);
     this->sdf = new SDF(this->name, this->dims, CircleBlob::sdf_sample_fn);
     this->compute_center_of_mass();
+
+    this->inertia = 1.0f;
+
     this->circle_pack();
     this->sdf->upload();
   }
@@ -630,13 +632,13 @@ struct BoxBlob: public Blob {
     this->sdf = new SDF(this->name, this->dims, BoxBlob::sdf_sample_fn);
     this->compute_center_of_mass();
 
-    double w = dims.x / 100.0;
-    double h = dims.y / 100.0;
+    double w = dims.x;
+    double h = dims.y;
 
     double Ix = (h * h * h * w) / 12.0;
     double Iy = (w * w * w * h) / 12.0;
 
-    this->inertia = Ix / Iy;
+    this->inertia = glm::max(Iy, Ix) / glm::min(Iy, Ix) * w/h;
     this->inv_inertia = 1.0 / this->inertia;
     printf("inertia: %f\n", this->inertia);
 

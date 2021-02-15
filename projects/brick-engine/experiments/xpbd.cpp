@@ -47,21 +47,23 @@ void setup() {
     sb_reset(state->blobs);
   }
 
-  if (0){
+  if (1){
     CircleBlob *c = new CircleBlob("circle", 100);
     c->pos = vec2(425, 200);
     sb_push(state->blobs, c);
   }
 
-  if (0) {
+  if (1) {
     Polygon *polygon = new Polygon("poly");
 
     polygon->append(vec2(0.0, 0.0));
     polygon->append(vec2(200.0, 0.0));
-    polygon->append(vec2(200.0, 200.0));
-    polygon->append(vec2(150.0, 200.0));
+    polygon->append(vec2(200.0, 150.0));
+    polygon->append(vec2(0.0, 150.0));
     polygon->append(vec2(150.0, 50.0));
-    polygon->append(vec2(0.0, 200.0));
+    polygon->append(vec2(150.0, 100.0));
+    polygon->append(vec2(0.0, 100.0));
+
     sprintf(blob_tmp_str, "blob#0");
     Blob *blob = new Blob(
       blob_tmp_str,
@@ -86,67 +88,26 @@ void setup() {
   }
 }
 
-struct PointPair {
-  vec2 a;
-  vec2 b;
-};
 
-PointPair projectPoints(
-  vec2 a,
-  float a_invmass,
-  vec2 b,
-  float b_invmass,
-  float rest_length,
-  bool contact
-) {
-  PointPair r = { .a = vec2(0), .b = vec2(0) };
 
-  vec2 ndir = a - b;
-  float d = length(ndir);
-  igText("d(%f) rest_length(%f)", d, rest_length);
-  if (contact && d >= rest_length) {
-    return r;
-  }
-
-  ndir = normalize(ndir);
-  float inv_mass_sum = a_invmass + b_invmass;
-  float mass_ratio_a = 0.5f;
-  float mass_ratio_b = 0.5f;
-  if (inv_mass_sum != 0.0f) {
-    mass_ratio_a = a_invmass / inv_mass_sum;
-    mass_ratio_b = b_invmass / inv_mass_sum;
-  }
-
-  float diff = d - rest_length;
-  igText("a(%f), b(%f)", mass_ratio_a, mass_ratio_b);
-  igText("ndir(%f, %f)", ndir.x, ndir.y);
-  igText("diff(%f) inv_mass_sum(%f)", diff, inv_mass_sum);
-  r.a = -(mass_ratio_a * diff * ndir);
-  r.b =  (mass_ratio_b * diff * ndir);
-
-  return r;
-}
-
-void particle_vs_blob(vec2 &pos, float radius, float inv_mass, Blob *blob) {
+void particle_vs_blob(vec2 &pos, float radius, float inv_mass, Blob *blob, float dt) {
   float d = blob->sample_bilinear_world(pos) - radius;
   if (d > 0.0) {
     return;
   }
 
   vec2 blob_dir = blob->calc_normal_world(pos);
-
-  // TODO: this doesn't take into account the mass ratio along the extent of the shape
-  float inertia = distance(blob->pos, pos) / (length(blob->dims) * 0.5f);
-  float inv_inertia = 1.0 / inertia;
-
   vec2 delta = blob_dir * d;
   vec2 rel = pos - blob->pos;
   float r = angle_between(
     rel,
     rel + delta
   );
-  blob->rot += r * 0.5f * inertia;
-  blob->pos += delta * inertia;// * (1.0f - inertia);
+
+  dt = 1.0/60.0f;
+  blob->rot += r * blob->inertia * dt;
+  blob->pos += delta * blob->inertia * dt;
+
 }
 
 
@@ -218,7 +179,7 @@ void loop() {
     ctx.scale(vec2(1.0f, -1.0f));
     ctx.translate(vec2(0.0, -screen.y));
 
-  u32 substeps = 1;
+  u32 substeps = 10;
   float substep_dt = dt / (float)substeps;
 
   // render the blobs
@@ -226,12 +187,9 @@ void loop() {
     u32 c = sb_count(state->blobs);
     for(u32 i=0; i<c; i++) {
       state->blobs[i]->render(ctx);
+      igText("blob %s: inertia(%f)", state->blobs[i]->name, state->blobs[i]->inertia);
     }
   }
-
-
-
-
 
   for (u32 step=0.0f; step<substeps; step++) {
     // integration / reset
@@ -257,7 +215,7 @@ void loop() {
       float mouse_radius = 3.0f;
       u32 c = sb_count(state->blobs);
       for(u32 i=0; i<c; i++) {
-        particle_vs_blob(mouse, mouse_radius, 0.0f, state->blobs[i]);
+        particle_vs_blob(mouse, mouse_radius, 0.0f, state->blobs[i], substep_dt);
         blob_vs_bounds(state->blobs[i], screen);
       }
     }
@@ -268,7 +226,7 @@ void loop() {
       for(u32 i=0; i<c; i++) {
         Blob *blob = state->blobs[i];
         blob->velocity = (blob->pos - state->prev_positions[i]) / substep_dt;
-        blob->angular_velocity = (blob->rot - state->prev_rotations[i]) / substep_dt * 0.99f;
+        blob->angular_velocity = (blob->rot - state->prev_rotations[i]) / substep_dt;
       }
     }
   }
