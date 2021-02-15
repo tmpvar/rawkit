@@ -55,14 +55,17 @@ void setup() {
 
   if (1) {
     Polygon *polygon = new Polygon("poly");
-
+    float w = 400.0;
     polygon->append(vec2(0.0, 0.0));
-    polygon->append(vec2(200.0, 0.0));
-    polygon->append(vec2(200.0, 150.0));
+    polygon->append(vec2(w, 0.0));
+    polygon->append(vec2(w, 150.0));
     polygon->append(vec2(0.0, 150.0));
-    polygon->append(vec2(150.0, 50.0));
-    polygon->append(vec2(150.0, 100.0));
-    polygon->append(vec2(0.0, 100.0));
+    polygon->append(vec2(0.0, 75.0));
+    polygon->append(vec2(w-50.0, 100.0));
+    polygon->append(vec2(w-50.0, 50.0));
+    polygon->append(vec2(0.0, 75.0));
+    // polygon->append(vec2(150.0, 100.0));
+    // polygon->append(vec2(0.0, 75.0));
 
     sprintf(blob_tmp_str, "blob#0");
     Blob *blob = new Blob(
