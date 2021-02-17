@@ -139,6 +139,8 @@ void setup() {
         delete polygon;
       }
     }
+
+    sb_push(state->blobs, new CircleBlob("circle", 50.0f));
   }
 
   {
@@ -252,13 +254,11 @@ void projectBlobVsBlobConstraint(Blob *a, Blob *b, float dt) {
 
     double inv_mass_sum = CNAN(inv_mass + b->inv_mass);
     float a_ratio = CNAN(inv_mass / inv_mass_sum);
-    CNAN(a_ratio);
     float b_ratio = CNAN(b->inv_mass / inv_mass_sum);
-    CNAN(b_ratio);
 
 
     b->pos -= CNAN(abs(d) * b_ratio * sdf_normal * dt);
-    a->pos += CNAN(abs(d) * a_ratio * sdf_normal * dt);
+    a->pos += CNAN(abs(d) * a_ratio * sdf_normal * dt * mass/a->mass);
 
     // float old_angle = angle(a->pos, pos);
     // float new_angle = angle(a->pos, pos - diff * sdf_normal);
@@ -327,7 +327,7 @@ void loop() {
   state->mouse.tick();
   double now = rawkit_now();
   float dt = glm::min(.02, now - state->last_time);
-  // dt = 0.005;
+  dt = 1.0f / 60.0f;//0.005;
   state->last_time = now;
 
   state->screen = vec2(
@@ -615,7 +615,7 @@ igText("substep_dt(%f)", substep_dt);
       {
         for (uint32_t i=0; i<blob_count; i++) {
           state->blobs[i]->velocity = (state->blobs[i]->pos - state->blobs[i]->prev_pos) / substep_dt;
-          state->blobs[i]->angular_velocity = (state->blobs[i]->rot - state->blobs[i]->prev_rot) / substep_dt;
+          state->blobs[i]->angular_velocity = (state->blobs[i]->rot - state->blobs[i]->prev_rot) / substep_dt * 0.999;
           state->blobs[i]->prev_pos = state->blobs[i]->pos;
           state->blobs[i]->prev_rot = state->blobs[i]->rot;
         }
