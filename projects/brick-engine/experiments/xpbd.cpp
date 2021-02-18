@@ -47,13 +47,13 @@ void setup() {
     sb_reset(state->blobs);
   }
 
-  if (1){
-    CircleBlob *c = new CircleBlob("circle", 100);
+  if (0){
+    CircleBlob *c = new CircleBlob("circle", 200);
     c->pos = vec2(425, 200);
     sb_push(state->blobs, c);
   }
 
-  if (1) {
+  if (0) {
     Polygon *polygon = new Polygon("poly");
     float w = 400.0;
     polygon->append(vec2(0.0, 0.0));
@@ -89,6 +89,14 @@ void setup() {
     blob->pos = vec2(200, 400);
     sb_push(state->blobs, blob);
   }
+
+
+
+    {
+    BoxBlob *blob = new BoxBlob("bigbox", vec2(6, 600));
+    blob->pos = vec2(200, 400);
+    sb_push(state->blobs, blob);
+  }
 }
 
 
@@ -101,15 +109,17 @@ void particle_vs_blob(vec2 &pos, float radius, float inv_mass, Blob *blob, float
 
   vec2 delta = blob->calc_normal_world(pos) * d;
   vec2 rel = pos - blob->pos;
+
+  float inertia = distance(blob->pos, pos) / (length(blob->dims) * 0.5f);
+
   float r = angle_between(
     rel,
     rel + delta
   );
 
   dt = 1.0/60.0f;
-  blob->rot += r * blob->inertia * dt;
-  blob->pos += delta * blob->inertia * dt;
-
+  blob->rot += r * inertia * dt;
+  blob->pos += delta * dt;
 }
 
 
@@ -126,7 +136,7 @@ void blob_vs_bounds(Blob *blob, vec2 dims) {
       continue;
     }
     vec2 pos = blob->gridToWorld(circle.pos);
-    float radius = abs(circle.radius);
+    float radius = abs(circle.radius) + 10.0;
     vec2 pos2 = clamp(
       pos,
       vec2(radius),
@@ -143,13 +153,15 @@ void blob_vs_bounds(Blob *blob, vec2 dims) {
     // float inv_inertia = 1.0 / inertia;
 
     vec2 delta = pos2 - pos;
-
+    vec2 rel = pos - blob->pos;
     float r = angle_between(
-      pos - blob->pos,
-      pos2 - blob->pos
+      rel,
+      rel + delta
     );
-    blob->rot += r * 0.5f * inertia;
-    blob->pos += delta * (1.0f - inertia);
+
+    float dt = 1.0/60.0f;
+    blob->rot += r * inertia * dt;
+    blob->pos += delta * dt;// * (1.0f - inertia);
   }
 }
 
@@ -175,7 +187,7 @@ void blob_vs_blob(Blob *blob0, Blob *blob1) {
     // // TODO: this doesn't take into account the mass ratio along the extent of the shape
     vec2 rel = pos - blob0->pos;
     float inertia = distance(blob0->pos, pos) / (length(blob0->dims) * 0.5f);
-    inertia *= 1.5f;
+    // inertia *= 1.5f;
 
     float r = angle_between(
       rel,
@@ -186,8 +198,8 @@ void blob_vs_blob(Blob *blob0, Blob *blob1) {
     float w = (blob0->inv_mass) / (blob0->inv_mass + blob1->inv_mass);
 
     float dt = 1.0/60.0f;
-    blob0->rot += r * inertia * w;
-    blob0->pos += delta * w;
+    blob0->rot += r * inertia * w * dt;
+    blob0->pos += delta * w * dt;
   }
 }
 
