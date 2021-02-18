@@ -11,6 +11,8 @@ struct State {
   Blob **blobs;
   Camera2D camera;
   Segment *cuts;
+
+  vec2 *polyline_slicer;
 };
 
 
@@ -68,40 +70,57 @@ void setup () {
 
     blob->compute_center_of_mass();
     blob->pos += blob->center_of_mass;
-    blob->rot = 0.9f;
+    // blob->rot = 0.9f;
     blob->circle_pack();
     blob->circle_graph();
     blob->extract_islands();
     sb_push(state->blobs, (Blob *)blob);
 
-    sb_push(state->blobs, (Blob *)new CircleBlob(
-      "circle",
-      100.0f
-    ));
+    // sb_push(state->blobs, (Blob *)new CircleBlob(
+    //   "circle",
+    //   100.0f
+    // ));
 
     // slice
     if (0) {
-      Blob **blobs = blob->slice_with_line(vec2(0.0), vec2(10.0, 10.0));
+
+      vec2 polyline[] = {
+        blob->gridToWorld(vec2(100.0, 0.0)),
+        blob->gridToWorld(vec2(100.0, 100.0)),
+        blob->gridToWorld(vec2(0.0, 110.0)),
+        blob->gridToWorld(vec2(150.0, 200.0)),
+      };
+
+      Blob **blobs = blob->slice_with_polyline(
+        3,
+        polyline
+      );
 
       if (blobs != nullptr) {
         uint32_t blob_count = sb_count(blobs);
         for (uint32_t i=0; i<blob_count; i++) {
+          if (!blobs[i]) {
+            continue;
+          }
 
           blobs[i]->circle_pack();
           blobs[i]->circle_graph();
           Blob **islands = blobs[i]->extract_islands();
-          sb_push(state->blobs, blobs[i]);
+
           uint32_t island_count = sb_count(islands);
-          if (island_count > 1) {
-            for (uint32_t j=0; j<island_count; j++) {
-              sb_push(state->blobs, islands[j]);
+          for (uint32_t j=0; j<island_count; j++) {
+            if (!islands[j]) {
+              continue;
             }
+            sb_push(state->blobs, islands[j]);
           }
           delete blobs[i];
         }
 
         sb_free(blobs);
       }
+
+      printf("done slicing\n");
     }
   }
 }
@@ -122,11 +141,22 @@ void loop() {
   state->camera.begin();
 
   if (state->mouse.down) {
+    if (!state->mouse.was_down) {
+      sb_reset(state->polyline_slicer);
+    }
+
+    sb_push(state->polyline_slicer, state->camera.pointToWorld(state->mouse.pos));
+
+    u32 c = sb_count(state->polyline_slicer);
+
     ctx.strokeColor(rgb(0xFFFFFFFF));
     ctx.beginPath();
-      ctx.moveTo(state->camera.pointToWorld(state->mouse.down_pos));
-      ctx.lineTo(state->camera.pointToWorld(state->mouse.pos));
-      ctx.stroke();
+    ctx.moveTo(state->polyline_slicer[0]);
+    for (u32 i=1; i<c; i++) {
+      ctx.lineTo(state->polyline_slicer[i]);
+    }
+
+    ctx.stroke();
   }
 
   ctx.fillColor(rgb(0x99, 0x99, 0x99));
@@ -140,8 +170,6 @@ void loop() {
       .start = state->camera.pointToWorld(state->mouse.down_pos),
       .end = state->camera.pointToWorld(state->mouse.pos)
     };
-    sb_push(state->cuts, cut);
-
     vec2 cut_normal = cut.normal();
 
     Blob **new_blobs = nullptr;
@@ -153,9 +181,9 @@ void loop() {
         continue;
       }
       {
-        Blob **blobs = blob->slice_with_line(
-          cut.start,
-          cut.end
+        Blob **blobs = blob->slice_with_polyline(
+          sb_count(state->polyline_slicer),
+          state->polyline_slicer
         );
 
         if (!blobs) {
@@ -216,8 +244,8 @@ void loop() {
       printf("NULL SDF %u\n", __LINE__);
     }
 
-
-    blob->render(ctx);
+    blob->render_circles(ctx);
+    // blob->render(ctx);
 
     // draw the previous cut lines
     if (0) {
@@ -231,6 +259,7 @@ void loop() {
           ctx.stroke();
       }
     }
+
   }
 
   state->camera.end();

@@ -226,20 +226,25 @@ struct Blob {
   }
 
   Blob **slice_with_line(vec2 a, vec2 b) {
-    a = this->worldToGrid(a);
-    b = this->worldToGrid(b);
+    vec2 points[2] = {a, b};
+    return this->slice_with_polyline(2, points);
+  }
 
+  Blob **slice_with_polyline(u32 point_count, vec2 *points) {
+    if (point_count < 2) {
+      return nullptr;
+    }
 
-    printf("slice (%f, %f) -> (%f, %f)\n", a.x, a.y, b.x, b.y);
+    printf("slice with %u points\n", point_count);
+
+    // printf("slice (%f, %f) -> (%f, %f)\n", a.x, a.y, b.x, b.y);
 
     AABB aabb = {
       .lb = vec2(0.0),
       .ub = this->dims
     };
-    if (!aabb.isect_line(a, b)) {
-      return nullptr;
-    }
-    // create two blobs for the left and right of the line
+
+    // create two blobs for the left and right of the polyline
     sprintf(blob_tmp_str, "%s-sl", this->name);
     Blob *left = new Blob(blob_tmp_str, this->dims);
     sprintf(blob_tmp_str, "%s-sr", this->name);
@@ -248,13 +253,41 @@ struct Blob {
     vec2 p;
     for (p.x=0.0f; p.x<this->dims.x; p.x++) {
       for (p.y=0.0f; p.y<this->dims.y; p.y++) {
-        float o = orientation(a, b, p + 0.5f);
-        vec2 closest = line_closest_point(a, b, p + 0.5f);
-        float ldist = distance(closest, p + 0.5f);
+
+        float s = 1.0;
+        vec2 cur = points[0];
+
+        float d = dot(p - cur, p - cur);
+        for(u32 i=1; i<point_count; i++) {
+          // distance
+          cur = this->worldToGrid(points[i-1]);
+          vec2 next = this->worldToGrid(points[i]);
+          vec2 e = next - cur;
+          vec2 v = p - cur;
+          vec2 pq = v - e * glm::clamp( dot(v,e) / dot(e,e), 0.0f, 1.0f );
+          d = glm::min( d, dot(pq, pq));
+
+          // winding number from http://geomalgorithms.com/a03-_inclusion.html
+          vec2 v2 = p - next;
+          float val3 = e.x * v.y - e.y * v.x; //isLeft
+          bvec3 cond = bvec3(
+            v.y >= 0.0f,
+            v2.y < 0.0f,
+            val3 > 0.0f
+          );
+
+          bvec3 counter(!cond.x, !cond.y, !cond.z);
+
+          if(all(cond) || all(not_(cond))) {
+            s*=-1.0f;  // have a valid up or down intersect
+          }
+        }
+
+        float signed_distance = glm::sqrt(d) * s;
         uvec2 grid_pos(p);
 
-        right->sdf->write(grid_pos, glm::max(ldist * glm::sign(o), this->sdf->sample(p)));
-        left->sdf->write(grid_pos, glm::max(ldist * -glm::sign(o), this->sdf->sample(p)));
+        right->sdf->write(grid_pos, glm::max(signed_distance, this->sdf->sample(p)));
+        left->sdf->write(grid_pos, glm::max(-signed_distance, this->sdf->sample(p)));
       }
     }
 
@@ -273,8 +306,6 @@ struct Blob {
     right->rot = this->rot;
     right->velocity = this->velocity;
     right->angular_velocity = this->angular_velocity;
-
-
 
     sb_push(blobs, left);
     sb_push(blobs, right);

@@ -35,7 +35,7 @@ static vec2 calc_sdf_normal(vec2 p, std::function<float(vec2)> sample) {
   return normalize(vec2(xgrad, ygrad));
 }
 
-// distance meater from https://www.shadertoy.com/view/ldK3zD
+// distance meter from https://www.shadertoy.com/view/ldK3zD
 // the meter uses the "fusion" gradient, which goes from dark magenta (0) to white (1)
 // (often seen in heatmaps in papers etc)
 //
@@ -212,7 +212,6 @@ typedef struct SDF {
       static_cast<uint64_t>(p.x) +
       static_cast<uint64_t>(p.y * this->dims.x)
     );
-
     float d = ((float *)this->dist_buf->data)[i];
 
     return d;
