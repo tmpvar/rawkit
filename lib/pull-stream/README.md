@@ -33,7 +33,7 @@ int main() {
   );
 
   // pull from s, which is actually the sink defined w/ `create_taker`
-  ps_val_t *val = s->fn(s, PS_OK);
+  ps_val_t *val = ps_pull(s, PS_OK);
 
   printf("RESULT: %s\n", (char *)val->data);
 }

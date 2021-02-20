@@ -13,9 +13,9 @@ static ps_val_t *taker_fn(ps_t *base, ps_stream_status status) {
   if (taker->n <= 0) {
     ps_status(base, taker->next_status);
     return NULL;
-  } 
+  }
 
-  ps_val_t *val = ps_pull(base, status);
+  ps_val_t *val = ps__pull_from_source(base, status);
   if (!val) {
     return NULL;
   }

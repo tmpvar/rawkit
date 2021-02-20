@@ -8,7 +8,7 @@ TEST_CASE("[pull/stream/redux] counter source stream") {
     ps_t *counter = create_counter();
 
     for (uint64_t i=0; i<10; i++) {
-      ps_val_t *v = counter->fn(counter, PS_OK);
+      ps_val_t *v = ps_pull(counter, PS_OK);
       REQUIRE(v != nullptr);
       CHECK(counter->status == PS_OK);
       uint64_t iv = *((uint64_t *)v->data);
@@ -26,7 +26,7 @@ TEST_CASE("[pull/stream/redux] counter source stream") {
     // check normal operation
     {
       for (uint64_t i=0; i<10; i++) {
-        ps_val_t *v = counter->fn(counter, PS_OK);
+        ps_val_t *v = ps_pull(counter, PS_OK);
         REQUIRE(v != nullptr);
         CHECK(counter->status == PS_OK);
         uint64_t iv = *((uint64_t *)v->data);
@@ -37,7 +37,7 @@ TEST_CASE("[pull/stream/redux] counter source stream") {
 
     // abort the stream via done
     {
-      ps_val_t *v = counter->fn(counter, PS_DONE);
+      ps_val_t *v = ps_pull(counter, PS_DONE);
       CHECK(counter->status == PS_DONE);
       REQUIRE(v == nullptr);
     }
@@ -45,14 +45,14 @@ TEST_CASE("[pull/stream/redux] counter source stream") {
     // future calls resolve to done
     {
       for (uint64_t i=0; i<10; i++) {
-        ps_val_t *v = counter->fn(counter, PS_OK);
+        ps_val_t *v = ps_pull(counter, PS_OK);
         REQUIRE(v == nullptr);
       }
     }
 
     // changing the status to ERR via call does nothing
     {
-      ps_val_t *v = counter->fn(counter, PS_ERR);
+      ps_val_t *v = ps_pull(counter, PS_ERR);
       CHECK(counter->status == PS_DONE);
       REQUIRE(v == nullptr);
     }
@@ -67,7 +67,7 @@ TEST_CASE("[pull/stream/redux] counter source stream") {
     // check normal operation
     {
       for (uint64_t i=0; i<10; i++) {
-        ps_val_t *v = counter->fn(counter, PS_OK);
+        ps_val_t *v = ps_pull(counter, PS_OK);
         REQUIRE(v != nullptr);
         CHECK(counter->status == PS_OK);
         uint64_t iv = *((uint64_t *)v->data);
@@ -78,21 +78,21 @@ TEST_CASE("[pull/stream/redux] counter source stream") {
 
     // abort the stream via error
     {
-      ps_val_t *v = counter->fn(counter, PS_ERR);
+      ps_val_t *v = ps_pull(counter, PS_ERR);
       REQUIRE(v == nullptr);
     }
 
     // future calls resolve to error
     {
       for (uint64_t i=0; i<10; i++) {
-        ps_val_t *v = counter->fn(counter, PS_OK);
+        ps_val_t *v = ps_pull(counter, PS_OK);
         REQUIRE(v == nullptr);
       }
     }
 
     // changing the status to DONE via call does nothing
     {
-      ps_val_t *v = counter->fn(counter, PS_DONE);
+      ps_val_t *v = ps_pull(counter, PS_DONE);
       CHECK(counter->status == PS_ERR);
       REQUIRE(v == nullptr);
     }

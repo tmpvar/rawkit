@@ -48,7 +48,7 @@ TEST_CASE("[pull/stream/io] tcp server") {
 
       // service the server
       {
-        ps_val_t *val = server->fn(server, PS_OK);
+        ps_val_t *val = ps_pull(server, PS_OK);
         REQUIRE(server->status == PS_OK);
         if (val && val->data) {
           ps_duplex_t *server_client = (ps_duplex_t *)val->data;
@@ -57,14 +57,14 @@ TEST_CASE("[pull/stream/io] tcp server") {
         }
 
         for (ps_duplex_t *server_client : server_clients) {
-          server_client->sink->fn(server_client->sink, PS_OK);
+          ps_pull(server_client->sink, PS_OK);
         }
       }
 
       // service the client
       {
-        client->sink->fn(client->sink, PS_OK);
-        collected_val = client_collector->fn(client_collector, PS_OK);
+        ps_pull(client->sink, PS_OK);
+        collected_val = ps_pull(client_collector, PS_OK);
       }
     }
 

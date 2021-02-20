@@ -21,7 +21,7 @@ static ps_val_t *collector_fn(ps_t *base, ps_stream_status status) {
     return NULL;
   }
 
-  ps_val_t *val = ps_pull(base, status);
+  ps_val_t *val = ps__pull_from_source(base, status);
 
 
   switch (base->status) {
@@ -64,7 +64,7 @@ static ps_val_t *collector_fn(ps_t *base, ps_stream_status status) {
       // just in case we're dealing with a char *.
       ((uint8_t *)collector->buffer->data)[new_len] = 0;
       collector->buffer->len = new_len;
-      
+
       ps_destroy(val);
       return NULL;
     }

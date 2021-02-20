@@ -27,7 +27,7 @@ TEST_CASE("[pull/stream] splitter through stream") {
 
     // read "hello"
     {
-      ps_val_t *val = splitter->fn(splitter, PS_OK);
+      ps_val_t *val = ps_pull(splitter, PS_OK);
       REQUIRE(val != nullptr);
       CHECK(splitter->status == PS_OK);
       CHECK(val->len == 5);
@@ -37,7 +37,7 @@ TEST_CASE("[pull/stream] splitter through stream") {
 
     // read "world"
     {
-      ps_val_t *val = splitter->fn(splitter, PS_OK);
+      ps_val_t *val = ps_pull(splitter, PS_OK);
       REQUIRE(val != nullptr);
       CHECK(splitter->status == PS_OK);
       CHECK(val->len == 5);
@@ -47,7 +47,7 @@ TEST_CASE("[pull/stream] splitter through stream") {
 
     // read NULL and ensure DONE
     {
-      ps_val_t* val = splitter->fn(splitter, PS_OK);
+      ps_val_t* val = ps_pull(splitter, PS_OK);
       REQUIRE(val == nullptr);
       CHECK(splitter->status == PS_DONE);
     }
@@ -69,7 +69,7 @@ TEST_CASE("[pull/stream] splitter through stream") {
 
     // read "hello"
     {
-      ps_val_t* val = splitter->fn(splitter, PS_OK);
+      ps_val_t* val = ps_pull(splitter, PS_OK);
       REQUIRE(val != nullptr);
       CHECK(splitter->status == PS_OK);
       CHECK(val->len == 5);
@@ -79,7 +79,7 @@ TEST_CASE("[pull/stream] splitter through stream") {
 
     // read "world"
     {
-      ps_val_t* val = splitter->fn(splitter, PS_OK);
+      ps_val_t* val = ps_pull(splitter, PS_OK);
       REQUIRE(val != nullptr);
       CHECK(splitter->status == PS_OK);
       CHECK(val->len == 5);
@@ -89,7 +89,7 @@ TEST_CASE("[pull/stream] splitter through stream") {
 
     // read NULL and ensure DONE
     {
-      ps_val_t* val = splitter->fn(splitter, PS_OK);
+      ps_val_t* val = ps_pull(splitter, PS_OK);
       REQUIRE(val == nullptr);
       CHECK(splitter->status == PS_DONE);
     }
@@ -112,18 +112,18 @@ TEST_CASE("[pull/stream] splitter through stream") {
     ps_user_value_t * uv = (ps_user_value_t *)user_value;
 
     ps_user_value_from_str(uv, "H");
-    REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+    REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
     ps_user_value_from_str(uv, "E");
-    REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+    REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
     ps_user_value_from_str(uv, "L");
-    REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+    REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
     ps_user_value_from_str(uv, "L");
-    REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+    REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
     ps_user_value_from_str(uv, "O");
-    REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+    REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
     ps_status(user_value, PS_DONE);
 
-    ps_val_t *val = splitter->fn(splitter, PS_OK);
+    ps_val_t *val = ps_pull(splitter, PS_OK);
     REQUIRE(val != nullptr);
     REQUIRE(val->data != nullptr);
     CHECK(val->len == 5);
@@ -149,17 +149,17 @@ TEST_CASE("[pull/stream] splitter through stream") {
     // first line
     {
       ps_user_value_from_str(uv, "H");
-      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
       ps_user_value_from_str(uv, "E");
-      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
       ps_user_value_from_str(uv, "L");
-      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
       ps_user_value_from_str(uv, "L");
-      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
       ps_user_value_from_str(uv, "O");
-      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
       ps_user_value_from_str(uv, "\r\n");
-      ps_val_t *val = splitter->fn(splitter, PS_OK);
+      ps_val_t *val = ps_pull(splitter, PS_OK);
       REQUIRE(val != nullptr);
       REQUIRE(val->data != nullptr);
       CHECK(val->len == 5);
@@ -170,17 +170,17 @@ TEST_CASE("[pull/stream] splitter through stream") {
     // second line
     {
       ps_user_value_from_str(uv, "W");
-      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
       ps_user_value_from_str(uv, "O");
-      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
       ps_user_value_from_str(uv, "R");
-      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
       ps_user_value_from_str(uv, "L");
-      REQUIRE(splitter->fn(splitter, PS_OK) == nullptr);
+      REQUIRE(ps_pull(splitter, PS_OK) == nullptr);
       ps_user_value_from_str(uv, "D");
       ps_status(uv, PS_DONE);
 
-      ps_val_t *val = splitter->fn(splitter, PS_OK);
+      ps_val_t *val = ps_pull(splitter, PS_OK);
       REQUIRE(val != nullptr);
       REQUIRE(val->data != nullptr);
       CHECK(val->len == 5);

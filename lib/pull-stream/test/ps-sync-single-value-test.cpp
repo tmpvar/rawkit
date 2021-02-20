@@ -24,7 +24,7 @@ TEST_CASE("[pull/stream] single value source stream") {
 
     // read the value
     {
-      ps_val_t *val = source->fn(source, PS_OK);
+      ps_val_t *val = ps_pull(source, PS_OK);
       REQUIRE(val != nullptr);
       CHECK(val->len == len);
       // ensure single value makes a heap allocated copy. This is for consistency
@@ -39,7 +39,7 @@ TEST_CASE("[pull/stream] single value source stream") {
 
     // read again (DONE)
     {
-      ps_val_t *val = source->fn(source, PS_OK);
+      ps_val_t *val = ps_pull(source, PS_OK);
       REQUIRE(val == nullptr);
       CHECK(source->status == PS_DONE);
     }

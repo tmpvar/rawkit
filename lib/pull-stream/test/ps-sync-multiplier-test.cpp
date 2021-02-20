@@ -7,7 +7,7 @@ TEST_CASE("[pull/stream/redux] multiplier through stream") {
   {
     ps_t *mult = create_multiplier(10);
     // call fn without setting up the source
-    ps_val_t *v = mult->fn(mult, PS_OK);
+    ps_val_t *v = ps_pull(mult, PS_OK);
     REQUIRE(v == nullptr);
     ps_destroy(mult);
   }
@@ -20,7 +20,7 @@ TEST_CASE("[pull/stream/redux] multiplier through stream") {
     mult->source = counter;
 
     for (uint64_t i=0; i<10; i++) {
-      ps_val_t *v = mult->fn(mult, PS_OK);
+      ps_val_t *v = ps_pull(mult, PS_OK);
       REQUIRE(v != nullptr);
       REQUIRE(v->data != nullptr);
 

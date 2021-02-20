@@ -69,7 +69,7 @@ ps_val_t *file_sink_fn(ps_t *base, ps_stream_status status) {
     return NULL;
   }
 
-  ps_val_t *val = ps_pull(base, PS_OK);
+  ps_val_t *val = ps__pull_from_source(base, PS_OK);
 
   // handle ERR/DONE
   if (base->status) {

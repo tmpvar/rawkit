@@ -13,7 +13,7 @@ TEST_CASE("[pull/stream] user value source stream") {
       "abc123"
     );
 
-    ps_val_t *val = user_value->fn(user_value,  PS_OK);
+    ps_val_t *val = ps_pull(user_value,  PS_OK);
     CHECK(user_value->status == PS_OK);
     REQUIRE(val != nullptr);
     CHECK(val->len == 6);
@@ -26,7 +26,7 @@ TEST_CASE("[pull/stream] user value source stream") {
       "hello world"
     );
 
-    ps_val_t *val = user_value->fn(user_value,  PS_OK);
+    ps_val_t *val = ps_pull(user_value,  PS_OK);
     CHECK(user_value->status == PS_OK);
     REQUIRE(val != nullptr);
     CHECK(val->len == 11);

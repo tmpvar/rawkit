@@ -14,7 +14,7 @@ TEST_CASE("[pull/stream] reverser stream") {
     REQUIRE(v != nullptr);
 
     r->source = v;
-    ps_val_t *val = r->fn(r, PS_OK);
+    ps_val_t *val = ps_pull(r, PS_OK);
     REQUIRE(val != nullptr);
     CHECK(strcmp("olleh", (char *)val->data) == 0);
 
@@ -32,7 +32,7 @@ TEST_CASE("[pull/stream] reverser stream") {
     REQUIRE(v != nullptr);
 
     r->source = v;
-    ps_val_t* val = r->fn(r, PS_OK);
+    ps_val_t* val = ps_pull(r, PS_OK);
     REQUIRE(val != nullptr);
     CHECK(strcmp("!olleh", (char*)val->data) == 0);
 

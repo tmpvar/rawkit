@@ -8,7 +8,7 @@ TEST_CASE("[pull/stream] taker through stream") {
   // error when not hooked up
   {
     ps_t *taker = create_taker(5, PS_DONE);
-    ps_val_t *val = taker->fn(taker, PS_OK);
+    ps_val_t *val = ps_pull(taker, PS_OK);
     REQUIRE(val == nullptr);
     CHECK(taker->status == PS_ERR);
     ps_destroy(taker);
@@ -23,7 +23,7 @@ TEST_CASE("[pull/stream] taker through stream") {
 
     // first read (good)
     {
-      ps_val_t *val = taker->fn(taker, PS_OK);
+      ps_val_t *val = ps_pull(taker, PS_OK);
       REQUIRE(val != nullptr);
       CHECK(val->len == sizeof(uint64_t));
       CHECK((*(uint64_t *)val->data) == 0);
@@ -32,7 +32,7 @@ TEST_CASE("[pull/stream] taker through stream") {
 
     // second read (done)
     {
-      ps_val_t *val = taker->fn(taker, PS_OK);
+      ps_val_t *val = ps_pull(taker, PS_OK);
       REQUIRE(val == nullptr);
       CHECK(counter->status == PS_DONE);
       CHECK(taker->status == PS_DONE);
@@ -51,7 +51,7 @@ TEST_CASE("[pull/stream] taker through stream") {
 
     // first read (good)
     {
-      ps_val_t *val = taker->fn(taker, PS_OK);
+      ps_val_t *val = ps_pull(taker, PS_OK);
       REQUIRE(val != nullptr);
       CHECK(val->len == sizeof(uint64_t));
       CHECK((*(uint64_t *)val->data) == 0);
@@ -60,7 +60,7 @@ TEST_CASE("[pull/stream] taker through stream") {
 
     // second read (error)
     {
-      ps_val_t *val = taker->fn(taker, PS_OK);
+      ps_val_t *val = ps_pull(taker, PS_OK);
       REQUIRE(val == nullptr);
       CHECK(counter->status == PS_ERR);
       CHECK(taker->status == PS_ERR);

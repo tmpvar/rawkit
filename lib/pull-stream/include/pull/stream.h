@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define PS_EXPORT
+
 typedef struct ps_t ps_t;
 
 typedef enum ps_stream_status {
@@ -58,22 +60,27 @@ typedef struct ps_val_t {
 typedef ps_val_t *(*ps_pull_fn)(ps_t *s, ps_stream_status status);
 
 // Utils
-ps_stream_status _ps_status(ps_handle_t *s, ps_stream_status status);
+PS_EXPORT ps_stream_status _ps_status(ps_handle_t *s, ps_stream_status status);
 #define ps_status(handle, status) _ps_status((ps_handle_t *)handle, status)
 
+// Service a pull stream
+// - receive data from a through/source stream
+// - service a sink, which in turn retrieves data from its source
+PS_EXPORT ps_val_t *ps_pull(ps_t *s, ps_stream_status status);
 
-ps_val_t *ps_pull(ps_t* s, ps_stream_status status);
+// used internally in through-ish streams
+PS_EXPORT ps_val_t *ps__pull_from_source(ps_t* s, ps_stream_status status);
 
-void _ps_destroy(ps_handle_t **s);
+PS_EXPORT void _ps_destroy(ps_handle_t **s);
 #define ps_destroy(h) _ps_destroy((ps_handle_t **)&h)
 
-ps_handle_t *_ps_create(uint64_t size, ps_handle_type type, ps_destroy_fn destroy_fn);
+PS_EXPORT ps_handle_t *_ps_create(uint64_t size, ps_handle_type type, ps_destroy_fn destroy_fn);
 
 #define ps_create_duplex(type, destroy_fn) (type *)_ps_create(sizeof(type), PS_HANDLE_DUPLEX, destroy_fn)
 #define ps_create_stream(type, destroy_fn) (type *)_ps_create(sizeof(type), PS_HANDLE_STREAM, destroy_fn)
 #define ps_create_value(type, destroy_fn) (type *)_ps_create(sizeof(type), PS_HANDLE_VALUE, destroy_fn)
 
-ps_t *_ps_pipeline(uint64_t argc, ...);
+PS_EXPORT ps_t *_ps_pipeline(uint64_t argc, ...);
 #define ps_pipeline(...) _ps_pipeline(PS_VA_ARG_COUNT(__VA_ARGS__),## __VA_ARGS__)
 
 #define PS_FIELDS \

@@ -42,7 +42,7 @@ TEST_CASE("[pull/stream/io] file sink stream") {
     uv_loop_init(&loop);
     ps_t *sink = create_file_sink(tmpnam(NULL), &loop);
     REQUIRE(sink != nullptr);
-    CHECK(sink->fn(sink, PS_OK) == nullptr);
+    CHECK(ps_pull(sink, PS_OK) == nullptr);
     CHECK(sink->status == PS_ERR);
     uv_run(&loop, UV_RUN_DEFAULT);
     uv_loop_close(&loop);
@@ -64,7 +64,7 @@ TEST_CASE("[pull/stream/io] file sink stream") {
     int sentinel = 100;
     while (sink->status == PS_OK && sentinel --) {
       uv_run(&loop, UV_RUN_ONCE);
-      CHECK(sink->fn(sink, PS_OK) == nullptr);
+      CHECK(ps_pull(sink, PS_OK) == nullptr);
     }
 
     REQUIRE(sentinel > 0);

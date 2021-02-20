@@ -187,8 +187,8 @@ TEST_CASE("[pull/stream/io] duplex tcp") {
     while (!val && sentinel --) {
       uv_run(&loop, UV_RUN_NOWAIT);
 
-      client->sink->fn(client->sink, PS_OK);
-      val = collect->fn(collect, PS_OK);
+      ps_pull(client->sink, PS_OK);
+      val = ps_pull(collect, PS_OK);
     }
 
     REQUIRE(val != nullptr);

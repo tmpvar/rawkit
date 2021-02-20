@@ -25,7 +25,7 @@ TEST_CASE("[pull/stream/io] file source stream") {
     ps_val_t *val = NULL;
     while (!val && collector->status == PS_OK) {
       uv_run(&loop, UV_RUN_NOWAIT);
-      val = collector->fn(collector, PS_OK);
+      val = ps_pull(collector, PS_OK);
     }
 
     REQUIRE(val != nullptr);

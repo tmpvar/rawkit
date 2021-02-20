@@ -10,6 +10,7 @@
 #include <hot/host/cimgui.h>
 #include <hot/host/croaring.h>
 #include <hot/host/glfw.h>
+#include <hot/host/pull-stream.h>
 #include <hot/host/tinyfiledialogs.h>
 #include <hot/host/rawkit-core.h>
 #include <hot/host/rawkit-glsl.h>
@@ -55,6 +56,7 @@ void host_hot_init(rawkit_jit_t *jit) {
   //   host_init_stdlib(jit);
   // #endif
   host_glfw_init(jit);
+  host_init_pull_stream(jit);
 
   host_init_rawkit_core(jit);
   host_init_rawkit_glsl(jit);

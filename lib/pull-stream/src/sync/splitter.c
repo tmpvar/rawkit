@@ -59,7 +59,7 @@ static ps_val_t *splitter_fn(ps_t *base, ps_stream_status status) {
 
   bool pulled = false;
   if (!s->tmp) {
-    s->tmp = ps_pull(base, status);
+    s->tmp = ps__pull_from_source(base, status);
     pulled = true;
     if (!s->tmp) {
       return NULL;
@@ -105,7 +105,7 @@ static ps_val_t *splitter_fn(ps_t *base, ps_stream_status status) {
 
   // if we've reached the end and tmp still has a value
   if (s->tmp && !pulled) {
-    ps_val_t *val = ps_pull(base, status);
+    ps_val_t *val = ps__pull_from_source(base, status);
     if (!val) {
       // dequeue the rest of s->tmp as are are effectively EOF
       if (base->status == PS_DONE) {

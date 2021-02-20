@@ -5,7 +5,7 @@ static ps_val_t *reverser_fn(ps_t *s, ps_stream_status status) {
     return NULL;
   }
 
-  ps_val_t *val = ps_pull(s, PS_OK);
+  ps_val_t *val = ps__pull_from_source(s, PS_OK);
   if (!val || !val->data || !val->len) {
     return NULL;
   }

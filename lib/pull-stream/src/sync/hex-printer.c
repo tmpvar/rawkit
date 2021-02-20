@@ -40,7 +40,7 @@ static void dump_hex(FILE *file, void *data, uint64_t size) {
 
 ps_val_t *hex_printer_fn(ps_t *base, ps_stream_status status) {
 
-  ps_val_t *val = ps_pull(base, status);
+  ps_val_t *val = ps__pull_from_source(base, status);
   if (!val) {
     return NULL;
   }

@@ -19,7 +19,7 @@ TEST_CASE("[pull/stream] hex printer test") {
     ps_t *printer = create_hex_printer(stdout);
     REQUIRE(printer != nullptr);
     CHECK(printer->status == PS_OK);
-    ps_val_t *val =printer->fn(printer, PS_OK);
+    ps_val_t *val =ps_pull(printer, PS_OK);
     REQUIRE(val == nullptr);
     CHECK(printer->status == PS_ERR);
     ps_destroy(printer);
@@ -37,14 +37,14 @@ TEST_CASE("[pull/stream] hex printer test") {
 
     // first pull (OK)
     {
-      ps_val_t *val = printer->fn(printer, PS_OK);
+      ps_val_t *val = ps_pull(printer, PS_OK);
       REQUIRE(val != nullptr);
       CHECK(printer->status == PS_OK);
     }
 
     // second pull (DONE)
     {
-      ps_val_t *val = printer->fn(printer, PS_OK);
+      ps_val_t *val = ps_pull(printer, PS_OK);
       REQUIRE(val == nullptr);
       CHECK(printer->status == PS_DONE);
 

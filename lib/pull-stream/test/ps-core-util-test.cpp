@@ -97,7 +97,7 @@ TEST_CASE("[pull/stream/core] ps_pipeline") {
 
     REQUIRE(s != nullptr);
 
-    ps_val_t *val = s->fn(s, PS_OK);
+    ps_val_t *val = ps_pull(s, PS_OK);
     REQUIRE(val != nullptr);
     CHECK(val->len == 5);
     CHECK(strcmp((char *)val->data, "olleh") == 0);

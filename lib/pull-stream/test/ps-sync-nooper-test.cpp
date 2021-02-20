@@ -13,7 +13,7 @@ TEST_CASE("[pull/stream] noop through stream") {
     nop3->source = nop2;
 
     // call fn without setting up the source
-    ps_val_t *v = nop3->fn(nop3, PS_OK);
+    ps_val_t *v = ps_pull(nop3, PS_OK);
     REQUIRE(v == nullptr);
 
     // ensure the error propagates down
@@ -39,7 +39,7 @@ TEST_CASE("[pull/stream] noop through stream") {
 
     // pull with OK
     {
-      ps_val_t *v = nop3->fn(nop3, PS_OK);
+      ps_val_t *v = ps_pull(nop3, PS_OK);
       REQUIRE(v != nullptr);
       ps_destroy(v);
       CHECK(counter->status == PS_OK);
@@ -50,7 +50,7 @@ TEST_CASE("[pull/stream] noop through stream") {
 
     // pull with ERR
     {
-      ps_val_t *v = nop3->fn(nop3, PS_ERR);
+      ps_val_t *v = ps_pull(nop3, PS_ERR);
       REQUIRE(v == nullptr);
       // ensure the error propagates up
       CHECK(counter->status == PS_ERR);

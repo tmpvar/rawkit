@@ -10,7 +10,7 @@ typedef struct multiplier_t {
 } multiplier_t;
 
 static ps_val_t *multiplier_cb(ps_t *base, ps_stream_status status) {
-  ps_val_t *input = ps_pull(base, status);
+  ps_val_t *input = ps__pull_from_source(base, status);
   if (!input) {
     return NULL;
   }

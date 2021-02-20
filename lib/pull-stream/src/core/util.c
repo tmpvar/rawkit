@@ -70,9 +70,9 @@ ps_stream_status _ps_status(ps_handle_t *h, ps_stream_status status) {
 }
 
 
-// NOTE: this is used internally for pulling values into a sink
-// TODO: rename this - it used to be called pull_through
-ps_val_t *ps_pull(ps_t* s, ps_stream_status status) {
+// NOTE: this is used internally for pulling values into a sink while
+//       maintaining the stream status
+ps_val_t *ps__pull_from_source(ps_t* s, ps_stream_status status) {
   if (ps_status(s, status)) {
     return NULL;
   }
@@ -82,10 +82,19 @@ ps_val_t *ps_pull(ps_t* s, ps_stream_status status) {
     return NULL;
   }
 
-  ps_val_t* v = s->source->fn(s->source, status);
+  ps_val_t* v = ps_pull(s->source, status);
   ps_status(s, s->source->status);
 
   return v;
+}
+
+// Blindly pull from the stream
+ps_val_t *ps_pull(ps_t *s, ps_stream_status status) {
+  if (!s || !s->fn) {
+    return NULL;
+  }
+
+  return s->fn(s, status);
 }
 
 void _ps_destroy(ps_handle_t **p) {

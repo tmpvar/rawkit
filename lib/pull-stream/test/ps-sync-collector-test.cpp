@@ -8,7 +8,7 @@ TEST_CASE("[pull/stream] collector through stream") {
     ps_t *collector = create_collector();
     REQUIRE(collector != nullptr);
     CHECK(collector->status == PS_OK);
-    ps_val_t *val = collector->fn(collector, PS_OK);
+    ps_val_t *val = ps_pull(collector, PS_OK);
     REQUIRE(val == nullptr);
     CHECK(collector->status == PS_ERR);
     ps_destroy(val);
@@ -28,13 +28,13 @@ TEST_CASE("[pull/stream] collector through stream") {
     // drain the queue
     ps_val_t *val = NULL;
     for (unsigned int i=1; i<=5; i++) {
-      val = collector->fn(collector, PS_OK);
+      val = ps_pull(collector, PS_OK);
       REQUIRE(val == nullptr);
       CHECK(collector->status == PS_OK);
     }
 
     // pull the full packet
-    val = collector->fn(collector, PS_OK);
+    val = ps_pull(collector, PS_OK);
     REQUIRE(val != nullptr);
     CHECK(val->len == (sizeof(uint64_t) * 5));
     uint64_t *values = (uint64_t *)val->data;
@@ -48,7 +48,7 @@ TEST_CASE("[pull/stream] collector through stream") {
     ps_destroy(val);
 
     // pull after done..
-    val = collector->fn(collector, PS_OK);
+    val = ps_pull(collector, PS_OK);
     REQUIRE(val == nullptr);
     CHECK(collector->status == PS_DONE);
 
