@@ -114,6 +114,9 @@ JitJob *JitJob::create(int argc, const char **argv) {
       );
     }
     catch (fs::filesystem_error) {
+      job->guest_include_dir = fs::canonical(
+        fs::path(job->path).remove_filename() / ".." / "install" / "include"
+      );
     }
   }
 

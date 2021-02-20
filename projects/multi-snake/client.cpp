@@ -5,6 +5,7 @@
 using namespace glm;
 
 #include "context-2d.h"
+#include "tcp.h"
 
 #include "shared.h"
 
@@ -42,11 +43,17 @@ struct State {
   u32 ticker;
 
   Apple *apples;
+  TCPClient *client;
 };
 
 void setup() {
   State *state = rawkit_hot_state("state", State);
 
+  if (!state->client) {
+    printf("here\n");
+    state->client = new TCPClient("127.0.0.1", 3030);
+    printf("and here\n");
+  }
 
   if (!sb_count(state->snakes)) {
     Snake a = {};
@@ -71,6 +78,29 @@ void setup() {
 }
 
 void loop() {
+  State *state = rawkit_hot_state("state", State);
+  state->ticker++;
+  igShowDemoWindow(0);
+
+  // service the tcp connection
+  {
+    i32 sentinel = 10000;
+    ps_val_t *val = nullptr;
+    while (sentinel--) {
+      val = state->client->read();
+      if (!val) {
+        break;
+      }
+
+      ps_destroy(val);
+    };
+
+    const char *str = "tick";
+    state->client->write_copy((const u8 *)str, strlen(str));
+  }
+
+
+
   rawkit_cpu_buffer_t *grid_buf = rawkit_cpu_buffer("grid_buf", grid_dims.x * grid_dims.y * sizeof(Cell));
   rawkit_texture_t *grid_tex = rawkit_texture_mem(
     "grid_tex",
@@ -101,9 +131,6 @@ void loop() {
     false
   );
 
-  State *state = rawkit_hot_state("state", State);
-  state->ticker++;
-  igShowDemoWindow(0);
 
   // inputs
   {
@@ -214,7 +241,6 @@ void loop() {
       Color color = state->snakes[sidx].color;
 
       {
-
         vec2 head = glm::mod(state->snakes[sidx].head, vec2(grid_dims));
         u32 p = u32(head.x + head.y * grid_dims.x);
         Cell *cell = &((Cell *)grid_buf->data)[p];
