@@ -103,12 +103,18 @@ struct TCPClient {
   }
 };
 
-class TCPServer {
+
+
+struct TCPServer {
   uv_loop_t *loop = nullptr;
   uv_tcp_t server;
   struct sockaddr_in addr;
   bool error = false;
   uv_tcp_t **clients = nullptr;
+
+  u64 bytes_sent = 0;
+  u64 bytes_recv = 0;
+
   typedef struct {
     uv_write_t req;
     uv_buf_t buf;
@@ -120,7 +126,7 @@ class TCPServer {
       uv_tcp_init(loop, &server);
       uv_ip4_addr("0.0.0.0", port, &addr);
       uv_tcp_bind(&server, (const struct sockaddr*)&addr, 0);
-      server.data = this;
+      this->server.data = this;
       int r = uv_listen(
         (uv_stream_t*)&server,
         5, // backlog
@@ -139,7 +145,10 @@ class TCPServer {
 
       for (u32 i=0; i<c; i++){
         uv_close((uv_handle_t *)this->clients[i], nullptr);
+        this->clients[i] = nullptr;
       }
+      sb_free(this->clients);
+      this->clients = nullptr;
     }
 
     static void on_new_connection(uv_stream_t *server, int status) {
@@ -153,9 +162,11 @@ class TCPServer {
 
       TCPServer *that = (TCPServer *)server->data;
 
-      uv_tcp_t *client = (uv_tcp_t*) malloc(sizeof(uv_tcp_t));
+      uv_tcp_t *client = (uv_tcp_t*) calloc(sizeof(uv_tcp_t), 1);
       uv_tcp_init(that->loop, client);
+
       if (uv_accept(server, (uv_stream_t*) client) == 0) {
+        client->data = (void *)that;
         sb_push(that->clients, client);
         uv_read_start((uv_stream_t*) client, TCPServer::alloc_buffer, TCPServer::read);
       } else {
@@ -173,13 +184,37 @@ class TCPServer {
     }
 
     static void on_close(uv_handle_t* handle) {
+      if (!handle || !handle->data) {
+        return;
+      }
+
+      TCPServer *that = (TCPServer *)handle->data;
+      if (that->clients == nullptr) {
+        printf("that->clients == nullptr\n");
+        return;
+      }
+      u32 c = sb_count(that->clients);
+      if (c == 1) {
+        sb_reset(that->clients);
+      } else {
+        for (u32 i=0; i<c; i++) {
+          if (that->clients[i] == (uv_tcp_t *)handle) {
+            that->clients[i] = sb_last(that->clients);
+            stb__sbn(that->clients)--;
+            break;
+          }
+        }
+      }
+
       free(handle);
     }
 
     static void read(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
+      TCPServer *that = (TCPServer *)client->data;
       if (nread > 0) {
         write_req_t *req = (write_req_t*) malloc(sizeof(write_req_t));
         req->buf = uv_buf_init(buf->base, static_cast<unsigned int>(nread));
+        that->bytes_recv += nread;
 
         uv_write((uv_write_t*) req, client, &req->buf, 1, TCPServer::write);
         return;
@@ -195,11 +230,14 @@ class TCPServer {
     }
 
     static void write(uv_write_t *req, int status) {
+      write_req_t *wr = (write_req_t*) req;
       if (status) {
         fprintf(stderr, "Write error %s\n", uv_strerror(status));
-      }
+      } else {
 
-      write_req_t *wr = (write_req_t*) req;
+        TCPServer *that = (TCPServer *)wr->req.handle->data;
+        that->bytes_sent += wr->buf.len;
+      }
       free(wr->buf.base);
       free(wr);
     }
