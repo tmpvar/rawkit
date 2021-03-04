@@ -50,15 +50,13 @@ void setup() {
   State *state = rawkit_hot_state("state", State);
 
   if (!state->client) {
-    printf("here\n");
     state->client = new TCPClient("127.0.0.1", 3030);
-    printf("and here\n");
   }
 
   if (!sb_count(state->snakes)) {
     Snake a = {};
     a.length = 10;
-    a.color = rgb(0xFF, 0xFF, 0xFF);
+    a.color = rgb(0xFFFFFF);
     sb_push(state->snakes, a);
   }
 
