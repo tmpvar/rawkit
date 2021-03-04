@@ -12,6 +12,7 @@ set(LLVM_SEARCH_PATHS
   "/usr/local/opt/llvm/lib/cmake/clang"
   # ubuntu llvm@10
   /usr/lib/llvm-10
+  /usr/lib/cmake/llvm
 )
 
 
@@ -153,12 +154,8 @@ else()
   target_link_libraries(${PROJECT_NAME}
     PRIVATE
       LLVM
-
-      clangBasic
-      clangCodeGen
-      clangDriver
-      clangFrontend
-      clangSerialization
+      clang
+      clang-cpp
   )
 endif()
 

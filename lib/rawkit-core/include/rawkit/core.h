@@ -54,6 +54,12 @@ typedef uint64_t  u64;
 typedef float     f32;
 typedef double    f64;
 
+#ifndef __cplusplus
+  #define min(a, b) a<b?a:b
+  #define max(a, b) a>b?a:b
+#endif
+
+
 #ifdef __cplusplus
   }
 #endif

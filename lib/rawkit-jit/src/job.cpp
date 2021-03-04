@@ -164,6 +164,21 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
   #ifdef __linux__
     Args.push_back("-I/home/tmpvar/llvm/lib/clang/10.0.1/include/");
+
+    // find the clang include path
+    for (auto &p : fs::directory_iterator("/usr/lib/clang/")) {
+      string strp = p.path().string();
+      if (!p.is_directory()) {
+        continue;
+      }
+
+      if (strp.find("11.") == string::npos) {
+        continue;
+      }
+      printf("ADD: %s\n", strp.c_str());
+      job->system_include = string("-I") + strp + "/include";
+      break;
+    }
   #endif
 
   #ifdef __APPLE__

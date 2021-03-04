@@ -9,8 +9,8 @@ TEST_CASE("[rawkit/core] resource sources (no deps)") {
 
 TEST_CASE("[rawkit/core] resource sources (null dep)") {
   rawkit_resource_t res = {};
-  CHECK(rawkit_resource_sources(&res, NULL, NULL, NULL) == false);
-  CHECK(rawkit_resource_sources(&res, NULL, NULL, NULL) == false);
+  CHECK(rawkit_resource_sources(&res, nullptr, nullptr, nullptr) == false);
+  CHECK(rawkit_resource_sources(&res, nullptr, nullptr, nullptr) == false);
 }
 
 TEST_CASE("[rawkit/core] resource sources (self reference)") {
