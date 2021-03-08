@@ -16,6 +16,10 @@ set(LLVM_SEARCH_PATHS
   /usr/lib/cmake
 )
 
+# DEP: rawkit-core (sibling)
+if (NOT TARGET rawkit::core)
+  add_subdirectory(../rawkit-core deps/rawkit-core)
+endif()
 
 find_library(found_LLVM LLVM HINTS ${LLVM_SEARCH_PATHS})
 find_package(LLVM REQUIRED CONFIG
@@ -159,6 +163,11 @@ else()
       clang-cpp
   )
 endif()
+
+target_link_libraries(${PROJECT_NAME}
+  PRIVATE
+    rawkit::core
+)
 
 # Install
 install(

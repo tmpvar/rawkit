@@ -16,12 +16,15 @@
   #include <clang/Frontend/FrontendDiagnostic.h>
   #include <clang/Frontend/TextDiagnosticPrinter.h>
   #include <llvm/ADT/SmallString.h>
+  #include <llvm/CodeGen/CommandFlags.h>
+  #include <llvm/CodeGen/LinkAllCodegenComponents.h>
   #include <llvm/ExecutionEngine/ExecutionEngine.h>
   #include <llvm/ExecutionEngine/Orc/CompileUtils.h>
   #include <llvm/ExecutionEngine/Orc/ExecutionUtils.h>
   #include <llvm/ExecutionEngine/Orc/IRCompileLayer.h>
   #include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
   #include <llvm/ExecutionEngine/SectionMemoryManager.h>
+  #include <llvm/ExecutionEngine/JITEventListener.h>
   #include <llvm/IR/DataLayout.h>
   #include <llvm/IR/Mangler.h>
   #include <llvm/IR/Module.h>

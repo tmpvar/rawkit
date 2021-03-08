@@ -1,3 +1,4 @@
+#include <rawkit/core.h>
 #include <rawkit-jit-internal.h>
 #include <whereami.c>
 
@@ -188,7 +189,6 @@ JitJob *JitJob::create(int argc, const char **argv) {
       if (strp.find("11.") == string::npos) {
         continue;
       }
-      printf("ADD: %s\n", strp.c_str());
       job->system_include = string("-I") + strp + "/include";
       break;
     }
@@ -209,7 +209,16 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
   Args.push_back("-fsyntax-only");
   Args.push_back("-fno-builtin");
-  Args.push_back("-O3");
+
+
+  // TODO: this should be configurable either from command line
+  if (rawkit_is_debugger_attached()) {
+    Args.push_back("-O0");
+    Args.push_back("-g");
+  } else {
+    Args.push_back("-O3");
+  }
+  Args.push_back("-v");
 
   /*
   Args.push_back("-fsyntax-only");

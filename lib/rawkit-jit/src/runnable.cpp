@@ -1,3 +1,6 @@
+#include <cstddef>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
 #include <rawkit-jit-internal.h>
 
 #include "llvm/Support/raw_ostream.h"
@@ -233,17 +236,32 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
     return objectLayer;
   };
 
-  auto jit = LLJITBuilder()
-      .setJITTargetMachineBuilder(std::move(*JTMB))
-      .setObjectLinkingLayerCreator(objectLinkingLayerCreator)
-      .create();
+  orc::LLLazyJITBuilder Builder;
+  Builder.setJITTargetMachineBuilder(std::move(*JTMB));
+  Builder.setObjectLinkingLayerCreator(objectLinkingLayerCreator);
+
+  Builder.getJITTargetMachineBuilder()
+      ->setCPU(codegen::getCPUStr())
+      .addFeatures(codegen::getFeatureList())
+      .setRelocationModel(codegen::getExplicitRelocModel())
+      .setCodeModel(codegen::getExplicitCodeModel());
+
+  Builder.setNumCompileThreads(4);
+  auto jit = EOE(Builder.create());
 
   if (!jit) {
     printf("could not create LLJIT\n");
     return nullptr;
   }
 
-  run->jit.reset(std::move(jit.get().release()));
+
+
+  auto *ObjLayer = &jit->getObjLinkingLayer();
+  auto *RTDyldObjLayer = (orc::RTDyldObjectLinkingLayer *)ObjLayer;
+  RTDyldObjLayer->registerJITEventListener(
+    *JITEventListener::createGDBRegistrationListener()
+  );
+  run->jit.reset(jit.release());
 
   Profiler symbol_timer("Runnable : export symbols");
 
@@ -393,12 +411,12 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
       return nullptr;
     }
   }
+
+  // run constructors
+  run->jit->initialize(run->jit->getMainJITDylib());
+
   setup_main_timer.end();
 
-  //if (run->jit->runConstructors()) {
-  //  printf("ERROR: could not run constructors\n");
-  //  return nullptr;
-  //}
   return run;
 }
 

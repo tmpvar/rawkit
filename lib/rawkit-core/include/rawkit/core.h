@@ -34,6 +34,8 @@ typedef struct rawkit_resource_t {
 bool _rawkit_resource_sources(rawkit_resource_t *res, uint32_t source_count, ...);
 bool rawkit_resource_sources_array(rawkit_resource_t *res, uint32_t source_count, rawkit_resource_t **sources);
 
+bool rawkit_is_debugger_attached();
+
 #define rawkit_resource_ptr_list rawkit_resource_t **
 #define rawkit_resource_sources(resource, ...) \
   _rawkit_resource_sources( \
