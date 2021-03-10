@@ -9,7 +9,7 @@ class Color {
     NVGcolor value;
 };
 
-Color rgb(float r, float g, float b, float a = 1.0f) {
+Color rgbf(float r, float g, float b, float a = 1.0f) {
   Color ret = {
     .value = rawkit_vg_RGBAf(r, g, b, a)
   };

@@ -125,34 +125,52 @@ static void CleanupVulkanWindow(rawkit_gpu_t *gpu)
     ImGui_ImplVulkanH_DestroyWindow(gpu->instance, gpu->device, &g_MainWindowData, gpu->allocator);
 }
 
-static void BeginMainRenderPass(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd) {
+static VkResult BeginMainRenderPass(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd) {
     VkResult err;
 
     VkSemaphore image_acquired_semaphore  = wd->FrameSemaphores[wd->SemaphoreIndex].ImageAcquiredSemaphore;
     VkSemaphore render_complete_semaphore = wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
     err = vkAcquireNextImageKHR(gpu->device, wd->Swapchain, UINT64_MAX, image_acquired_semaphore, VK_NULL_HANDLE, &wd->FrameIndex);
     if (err < 0) {
-      check_vk_result(err);
+      printf("rawkit::BeginMainRenderPass: unable to acquire next image (%i)\n", err);
+      g_SwapChainRebuild = false;
+      ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
+      ImGui_ImplVulkanH_CreateWindow(gpu->instance, gpu->physical_device, gpu->device, &g_MainWindowData, gpu->graphics_queue_family_index, gpu->allocator, g_SwapChainResizeWidth, g_SwapChainResizeHeight, g_MinImageCount);
+      g_MainWindowData.FrameIndex = 0;
+      return BeginMainRenderPass(gpu, wd);
     }
 
     ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
     {
         err = vkWaitForFences(gpu->device, 1, &fd->Fence, VK_TRUE, UINT64_MAX);    // wait indefinitely instead of periodically checking
-        check_vk_result(err);
+        if (err) {
+          printf("rawkit::BeginMainRenderPass: vkWaitForFences failed\n");
+          return err;
+        }
 
         err = vkResetFences(gpu->device, 1, &fd->Fence);
-        check_vk_result(err);
+        if (err) {
+          printf("rawkit::BeginMainRenderPass: vkResetFences failed\n");
+          return err;
+        }
     }
     {
         gpu->command_pool = fd->CommandPool;
         err = vkResetCommandPool(gpu->device, fd->CommandPool, 0);
-        check_vk_result(err);
+        if (err) {
+          printf("rawkit::BeginMainRenderPass: vkResetCommandPool failed\n");
+          return err;
+        }
 
         VkCommandBufferBeginInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         err = vkBeginCommandBuffer(fd->CommandBuffer, &info);
-        check_vk_result(err);
+        if (err) {
+          printf("rawkit::BeginMainRenderPass: vkBeginCommandBuffer failed\n");
+          return err;
+        }
+
     }
     {
         VkRenderPassBeginInfo info = {};
@@ -165,26 +183,37 @@ static void BeginMainRenderPass(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd)
         info.pClearValues = wd->ClearValue;
         vkCmdBeginRenderPass(fd->CommandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
     }
+    return VK_SUCCESS;
 }
 
-static void EndMainRenderPass(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd) {
+static void EndMainRenderPass(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd, VkResult renderpass_err) {
   VkResult err;
   VkSemaphore image_acquired_semaphore  = wd->FrameSemaphores[wd->SemaphoreIndex].ImageAcquiredSemaphore;
   VkSemaphore render_complete_semaphore = wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
   ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
+  if (renderpass_err) {
+    return;
+  }
+
   // Submit command buffer
-  vkCmdEndRenderPass(fd->CommandBuffer);
+  if (!renderpass_err) {
+    vkCmdEndRenderPass(fd->CommandBuffer);
+  }
+
   {
     VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    info.waitSemaphoreCount = 1;
-    info.pWaitSemaphores = &image_acquired_semaphore;
-    info.pWaitDstStageMask = &wait_stage;
     info.commandBufferCount = 1;
     info.pCommandBuffers = &fd->CommandBuffer;
-    info.signalSemaphoreCount = 1;
-    info.pSignalSemaphores = &render_complete_semaphore;
+    info.pWaitDstStageMask = &wait_stage;
+
+    if (!renderpass_err) {
+      info.waitSemaphoreCount = 1;
+      info.pWaitSemaphores = &image_acquired_semaphore;
+      info.signalSemaphoreCount = 1;
+      info.pSignalSemaphores = &render_complete_semaphore;
+    }
 
     err = vkEndCommandBuffer(fd->CommandBuffer);
     check_vk_result(err);
@@ -204,7 +233,9 @@ static void FramePresent(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd)
     info.pSwapchains = &wd->Swapchain;
     info.pImageIndices = &wd->FrameIndex;
     VkResult err = vkQueuePresentKHR(gpu->graphics_queue, &info);
-    check_vk_result(err);
+    if (err) {
+      printf("rawkit::FramePresent: vkQueuePresent failed\n");
+    }
     wd->SemaphoreIndex = (wd->SemaphoreIndex + 1) % wd->ImageCount; // Now we can use the next set of semaphores
 }
 
@@ -637,9 +668,9 @@ int main(int argc, char **argv) {
 
         // Start the Dear ImGui frame
         ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
 
-        BeginMainRenderPass(gpu, wd);
+        VkResult render_pass_err = BeginMainRenderPass(gpu, wd);
+        ImGui::NewFrame();
         if (!g_RawkitVG)
         {
           g_RawkitVG = rawkit_vg(
@@ -719,7 +750,7 @@ int main(int argc, char **argv) {
         // Record dear imgui primitives into command buffer
         ImGui_ImplVulkan_RenderDrawData(draw_data, fd->CommandBuffer);
 
-        EndMainRenderPass(gpu, wd);
+        EndMainRenderPass(gpu, wd, render_pass_err);
         // TODO: this is silly. use glfwGetWindowAttrib(window, GLFW_ICONIFIED);
         const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
         if (!is_minimized) {
