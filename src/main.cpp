@@ -553,13 +553,6 @@ int main(int argc, char **argv) {
 
     rawkit_set_default_gpu(gpu);
 
-    g_RawkitVG = rawkit_vg(
-      gpu,
-      rawkit_vulkan_renderpass(),
-      "default",
-      nullptr
-    );
-
     // Our state
     bool show_demo_window = true;
     bool show_another_window = false;
@@ -570,6 +563,7 @@ int main(int argc, char **argv) {
     int32_t prev_x = 0;
     int32_t prev_y = 0;
     bool fullscreen = false;
+
     // Main loop
     while (!glfwWindowShouldClose(window)) {
         // Poll and handle events (inputs, window resize, etc.)
@@ -634,12 +628,11 @@ int main(int argc, char **argv) {
         }
 
         // Resize swap chain?
-        if (g_SwapChainRebuild && g_SwapChainResizeWidth > 0 && g_SwapChainResizeHeight > 0)
-        {
-            g_SwapChainRebuild = false;
-            ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
-            ImGui_ImplVulkanH_CreateWindow(gpu->instance, gpu->physical_device, gpu->device, &g_MainWindowData, gpu->graphics_queue_family_index, gpu->allocator, g_SwapChainResizeWidth, g_SwapChainResizeHeight, g_MinImageCount);
-            g_MainWindowData.FrameIndex = 0;
+        if (g_SwapChainRebuild && g_SwapChainResizeWidth > 0 && g_SwapChainResizeHeight > 0) {
+          g_SwapChainRebuild = false;
+          ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
+          ImGui_ImplVulkanH_CreateWindow(gpu->instance, gpu->physical_device, gpu->device, &g_MainWindowData, gpu->graphics_queue_family_index, gpu->allocator, g_SwapChainResizeWidth, g_SwapChainResizeHeight, g_MinImageCount);
+          g_MainWindowData.FrameIndex = 0;
         }
 
         // Start the Dear ImGui frame
@@ -647,6 +640,14 @@ int main(int argc, char **argv) {
         ImGui::NewFrame();
 
         BeginMainRenderPass(gpu, wd);
+        if (!g_RawkitVG)
+        {
+          g_RawkitVG = rawkit_vg(
+              gpu,
+              rawkit_vulkan_renderpass(),
+              "default",
+              nullptr);
+        }
 
         // show compilation errors
         {

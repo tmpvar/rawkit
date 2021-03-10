@@ -634,7 +634,9 @@ vec3 quadricProj(vec3 osPosition, float voxelSize, mat4 objectToScreenMatrix, ve
     ) / dot(matD[2], matT[2]);
 
     vec4 outPosition = vec4(eqCoefs.x, eqCoefs.y, 0.0, 1.0);
-    vec2 AABB = sqrt(vec2(eqCoefs)*vec2(eqCoefs) - vec2(eqCoefs.z, eqCoefs.w));
+    vec2 AABB = sqrt(
+      vec2(eqCoefs) * vec2(eqCoefs) + vec2(eqCoefs.z, eqCoefs.w)
+    );
     AABB *= screenSize;
     return vec3(
       vec2(outPosition),
@@ -828,7 +830,7 @@ void loop() {
     );
 
     igText("world pos(%f, %f, %f)", brick->pos.x, brick->pos.y, brick->pos.z);
-    vec4 p = state->scene.worldToScreen * vec4(vec3(brick->pos), 1.0);
+    vec4 p = state->scene.worldToScreen * vec4(vec3(brick->pos), 1.0f);
     igText("screen pos(%f, %f, %f) w=%f", p.x, p.y , p.z, p.w);
     igText("xform pos(%f, %f, %f) w=%f mip=%f", p.x / p.w, p.y / p.w, p.z / p.w, p.w, log2(p.z / p.w * 256.0f));
     igText("max bias pos(%f, %f, %f) mip=%f", p.x / p.w, p.y / p.w, (p.z + p.w) / 2.0f / MAX_DEPTH, log2((p.z + p.w) / 2.0f));

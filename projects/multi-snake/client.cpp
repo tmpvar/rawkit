@@ -81,7 +81,8 @@ void loop() {
   igShowDemoWindow(0);
 
   // service the tcp connection
-  {
+  // TODO: on linux, write_copy causes a crash :(
+  if (0) {
     i32 sentinel = 10000;
     ps_val_t *val = nullptr;
     while (sentinel--) {

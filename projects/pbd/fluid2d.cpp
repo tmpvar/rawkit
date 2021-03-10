@@ -601,7 +601,7 @@ void render_state() {
       state->particleDiameter = state->particleRadius * 2.0f;
     }
   }
-
+  igEnd();
 }
 
 void draw() {
@@ -698,6 +698,7 @@ void loop() {
     double endTime = rawkit_now();
     state->lastTime = endTime;
     igText("sim time %f", endTime - startTime);
+    igEnd();
   }
 
   draw();

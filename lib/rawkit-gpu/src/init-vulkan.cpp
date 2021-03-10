@@ -38,11 +38,26 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo = &app;
 
-    const char* layers[] = { "VK_LAYER_KHRONOS_validation" };
+    {
+      uint32_t layerCount;
+      vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+
+      std::vector<VkLayerProperties> availableLayers(layerCount);
+      vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+      for (auto &layer : availableLayers) {
+        printf("found layer: %s\n", layer.layerName);
+      }
+    }
+
+    vector<const char*> layers = {
+      // "VK_LAYER_LUNARG_api_dump",
+      "VK_LAYER_KHRONOS_validation",
+    };
+
     if (validation) {
       // Enabling multiple validation layers grouped as LunarG standard validation
-      create_info.enabledLayerCount = 1;
-      create_info.ppEnabledLayerNames = layers;
+      create_info.enabledLayerCount = layers.size();
+      create_info.ppEnabledLayerNames = layers.data();
     }
 
     vector<const char *> extensions_ext;

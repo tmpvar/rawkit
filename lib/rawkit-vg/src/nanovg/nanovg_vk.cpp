@@ -490,7 +490,8 @@ VKNVGPipeline *vknvg_createPipeline(VKNVGcontext *vk, VKNVGCreatePipelineKey *pi
   cb.attachmentCount = 1;
   cb.pAttachments = &colorblend;
 
-  VkPipelineViewportStateCreateInfo vp = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+  VkPipelineViewportStateCreateInfo vp = {};
+  vp.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   vp.viewportCount = 1;
   vp.scissorCount = 1;
 
@@ -520,12 +521,17 @@ VKNVGPipeline *vknvg_createPipeline(VKNVGcontext *vk, VKNVGCreatePipelineKey *pi
     shaderStages[1].module = frag_shader_aa;
   }
 
-  VkGraphicsPipelineCreateInfo pipelineCreateInfo = {VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+  VkPipelineTessellationStateCreateInfo     pTessellationState = {};
+  pTessellationState.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
+
+  VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
+  pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   pipelineCreateInfo.layout = pipelineLayout;
   pipelineCreateInfo.stageCount = 2;
   pipelineCreateInfo.pStages = shaderStages;
   pipelineCreateInfo.pVertexInputState = &vi;
   pipelineCreateInfo.pInputAssemblyState = &ia;
+  pipelineCreateInfo.pTessellationState = &pTessellationState;
   pipelineCreateInfo.pRasterizationState = &rs;
   pipelineCreateInfo.pColorBlendState = &cb;
   pipelineCreateInfo.pMultisampleState = &ms;
@@ -555,7 +561,7 @@ VkPipeline vknvg_bindPipeline(VKNVGcontext *vk, VkCommandBuffer cmdBuffer, VKNVG
   }
   return pipeline->pipeline;
 }
-#pragma optimize( "", off )
+
 int vknvg_UpdateTexture(VkDevice device, VKNVGtexture *tex, int dx, int dy, int w, int h, const unsigned char *data) {
   VkMemoryRequirements mem_reqs;
   vkGetImageMemoryRequirements(device, tex->resource->image, &mem_reqs);

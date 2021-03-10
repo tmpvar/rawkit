@@ -701,7 +701,7 @@ igShowDemoWindow(0);
 
   ImVec2 size = {110, 30};
   rebuild_world = rebuild_world || igButton("rebuild world", size);
-
+  igEnd();
   rawkit_texture_t *blue_noise = rawkit_texture("blue-noise-ldr.png");
 
   rawkit_texture_t *world_texture = rawkit_texture_mem(
