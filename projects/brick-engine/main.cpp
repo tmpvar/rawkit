@@ -116,8 +116,6 @@ struct Object {
 
 };
 
-
-
 VkResult rawkit_gpu_buffer_map(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *dst, VkDeviceSize offset, VkDeviceSize size, std::function<void(void *buf)> cb) {
   void *ptr;
   VkResult err = vkMapMemory(
@@ -485,7 +483,9 @@ struct DepthPyramid {
 
       sledgehammer_buffer_sync(visibility.index->buffer, inst->command_buffer);
       sledgehammer_buffer_sync(visibility.count->buffer, inst->command_buffer);
-      sledgehammer_buffer_sync(world->brick_ssbo->buffer, inst->command_buffer);
+      if (world->brick_ssbo) { 
+        sledgehammer_buffer_sync(world->brick_ssbo->buffer, inst->command_buffer);
+      }
 
       rawkit_shader_instance_param_ubo(inst, "DepthPyramidUBO", &constants);
       rawkit_shader_instance_param_ubo(inst, "UBO", scene);

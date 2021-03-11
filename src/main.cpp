@@ -100,7 +100,6 @@ static void SetupVulkanWindow(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd, V
   #endif
     wd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(gpu->physical_device, wd->Surface, &present_modes[0], IM_ARRAYSIZE(present_modes));
     //printf("[vulkan] Selected PresentMode = %d\n", wd->PresentMode);
-
     // Create SwapChain, RenderPass, Framebuffer, etc.
     IM_ASSERT(g_MinImageCount >= 2);
     ImGui_ImplVulkanH_CreateWindow(gpu->instance, gpu->physical_device, gpu->device, wd, gpu->graphics_queue_family_index, gpu->allocator, width, height, g_MinImageCount);
@@ -125,19 +124,39 @@ static void CleanupVulkanWindow(rawkit_gpu_t *gpu)
     ImGui_ImplVulkanH_DestroyWindow(gpu->instance, gpu->device, &g_MainWindowData, gpu->allocator);
 }
 
-static VkResult BeginMainRenderPass(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd) {
+void ResizeSwapChain(rawkit_gpu_t *gpu) {
+  if (g_SwapChainRebuild && g_SwapChainResizeWidth > 0 && g_SwapChainResizeHeight > 0) {
+    g_SwapChainRebuild = false;
+    ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
+    ImGui_ImplVulkanH_CreateWindow(
+      gpu->instance,
+      gpu->physical_device,
+      gpu->device,
+      &g_MainWindowData,
+      gpu->graphics_queue_family_index,
+      gpu->allocator,
+      g_SwapChainResizeWidth,
+      g_SwapChainResizeHeight,
+      g_MinImageCount
+    );
+    g_MainWindowData.FrameIndex = 0;
+  }
+}
+
+static VkResult BeginMainRenderPass(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd, int depth = 0) {
     VkResult err;
 
     VkSemaphore image_acquired_semaphore  = wd->FrameSemaphores[wd->SemaphoreIndex].ImageAcquiredSemaphore;
     VkSemaphore render_complete_semaphore = wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
-    err = vkAcquireNextImageKHR(gpu->device, wd->Swapchain, UINT64_MAX, image_acquired_semaphore, VK_NULL_HANDLE, &wd->FrameIndex);
+    err = vkAcquireNextImageKHR(gpu->device, wd->Swapchain, UINT64_MAX-1, image_acquired_semaphore, VK_NULL_HANDLE, &wd->FrameIndex);
     if (err < 0) {
-      printf("rawkit::BeginMainRenderPass: unable to acquire next image (%i)\n", err);
-      g_SwapChainRebuild = false;
-      ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
-      ImGui_ImplVulkanH_CreateWindow(gpu->instance, gpu->physical_device, gpu->device, &g_MainWindowData, gpu->graphics_queue_family_index, gpu->allocator, g_SwapChainResizeWidth, g_SwapChainResizeHeight, g_MinImageCount);
-      g_MainWindowData.FrameIndex = 0;
-      return BeginMainRenderPass(gpu, wd);
+      printf("\e[0;31m" "rawkit::BeginMainRenderPass: unable to acquire next image (%i)\n" "\e[0m", err);
+      // Resize swap chain
+      ResizeSwapChain(gpu);
+      if (depth > 1) {
+        return err;
+      }
+      return BeginMainRenderPass(gpu, wd, depth+1);
     }
 
     ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
@@ -518,6 +537,7 @@ int main(int argc, char **argv) {
 
     // Setup Platform/Renderer bindings
     ImGui_ImplGlfw_InitForVulkan(window, true);
+
     ImGui_ImplVulkan_InitInfo init_info = {};
     init_info.Instance = gpu->instance;
     init_info.PhysicalDevice = gpu->physical_device;
@@ -532,6 +552,7 @@ int main(int argc, char **argv) {
     init_info.CheckVkResultFn = [](VkResult err) {
       check_vk_result(err);
     };
+
 
     ImGui_ImplVulkan_Init(&init_info, wd->RenderPass);
 
@@ -554,8 +575,6 @@ int main(int argc, char **argv) {
     {
         // Use any command queue
         VkCommandPool command_pool = wd->Frames[wd->FrameIndex].CommandPool;
-        gpu->command_pool = command_pool;
-
         VkCommandBuffer command_buffer = wd->Frames[wd->FrameIndex].CommandBuffer;
 
         err = vkResetCommandPool(gpu->device, command_pool, 0);
@@ -582,6 +601,9 @@ int main(int argc, char **argv) {
         ImGui_ImplVulkan_DestroyFontUploadObjects();
     }
 
+
+    gpu->command_pool = wd->Frames[0].CommandPool;
+    printf("set default gpu pool(%p)\n", gpu->command_pool);
     rawkit_set_default_gpu(gpu);
 
     // Our state
@@ -658,18 +680,14 @@ int main(int argc, char **argv) {
           }
         }
 
-        // Resize swap chain?
-        if (g_SwapChainRebuild && g_SwapChainResizeWidth > 0 && g_SwapChainResizeHeight > 0) {
-          g_SwapChainRebuild = false;
-          ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
-          ImGui_ImplVulkanH_CreateWindow(gpu->instance, gpu->physical_device, gpu->device, &g_MainWindowData, gpu->graphics_queue_family_index, gpu->allocator, g_SwapChainResizeWidth, g_SwapChainResizeHeight, g_MinImageCount);
-          g_MainWindowData.FrameIndex = 0;
-        }
-
         // Start the Dear ImGui frame
         ImGui_ImplGlfw_NewFrame();
 
         VkResult render_pass_err = BeginMainRenderPass(gpu, wd);
+        if (render_pass_err) {
+          continue;
+        }
+
         ImGui::NewFrame();
         if (!g_RawkitVG)
         {

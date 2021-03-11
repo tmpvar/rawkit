@@ -211,14 +211,14 @@ JitJob *JitJob::create(int argc, const char **argv) {
   Args.push_back("-fno-builtin");
 
 
-  // TODO: this should be configurable either from command line
+  // TODO: this should be configurable from command line
   if (rawkit_is_debugger_attached()) {
     Args.push_back("-O0");
     Args.push_back("-g");
   } else {
     Args.push_back("-O3");
   }
-  Args.push_back("-v");
+  // Args.push_back("-v");
 
   /*
   Args.push_back("-fsyntax-only");

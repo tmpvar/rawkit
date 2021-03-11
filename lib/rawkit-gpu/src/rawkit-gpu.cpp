@@ -480,6 +480,8 @@ void rawkit_gpu_tick(rawkit_gpu_t *gpu) {
     switch (res) {
       case VK_SUCCESS:
         {
+          printf("\e[0;31m" "vkFreeCommandBuffers: buffer(%p) pool(%p) gpu->pool(%p)\n" "\e[0m", buffer.handle, buffer.pool, gpu->command_pool);
+
           vkFreeCommandBuffers(
             gpu->device,
             buffer.pool,
@@ -513,12 +515,19 @@ void rawkit_gpu_queue_command_buffer_for_deletion(rawkit_gpu_t *gpu, VkCommandBu
     return;
   }
 
+  printf("\e[0;33m" "queue_command_buffer_for_deletion: buffer(%p) pool(%p) gpu->pool(%p)\n" "\e[0m", buffer, pool, gpu->command_pool);
+
   GPUState *state = (GPUState *)gpu->_state;
   GPUCommandBuffer b = {};
   b.handle = buffer;
   b.fence = fence;
   b.pool = pool;
   state->completed_command_buffers.push_back(b);
+
+  printf("completed command buffers\n");
+  for (auto &b : state->completed_command_buffers) {
+    printf("  \e[0;33m" "buffer(%p) pool(%p)\n" "\e[0m", b.handle, b.pool);
+  }
 }
 
 uint32_t rawkit_gpu_get_tick_idx(rawkit_gpu_t *gpu) {
