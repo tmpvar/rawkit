@@ -8,8 +8,6 @@ void host_croaring_init(rawkit_jit_t  *jit) {
   rawkit_jit_add_export(jit, "roaring_bitmap_from_range", roaring_bitmap_from_range);
   rawkit_jit_add_export(jit, "roaring_bitmap_create_with_capacity", roaring_bitmap_create_with_capacity);
   rawkit_jit_add_export(jit, "roaring_bitmap_of_ptr", roaring_bitmap_of_ptr);
-  rawkit_jit_add_export(jit, "roaring_bitmap_get_copy_on_write", roaring_bitmap_get_copy_on_write);
-  rawkit_jit_add_export(jit, "roaring_bitmap_set_copy_on_write", roaring_bitmap_set_copy_on_write);
   rawkit_jit_add_export(jit, "roaring_bitmap_printf_describe", roaring_bitmap_printf_describe);
   rawkit_jit_add_export(jit, "roaring_bitmap_of", roaring_bitmap_of);
   rawkit_jit_add_export(jit, "roaring_bitmap_copy", roaring_bitmap_copy);
@@ -37,15 +35,12 @@ void host_croaring_init(rawkit_jit_t  *jit) {
   rawkit_jit_add_export(jit, "roaring_bitmap_add", roaring_bitmap_add);
   rawkit_jit_add_export(jit, "roaring_bitmap_add_checked", roaring_bitmap_add_checked);
   rawkit_jit_add_export(jit, "roaring_bitmap_add_range_closed", roaring_bitmap_add_range_closed);
-  rawkit_jit_add_export(jit, "roaring_bitmap_add_range", roaring_bitmap_add_range);
   rawkit_jit_add_export(jit, "roaring_bitmap_add_range_closed", roaring_bitmap_add_range_closed);
   rawkit_jit_add_export(jit, "roaring_bitmap_remove", roaring_bitmap_remove);
   rawkit_jit_add_export(jit, "roaring_bitmap_remove_range_closed", roaring_bitmap_remove_range_closed);
-  rawkit_jit_add_export(jit, "roaring_bitmap_remove_range", roaring_bitmap_remove_range);
   rawkit_jit_add_export(jit, "roaring_bitmap_remove_range_closed", roaring_bitmap_remove_range_closed);
   rawkit_jit_add_export(jit, "roaring_bitmap_remove_many", roaring_bitmap_remove_many);
   rawkit_jit_add_export(jit, "roaring_bitmap_remove_checked", roaring_bitmap_remove_checked);
-  rawkit_jit_add_export(jit, "roaring_bitmap_contains", roaring_bitmap_contains);
   rawkit_jit_add_export(jit, "roaring_bitmap_contains_range", roaring_bitmap_contains_range);
   rawkit_jit_add_export(jit, "roaring_bitmap_get_cardinality", roaring_bitmap_get_cardinality);
   rawkit_jit_add_export(jit, "roaring_bitmap_range_cardinality", roaring_bitmap_range_cardinality);

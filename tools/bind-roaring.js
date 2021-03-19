@@ -8,7 +8,8 @@ const outLines = lines.map(line => {
     line.includes(' * ') ||
     line.includes('/*') ||
     line.includes('static ') ||
-    line.includes('//')
+    line.includes('//') ||
+    line.includes('inline ')
   ) {
     return false
   }
