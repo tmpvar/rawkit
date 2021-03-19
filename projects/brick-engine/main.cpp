@@ -1,5 +1,3 @@
-#define GLM_FORCE_SWIZZLE
-
 #include <rawkit/rawkit.h>
 #include <GLFW/glfw3.h>
 #define CPU_HOST
@@ -613,14 +611,14 @@ vec3 quadricProj(vec3 osPosition, float voxelSize, mat4 objectToScreenMatrix, ve
 {
     const vec4 quadricMat = vec4(1.0, 1.0, 1.0, -1.0);
     float sphereRadius = voxelSize * 1.732051;
-    vec4 sphereCenter = vec4(osPosition.xyz, 1.0);
+    vec4 sphereCenter = vec4(vec3(osPosition), 1.0);
     mat4 modelViewProj = transpose(objectToScreenMatrix);
 
     mat3x4 matT = mat3x4(
       mat3(
-        modelViewProj[0].xyz,
-        modelViewProj[1].xyz,
-        modelViewProj[3].xyz
+        vec3(modelViewProj[0]),
+        vec3(modelViewProj[1]),
+        vec3(modelViewProj[3])
       ) * sphereRadius
     );
     matT[0].w = dot(sphereCenter, modelViewProj[0]);
@@ -636,10 +634,10 @@ vec3 quadricProj(vec3 osPosition, float voxelSize, mat4 objectToScreenMatrix, ve
     ) / dot(matD[2], matT[2]);
 
     vec4 outPosition = vec4(eqCoefs.x, eqCoefs.y, 0.0, 1.0);
-    vec2 AABB = sqrt(eqCoefs.xy*eqCoefs.xy - eqCoefs.zw);
+    vec2 AABB = sqrt(vec2(eqCoefs)*vec2(eqCoefs) - vec2(eqCoefs.z, eqCoefs.w));
     AABB *= screenSize;
     return vec3(
-      outPosition.xy,
+      vec2(outPosition),
       glm::max(AABB.x, AABB.y)
     );
 }
@@ -823,19 +821,20 @@ void loop() {
     Brick *brick = &state->world.objects[0]->bricks[0];
 
     vec3 res = quadricProj(
-      brick->pos.xyz,
+      vec3(brick->pos),
       1.0f,
       state->scene.worldToScreen,
-      state->scene.screen_dims.xy
+      vec2(state->scene.screen_dims)
     );
 
     igText("world pos(%f, %f, %f)", brick->pos.x, brick->pos.y, brick->pos.z);
-    vec4 p = state->scene.worldToScreen * vec4(brick->pos.xyz, 1.0);
+    vec4 p = state->scene.worldToScreen * vec4(vec3(brick->pos), 1.0);
     igText("screen pos(%f, %f, %f) w=%f", p.x, p.y , p.z, p.w);
     igText("xform pos(%f, %f, %f) w=%f mip=%f", p.x / p.w, p.y / p.w, p.z / p.w, p.w, log2(p.z / p.w * 256.0f));
     igText("max bias pos(%f, %f, %f) mip=%f", p.x / p.w, p.y / p.w, (p.z + p.w) / 2.0f / MAX_DEPTH, log2((p.z + p.w) / 2.0f));
 
-    res.xy = res.xy * 0.5f + 0.5f;
+    res.x = res.x * 0.5f + 0.5f;
+    res.y = res.y * 0.5f + 0.5f;
 
     igText("computedRadius: %f (%f, %f); mip: %f",
      res.z, res.x, res.y,
