@@ -9,7 +9,7 @@
 #include <functional>
 using namespace std;
 
-#define ACTIVE_BRICK_COUNT 2000000
+#define ACTIVE_BRICK_COUNT 3000000
 #define CUBE_INDICES_COUNT 18
 #define CUBE_VERTICES_COUNT 8
 #define INDICES_SIZE CUBE_INDICES_COUNT * ACTIVE_BRICK_COUNT * sizeof(uint32_t)
@@ -483,7 +483,7 @@ struct DepthPyramid {
 
       sledgehammer_buffer_sync(visibility.index->buffer, inst->command_buffer);
       sledgehammer_buffer_sync(visibility.count->buffer, inst->command_buffer);
-      if (world->brick_ssbo) { 
+      if (world->brick_ssbo) {
         sledgehammer_buffer_sync(world->brick_ssbo->buffer, inst->command_buffer);
       }
 
@@ -558,11 +558,11 @@ void setup() {
     Object *obj = new Object;
     sprintf(tmp_str, "object#%u", object_id++);
     obj->name.assign(tmp_str);
-    float d = 128.0f;
+    float d = 32.0f;
     float s = 1.0f;
     float diagonal_length = glm::length(vec3(1.0f));
 #if 1
-    for (float y=0.0; y<d*0.5; y++) {
+    for (float y=0.0; y<d*.5; y++) {
       for (float x = 0.0f; x<d; x++) {
         for (float z = 0.0f; z<d; z++) {
 
@@ -596,7 +596,7 @@ void setup() {
     state->camera->type = Camera::CameraType::firstperson;
     state->camera->flipY = true;
     state->camera->setTranslation(center);
-    state->camera->setRotation(vec3(0.0));
+    state->camera->setRotation(vec3(0.0, 130.0, 0.0));
 
   }
 
@@ -782,7 +782,10 @@ void loop() {
     }
 
     state->camera->setMovementSpeed(10.0);
-    igText("camera(%f, %f, %f)", state->camera->position.x, state->camera->position.y, state->camera->position.z);
+    igText("camera pos(%f, %f, %f)\n       rot(%f, %f, %f)",
+      state->camera->position.x, state->camera->position.y, state->camera->position.z,
+      state->camera->rotation.x, state->camera->rotation.y, state->camera->rotation.z
+    );
     mat4 clip = glm::mat4(
       1.0f,  0.0f, 0.0f, 0.0f,
       0.0f, -1.0f, 0.0f, 0.0f,
@@ -815,10 +818,10 @@ void loop() {
     // );
 
     // state->scene.worldToScreen = clip * state->camera->matrices.perspective * view;
-    state->scene.brick_dims = vec4(16.0f);
+    state->scene.brick_dims = vec4(64.0f);
     // state->scene.eye = vec4(state->camera->position, 1.0f);
     state->scene.eye = state->camera->viewPos;
-    state->scene.time = (float)rawkit_now();
+    state->scene.time = vec4((float)rawkit_now());
 
     Brick *brick = &state->world.objects[0]->bricks[0];
 
@@ -830,6 +833,7 @@ void loop() {
     );
 
     igText("world pos(%f, %f, %f)", brick->pos.x, brick->pos.y, brick->pos.z);
+    igText("time: %f", state->scene.time.x);
     vec4 p = state->scene.worldToScreen * vec4(vec3(brick->pos), 1.0f);
     igText("screen pos(%f, %f, %f) w=%f", p.x, p.y , p.z, p.w);
     igText("xform pos(%f, %f, %f) w=%f mip=%f", p.x / p.w, p.y / p.w, p.z / p.w, p.w, log2(p.z / p.w * 256.0f));
@@ -1007,37 +1011,38 @@ void loop() {
   }
 
   float scale = 0.5;
-  {
-    ImTextureID texture = rawkit_imgui_texture(depth_pyramid.texture, depth_pyramid.texture->default_sampler);
-    if (!texture) {
-      return;
+  if (1) {
+    {
+      ImTextureID texture = rawkit_imgui_texture(depth_pyramid.texture, depth_pyramid.texture->default_sampler);
+      if (!texture) {
+        return;
+      }
+
+      igImage(
+        texture,
+        (ImVec2){ 768.0f * scale, 512.0f * scale },
+        (ImVec2){ 0.0f, 0.0f }, // uv0
+        (ImVec2){ 1.0f, 1.0f }, // uv1
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+      );
     }
+    {
+      ImTextureID texture = rawkit_imgui_texture(state->world.culling_debug_tex, state->world.culling_debug_tex->default_sampler);
+      if (!texture) {
+        return;
+      }
 
-    igImage(
-      texture,
-      (ImVec2){ 768.0f * scale, 512.0f * scale },
-      (ImVec2){ 0.0f, 0.0f }, // uv0
-      (ImVec2){ 1.0f, 1.0f }, // uv1
-      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
-      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
-    );
-  }
-  {
-    ImTextureID texture = rawkit_imgui_texture(state->world.culling_debug_tex, state->world.culling_debug_tex->default_sampler);
-    if (!texture) {
-      return;
+      igImage(
+        texture,
+        (ImVec2){ 768.0f * scale, 512.0f * scale },
+        (ImVec2){ 0.0f, 0.0f }, // uv0
+        (ImVec2){ 1.0f, 1.0f }, // uv1
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+      );
     }
-
-    igImage(
-      texture,
-      (ImVec2){ 768.0f * scale, 512.0f * scale },
-      (ImVec2){ 0.0f, 0.0f }, // uv0
-      (ImVec2){ 1.0f, 1.0f }, // uv1
-      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
-      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
-    );
   }
-
   // fill screen with texture
   if (1) {
     rawkit_shader_t *shader = rawkit_shader(

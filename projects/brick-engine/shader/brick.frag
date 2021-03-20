@@ -1,11 +1,13 @@
 #version 450
 #include "../shared.h"
+#include "uberprim.glsl"
+
 layout (location = 0) out vec4 color;
-layout (std430, binding = 1) uniform UBO {
+layout (std430, binding = 0) uniform UBO {
   Scene scene;
 } ubo;
 
-layout(std430, binding = 2) readonly buffer Bricks {
+layout(std430, binding = 1) readonly buffer Bricks {
   Brick bricks[];
 };
 
@@ -13,7 +15,6 @@ in vec3 rayOrigin;
 flat in vec3 eye;
 flat in uint brick_id;
 flat in float mip;
-
 
 vec3 brick_dims = vec3(64.0);
 
@@ -41,14 +42,25 @@ float brick_march(in Brick brick, in vec3 rayOrigin, in vec3 rayDir, out vec3 no
     sideDist = mm * dir;
 
     pos += sideDist;
-    // dt += sideDist * invDir;
+    dt += sideDist * invDir;
 
 
     if (all(greaterThanEqual(pos, vec3(0.0))) && all(lessThan(pos, brick_dims))) {
+
+      #if 0
       if (distance(floor(pos) + 0.5, brick_dims * 0.5) - brick_dims.x * 0.5 < 0.0) {
         normal = -sideDist;
         return 1.0;
       }
+      #else
+
+        // float d = doModel((floor(pos) - 32.0), ubo.scene.time);
+        float d = sdUberprim(pos / 32.0 - 0.5, vec4(1.0), vec3(1.0, 1.0, 0.0));
+        if (d < 0.0){
+          normal = -sideDist;
+          return 1.0;
+        }
+      #endif
     }
   }
 
@@ -76,10 +88,23 @@ float brick_march_mip_aware(in Brick brick, in vec3 rayOrigin, in vec3 rayDir, i
   for (iterations = 0; iterations < max_iterations; iterations++) {
     vec3 p = rayOrigin + dir * t;
 
-    if (distance(p, vec3(0.5)) - 0.5 < stepSize) {
-      normal = p;// * 0.01;//-sideDist;
-      return 1.0;
-    }
+    #if 0
+      float d = distance(p, vec3(0.5)) - 0.5;
+      if (d < stepSize) {
+        normal = p;// * 0.01;//-sideDist;
+        return 1.0;
+      }
+    #else
+
+      float d = doModel((p - 0.5) * 2.0, ubo.scene.time.x * 2.1);
+      // float d = sdUberprim((p - 0.5) * 2.0, vec4(1.0), vec3(1.0, 1.0, 0.0));
+      if (d < stepSize){
+        normal = p;
+        return 1.0;
+      }
+    #endif
+
+
 
     // float dt = max(mincomp(deltas), 0.0001) * mipSize;
     // vec3 deltas = (step(0.0, dir) - fract(p * invMipSize)) * invDir;

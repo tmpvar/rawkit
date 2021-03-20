@@ -11,8 +11,8 @@ layout (std430, binding = 0) uniform UBO {
 
 layout(std430, binding = 1) readonly buffer Bricks {
   Brick bricks[];
-};
 
+};
 layout(std430, binding = 2) buffer Index {
   uint visibility[];
 };

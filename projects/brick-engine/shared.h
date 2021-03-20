@@ -22,7 +22,7 @@ struct Scene {
   vec4 eye;
   vec4 brick_dims;
   vec4 cascade_center;
-  float time;
+  vec4 time;
 };
 
 struct DrawIndexedIndirectCommand {

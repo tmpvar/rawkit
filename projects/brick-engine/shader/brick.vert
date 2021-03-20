@@ -42,7 +42,7 @@ void main() {
   if (eye.y > 0.0) rayOrigin.y = 1.0 - rayOrigin.y;
   if (eye.z > 0.0) rayOrigin.z = 1.0 - rayOrigin.z;
 
-	gl_Position = ubo.scene.worldToScreen * vec4(
+	gl_Position = vec4(
     rayOrigin + pos,
     1.0
   );
