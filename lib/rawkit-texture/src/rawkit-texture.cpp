@@ -441,7 +441,6 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     info.subresourceRange.levelCount = 1;
     info.subresourceRange.layerCount = 1;
     info.subresourceRange.baseArrayLayer = 0;
-
     VkResult err = vkCreateImageView(
       device,
       &info,
