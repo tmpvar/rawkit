@@ -942,7 +942,6 @@ void ImGui_ImplVulkanH_CreateWindowCommandBuffers(VkPhysicalDevice physical_devi
             info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
             info.queueFamilyIndex = queue_family;
             err = vkCreateCommandPool(device, &info, allocator, &fd->CommandPool);
-            printf("\e[0;33m" "created fd[%u] command pool(%p) err(%i)\e[0m\n", i, fd->CommandPool, err);
             check_vk_result(err);
         }
         if (!fd->CommandBuffer) {

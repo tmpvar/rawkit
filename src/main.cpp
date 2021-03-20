@@ -164,6 +164,7 @@ static VkResult BeginMainRenderPass(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window*
         err = vkWaitForFences(gpu->device, 1, &fd->Fence, VK_TRUE, UINT64_MAX);    // wait indefinitely instead of periodically checking
         if (err) {
           printf("rawkit::BeginMainRenderPass: vkWaitForFences failed\n");
+          exit(1);
           return err;
         }
 
