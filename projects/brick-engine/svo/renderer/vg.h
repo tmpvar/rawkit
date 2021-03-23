@@ -2,15 +2,15 @@
 
 void renderer_vg(State *state, float tree_radius) {
   Context2D ctx;
-  state->camera.ctx = ctx;
+  state->camera2d.ctx = ctx;
 
-  state->camera.tick(
+  state->camera2d.tick(
     igIsMouseDown(ImGuiMouseButton_Middle),
     state->mouse.pos,
     state->mouse.wheel * 0.1f
   );
 
-  state->camera.begin();
+  state->camera2d.begin();
 
   ctx.translate(vec2(800));
 
@@ -46,5 +46,5 @@ void renderer_vg(State *state, float tree_radius) {
     ctx.stroke();
   }
 
-  state->camera.end();
+  state->camera2d.end();
 }

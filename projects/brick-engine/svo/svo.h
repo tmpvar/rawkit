@@ -5,14 +5,12 @@
     #include <glm/glm.hpp>
     using namespace glm;
 #else
-    #extension GL_EXT_shader_explicit_arithmetic_types: required
-    typedef uint32_t u32;
-    typedef uint8_t u8;
+    #extension GL_EXT_shader_explicit_arithmetic_types : enable
+    #define u32 uint32_t
+    #define u8 uint8_t
 #endif
 
-enum NodeFlags {
-    LEAF = 1<<0,
-};
+#define MAX_DEPTH 1000000
 
 struct InnerNode {
     u32 children[8];
@@ -22,3 +20,9 @@ struct LeafNode {
     u8 octants[8];
 };
 
+struct Scene {
+    vec4 screen_dims;
+    mat4 worldToScreen;
+    vec4 eye;
+    float tree_radius;
+};
