@@ -503,6 +503,15 @@ void rawkit_gpu_tick(rawkit_gpu_t *gpu) {
     }
   }
 
+  while (state->completed_buffers.size()) {
+    auto e = state->completed_buffers.front();
+    if (e.target_tick_idx < state->tick_idx) {
+      break;
+    }
+
+    rawkit_gpu_buffer_destroy(gpu, &e.buffer);
+    state->completed_buffers.pop();
+  }
   state->completed_command_buffers.clear();
   state->completed_command_buffers = buffers;
   state->tick_idx++;
@@ -520,6 +529,20 @@ void rawkit_gpu_queue_command_buffer_for_deletion(rawkit_gpu_t *gpu, VkCommandBu
   b.pool = pool;
   state->completed_command_buffers.push_back(b);
 }
+
+
+void rawkit_gpu_queue_buffer_for_deletion(rawkit_gpu_t *gpu, const rawkit_gpu_buffer_t *buffer) {
+  if (!gpu || !gpu->_state || !buffer) {
+    return;
+  }
+
+  GPUState *state = (GPUState *)gpu->_state;
+  GPUDeleteBufferEntry e = {};
+  e.buffer = *buffer;
+  e.target_tick_idx = state->tick_idx + 5;
+  state->completed_buffers.push(e);
+}
+
 
 uint32_t rawkit_gpu_get_tick_idx(rawkit_gpu_t *gpu) {
   if (!gpu || !gpu->_state) {
@@ -547,14 +570,14 @@ rawkit_gpu_ssbo_t *rawkit_gpu_ssbo_ex(
   );
 
   if (dirty) {
-    /*ssbo->resource_version = 0;
+    ssbo->resource_version = 0;
     if (ssbo->buffer) {
-      rawkit_gpu_buffer_destroy(gpu, ssbo->buffer);
+      rawkit_gpu_queue_buffer_for_deletion(gpu, ssbo->buffer);
     }
 
     if (ssbo->staging_buffer) {
-      rawkit_gpu_buffer_destroy(gpu, ssbo->staging_buffer);
-    }*/
+      rawkit_gpu_queue_buffer_for_deletion(gpu, ssbo->staging_buffer);
+    }
 
     ssbo->buffer = rawkit_gpu_buffer_create(
       gpu,
@@ -717,6 +740,7 @@ VkResult rawkit_gpu_buffer_transition(
 
   VkBufferMemoryBarrier barrier = {};
   barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+
   barrier.srcAccessMask = RAWKIT_DEFAULT(extend.srcAccessMask, buffer->access);
   barrier.dstAccessMask = RAWKIT_DEFAULT(extend.dstAccessMask, VK_ACCESS_SHADER_READ_BIT);
   barrier.size = VK_WHOLE_SIZE;
