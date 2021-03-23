@@ -699,6 +699,8 @@ VkResult rawkit_gpu_ssbo_update(
     return err;
   }
 
+  ssbo->resource_version++;
+
   return VK_SUCCESS;
 }
 
