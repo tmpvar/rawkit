@@ -289,7 +289,7 @@ void loop() {
 
   // transfer node tree to gpu
   {
-    u64 size = sb_count(state->nodes) * sizeof(InnerNode);
+    u64 size = next_power_of_two(sb_count(state->nodes) * sizeof(InnerNode));
     state->nodes_ssbo = rawkit_gpu_ssbo("node::tree", size);
     rawkit_gpu_ssbo_update(
       state->nodes_ssbo,
@@ -302,7 +302,7 @@ void loop() {
 
   // transfer node tree to gpu
   {
-    u64 size = sb_count(state->node_positions) * sizeof(vec4);
+    u64 size = next_power_of_two(sb_count(state->node_positions) * sizeof(vec4));
     state->node_positions_ssbo = rawkit_gpu_ssbo("node::positions", size);
     rawkit_gpu_ssbo_update(
       state->node_positions_ssbo,
