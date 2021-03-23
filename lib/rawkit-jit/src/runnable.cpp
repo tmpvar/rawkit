@@ -166,6 +166,7 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
     return nullptr;
   }
 
+
   bool isCoffFormat = JTMB->getTargetTriple().isOSBinFormatCOFF();
 
   // Callback to create the object layer with symbol resolution to current
@@ -240,11 +241,13 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
   Builder.setJITTargetMachineBuilder(std::move(*JTMB));
   Builder.setObjectLinkingLayerCreator(objectLinkingLayerCreator);
 
-  Builder.getJITTargetMachineBuilder()
+  #ifndef _WIN32
+    Builder.getJITTargetMachineBuilder()
       ->setCPU(codegen::getCPUStr())
       .addFeatures(codegen::getFeatureList())
       .setRelocationModel(codegen::getExplicitRelocModel())
       .setCodeModel(codegen::getExplicitCodeModel());
+  #endif
 
   Builder.setNumCompileThreads(4);
   auto jit = EOE(Builder.create());

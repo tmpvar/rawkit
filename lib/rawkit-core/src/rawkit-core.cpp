@@ -145,7 +145,9 @@ bool rawkit_resource_sources_array(rawkit_resource_t *res, uint32_t source_count
     }
   }
 #else
+  #include <windows.h>
+  #include <debugapi.h>
   bool rawkit_is_debugger_attached() {
-    return IsDebuggerPresent() == TRUE;
+    return IsDebuggerPresent();
   }
 #endif
