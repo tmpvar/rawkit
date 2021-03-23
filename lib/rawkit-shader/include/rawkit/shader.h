@@ -16,6 +16,11 @@ typedef struct rawkit_shader_t {
   void *_state;
 } rawkit_shader_t;
 
+typedef struct rawkit_shader_options_t {
+  VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL;
+  bool noVertexInput = false;
+} rawkit_shader_options_t;
 
 // RAWKIT_SHADER_ARG_COUNT - count the number of VA_ARGS in both c and c++ mode
 #ifdef __cplusplus
@@ -130,6 +135,7 @@ extern "C" {
 rawkit_shader_t *rawkit_shader_ex(
   rawkit_gpu_t *gpu,
   VkRenderPass render_pass,
+  const rawkit_shader_options_t *options,
   uint8_t file_count,
   const rawkit_file_t **files
 );
@@ -137,6 +143,17 @@ rawkit_shader_t *rawkit_shader_ex(
 #define rawkit_shader(...) rawkit_shader_ex( \
   rawkit_default_gpu(), \
   rawkit_vulkan_renderpass(), \
+  (const rawkit_shader_options_t *)0, \
+  RAWKIT_SHADER_FILE_ARG_COUNT(__VA_ARGS__), \
+  (const rawkit_file_t *[]){ \
+    __VA_ARGS__ \
+  } \
+)
+
+#define rawkit_shader_opts(options, ...) rawkit_shader_ex( \
+  rawkit_default_gpu(), \
+  rawkit_vulkan_renderpass(), \
+  &options, \
   RAWKIT_SHADER_FILE_ARG_COUNT(__VA_ARGS__), \
   (const rawkit_file_t *[]){ \
     __VA_ARGS__ \

@@ -1,3 +1,4 @@
+#include <rawkit/shader.h>
 #include "shader-state.h"
 
 #include "util.h"
@@ -76,7 +77,7 @@ static VkFormat type_and_count_to_format(rawkit_glsl_base_type type, uint32_t co
   return VK_FORMAT_UNDEFINED;
 }
 
-VkResult ShaderState::create_graphics_pipeline(VkRenderPass render_pass) {
+VkResult ShaderState::create_graphics_pipeline(VkRenderPass render_pass, const rawkit_shader_options_t *options) {
   if (!this->valid()) {
     return VK_INCOMPLETE;
   }
@@ -95,7 +96,7 @@ VkResult ShaderState::create_graphics_pipeline(VkRenderPass render_pass) {
   vector<VkVertexInputAttributeDescription> vertex_input_attributes;
   vector<VkVertexInputBindingDescription> vertex_input_bindings;
 
-  {
+  if (!options || !options->noVertexInput) {
     uint32_t binding = 0;
     for (uint32_t entry_idx=0; entry_idx<reflection.len; entry_idx++) {
       rawkit_glsl_reflection_entry_t *entry = &reflection.entries[entry_idx];
@@ -138,7 +139,7 @@ VkResult ShaderState::create_graphics_pipeline(VkRenderPass render_pass) {
 
   VkPipelineInputAssemblyStateCreateInfo    pInputAssemblyState = {};
   pInputAssemblyState.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-  pInputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  pInputAssemblyState.topology = options ? options->topology : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
   VkPipelineTessellationStateCreateInfo     pTessellationState = {};
   pTessellationState.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
@@ -151,7 +152,7 @@ VkResult ShaderState::create_graphics_pipeline(VkRenderPass render_pass) {
 
   VkPipelineRasterizationStateCreateInfo    pRasterizationState = {};
   pRasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-  pRasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
+  pRasterizationState.polygonMode = options ? options->polygonMode : VK_POLYGON_MODE_FILL;
   pRasterizationState.lineWidth = 1.0f;
   pRasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   pRasterizationState.cullMode = VK_CULL_MODE_NONE;

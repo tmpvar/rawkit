@@ -164,6 +164,7 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     features.shaderInt64 = true;
     features.shaderFloat64 = true;
     features.fragmentStoresAndAtomics = true;
+    features.fillModeNonSolid = true;
 
     VkDeviceCreateInfo create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

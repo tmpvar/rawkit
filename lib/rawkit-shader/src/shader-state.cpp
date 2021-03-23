@@ -1,3 +1,4 @@
+#include <rawkit/shader.h>
 #include "shader-state.h"
 
 bool ShaderState::valid() {
@@ -8,7 +9,12 @@ bool ShaderState::valid() {
   return true;
 }
 
-ShaderState *ShaderState::create(rawkit_gpu_t *gpu, const rawkit_glsl_t *glsl, VkRenderPass render_pass) {
+ShaderState *ShaderState::create(
+  rawkit_gpu_t *gpu,
+  const rawkit_glsl_t *glsl,
+  VkRenderPass render_pass,
+  const rawkit_shader_options_t *options
+) {
   if (!gpu || !gpu->device || !gpu->physical_device || !glsl || !render_pass) {
     return nullptr;
   }
@@ -18,6 +24,10 @@ ShaderState *ShaderState::create(rawkit_gpu_t *gpu, const rawkit_glsl_t *glsl, V
   state->glsl = glsl;
   state->instance_idx = 0;
   state->gpu_tick_idx = rawkit_gpu_get_tick_idx(gpu);
+
+  if (options) {
+    state->options = *options;
+  }
 
   // create the shader modules
   {
@@ -98,7 +108,7 @@ ShaderState *ShaderState::create(rawkit_gpu_t *gpu, const rawkit_glsl_t *glsl, V
     if (rawkit_glsl_is_compute(glsl)){
       err = state->create_compute_pipeline();
     } else {
-      err = state->create_graphics_pipeline(render_pass);
+      err = state->create_graphics_pipeline(render_pass, options);
     }
 
     if (err != VK_SUCCESS) {

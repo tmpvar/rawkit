@@ -10,6 +10,7 @@ static rawkit_shader_t ERR = {};
 rawkit_shader_t *rawkit_shader_ex(
   rawkit_gpu_t *gpu,
   VkRenderPass render_pass,
+  const rawkit_shader_options_t *options,
   uint8_t file_count,
   const rawkit_file_t **files
 ) {
@@ -33,7 +34,6 @@ rawkit_shader_t *rawkit_shader_ex(
   }
   resource_name += ")";
 
-
   uint64_t id = rawkit_hash_resources(resource_name.c_str(), file_count, (const rawkit_resource_t **)files);
   rawkit_shader_t *shader = rawkit_hot_resource_id(resource_name.c_str(), id, rawkit_shader_t);
   if (!shader) {
@@ -48,13 +48,24 @@ rawkit_shader_t *rawkit_shader_ex(
   if (current_state && current_state->gpu_tick_idx != gpu_tick_idx) {
     current_state->instance_idx = 0;
     current_state->gpu_tick_idx = gpu_tick_idx;
+
+    {
+      rawkit_shader_options_t default_options;
+      dirty = dirty || memcmp(
+        &current_state->options,
+        options ? options : &default_options,
+        sizeof(rawkit_shader_options_t)
+      ) != 0;
+    }
   }
+
+
 
   if (!dirty) {
     return shader;
   }
 
-  ShaderState *state = ShaderState::create(gpu, glsl, render_pass);
+  ShaderState *state = ShaderState::create(gpu, glsl, render_pass, options);
   if (!state) {
     printf("ERROR: rawkit-shader: failed to create ShaderState\n");
     return shader;

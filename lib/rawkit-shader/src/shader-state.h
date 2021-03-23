@@ -29,6 +29,8 @@ class ShaderState {
     const rawkit_glsl_t *glsl = nullptr;
     rawkit_gpu_t *gpu = nullptr;
 
+    rawkit_shader_options_t options;
+
     vector<VkWriteDescriptorSet> writes;
     vector<VkShaderModule> modules;
 
@@ -41,13 +43,21 @@ class ShaderState {
     uint32_t gpu_tick_idx = 0xFFFFFFFF;
     uint64_t instance_idx = 0;
 
-    static ShaderState *create(rawkit_gpu_t *gpu, const rawkit_glsl_t *glsl, VkRenderPass render_pass);
+    static ShaderState *create(
+      rawkit_gpu_t *gpu,
+      const rawkit_glsl_t *glsl,
+      VkRenderPass render_pass,
+      const rawkit_shader_options_t *options = nullptr
+    );
     ~ShaderState();
 
     bool valid();
 
     VkResult create_pipeline_layout();
     VkResult populate_concurrent_entries();
-    VkResult create_graphics_pipeline(VkRenderPass render_pass);
+    VkResult create_graphics_pipeline(
+      VkRenderPass render_pass,
+      const rawkit_shader_options_t *options = nullptr
+    );
     VkResult create_compute_pipeline();
 };
