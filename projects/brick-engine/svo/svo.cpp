@@ -10,6 +10,7 @@ using namespace glm;
 
 #include "renderer/vg.h"
 #include "renderer/lines.h"
+#include "renderer/raytrace.h"
 
 void setup() {
   State *state = rawkit_hot_state("state", State);
@@ -19,14 +20,12 @@ void setup() {
     state->camera = new Camera;
     state->camera->type = Camera::CameraType::firstperson;
     state->camera->flipY = true;
-    state->camera->setTranslation(vec3(0.0));
-    state->camera->setRotation(vec3(0.0, 130.0, 0.0));
+    state->camera->setTranslation(vec3(0.0, 0.0, -4096));
+    state->camera->setRotation(vec3(0.0, 0.0, 0.0));
   }
-
 }
 
 typedef std::function<float(vec3 pos)> sample_fn_t;
-
 
 u32 next_power_of_two(u32 n) {
   n--;
@@ -171,12 +170,11 @@ void loop() {
 
     // left shift
     if (igIsKeyDown(340)) {
-      state->camera->setMovementSpeed(1000.0);
+      state->camera->setMovementSpeed(10000.0);
     } else {
-      state->camera->setMovementSpeed(100.0);
+      state->camera->setMovementSpeed(1000.0);
     }
 
-    igShowDemoWindow(0);
     // // space
     // if (igIsKeyDown(341)) {
     //   camera->pos.y -= move;
@@ -187,13 +185,16 @@ void loop() {
     //   camera->pos.y += move;
     // }
 
+
+    float fovDegrees = 90.0f;
     state->camera->setPerspective(
-      90.0f,
+      fovDegrees,
       state->scene.screen_dims.x / state->scene.screen_dims.y,
       0.1f,
       (float)MAX_DEPTH
     );
-    state->camera->update(dt);
+
+    state->scene.pixel_size = glm::tan(glm::radians(fovDegrees) / 2.0f);
 
     GLFWwindow *window = rawkit_glfw_window();
     if (window && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) {
@@ -220,7 +221,7 @@ void loop() {
       state->last_mouse_pos = vec2(mx, my);
     }
 
-
+    state->camera->update(dt);
 
     igText("camera pos(%f, %f, %f)\n       rot(%f, %f, %f)",
       state->camera->position.x, state->camera->position.y, state->camera->position.z,
@@ -232,7 +233,14 @@ void loop() {
       0.0f,  0.0f, 0.5f, 0.0f,
       0.0f,  0.0f, 0.5f, 1.0f
     );
+
+    state->scene.proj = state->camera->matrices.perspective;
+    state->scene.view = state->camera->matrices.view;
     state->scene.worldToScreen = clip * state->camera->matrices.perspective * state->camera->matrices.view;
+    state->scene.eye = vec4(state->camera->position, 1.0);
+
+    state->scene.eye = state->camera->viewPos;
+    igText("eye(%f, %f, %f)", state->scene.eye.x, state->scene.eye.y, state->scene.eye.z);
   }
 
   // recalculate the tree on every frame
@@ -244,8 +252,7 @@ void loop() {
     sb_reset(state->node_positions);
     sb_reset(state->ops);
 
-    // TODO: compute the bounds
-    sb_push(state->ops, vec4(0, 0, 0, 128));
+    sb_push(state->ops, vec4(0, 0, 0, 512));
 
     float now = rawkit_now();
 
@@ -282,9 +289,9 @@ void loop() {
       }
     }
 
-    const vec3 sdf_center(0.0);
+    state->scene.tree_center = vec3(0.0);
     state->scene.tree_radius = next_power_of_two(sdf_radius);
-    fillInner(state, state->scene.tree_radius, sdf_center, sample_scene, 0);
+    fillInner(state, state->scene.tree_radius, state->scene.tree_center, sample_scene, 0);
   }
 
   // transfer node tree to gpu
@@ -300,7 +307,7 @@ void loop() {
     );
   }
 
-  // transfer node tree to gpu
+  // transfer node positions to gpu
   {
     u64 size = next_power_of_two(sb_count(state->node_positions) * sizeof(vec4));
     state->node_positions_ssbo = rawkit_gpu_ssbo("node::positions", size);
@@ -324,5 +331,7 @@ void loop() {
       default:
         igText("invalid renderer selected");
     }
+
+    renderer_raytrace(state, state->scene.tree_radius);
   }
 }

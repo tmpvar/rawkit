@@ -1,0 +1,55 @@
+#version 450
+#include "../../svo.h"
+// #include "ray-aabb.glsl"
+
+#define PI 3.14159265
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+layout (std430, binding = 0) uniform UBO {
+  Scene scene;
+} ubo;
+
+layout(std430, binding = 1) readonly buffer NodeTree {
+  InnerNode nodes[];
+};
+
+layout(std430, binding = 2) readonly buffer NodePositions {
+  vec4 node_positions[];
+};
+
+layout (binding = 3, rgba32f) uniform writeonly image2D color;
+
+bool ray_aabb(vec3 lower_corner, vec3 upper_corner, vec3 rayOrigin, vec3 invRaydir) {
+  vec3 t0 = (lower_corner - rayOrigin) * invRaydir;
+  vec3 t1 = (upper_corner - rayOrigin) * invRaydir;
+  vec3 tmin = min(t0, t1);
+  vec3 tmax = max(t0, t1);
+  float m = max(tmin.x, max(tmin.y, tmin.z));
+  return m <= min(tmax.x, min(tmax.y, tmax.z)) && m >= 0.0;
+}
+
+void main() {
+  vec2 pos = gl_GlobalInvocationID.xy;
+  vec2 dims = ubo.scene.screen_dims.xy;
+
+  float aspect = dims.x / dims.y;
+  vec2 uv = (pos / dims) * 2.0 - 1.0;
+  vec3 dir = (vec4(
+    uv.x * ubo.scene.pixel_size * aspect,
+    uv.y * ubo.scene.pixel_size,
+    -1.0,
+    1.0
+  ) * ubo.scene.view).xyz;
+
+  vec3 inv_dir = 1.0 / dir;
+
+  bool hit = ray_aabb(
+    ubo.scene.tree_center + vec3(ubo.scene.tree_radius),
+    ubo.scene.tree_center - vec3(ubo.scene.tree_radius),
+    ubo.scene.eye.xyz,
+    inv_dir
+  );
+
+  imageStore(color, ivec2(pos), hit ? vec4(1.0) : vec4(dir * 0.5 + 0.5, 1.0));
+}

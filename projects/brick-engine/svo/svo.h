@@ -23,6 +23,14 @@ struct LeafNode {
 struct Scene {
     vec4 screen_dims;
     mat4 worldToScreen;
+    mat4 view;
+    mat4 proj;
     vec4 eye;
+
+    vec3 tree_center;
     float tree_radius;
+
+    // effectively tan(radians(fov) / 2.0)
+    float pixel_size;
+
 };
