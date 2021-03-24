@@ -19,13 +19,17 @@ layout(std430, binding = 2) readonly buffer NodePositions {
 
 layout (binding = 3, rgba32f) uniform writeonly image2D color;
 
-bool ray_aabb(vec3 lower_corner, vec3 upper_corner, vec3 rayOrigin, vec3 invRaydir) {
-  vec3 t0 = (lower_corner - rayOrigin) * invRaydir;
-  vec3 t1 = (upper_corner - rayOrigin) * invRaydir;
+bool ray_aabb(vec3 lb, vec3 ub, vec3 origin, vec3 invDir) {
+  bool inside = (
+    all(greaterThanEqual(origin, lb)) &&
+    all(lessThanEqual(origin, ub))
+  );
+  vec3 t0 = (lb - origin) * invDir;
+  vec3 t1 = (ub - origin) * invDir;
   vec3 tmin = min(t0, t1);
   vec3 tmax = max(t0, t1);
   float m = max(tmin.x, max(tmin.y, tmin.z));
-  return m <= min(tmax.x, min(tmax.y, tmax.z)) && m >= 0.0;
+  return inside || (m <= min(tmax.x, min(tmax.y, tmax.z)) && m >= 0.0);
 }
 
 void main() {
@@ -42,10 +46,11 @@ void main() {
   ) * ubo.scene.view).xyz;
 
   vec3 inv_dir = 1.0 / dir;
+  vec3 eye = ubo.scene.eye.xyz;
 
   bool hit = ray_aabb(
-    ubo.scene.tree_center + vec3(ubo.scene.tree_radius),
     ubo.scene.tree_center - vec3(ubo.scene.tree_radius),
+    ubo.scene.tree_center + vec3(ubo.scene.tree_radius),
     ubo.scene.eye.xyz,
     inv_dir
   );
