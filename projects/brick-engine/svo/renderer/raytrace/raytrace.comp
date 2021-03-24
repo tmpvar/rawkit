@@ -1,6 +1,5 @@
 #version 450
 #include "../../svo.h"
-// #include "ray-aabb.glsl"
 
 #define PI 3.14159265
 
