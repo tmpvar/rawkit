@@ -139,8 +139,6 @@ bool traverse_shadertoy_warvstar(vec3 origin, vec3 dir, vec3 inv_dir) {
       if (v == 0 || sizeOnScreen < 2.0){
         if (tMax < tMin) {
           resolvedColor = vec4(
-            // hsl(vec3(scale/ubo.scene.tree_radius, 0.9, 0.6)) * fusion(distance(center, ubo.scene.eye.xyz)),
-            // distanceMeter(distance(center, ubo.scene.eye.xyz), distance(center, ubo.scene.eye.xyz), dir, 10000.0),
             normalize(ubo.scene.tree_center - new_center) * 0.5 + 0.5,
             1.0
           );

@@ -119,7 +119,7 @@ void loop() {
   double now = rawkit_now();
   double dt = now - state->last_time;
   state->last_time = now;
-
+  state->renderer = Renderer::RAYTRACE;
   // mouse look
   {
     GLFWwindow *window = rawkit_glfw_window();
@@ -288,8 +288,8 @@ void loop() {
       sb_push(state->ops, vec4(
         500 + cosf(i * 0.5f) * i*8.0f,
         200 + sinf(i * 0.5f) * i*8.0f,
-        i*64.0,
-        256
+        i*128.0,
+        512 - i *2.0f
       ));
     }
 
@@ -345,10 +345,9 @@ void loop() {
     switch (state->renderer) {
       case Renderer::VG: renderer_vg(state, state->scene.tree_radius); break;
       case Renderer::LINES: renderer_lines(state, state->scene.tree_radius); break;
+      case Renderer::RAYTRACE: renderer_raytrace(state, state->scene.tree_radius); break;
       default:
         igText("invalid renderer selected");
     }
-
-    renderer_raytrace(state, state->scene.tree_radius);
   }
 }

@@ -11,6 +11,7 @@
 enum Renderer {
   LINES = 0,
   VG,
+  RAYTRACE,
 };
 
 struct State {
