@@ -1,3 +1,5 @@
 .vscode
 imgui.ini
 build*/
+.gdb_history
+

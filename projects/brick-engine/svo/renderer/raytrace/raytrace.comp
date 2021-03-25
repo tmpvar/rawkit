@@ -19,17 +19,130 @@ layout(std430, binding = 2) readonly buffer NodePositions {
 
 layout (binding = 3, rgba32f) uniform writeonly image2D color;
 
-bool ray_aabb(vec3 lb, vec3 ub, vec3 origin, vec3 invDir) {
-  bool inside = (
-    all(greaterThanEqual(origin, lb)) &&
-    all(lessThanEqual(origin, ub))
-  );
-  vec3 t0 = (lb - origin) * invDir;
-  vec3 t1 = (ub - origin) * invDir;
-  vec3 tmin = min(t0, t1);
-  vec3 tmax = max(t0, t1);
-  float m = max(tmin.x, max(tmin.y, tmin.z));
-  return inside || (m <= min(tmax.x, min(tmax.y, tmax.z)) && m >= 0.0);
+
+vec3 hsl( in vec3 c ) {
+  vec3 rgb = clamp( abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
+  return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0));
+}
+
+bool ray_aabb(vec3 lb, vec3 ub, vec3 origin, vec3 invDir, out float tMin, out float tMax) {
+  vec3 tbot = invDir * (lb - origin);
+  vec3 ttop = invDir * (ub - origin);
+  vec3 tmin = min(ttop, tbot);
+  vec3 tmax = max(ttop, tbot);
+  vec2 t = max(tmin.xx, tmin.yz);
+  float t0 = max(t.x, t.y);
+  t = min(tmax.xx, tmax.yz);
+  float t1 = min(t.x, t.y);
+  tMin = t0;
+  tMax = t1;
+  return t1 > max(t0, 0.0);
+}
+
+struct stack_entry {
+  vec4 node; // xyz center, w radius
+  float tmin;
+  float tmax;
+  u32 index;
+  u32 valid;
+};
+
+struct stack {
+  u32 cur;
+  stack_entry entries[32];
+};
+
+stack stack_push(in stack s, i32 index, vec4 node, float tmin, float tmax) {
+  s.entries[s.cur].node = node;
+  s.entries[s.cur].tmin = tmin;
+  s.entries[s.cur].tmax = tmax;
+  s.entries[s.cur].index = index;
+  s.entries[s.cur].valid = 1;
+  s.cur++;
+  return s;
+}
+
+stack stack_pop(in stack s, out stack_entry e) {
+  if (s.cur < 1) {
+    stack_entry invalid;
+    invalid.valid = 0;
+    e = invalid;
+    return s;
+  }
+
+  s.cur--;
+  e = s.entries[s.cur];
+  return s;
+}
+
+u32 stack_size(const in stack s) {
+  return s.cur;
+}
+
+// see: https://www.shadertoy.com/view/MlBfRV
+bool traverse_shadertoy_warvstar(vec3 origin, vec3 dir, vec3 inv_dir) {
+	vec3 center = ubo.scene.tree_center;
+  float scale = ubo.scene.tree_radius;
+	vec3 minBox = center - scale;
+	vec3 maxBox = center + scale;
+	vec4 f = vec4(1.0f);
+  struct Stack {
+		int index;
+		vec3 center;
+		float scale;
+	};
+  Stack stack[32];
+
+  int stackPos = 1;
+  int index = 0;
+  const float flt_max = intBitsToFloat(2139095039);
+  float tMin = flt_max;
+  float t = 0.0;
+  stack[0] = Stack( 0, center, scale);
+
+  vec4 resolvedColor;
+  bool hit = false;
+  while(stackPos-- > 0) {
+    center = stack[stackPos].center;
+    index = stack[stackPos].index;
+    scale = stack[stackPos].scale;
+    float new_scale = scale*0.5f;
+    for (int i = 0; i < 8; ++i) {
+      vec3 new_center = center + vec3(
+        (i & 1<<0) == 0 ? -new_scale : new_scale,
+        (i & 1<<1) == 0 ? -new_scale : new_scale,
+        (i & 1<<2) == 0 ? -new_scale : new_scale
+      );
+      vec3 minBox = new_center - new_scale;
+      vec3 maxBox = new_center + new_scale;
+
+      float local_tMin;
+      float tMax;
+      if (!ray_aabb(minBox, maxBox, origin, inv_dir, local_tMin, tMax)) {
+        continue;
+      }
+
+      int v = nodes[index].children[i];
+      if (v == 0 || new_scale < 4.0){
+        if (tMax < tMin) {
+          resolvedColor = vec4(
+            // hsl(vec3(scale/ubo.scene.tree_radius, 0.9, 0.6)) * fusion(distance(center, ubo.scene.eye.xyz)),
+            // distanceMeter(distance(center, ubo.scene.eye.xyz), distance(center, ubo.scene.eye.xyz), dir, 10000.0),
+            normalize(ubo.scene.tree_center - new_center) * 0.5 + 0.5,
+            1.0
+          );
+          tMin = tMax;
+        }
+      } else if (v > 0) {
+        stack[stackPos++] = Stack( v, new_center, new_scale);
+      }
+    }
+  }
+
+  if (tMin < flt_max) {
+    imageStore(color, ivec2(gl_GlobalInvocationID.xy), resolvedColor);
+  }
+  return false;
 }
 
 void main() {
@@ -47,13 +160,28 @@ void main() {
 
   vec3 inv_dir = 1.0 / dir;
   vec3 eye = ubo.scene.eye.xyz;
-
+  float tMin;
+  float tMax;
   bool hit = ray_aabb(
     ubo.scene.tree_center - vec3(ubo.scene.tree_radius),
     ubo.scene.tree_center + vec3(ubo.scene.tree_radius),
     ubo.scene.eye.xyz,
+    inv_dir,
+    tMin,
+    tMax
+  );
+
+  imageStore(color, ivec2(pos), vec4(dir * 0.5 + 0.5, 1.0));
+  if (!hit) {
+    return;
+  }
+
+  hit = traverse_shadertoy_warvstar(
+    ubo.scene.eye.xyz,
+    dir,
     inv_dir
   );
 
-  imageStore(color, ivec2(pos), hit ? vec4(1.0) : vec4(dir * 0.5 + 0.5, 1.0));
+  // imageStore(color, ivec2(pos), hit ? vec4(1.0) : vec4(dir * 0.5 + 0.5, 1.0));
 }
+

@@ -41,7 +41,7 @@ void renderer_raytrace(State *state, float tree_radius) {
   }
 
   {
-    float display_width = 320.0f;
+    float display_width = 460.0f;
     float display_height = display_width / (dims.x / dims.y);
     ImTextureID texture = rawkit_imgui_texture(color_output, color_output->default_sampler);
     if (!texture) {

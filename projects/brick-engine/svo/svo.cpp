@@ -12,7 +12,9 @@ using namespace glm;
 #include "renderer/lines.h"
 #include "renderer/raytrace.h"
 
+bool rebuild = false;
 void setup() {
+  rebuild = true;
   State *state = rawkit_hot_state("state", State);
   state->camera2d.setup(1.0f, vec2(.01, 10000.0));
 
@@ -60,48 +62,52 @@ void fillLeaf(State *state, const InnerNode *parent, const vec3 parent_pos, samp
 
 }
 
-i32 fillInner(State *state, const float radius, const vec3 center, sample_fn_t sample, u32 depth) {
-  const u32 max_depth = 12;
-  if (depth > max_depth) {
-    return -1;
-  }
-  float child_radius = radius * 0.5f;
-  // TODO: if the children will be leaves then fillLeaf
-  if (radius < 16.0f) {
-    return -2;
+i32 fillInner(State *state, const float radius, const vec3 center, sample_fn_t sample_fn, u32 depth) {
+  if (depth > 23) {
+    return 0;
   }
 
-  float dist = sample_scene(center);
+  float child_radius = radius * 0.5f;
+  // TODO: if the children will be leaves then fillLeaf
+  if (radius < 4.0f) {
+    return 0;
+  }
+
+  float dist = sample_fn(center);
   if (abs(dist) >= glm::length(vec3(radius))) {
-    return -3;
+    return -1;
   }
 
   sb_push(state->node_positions, vec4(center, radius));
 
-  InnerNode node = {};
-
+  i32 c = sb_count(state->nodes);
+  InnerNode n = {};
+  sb_push(state->nodes, n);
   // test the octants and recurse as necessary
   bool valid = false;
   for (u8 i = 0; i<8; i++) {
-    float x = (i&1<<0) == 0 ? -child_radius : child_radius;
-    float y = (i&1<<1) == 0 ? -child_radius : child_radius;
-    float z = (i&1<<2) == 0 ? -child_radius : child_radius;
-    vec3 p = center + vec3(x, y, z);
-    i32 r = fillInner(state, child_radius, p, sample, depth+1);
 
-    if (r > -1) {
+    // extract morton order into 3d coordinates
+    vec3 p = center + vec3(
+      (i&1<<0) == 0 ? -child_radius : child_radius,
+      (i&1<<1) == 0 ? -child_radius : child_radius,
+      (i&1<<2) == 0 ? -child_radius : child_radius
+    );
+
+    i32 r = fillInner(state, child_radius, p, sample_fn, depth+1);
+    if (r > 0) {
       valid = true;
     }
 
-    node.children[i] = r;
+    // state->nodes will likely get realloc'd so we need to use the index instead
+    // to avoid reading freed memory!
+    state->nodes[c].children[i] = r;
   }
 
   // if (!valid) {
   //   return -1;
   // }
 
-  i32 c = sb_count(state->nodes);
-  sb_push(state->nodes, node);
 
   return c;
 }
@@ -244,38 +250,48 @@ void loop() {
   }
 
   // recalculate the tree on every frame
-  state->scene.tree_radius = 0.0f;
-  {
+  if (rebuild || !sb_count(state->nodes)) {
+    rebuild = false;
+    state->scene.tree_radius = 0.0f;
     Prof rebuild_prof("rebuild");
     sb_reset(state->leaves);
     sb_reset(state->nodes);
     sb_reset(state->node_positions);
     sb_reset(state->ops);
 
-    sb_push(state->ops, vec4(0, 0, 0, 512));
+    // sb_push(state->ops, vec4(0, 0, 0, 512));
 
     float now = rawkit_now();
 
-    sb_push(state->ops, vec4(
-      sinf(now) * 1200.0f,
-      cosf(now) * 1200.0f,
-      0,
-      90
-    ));
+    // sb_push(state->ops, vec4(
+    //   sinf(now) * 1200.0f,
+    //   cosf(now) * 1200.0f,
+    //   0,
+    //   90
+    // ));
 
-    sb_push(state->ops, vec4(
-      200 + sinf(now) * 100.0f,
-      200 + cosf(now * 0.5f) * 100.0f,
-      0,
-      90
-    ));
+    // sb_push(state->ops, vec4(
+    //   200 + sinf(now) * 100.0f,
+    //   200 + cosf(now * 0.5f) * 100.0f,
+    //   0,
+    //   90
+    // ));
 
-    sb_push(state->ops, vec4(
-      4600 + sinf(now * 0.25) * 1600.0f,
-      200 + cosf(now * 0.5f) * 100.0f,
-      0,
-      256
-    ));
+    // sb_push(state->ops, vec4(
+    //   4600 + sinf(now * 0.25) * 1600.0f,
+    //   200 + cosf(now * 0.5f) * 100.0f,
+    //   0,
+    //   256
+    // ));
+
+    for (float i=0; i<100; i++) {
+      sb_push(state->ops, vec4(
+        500 + cosf(i * 0.5f) * i*8.0f,
+        200 + sinf(i * 0.5f) * i*8.0f,
+        i*64.0,
+        256
+      ));
+    }
 
     float sdf_radius = 0.0f;
     {
@@ -293,6 +309,7 @@ void loop() {
     state->scene.tree_radius = next_power_of_two(sdf_radius);
     fillInner(state, state->scene.tree_radius, state->scene.tree_center, sample_scene, 0);
   }
+
 
   // transfer node tree to gpu
   {
