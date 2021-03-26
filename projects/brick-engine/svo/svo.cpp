@@ -14,7 +14,7 @@ using namespace glm;
 
 bool rebuild = false;
 void setup() {
-  rebuild = true;
+  //rebuild = true;
   State *state = rawkit_hot_state("state", State);
   state->camera2d.setup(1.0f, vec2(.01, 10000.0));
 
@@ -284,12 +284,12 @@ void loop() {
     //   256
     // ));
 
-    for (float i=0; i<100; i++) {
+    for (float i=0; i<50; i++) {
       sb_push(state->ops, vec4(
-        500 + cosf(i * 0.5f) * i*8.0f,
-        200 + sinf(i * 0.5f) * i*8.0f,
+        500 + cosf(i * 0.5f) * i*16.0f,
+        200 + sinf(i * 0.5f) * i*16.0f,
         i*128.0,
-        512 - i *2.0f
+        256 + i * 2.0
       ));
     }
 

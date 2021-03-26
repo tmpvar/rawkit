@@ -1,6 +1,9 @@
 #version 450
 #include "../../svo.h"
 #include "quadric-proj.glsl"
+#include "dda-cursor.glsl"
+
+#extension GL_EXT_scalar_block_layout : enable
 
 #define PI 3.14159265
 
@@ -24,6 +27,10 @@ layout (binding = 3, rgba32f) uniform writeonly image2D color;
 vec3 hsl( in vec3 c ) {
   vec3 rgb = clamp( abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
   return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0));
+}
+
+void writeColor(vec3 val) {
+  imageStore(color, ivec2(gl_GlobalInvocationID.xy), vec4(val, 1.0));
 }
 
 bool ray_aabb(vec3 lb, vec3 ub, vec3 origin, vec3 invDir, out float tMin, out float tMax) {
@@ -101,9 +108,12 @@ bool traverse_shadertoy_warvstar(vec3 origin, vec3 dir, vec3 inv_dir) {
   float t = 0.0;
   stack[0] = Stack( 0, center, scale);
 
+  float steps = 0.0;
+
   vec4 resolvedColor;
   bool hit = false;
   while(stackPos-- > 0) {
+    steps++;
     center = stack[stackPos].center;
     index = stack[stackPos].index;
     scale = stack[stackPos].scale;
@@ -139,7 +149,8 @@ bool traverse_shadertoy_warvstar(vec3 origin, vec3 dir, vec3 inv_dir) {
       if (v == 0 || sizeOnScreen < 2.0){
         if (tMax < tMin) {
           resolvedColor = vec4(
-            normalize(ubo.scene.tree_center - new_center) * 0.5 + 0.5,
+            //normalize(ubo.scene.tree_center - new_center) * 0.5 + 0.5,
+            hsl(vec3(0.5 + steps/100.0 * 0.2, 0.9, 0.6)),
             1.0
           );
           tMin = tMax;
@@ -156,8 +167,149 @@ bool traverse_shadertoy_warvstar(vec3 origin, vec3 dir, vec3 inv_dir) {
   return false;
 }
 
+bool traverse_efficient_svo(vec3 p, vec3 d, vec3 inv_dir) {
+  // const int s_max = 23; // Maximum scale (number of float mantissa bits).
+  // const float epsilon = exp2(-float(s_max));
+
+  // i32 stack[s_max + 1]; // Stack of parent voxels (local mem).
+  // // Get rid of small ray direction components to avoid division by zero.
+  // if (abs(d.x) < epsilon) d.x = epsilon * sign(d.x);
+  // if (abs(d.y) < epsilon) d.y = epsilon * sign(d.y);
+  // if (abs(d.z) < epsilon) d.z = epsilon * sign(d.z);
+  // // Precompute the coefficients of tx(x), ty(y), and tz(z).
+  // // The octree is assumed to reside at coordinates [1, 2].
+  // float tx_coef = 1.0f / -abs(d.x);
+  // float ty_coef = 1.0f / -abs(d.y);
+  // float tz_coef = 1.0f / -abs(d.z);
+  // float tx_bias = tx_coef * p.x;
+  // float ty_bias = ty_coef * p.y;
+  // float tz_bias = tz_coef * p.z;
+
+
+  // // imageStore(color, ivec2(gl_GlobalInvocationID.xy), resolvedColor);
+  // u32 octant_mask = 7;
+  // if (d.x > 0.0) {
+  //   octant_mask ^= 1;
+  //   tx_bias = 3.0 * tx_coef - tx_bias;
+  // }
+
+  // if (d.y > 0.0) {
+  //   octant_mask ^= 2;
+  //   ty_bias = 3.0 * ty_coef - ty_bias;
+  // }
+
+  // if (d.z > 0.0) {
+  //   octant_mask ^= 4;
+  //   tz_bias = 3.0 * tz_coef - tz_bias;
+  // }
+
+  // float t_min = max(
+  //   max(
+  //     2.0 * tx_coef - tx_bias,
+  //     2.0 * ty_coef - ty_bias
+  //   ),
+  //   2.0 * tz_coef - tz_bias
+  // );
+
+  // float t_max = min(
+  //   min(
+  //     tx_coef - tx_bias,
+  //     ty_coef - ty_bias
+  //   ),
+  //   tz_coef - tz_bias
+  // );
+
+  // float h = t_max;
+  // t_min = max(t_min, 0.0);
+  // t_max = min(t_max, 1.0);
+
+  // i32 sentinel = 100;
+  // while (scale < s_max && sentinel--) {
+  //   // TODO: i skipped the child_descriptor setup because i'm assuming that root is index 0
+
+
+  // }
+
+
+  return true;
+}
+
+// An Efficient Parametric Algorithm for Octree Traversal
+// - http://wscg.zcu.cz/wscg2000/Papers_2000/X31.pdf
+struct Interval {
+  vec3 lb;
+  vec3 ub;
+};
+
+i32 closest_child(
+  vec3 parent_center,
+  float parent_radius,
+  vec3 ray_origin,
+  vec3 ray_dir,
+  vec3 ray_inv_dir,
+  out vec2 ray_interval
+) {
+  float diameter = parent_radius * 2.0;
+  float t_min = 0.0;
+  float t_max = 0.0;
+  bool hit = ray_aabb(
+    (parent_center - parent_radius),
+    (parent_center + parent_radius),
+    ray_origin,
+    ray_inv_dir,
+    t_min,
+    t_max
+  );
+
+  // store the interval so we can compute the exit planes when/if we need
+  // to traverse to the next node (sibling)
+  ray_interval.x = t_min;
+  ray_interval.y = t_max;
+
+  bvec3 r = greaterThanEqual(ray_origin + ray_dir * t_min, parent_center);
+  return !hit ? -1 : (
+    i32(r.x) << 0 |
+    i32(r.y) << 1 |
+    i32(r.z) << 2
+  );
+}
+
+bool traverse_parametric(vec3 origin, vec3 dir, vec3 inv_dir) {
+  vec3 tree_radius = vec3(ubo.scene.tree_radius);
+  vec3 tree_diameter = tree_radius * 2.0;
+  vec3 tree_center = ubo.scene.tree_center;
+
+  vec2 ray_interval;
+  i32 child = closest_child(
+    tree_center,
+    ubo.scene.tree_radius,
+    origin,
+    dir,
+    inv_dir,
+    ray_interval
+  );
+
+  if (child >= 0) {
+    writeColor(
+      hsl(vec3(float(child) / 8.0, .9, 0.6))
+    );
+    return true;
+  } else {
+    writeColor(vec3(0.0));
+    return false;
+  }
+}
+
+
 void main() {
   vec2 pos = gl_GlobalInvocationID.xy;
+  if (pos.y <= 20 && pos.x < 160) {
+    writeColor(hsl(
+      vec3(floor(pos.x / 20)/8.0, 0.9, 0.6)
+    ));
+    return;
+  }
+
   vec2 dims = ubo.scene.screen_dims.xy;
 
   float aspect = dims.x / dims.y;
@@ -171,27 +323,42 @@ void main() {
 
   vec3 inv_dir = 1.0 / dir;
   vec3 eye = ubo.scene.eye.xyz;
-  float tMin;
-  float tMax;
-  bool hit = ray_aabb(
-    ubo.scene.tree_center - vec3(ubo.scene.tree_radius),
-    ubo.scene.tree_center + vec3(ubo.scene.tree_radius),
-    ubo.scene.eye.xyz,
-    inv_dir,
-    tMin,
-    tMax
-  );
+  bool hit = false;
+  // float tMin;
+  // float tMax;
+  // bool hit = ray_aabb(
+  //   ubo.scene.tree_center - vec3(ubo.scene.tree_radius),
+  //   ubo.scene.tree_center + vec3(ubo.scene.tree_radius),
+  //   eye,
+  //   inv_dir,
+  //   tMin,
+  //   tMax
+  // );
 
-  imageStore(color, ivec2(pos), vec4(dir * 0.5 + 0.5, 1.0));
-  if (!hit) {
-    return;
-  }
+  // imageStore(color, ivec2(pos), vec4(dir * 0.5 + 0.5, 1.0));
+  // if (!hit) {
+  //   return;
+  // }
 
-  hit = traverse_shadertoy_warvstar(
-    ubo.scene.eye.xyz,
+
+
+  // hit = traverse_shadertoy_warvstar(
+  //   eye,
+  //   dir,
+  //   inv_dir
+  // );
+
+  hit = traverse_parametric(
+    eye,
     dir,
     inv_dir
   );
+
+  // hit = traverse_efficient_svo(
+  //   eye,
+  //   dir,
+  //   inv_dir
+  // );
 
   // imageStore(color, ivec2(pos), hit ? vec4(1.0) : vec4(dir * 0.5 + 0.5, 1.0));
 }
