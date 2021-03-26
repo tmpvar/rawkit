@@ -8,10 +8,11 @@ struct DDACursor {
 
 DDACursor dda_cursor_create(
   in const vec3 pos,
+  in const vec3 mapPos,
   in const vec3 rayDir
 ) {
   DDACursor cursor;
-  cursor.mapPos = floor(pos);
+  cursor.mapPos = mapPos;
   cursor.deltaDist = abs(vec3(length(rayDir)) / rayDir);
   cursor.rayStep = sign(rayDir);
   vec3 p = (cursor.mapPos - pos);
@@ -23,10 +24,20 @@ DDACursor dda_cursor_create(
   return cursor;
 }
 
-void dda_cursor_step(in out DDACursor cursor, out vec3 normal) {
+void dda_cursor_step(in out DDACursor cursor) {
   vec3 sideDist = cursor.sideDist;
   cursor.mask = step(sideDist.xyz, sideDist.yzx) *
                 step(sideDist.xyz, sideDist.zxy);
   cursor.sideDist += cursor.mask * cursor.deltaDist;
   cursor.mapPos += cursor.mask * cursor.rayStep;
+}
+
+int dda_cursor_octant(const in DDACursor cursor) {
+  bvec3 r = greaterThanEqual(cursor.mapPos, vec3(1.0));
+
+  return (
+    int(r.x) << 0 |
+    int(r.y) << 1 |
+    int(r.z) << 2
+  );
 }
