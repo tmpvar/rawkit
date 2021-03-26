@@ -94,6 +94,8 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
     );
 
     return false;
+  } else {
+    printf("\e[0;32m" "rebuilt %s\n" "\e[0m", name);
   }
 
   return true;
