@@ -27,6 +27,7 @@ struct Scene {
     mat4 view;
     mat4 proj;
     vec4 eye;
+    vec4 mouse;
 
     vec3 tree_center;
     float tree_radius;

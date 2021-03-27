@@ -120,6 +120,7 @@ void loop() {
   double dt = now - state->last_time;
   state->last_time = now;
   state->renderer = Renderer::RAYTRACE;
+  state->scene.mouse = vec4(state->mouse.pos, 0, 0);
   // mouse look
   {
     GLFWwindow *window = rawkit_glfw_window();

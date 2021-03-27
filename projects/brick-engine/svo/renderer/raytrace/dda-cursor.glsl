@@ -1,5 +1,4 @@
 struct DDACursor {
-  vec3 mask;
   vec3 mapPos;
   vec3 rayStep;
   vec3 sideDist;
@@ -19,17 +18,15 @@ DDACursor dda_cursor_create(
   cursor.sideDist = (
     cursor.rayStep * p + (cursor.rayStep * 0.5) + 0.5
   ) * cursor.deltaDist;
-  cursor.mask = step(cursor.sideDist.xyz, cursor.sideDist.yzx) *
-                step(cursor.sideDist.xyz, cursor.sideDist.zxy);
   return cursor;
 }
 
 void dda_cursor_step(in out DDACursor cursor) {
   vec3 sideDist = cursor.sideDist;
-  cursor.mask = step(sideDist.xyz, sideDist.yzx) *
-                step(sideDist.xyz, sideDist.zxy);
-  cursor.sideDist += cursor.mask * cursor.deltaDist;
-  cursor.mapPos += cursor.mask * cursor.rayStep;
+  vec3 mask = step(sideDist.xyz, sideDist.yzx) *
+              step(sideDist.xyz, sideDist.zxy);
+  cursor.sideDist += mask * cursor.deltaDist;
+  cursor.mapPos += mask * cursor.rayStep;
 }
 
 int dda_cursor_octant(const in DDACursor cursor) {
