@@ -8,7 +8,7 @@ struct Mouse {
   glm::vec2 down_pos;
   bool down;
   bool was_down;
-
+  bool captured = false;
   float wheel = 0.0f;
 
   void tick() {
@@ -24,7 +24,8 @@ struct Mouse {
       my
     );
 
-    if (io && !io->WantCaptureMouse) {
+    this->captured = io && io->WantCaptureMouse;
+    if (!captured) {
       this->wheel = io->MouseWheel;
 
       if (igIsMouseDown(ImGuiMouseButton_Left)) {
@@ -37,6 +38,14 @@ struct Mouse {
       }
     }
     this->debug();
+  }
+
+  bool button(ImGuiMouseButton_ button) {
+    if (this->captured) {
+      return false;
+    }
+
+    return igIsMouseDown(button);
   }
 
   void debug() {
