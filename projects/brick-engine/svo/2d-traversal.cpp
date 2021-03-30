@@ -9,6 +9,7 @@ using namespace glm;
 struct State {
   Mouse mouse;
   Camera2D *camera;
+  float t;
 };
 
 
@@ -120,9 +121,13 @@ void loop() {
     ctx.strokeWidth(0.25 / (state->camera->scale * 10.0));
     box.render(ctx);
 
+    if (igIsMouseDown(ImGuiMouseButton_Right)) {
+      state->t += 0.01;
+    }
+
     vec2 ro(
-      cos(rawkit_now()) * 2.0 + 1.0,
-      sin(rawkit_now()) * 2.0 + 1.0
+      cos(state->t) * 2.0 + 1.0,
+      sin(state->t) * 2.0 + 1.0
     );
     // vec2 rd(1.0, glm::abs(sin(rawkit_now()) * 2.0));
 
@@ -136,16 +141,39 @@ void loop() {
     // );
     vec2 rd = normalize(1.0f - ro);//vec2(1.0, 0.75 + sin(rawkit_now())));
     // rd = normalize(vec2(1.1, sin(rawkit_now() * 0.1)) - ro);
-    vec2 ird = 1.1f / rd;
+    vec2 ard = abs(rd);
+    vec2 aro = ro;
+    vec2 ird = 1.0f / ard;
 
-    u8 octant_mask = (
-      ((rd.x < 0.0) ? 1 : 0) |
-      ((rd.y < 0.0) ? 2 : 0)
-    );
+    u8 quadrant_mask = 0;
+    if (rd.x < 0.0) {
+      quadrant_mask ^= 1;
+      ard.x = -rd.x;
+      // flip the origin over the midpoint (1, 1)
+      if (ro.x > 1.0) {
+        aro.x = 2.0 - ro.x;
+      } else {
+        aro.x = 1.0 - ro.x;
+      }
+    }
 
-    vec2 r = box.isect_ray(ro, rd);
-    vec2 start = ro + rd * r.x;
-    vec2 end = ro + rd * r.y;
+    if (rd.y < 0.0) {
+      quadrant_mask ^= 2;
+      ard.y = -rd.y;
+      // flip the origin over the midpoint (1, 1)
+      if (ro.y > 1.0) {
+        aro.y = 2.0 - ro.y;
+      } else {
+        aro.y = 1.0 - ro.y;
+      }
+    }
+
+    ard = normalize(ard);
+    vec2 aird = 1.0f / ard;
+
+    vec2 r = box.isect_ray(aro, ard);
+    vec2 start = aro + ard * r.x;
+    vec2 end = aro + ard * r.y;
 
     {
       vec2 inv_dir = 1.0f / rd;
@@ -157,34 +185,13 @@ void loop() {
         ctx.strokeWidth(0.5 / (state->camera->scale * 10.0));
         ctx.stroke();
 
-      vec2 center = (start + end) * 0.5f;
-      ctx.beginPath();
-        ctx.arc(start, 1.0 / (state->camera->scale * 10.0));
-        ctx.fillColor(rgb(0xFF0000FF));
-        ctx.fill();
-
-      ctx.beginPath();
-        ctx.arc(end, 1.0 / (state->camera->scale * 10.0));
-        ctx.fillColor(rgb(0x0000FFFF));
-        ctx.fill();
-
-      u8 diff = box.quadrant(start) ^ box.quadrant(end);
-      u8 steps = ((diff & 1) ? 1 : 0) + ((diff & 2) ? 1 : 0);
-      igText("quadrants: start(%u) end(%u) diff(%u) steps(%u)",
-        box.quadrant(start),
-        box.quadrant(end),
-        diff,
-        steps
-      );
-
-      igText("ray_dir(%f, %f) slope(%f)", rd.x, rd.y, rd.x/rd.y);
-
-      {
-        vec2 c = (box.lb + box.ub) * 0.5f;
-        float r = distance(c, box.ub);
-        vec2 hrm = vec2((ro - c) / r) + 1.0f;
-        igText("hrm(%f, %f)", hrm.x, hrm.y);
-      }
+      // render sign normalized ray
+      // ctx.beginPath();
+      //   ctx.moveTo(aro);
+      //   ctx.lineTo(aro + ard * 1000.0f);
+      //   ctx.strokeColor(rgb(0x0000FFFF));
+      //   ctx.strokeWidth(0.5 / (state->camera->scale * 10.0));
+      //   ctx.stroke();
     }
 
 
@@ -202,27 +209,27 @@ void loop() {
 
     // t.x(x) = ird * x + (-p.x / d.x)
     // t.y(y) = ird * y + (-p.y / d.y)
-    vec2 coef = -start / rd;
+    vec2 coef = -start / ard;
 
     igText("start(%f, %f)", start.x, start.y);
+    igText("ard(%f, %f)", ard.x, ard.y);
 
     for (u32 i=0; i<3; i++) {
-      igText("quadrant(%u)", quadrant);
-      Box child = box.quadrantToBox(quadrant);
+      Box child = box.quadrantToBox(quadrant ^ quadrant_mask);
       child.render(ctx, colors[i]);
 
+      // TODO: this needs to be the current scale as we recurse
       vec2 upperCorner(
         (quadrant & 1<<0) ? 2.0 : 1.0,
         (quadrant & 1<<1) ? 2.0 : 1.0
       );
-      vec2 crossings = ird * upperCorner + coef;
-      u8 next_quadrant = quadrant ^ (crossings.x < crossings.y ? 1 : 2);
-      if (next_quadrant < quadrant) {
-        igText("OOB");
+
+      vec2 crossings = aird * upperCorner + coef;
+      u8 next_quadrant = quadrant | (crossings.x <= crossings.y ? 1 : 2);
+      if (next_quadrant <= quadrant) {
         break;
       }
       quadrant = next_quadrant;
-      igText("crossings(%f, %f)", crossings.x, crossings.y);
     }
   #else
     Box firstBox = box.quadrantToBox(box.quadrant(start));
