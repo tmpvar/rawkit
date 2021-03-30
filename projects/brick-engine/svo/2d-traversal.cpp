@@ -147,13 +147,13 @@ void loop() {
     // positive for now.
     u8 quadrant_mask = 0;
     if (rd.x < 0.0) {
-      quadrant_mask ^= 1;
+      quadrant_mask |= 1;
       ard.x = -rd.x;
       aro.x = -ro.x;
     }
 
     if (rd.y < 0.0) {
-      quadrant_mask ^= 2;
+      quadrant_mask |= 2;
       ard.y = -rd.y;
       aro.y = -ro.y;
     }
