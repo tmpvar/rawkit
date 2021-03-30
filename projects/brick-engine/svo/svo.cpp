@@ -309,34 +309,35 @@ void loop() {
     state->scene.tree_center = vec3(0.0);
     state->scene.tree_radius = next_power_of_two(sdf_radius);
     fillInner(state, state->scene.tree_radius, state->scene.tree_center, sample_scene, 0);
+
+    // transfer node tree to gpu
+    {
+      u64 size = next_power_of_two(sb_count(state->nodes) * sizeof(InnerNode));
+      state->nodes_ssbo = rawkit_gpu_ssbo("node::tree", size);
+      rawkit_gpu_ssbo_update(
+        state->nodes_ssbo,
+        rawkit_vulkan_queue(),
+        rawkit_vulkan_command_pool(),
+        state->nodes,
+        size
+      );
+    }
+
+    // transfer node positions to gpu
+    {
+      u64 size = next_power_of_two(sb_count(state->node_positions) * sizeof(vec4));
+      state->node_positions_ssbo = rawkit_gpu_ssbo("node::positions", size);
+      rawkit_gpu_ssbo_update(
+        state->node_positions_ssbo,
+        rawkit_vulkan_queue(),
+        rawkit_vulkan_command_pool(),
+        state->node_positions,
+        size
+      );
+    }
   }
 
 
-  // transfer node tree to gpu
-  {
-    u64 size = next_power_of_two(sb_count(state->nodes) * sizeof(InnerNode));
-    state->nodes_ssbo = rawkit_gpu_ssbo("node::tree", size);
-    rawkit_gpu_ssbo_update(
-      state->nodes_ssbo,
-      rawkit_vulkan_queue(),
-      rawkit_vulkan_command_pool(),
-      state->nodes,
-      size
-    );
-  }
-
-  // transfer node positions to gpu
-  {
-    u64 size = next_power_of_two(sb_count(state->node_positions) * sizeof(vec4));
-    state->node_positions_ssbo = rawkit_gpu_ssbo("node::positions", size);
-    rawkit_gpu_ssbo_update(
-      state->node_positions_ssbo,
-      rawkit_vulkan_queue(),
-      rawkit_vulkan_command_pool(),
-      state->node_positions,
-      size
-    );
-  }
 
   // visualize
   {

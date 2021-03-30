@@ -84,13 +84,28 @@ class Context2D {
       return this;
     }
 
+    Context2D *scale(float x, float y) {
+      rawkit_vg_scale(vg, x, y);
+      return this;
+    }
+
     Context2D *moveTo(glm::vec2 p) {
       rawkit_vg_move_to(vg, p.x, p.y);
       return this;
     }
 
+    Context2D *moveTo(float x, float y) {
+      rawkit_vg_move_to(vg, x, y);
+      return this;
+    }
+
     Context2D *lineTo(glm::vec2 p) {
       rawkit_vg_line_to(vg, p.x, p.y);
+      return this;
+    }
+
+    Context2D *lineTo(float x, float y) {
+      rawkit_vg_line_to(vg, x, y);
       return this;
     }
 
