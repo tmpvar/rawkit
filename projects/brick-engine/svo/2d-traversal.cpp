@@ -105,7 +105,7 @@ void loop() {
   state->mouse.tick();
   state->camera->ctx = ctx;
   state->camera->tick(
-    igIsMouseDown(ImGuiMouseButton_Left),
+    state->mouse.button(ImGuiMouseButton_Left),
     state->mouse.pos,
     state->mouse.wheel * 0.1f
   );
@@ -121,7 +121,7 @@ void loop() {
     ctx.strokeWidth(0.25 / (state->camera->scale * 10.0));
     box.render(ctx);
 
-    if (igIsMouseDown(ImGuiMouseButton_Right)) {
+    if (state->mouse.button(ImGuiMouseButton_Right)) {
       state->t += 0.01;
     }
 
