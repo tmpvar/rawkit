@@ -24,22 +24,35 @@ struct Box {
   vec2 lb;
   vec2 ub;
   vec2 c_center;
+  float radius;
   Box() {}
   Box(vec2 lb, vec2 ub) {
     this->lb = lb;
     this->ub = ub;
     this->c_center = (lb + ub) * 0.5f;
+    this->radius = ub.x - c_center.x;
+  }
+
+  Box(vec2 center, float radius) {
+    this->lb = center - radius;
+    this->ub = center + radius;
+    this->c_center = center;
+    this-> radius = radius;
   }
 
   void render(Context2D &ctx, u32 color = 0xFFFFFFFF) {
+    this->render(ctx, rgb(color));
+  }
+
+  void render(Context2D &ctx, Color color) {
     vec2 mid = (this->lb + this->ub) * 0.5f;
     ctx.beginPath();
       ctx.rect(this->lb, this->ub - this->lb);
-      ctx.moveTo(this->lb.x, mid.y);
-      ctx.lineTo(this->ub.x, mid.y);
-      ctx.moveTo(mid.x, this->lb.y);
-      ctx.lineTo(mid.x, this->ub.y);
-      ctx.strokeColor(rgb(color));
+      // ctx.moveTo(this->lb.x, mid.y);
+      // ctx.lineTo(this->ub.x, mid.y);
+      // ctx.moveTo(mid.x, this->lb.y);
+      // ctx.lineTo(mid.x, this->ub.y);
+      ctx.strokeColor(color);
       ctx.stroke();
   }
 
@@ -66,9 +79,10 @@ struct Box {
 
   u8 quadrant(vec2 p) {
     #if 1
-    float r = distance(c_center, this->ub);
-
-    bvec2 v = greaterThanEqual(((p - c_center) / r) + 1.0f, vec2(1.0));
+    bvec2 v = greaterThanEqual(
+      (p - c_center) / this->radius,
+      vec2(0.0)
+    );
     #else
     bvec2 v = greaterThanEqual(
       glm::clamp((p - this->center()), vec2(0.0), vec2(2.0)),
@@ -80,13 +94,12 @@ struct Box {
   }
 
   Box quadrantToBox(u8 v) {
-    vec2 c = (this->lb + this->ub) * 0.5f;
-    float r = (ub.x - c.x) * 0.5f;
-    vec2 bc = c + vec2(
+    float r = (ub.x - c_center.x) * 0.5f;
+    vec2 bc = c_center + vec2(
       (v & 1) > 0 ? r : -r,
       (v & 2) > 0 ? r : -r
     );
-    return Box(bc - r, bc + r);
+    return Box(bc, r);
   }
 };
 
@@ -110,7 +123,7 @@ void loop() {
   state->camera->tick(
     state->mouse.button(ImGuiMouseButton_Left),
     state->mouse.pos,
-    state->mouse.wheel * 0.1f
+    state->mouse.wheel
   );
 
   float radius = 1.0f;
@@ -141,28 +154,58 @@ void loop() {
 
     vec2 ard = abs(rd);
     vec2 aro = ro;
-    vec2 ird = 1.0f / ard;
 
     // The original paper converts all ray directions to negative, but I'll stick with
     // positive for now.
     u8 quadrant_mask = 0;
     if (rd.x < 0.0) {
+      igText("invert ray x");
       quadrant_mask |= 1;
       ard.x = -rd.x;
       aro.x = -ro.x;
     }
 
     if (rd.y < 0.0) {
+      igText("invert ray y");
       quadrant_mask |= 2;
       ard.y = -rd.y;
       aro.y = -ro.y;
     }
+    ard = normalize(ard);
+    vec2 root_isect = box.isect_ray(ro, rd);
 
     vec2 aird = 1.0f / ard;
 
-    vec2 r = box.isect_ray(aro, ard);
-    vec2 start = aro + ard * r.x;
-    vec2 end = aro + ard * r.y;
+
+
+    vec2 start = aro + ard * root_isect.x;
+    // vec2 end = aro + ard * root_isect.y;
+
+    // setup the ray coefficient:
+    //   given the upper bounds of a node return the x/y crossing
+    //   which can be used
+    // t(upper_corner) = abs_inv_rd * upper_corner + (-p.x / d.x)
+    vec2 coef = -aro / ard;
+    vec2 bias = aro * coef;
+
+
+    igText("rd(%f, %f)", rd.x, rd.y);
+    igText("ro(%f, %f)", ro.x, ro.y);
+    igText("coef(%f, %f)", coef.x, coef.y);
+    igText("bias(%f, %f)", bias.x, bias.y);
+    igText("t(%f, %f)",
+      max(0.0f, min2(coef - bias)),
+      min(1.0f, max2(2.0f * coef - bias))
+    );
+    igText("corner(%f, %f)",
+      -bias.x,
+      -bias.y
+    );
+
+
+    igText("ard(%f, %f) aird(%f, %f)", ard.x, ard.y, aird.x, aird.y);
+    igText("isect(%f, %f)", root_isect.x, root_isect.y);
+    vec2 root_interval = root_isect;//aird * box.ub + coef;
 
     // render the ray
     {
@@ -171,35 +214,158 @@ void loop() {
       ctx.lineTo(ro + rd * 1000.0f);
       ctx.strokeColor(rgb(0x00FF00FF));
       ctx.stroke();
+
+      // ctx.beginPath();
+      // ctx.moveTo(aro);
+      // ctx.lineTo(aro + ard * 1000.0f);
+      // ctx.strokeColor(rgb(0xFF0000FF));
+      // ctx.stroke();
+
     }
 
     // iterate
     u32 colors[] = { 0xFF0000FF, 0x00FF00FF, 0x0000FFFF };
-    u8 quadrant = box.quadrant(start);
-
-    // setup the ray coefficient:
-    //   given the upper bounds of a node return the x/y crossing
-    //   which can be used
-    // t(upper_corner) = abs_inv_rd * upper_corner + (-p.x / d.x)
-    vec2 coef = -start / ard;
 
     // define the upper bounds of the lower and upper quadrants
     vec2 corners(0.0, radius);
 
-    for (u32 i=0; i<3; i++) {
-      box.quadrantToBox(quadrant ^ quadrant_mask).render(ctx, colors[i]);
+    struct StackEntry {
+      Box box;
+      u8 quadrant;
+      // .x = tmin, .y = tmax
+      vec2 t_interval;
+    };
 
-      vec2 upperCorner(
-        (quadrant & 1<<0) == 0 ? corners.x : corners.y,
-        (quadrant & 1<<1) == 0 ? corners.x : corners.y
+    #define MAX_ENTRIES 10
+    struct Stack {
+      StackEntry entries[MAX_ENTRIES];
+      i32 idx = 0;
+
+      void push(const Box box, u8 quadrant, vec2 interval) {
+        if (idx >= 31) {
+          printf("overflow!\n");
+          return;
+        }
+        this->entries[idx++] = {
+          .box = box,
+          .quadrant = quadrant,
+          .t_interval = interval,
+        };
+      }
+
+      void pop() {
+        idx--;
+      }
+
+      StackEntry *last() {
+        if (idx < 1) {
+          return nullptr;
+        }
+        return &this->entries[idx-1];
+      }
+
+      i32 length() {
+        return idx;
+      }
+    };
+
+    Stack stack;
+    stack.push(box, box.quadrant(start), root_interval);
+
+    // igText("start(%f, %f)", start.x, start.y);
+    igText("box.center(%f, %f)", box.c_center.x, box.c_center.y);
+    igText("box.quadrant(aro) = %u", box.quadrant(aro));
+
+
+    i32 s = 400;
+    float t = root_interval.x;
+    while(stack.length() && s--) {
+      StackEntry *parent = stack.last();
+
+      // igText("max_t(%f) t(%f)  parent_t(%f, %f)", root_interval.y, t, parent->t_interval.x, parent->t_interval.y);
+      parent->box.quadrantToBox(parent->quadrant).render(
+        ctx,
+        hsl(float(stack.length())/float(MAX_ENTRIES), 0.9, 0.6)
       );
 
-      vec2 crossings = aird * upperCorner + coef;
-      u8 next_quadrant = quadrant | (crossings.x <= crossings.y ? 1 : 2);
-      if (next_quadrant <= quadrant) {
-        break;
+      // Pop
+      if (1) {
+        if (t >= parent->t_interval.y) {
+          igText("POP - t past parent t_max");
+
+          stack.pop();
+          continue;
+        }
       }
-      quadrant = next_quadrant;
+
+      // Push
+      if (1) {
+        if (t < parent->t_interval.y && stack.length() < 5) {
+          vec2 pos = ro + rd * t;
+          u8 child_quadrant = parent->box.quadrant(pos);
+          igText("PSH level(%u) quadrant(%u) t(%f) pos(%f, %f)", stack.length(), child_quadrant, t, pos.x, pos.y);
+          igText("  parent.t_interval(%f, %f)", parent->t_interval.x, parent->t_interval.y);
+          Box child = parent->box.quadrantToBox(child_quadrant);
+          igText("  parent[(%0.4f, %0.4f) - (%0.4f, %0.4f), radius(%0.4f)]\n  child[(%0.4f, %0.4f) - (%0.4f, %0.4f), radius(%0.4f)]",
+            parent->box.lb.x,
+            parent->box.lb.y,
+            parent->box.ub.x,
+            parent->box.ub.y,
+            parent->box.radius,
+            child.lb.x,
+            child.lb.y,
+            child.ub.x,
+            child.ub.y,
+            child.radius
+          );
+
+          vec2 crossings = aird * abs(child.ub) + coef;
+          igText("  quadrant(%u) crossings(%f, %f) ",child.quadrant(pos), crossings.x, crossings.y);
+
+          stack.push(
+            child,
+            child.quadrant(pos),
+            child.isect_ray(ro, rd)
+          );
+          parent->box.quadrantToBox(child_quadrant).render(
+            ctx,
+            hsl(float(stack.length())/float(MAX_ENTRIES), 0.9, 0.6)
+          );
+          continue;
+        }
+      }
+
+      // Advance
+      {
+        vec2 upperCorner(
+          (parent->quadrant & 1<<0) == 0 ? parent->box.c_center.x : parent->box.ub.x,
+          (parent->quadrant & 1<<1) == 0 ? parent->box.c_center.y : parent->box.ub.y
+        );
+
+        vec2 crossings = aird * upperCorner + coef;
+        u8 next_quadrant = parent->quadrant | (crossings.x <= crossings.y ? 1 : 2);
+        float old_t = t;
+        if (next_quadrant <= parent->quadrant) {
+          stack.pop();
+          t = parent->t_interval.y + 0.001;
+          igText("ADV level(%u) quadrant(%u) next_quadrant(%u) t(%f -> %f)", stack.length(), parent->quadrant, next_quadrant, old_t, t);
+          igText("  POP t(%f -> %f)", parent->quadrant, old_t, t);
+
+
+          continue;
+        } else {
+          t = parent->box.quadrantToBox(next_quadrant).isect_ray(ro, rd).x;
+          igText("ADV level(%u) quadrant(%u) next_quadrant(%u) t(%f -> %f)", stack.length(), parent->quadrant, next_quadrant, old_t, t);
+        }
+
+
+        // parent->box.quadrantToBox(next_quadrant ^ quadrant_mask).render(
+        //   ctx,
+        //   hsl(float(stack.length())/float(MAX_ENTRIES), 0.9, 0.6)
+        // );
+
+        parent->quadrant = next_quadrant;
+      }
     }
   state->camera->end();
 }
