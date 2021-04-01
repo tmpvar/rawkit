@@ -31,7 +31,7 @@ void setup() {
 
   try {
     Prof build("build");
-    auto handle = nanovdb::createLevelSetSphere<float>(512.0f);
+    auto handle = nanovdb::createLevelSetSphere<float>(64.0f);
 
     state->data = rawkit_gpu_ssbo("handle::ssbo", handle.size());
     u8 *data = handle.data();
