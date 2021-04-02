@@ -17,10 +17,18 @@ typedef struct rawkit_shader_t {
 } rawkit_shader_t;
 
 typedef struct rawkit_shader_options_t {
-  VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-  VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL;
-  bool noVertexInput = false;
+  VkPrimitiveTopology topology;
+  VkPolygonMode polygonMode;
+  bool noVertexInput;
 } rawkit_shader_options_t;
+
+static rawkit_shader_options_t rawkit_shader_default_options() {
+  rawkit_shader_options_t ret = {};
+  ret.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  ret.polygonMode = VK_POLYGON_MODE_FILL;
+  ret.noVertexInput = false;
+  return ret;
+}
 
 // RAWKIT_SHADER_ARG_COUNT - count the number of VA_ARGS in both c and c++ mode
 #ifdef __cplusplus

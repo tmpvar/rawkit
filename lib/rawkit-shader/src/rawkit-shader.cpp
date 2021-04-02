@@ -50,7 +50,7 @@ rawkit_shader_t *rawkit_shader_ex(
     current_state->gpu_tick_idx = gpu_tick_idx;
 
     {
-      rawkit_shader_options_t default_options;
+      rawkit_shader_options_t default_options = rawkit_shader_default_options();
       dirty = dirty || memcmp(
         &current_state->options,
         options ? options : &default_options,
