@@ -162,6 +162,21 @@ VkResult rawkit_gpu_ssbo_transition(
   0 \
 )
 
+VkResult rawkit_gpu_buffer_map(
+  rawkit_gpu_t *gpu,
+  rawkit_gpu_buffer_t *dst,
+  VkDeviceSize offset,
+  VkDeviceSize size,
+  void **buf
+);
+
+VkResult rawkit_gpu_buffer_unmap(
+  rawkit_gpu_t *gpu,
+  rawkit_gpu_buffer_t *dst,
+  VkDeviceSize offset,
+  VkDeviceSize size
+);
+
 #ifdef __cplusplus
   }
 #endif

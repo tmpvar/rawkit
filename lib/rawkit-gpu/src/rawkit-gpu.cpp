@@ -766,3 +766,51 @@ VkResult rawkit_gpu_buffer_transition(
   buffer->access = barrier.dstAccessMask;
   return VK_SUCCESS;
 }
+
+VkResult rawkit_gpu_buffer_map(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *dst, VkDeviceSize offset, VkDeviceSize size, void **buf) {
+  if (size >= dst->size) {
+    size = VK_WHOLE_SIZE;
+  }
+
+  VkResult err = vkMapMemory(
+    gpu->device,
+    dst->memory,
+    offset,
+    size,
+    0,
+    buf
+  );
+
+  if (err) {
+    printf("ERROR: unable to map memory (%i)\n", err);
+    return err;
+  }
+
+  return err;
+}
+
+VkResult rawkit_gpu_buffer_unmap(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *dst, VkDeviceSize offset, VkDeviceSize size) {
+  VkResult err = VK_SUCCESS;
+  // flush
+  {
+    VkMappedMemoryRange flush = {
+      .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+      .memory = dst->memory,
+      .offset = offset,
+      .size = size,
+    };
+
+    VkResult err = vkFlushMappedMemoryRanges(
+      gpu->device,
+      1,
+      &flush
+    );
+
+    if (err) {
+      printf("ERROR: unable to flush mapped memory ranges (%i)\n", err);
+    }
+  }
+
+  vkUnmapMemory(gpu->device, dst->memory);
+  return err;
+}
