@@ -589,6 +589,7 @@ rawkit_gpu_ssbo_t *rawkit_gpu_ssbo_ex(
       (
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
         VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
         buffer_usage_flags
       )
     );
