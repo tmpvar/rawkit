@@ -6,6 +6,7 @@
 
 
 #include <string>
+using namespace std;
 
 static rawkit_gpu_t *default_gpu = nullptr;
 rawkit_gpu_t *rawkit_default_gpu() {
@@ -69,6 +70,7 @@ VkResult rawkit_gpu_buffer_destroy(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *buf) 
 }
 
 rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
+  const char *name,
   rawkit_gpu_t *gpu,
   VkDeviceSize size,
   VkMemoryPropertyFlags memory_flags,
@@ -78,17 +80,34 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
     return NULL;
   }
 
-  rawkit_gpu_buffer_t *buf = (rawkit_gpu_buffer_t *)calloc(sizeof(rawkit_gpu_buffer_t), 1);
-  buf->size = size;
-  buf->gpu = gpu;
-  buf->memory_flags = memory_flags,
-  buf->buffer_usage_flags = buffer_usage_flags;
-  VkResult err;
-
+  rawkit_gpu_buffer_t *buf = rawkit_hot_resource(name, rawkit_gpu_buffer_t);
   if (!buf) {
     printf("ERROR: rawkit_gpu_buffer_create: unable to allocate rawkit_gpu_buffer\n");
     return NULL;
   }
+
+  bool dirty = (
+    buf->resource_version == 0 ||
+    buf->buffer_usage_flags != buffer_usage_flags ||
+    buf->memory_flags != memory_flags ||
+    buf->size != size
+  );
+
+  if (!dirty) {
+    return buf;
+  }
+
+  if (buf->handle) {
+    rawkit_gpu_queue_buffer_for_deletion(*buf);
+  }
+
+  buf->size = size;
+  buf->gpu = gpu;
+  buf->memory_flags = memory_flags,
+  buf->buffer_usage_flags = buffer_usage_flags;
+  buf->handle = nullptr;
+  buf->memory = nullptr;
+  VkResult err;
 
   // create the buffer
   {
@@ -155,6 +174,8 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
       return NULL;
     }
   }
+
+  buf->resource_version++;
 
   return buf;
 }
@@ -323,7 +344,9 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
   // setup vertices
   rawkit_gpu_buffer_t *vertices = NULL;
   {
+    string buffer_name = string(resource_name) + "-vertex-buffer";
     vertices = rawkit_gpu_buffer_create(
+      buffer_name.c_str(),
       gpu,
       vertices_size,
       (
@@ -332,7 +355,9 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       ),
       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
     );
+    string staging_buffer_name = string(resource_name) + "-vertex-buffer-staging";
     rawkit_gpu_buffer_t *vertices_staging = rawkit_gpu_buffer_create(
+      staging_buffer_name.c_str(),
       gpu,
       vertices_size,
       (
@@ -379,7 +404,9 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
   VkDeviceSize indices_size = index_count * sizeof(uint32_t);
   rawkit_gpu_buffer_t *indices = NULL;
   if (index_count && mesh->index_data) {
+    string buffer_name = string(resource_name) + "-index-buffer";
     indices = rawkit_gpu_buffer_create(
+      buffer_name.c_str(),
       gpu,
       indices_size,
       (
@@ -389,7 +416,9 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       VK_BUFFER_USAGE_INDEX_BUFFER_BIT
     );
 
+    string staging_buffer_name = string(resource_name) + "-index-buffer-staging";
     rawkit_gpu_buffer_t *staging = rawkit_gpu_buffer_create(
+      staging_buffer_name.c_str(),
       gpu,
       indices_size,
       (
@@ -530,15 +559,14 @@ void rawkit_gpu_queue_command_buffer_for_deletion(rawkit_gpu_t *gpu, VkCommandBu
   state->completed_command_buffers.push_back(b);
 }
 
-
-void rawkit_gpu_queue_buffer_for_deletion(rawkit_gpu_t *gpu, const rawkit_gpu_buffer_t *buffer) {
-  if (!gpu || !gpu->_state || !buffer) {
+void rawkit_gpu_queue_buffer_for_deletion(rawkit_gpu_buffer_t buffer) {
+  if (!buffer.gpu || !buffer.gpu->_state) {
     return;
   }
 
-  GPUState *state = (GPUState *)gpu->_state;
+  GPUState *state = (GPUState *)buffer.gpu->_state;
   GPUDeleteBufferEntry e = {};
-  e.buffer = *buffer;
+  e.buffer = buffer;
   e.target_tick_idx = state->tick_idx + 5;
   state->completed_buffers.push(e);
 }
@@ -572,14 +600,17 @@ rawkit_gpu_ssbo_t *rawkit_gpu_ssbo_ex(
   if (dirty) {
     ssbo->resource_version = 0;
     if (ssbo->buffer) {
-      rawkit_gpu_queue_buffer_for_deletion(gpu, ssbo->buffer);
+      rawkit_gpu_queue_buffer_for_deletion(*ssbo->buffer);
     }
 
     if (ssbo->staging_buffer) {
-      rawkit_gpu_queue_buffer_for_deletion(gpu, ssbo->staging_buffer);
+      rawkit_gpu_queue_buffer_for_deletion(*ssbo->staging_buffer);
     }
 
+    std::string buffer_name = resource_name + "/buffer";
+
     ssbo->buffer = rawkit_gpu_buffer_create(
+      buffer_name.c_str(),
       gpu,
       size,
       (
@@ -594,7 +625,9 @@ rawkit_gpu_ssbo_t *rawkit_gpu_ssbo_ex(
       )
     );
 
+    std::string staging_buffer_name = resource_name + "/staging-buffer";
     ssbo->staging_buffer = rawkit_gpu_buffer_create(
+      staging_buffer_name.c_str(),
       gpu,
       size,
       (

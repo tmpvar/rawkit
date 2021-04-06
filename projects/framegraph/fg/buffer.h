@@ -45,15 +45,19 @@ struct Buffer {
       gpu = rawkit_default_gpu();
     }
 
-    sprintf(buffer_tmp_str, "FrameGraph-%s-", name);
+    sprintf(buffer_tmp_str, "FrameGraph::Buffer::%s", name);
     u32 size = length * sizeof(T);
-    printf("Create gpu buffer with %u elements (%u bytes)", length, size);
+
     this->_buffer = rawkit_gpu_buffer_create(
+      buffer_tmp_str,
       gpu,
       size,
       memory_flags,
       buffer_usage_flags
     );
+
+    igText("buffer %s version %u", buffer_tmp_str, this->_buffer->resource_version);
+
   }
 
   rawkit_gpu_buffer_t *handle() {
