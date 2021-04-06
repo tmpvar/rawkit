@@ -1,7 +1,7 @@
 #include <stdio.h>          // printf, fprintf, wcstombs_s
 #include <stdlib.h>         // abort
 #include <uv.h>
-
+#include <termcolor.h>
 #include <flags/flags.h>
 
 #include <GLFW/glfw3.h>
@@ -150,7 +150,7 @@ static VkResult BeginMainRenderPass(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window*
     VkSemaphore render_complete_semaphore = wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
     err = vkAcquireNextImageKHR(gpu->device, wd->Swapchain, UINT64_MAX-1, image_acquired_semaphore, VK_NULL_HANDLE, &wd->FrameIndex);
     if (err < 0) {
-      printf("\e[0;31m" "rawkit::BeginMainRenderPass: unable to acquire next image (%i)\n" "\e[0m", err);
+      printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " rawkit::BeginMainRenderPass: unable to acquire next image (%i)\n", err);
       // Resize swap chain
       ResizeSwapChain(gpu);
       if (depth > 1) {
