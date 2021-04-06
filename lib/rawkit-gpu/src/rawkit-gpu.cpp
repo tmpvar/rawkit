@@ -303,7 +303,7 @@ VkResult rawkit_gpu_buffer_update(
   );
 
   if (err) {
-    printf("ERROR: unable to map memory to set vertex buffer contents (%i)\n", err);
+    printf("ERROR: rawkit_gpu_buffer_update: unable to map memory to update buffer (%s) contents (%i)\n", dst->resource_name, err);
     return err;
   }
 
