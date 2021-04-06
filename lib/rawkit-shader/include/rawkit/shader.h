@@ -215,6 +215,12 @@ void rawkit_shader_instance_param_push_constants(
   uint64_t bytes
 );
 
+void rawkit_shader_instance_param_buffer(
+  rawkit_shader_instance_t *instance,
+  const char *name,
+  rawkit_gpu_buffer_t *buffer
+);
+
 void rawkit_shader_instance_param_ssbo(
   rawkit_shader_instance_t *instance,
   const char *name,

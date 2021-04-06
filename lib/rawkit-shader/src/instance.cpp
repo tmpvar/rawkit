@@ -411,24 +411,18 @@ void _rawkit_shader_instance_param_ubo(
   }
 
   VkResult err = rawkit_gpu_buffer_update(
-    gpu,
     it->second,
     data,
     bytes
   );
 }
 
-
-void rawkit_shader_instance_param_ssbo(
+void rawkit_shader_instance_param_buffer(
   rawkit_shader_instance_t *instance,
   const char *name,
-  rawkit_gpu_ssbo_t *ssbo
+  rawkit_gpu_buffer_t *buffer
 ) {
-  if (!instance || !instance->_state || !ssbo || !ssbo->resource_version || !name) {
-    return;
-  }
-
-  if (!ssbo->buffer || !ssbo->staging_buffer) {
+  if (!instance || !instance->_state || !buffer || !buffer->handle || !name) {
     return;
   }
 
@@ -440,16 +434,16 @@ void rawkit_shader_instance_param_ssbo(
     name
   );
   if (entry.entry_type != RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_BUFFER) {
-    printf("WARN: rawkit_shader_instance_param_ssbo: could not set '%s' as SSBO\n", name);
+    printf("WARN: rawkit_shader_instance_param_buffer: could not set '%s' as Storage Buffer\n", name);
     return;
   }
 
   // update destriptor set
   {
     VkDescriptorBufferInfo bufferInfo = {};
-    bufferInfo.buffer = ssbo->buffer->handle;
+    bufferInfo.buffer = buffer->handle;
     bufferInfo.offset = 0;
-    bufferInfo.range = ssbo->buffer->size;
+    bufferInfo.range = buffer->size;
 
     ShaderInstanceState *state = (ShaderInstanceState *)instance->_state;
 
@@ -468,6 +462,26 @@ void rawkit_shader_instance_param_ssbo(
       NULL
     );
   }
+}
+
+void rawkit_shader_instance_param_ssbo(
+  rawkit_shader_instance_t *instance,
+  const char *name,
+  rawkit_gpu_ssbo_t *ssbo
+) {
+  if (!instance || !instance->_state || !ssbo || !ssbo->resource_version || !name) {
+    return;
+  }
+
+  if (!ssbo->buffer || !ssbo->staging_buffer) {
+    return;
+  }
+
+  rawkit_shader_instance_param_buffer(
+    instance,
+    name,
+    ssbo->buffer
+  );
 }
 
 void rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue queue) {
