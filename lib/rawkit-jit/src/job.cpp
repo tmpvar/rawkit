@@ -1,7 +1,7 @@
 #include <rawkit/core.h>
 #include <rawkit-jit-internal.h>
 #include <whereami.c>
-
+#include <termcolor.h>
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
 
@@ -91,6 +91,9 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
   // ensure the file exists, which should be argv[0]
   if (!fs::exists(argv[0])) {
+    printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " %s not found\n",
+      argv[0]
+    );
     return nullptr;
   }
 
