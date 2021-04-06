@@ -99,6 +99,14 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
   JitJob *job = new JitJob();
 
+  // program source
+  fs::path file(argv[0]);
+  // TODO: allow a directory to be specified as the "program" and look for common filenames
+  //       sort of like node w/ index.js
+  job->program_source = fs::canonical(fs::current_path() / argv[0]);
+  job->program_dir = fs::path(job->program_source).remove_filename();
+  job->program_file = job->program_source.string();
+
   // paths / env and such
   job->triple_str.assign(llvm::sys::getProcessTriple());
   job->main_addr = (void*)(intptr_t)GetExecutablePath;
@@ -256,6 +264,12 @@ JitJob *JitJob::create(int argc, const char **argv) {
   Args.push_back("-DRAWKIT_GUEST=1");
   Args.push_back("-D_DLL");
 
+  job->entry_dirname.assign("-DRAWKIT_ENTRY_DIRNAME=");
+  job->entry_dirname += "\"";
+  job->entry_dirname += job->program_dir.string();
+  job->entry_dirname += "\"";
+  Args.push_back(job->entry_dirname.c_str());
+
   job->compilation.reset(job->driver->BuildCompilation(Args));
   if (!job->compilation) {
     return nullptr;
@@ -286,13 +300,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
   job->compilation_args = FilterArgs(Cmd.getArguments());
 
-  // program source
-  fs::path file(argv[0]);
-  // TODO: allow a directory to be specified as the "program" and look for common filenames
-  //       sort of like node w/ index.js
-  job->program_source = fs::canonical(fs::current_path() / argv[0]);
-  job->program_dir = fs::path(job->program_source).remove_filename();
-  job->program_file = job->program_source.string();
+
   return job;
 }
 
