@@ -18,6 +18,9 @@
 #include <rawkit/vg.h>
 #include <rawkit/window.h>
 
+#include <termcolor.h>
+#include <stb_sb.h>
+
 // legacy includes
 #include "time.h"
 
