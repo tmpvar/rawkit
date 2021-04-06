@@ -80,6 +80,9 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
 
   rawkit_gpu_buffer_t *buf = (rawkit_gpu_buffer_t *)calloc(sizeof(rawkit_gpu_buffer_t), 1);
   buf->size = size;
+  buf->gpu = gpu;
+  buf->memory_flags = memory_flags,
+  buf->buffer_usage_flags = buffer_usage_flags;
   VkResult err;
 
   if (!buf) {
@@ -260,7 +263,6 @@ VkResult rawkit_gpu_copy_buffer(
 }
 
 VkResult rawkit_gpu_buffer_update(
-  rawkit_gpu_t *gpu,
   rawkit_gpu_buffer_t *dst,
   void *src,
   VkDeviceSize size
@@ -271,7 +273,7 @@ VkResult rawkit_gpu_buffer_update(
 
   void *ptr;
   VkResult err = vkMapMemory(
-    gpu->device,
+    dst->gpu->device,
     dst->memory,
     0,
     size,
@@ -286,7 +288,7 @@ VkResult rawkit_gpu_buffer_update(
 
   memcpy(ptr, src, size);
 
-  vkUnmapMemory(gpu->device, dst->memory);
+  vkUnmapMemory(dst->gpu->device, dst->memory);
   return VK_SUCCESS;
 }
 
@@ -342,7 +344,6 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
     );
 
     err = rawkit_gpu_buffer_update(
-      gpu,
       vertices_staging,
       mesh->vertex_data,
       vertices_size
@@ -400,7 +401,6 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
     );
 
     err = rawkit_gpu_buffer_update(
-      gpu,
       staging,
       mesh->index_data,
       indices_size
@@ -697,7 +697,6 @@ VkResult rawkit_gpu_ssbo_update(
   VkResult err;
 
   err = rawkit_gpu_buffer_update(
-    ssbo->gpu,
     ssbo->staging_buffer,
     data,
     size

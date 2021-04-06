@@ -47,6 +47,9 @@ typedef struct rawkit_gpu_buffer_t {
 
   VkAccessFlags access;
 
+  rawkit_gpu_t *gpu;
+  VkMemoryPropertyFlags memory_flags;
+  VkBufferUsageFlags buffer_usage_flags;
 } rawkit_gpu_buffer_t;
 
 typedef struct rawkit_gpu_vertex_buffer_t {
@@ -80,7 +83,6 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
 );
 
 VkResult rawkit_gpu_buffer_update(
-  rawkit_gpu_t *gpu,
   rawkit_gpu_buffer_t *dst,
   void *src,
   VkDeviceSize size
