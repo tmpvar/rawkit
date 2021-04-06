@@ -44,22 +44,24 @@ rawkit_shader_t *rawkit_shader_ex(
   bool dirty = rawkit_resource_sources_array((rawkit_resource_t *)shader, 1, (rawkit_resource_t **)&glsl);
 
   ShaderState *current_state = (ShaderState *)shader->_state;
+  rawkit_shader_options_t default_options = rawkit_shader_default_options();
+  if (!options) {
+    options = &default_options;
+  }
+
   uint32_t gpu_tick_idx = rawkit_gpu_get_tick_idx(gpu);
   if (current_state && current_state->gpu_tick_idx != gpu_tick_idx) {
     current_state->instance_idx = 0;
     current_state->gpu_tick_idx = gpu_tick_idx;
-
     {
-      rawkit_shader_options_t default_options = rawkit_shader_default_options();
+
       dirty = dirty || memcmp(
         &current_state->options,
-        options ? options : &default_options,
+        options,
         sizeof(rawkit_shader_options_t)
       ) != 0;
     }
   }
-
-
 
   if (!dirty) {
     return shader;

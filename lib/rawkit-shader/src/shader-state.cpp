@@ -27,6 +27,8 @@ ShaderState *ShaderState::create(
 
   if (options) {
     state->options = *options;
+  } else {
+    state->options = rawkit_shader_default_options();
   }
 
   // create the shader modules
