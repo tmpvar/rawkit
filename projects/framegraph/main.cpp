@@ -1,6 +1,8 @@
 
 #include <rawkit/rawkit.h>
 #include "fg/framegraph.h"
+#include <glm/glm.hpp>
+using namespace glm;
 
 void setup() {}
 void loop() {
@@ -12,7 +14,7 @@ void loop() {
     "inputs",
     64,
     rawkit_default_gpu(),
-    default_memory_flags,// | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+    default_memory_flags | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
     default_buffer_usage_flags
   );
 
@@ -31,10 +33,12 @@ void loop() {
     default_buffer_usage_flags
   );
 
+  output_buf.write({0, 0, 0, 0});
+
   fg.shader("sum", {"sum.comp"})
     .buffer("input_buf", input_buf)
     .buffer("output_buf", output_buf)
-    .dispatch(input_buf.length);
+    .dispatch(uvec3(input_buf.length, 1, 1));
 
   vkDeviceWaitIdle(rawkit_default_gpu()->device);
 

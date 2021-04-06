@@ -1,6 +1,9 @@
 #pragma once
 #include <rawkit/rawkit.h>
 
+#include <string>
+using namespace std;
+
 static u32 next_power_of_two(u32 n) {
   n--;
   n |= n >> 1;
