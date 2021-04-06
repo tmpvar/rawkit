@@ -36,7 +36,7 @@
 
   #define rawkit_file_ex(path, loop, diskwatcher) _rawkit_file_ex(__FILE__, path, loop, diskwatcher)
   #define rawkit_file(path) _rawkit_file_ex(__FILE__, path, uv_default_loop(), rawkit_default_diskwatcher())
-
+  #define rawkit_file_relative_to(path, parent_path) _rawkit_file_ex(parent_path, path, uv_default_loop(), rawkit_default_diskwatcher())
 #ifdef __cplusplus
   }
 #endif

@@ -39,12 +39,15 @@ const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv
   rawkit_file_t *f = rawkit_hot_resource(id.c_str(), rawkit_file_t);
 
   if (!f) {
+    printf("ERROR: _rawkit_file_ex failed to retrieve hot resource (%s)\n", id.c_str());
     return (const rawkit_file_t *)&ERR;
   }
 
   if (!f->_state) {
     f->_state = (file_state_t *)calloc(sizeof(file_state_t), 1);
     if (!f->_state) {
+
+      printf("ERROR: _rawkit_file_ex failed to allocate file_state_t (%s)\n", id.c_str());
       return (const rawkit_file_t*)&ERR;
     }
   }
@@ -81,6 +84,7 @@ const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv
     }
 
     case NOT_FOUND:
+      printf("ERROR: _rawkit_file_ex file could nto be found (%s)\n", full_path.string().c_str());
       return f;
 
     default: {
