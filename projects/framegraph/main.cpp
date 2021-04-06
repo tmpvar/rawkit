@@ -8,16 +8,28 @@ void loop() {
 
   FrameGraph fg;
 
-  Buffer<u32> input_buf("inputs", 64);
+  Buffer<u32> input_buf(
+    "inputs",
+    64,
+    rawkit_default_gpu(),
+    default_memory_flags,// | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+    default_buffer_usage_flags
+  );
+
   input_buf.write({
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
   });
 
-  Buffer<u32> output_buf("outputs", 4);
-  output_buf.write({0, 0, 0, 0});
+  Buffer<u32> output_buf(
+    "outputs",
+    4,
+    rawkit_default_gpu(),
+    default_memory_flags | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+    default_buffer_usage_flags
+  );
 
   fg.shader("sum", {"sum.comp"})
     .buffer("input_buf", input_buf)
