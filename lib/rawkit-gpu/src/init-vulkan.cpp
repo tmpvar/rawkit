@@ -1,11 +1,41 @@
 #include <rawkit/core.h>
 #include <rawkit/gpu-internal.h>
 #include <rawkit/hot.h>
-
+#include <termcolor.h>
 #include <vulkan/vulkan.h>
 
 #include <vector>
 using namespace std;
+
+
+static VkBool32 VKAPI_CALL debug_utils_messenger_callback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+    VkDebugUtilsMessageTypeFlagsEXT message_type,
+    const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
+    void *user_data)
+{
+	if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)	{
+    printf(ANSI_CODE_YELLOW "WARNING:" ANSI_CODE_RESET "\n  id(%u)\n  name(%s)\n  desc(%s)\n",
+      callback_data->messageIdNumber,
+      callback_data->pMessageIdName,
+      callback_data->pMessage
+    );
+	} else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)	{
+    printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET "\n  id(%u)\n  name(%s)\n  desc(%s)\n",
+      callback_data->messageIdNumber,
+      callback_data->pMessageIdName,
+      callback_data->pMessage
+    );
+	} else {
+    printf(ANSI_CODE_GRAY "DEBUG:" ANSI_CODE_RESET "\n  id(%u)\n  name(%s)\n  desc(%s)\n",
+      callback_data->messageIdNumber,
+      callback_data->pMessageIdName,
+      callback_data->pMessage
+    );
+  }
+
+	return VK_FALSE;
+}
 
 rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count, bool validation, PFN_vkDebugReportCallbackEXT debug_callback) {
   rawkit_gpu_t *gpu = rawkit_hot_resource("rawkit::gpu::default", rawkit_gpu_t);
@@ -38,17 +68,6 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo = &app;
 
-    {
-      uint32_t layerCount;
-      vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-      std::vector<VkLayerProperties> availableLayers(layerCount);
-      vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-      for (auto &layer : availableLayers) {
-        printf("found layer: %s\n", layer.layerName);
-      }
-    }
-
     vector<const char*> layers = {
       // "VK_LAYER_LUNARG_api_dump",
       "VK_LAYER_KHRONOS_validation",
@@ -69,8 +88,22 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
       extensions_ext.push_back("VK_EXT_debug_report");
     }
 
+    extensions_ext.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
     create_info.enabledExtensionCount = extensions_ext.size();
     create_info.ppEnabledExtensionNames = extensions_ext.data();
+
+
+    VkDebugUtilsMessengerCreateInfoEXT debug_utils_create_info = {
+      VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT
+    };
+
+    debug_utils_create_info.messageSeverity = (
+      VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+    );
+    debug_utils_create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+    debug_utils_create_info.pfnUserCallback = debug_utils_messenger_callback;
+    create_info.pNext = &debug_utils_create_info;
 
     for (uint32_t i=0; i<create_info.enabledExtensionCount; i++) {
       printf("extension: %s\n", create_info.ppEnabledExtensionNames[i]);
@@ -88,6 +121,24 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
       if (err) {
         printf("ERROR: rawkit_gpu_init: failed to create vulkan instance (%i)\n", err);
         return gpu;
+      }
+    }
+
+    // debug utils messenger
+    {
+      VkDebugUtilsMessengerEXT debug_utils_messenger;
+
+      PFN_vkCreateDebugUtilsMessengerEXT pvkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+        gpu->instance,
+        "vkCreateDebugUtilsMessengerEXT"
+      );
+      if (pvkCreateDebugUtilsMessengerEXT) {
+        err = pvkCreateDebugUtilsMessengerEXT(gpu->instance, &debug_utils_create_info, nullptr, &debug_utils_messenger);
+        if (err) {
+          printf("failed to create debug utils messenger\n");
+        }
+      } else {
+        printf("failed to load debug utils messenger\n");
       }
     }
 
