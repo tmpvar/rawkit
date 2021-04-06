@@ -117,6 +117,10 @@ struct Object {
 };
 
 VkResult rawkit_gpu_buffer_map(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *dst, VkDeviceSize offset, VkDeviceSize size, std::function<void(void *buf)> cb) {
+  if (size >= dst->size) {
+    size = VK_WHOLE_SIZE;
+  }
+
   void *ptr;
   VkResult err = vkMapMemory(
     gpu->device,
@@ -128,13 +132,11 @@ VkResult rawkit_gpu_buffer_map(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *dst, VkDe
   );
 
   if (err) {
-    printf("ERROR: unable to map memory to set vertex buffer contents (%i)\n", err);
+    printf("ERROR: unable to map memory (%i)\n", err);
     return err;
   }
 
   cb(ptr);
-
-  vkUnmapMemory(gpu->device, dst->memory);
 
   // flush
   {
@@ -150,18 +152,19 @@ VkResult rawkit_gpu_buffer_map(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *dst, VkDe
       1,
       &flush
     );
+
     if (err) {
       printf("ERROR: unable to flush mapped memory ranges (%i)\n", err);
-      return err;
     }
   }
 
-  return VK_SUCCESS;
+  vkUnmapMemory(gpu->device, dst->memory);
+
+  return err;
 }
 
 struct World {
   Object **objects = NULL;
-  Brick **bricks = NULL;
 
   uint32_t active_bricks = 0;
   rawkit_gpu_ssbo_t *brick_ssbo = NULL;
@@ -170,7 +173,7 @@ struct World {
   void render(rawkit_shader_instance_t *inst, rawkit_gpu_buffer_t *index_buffer) {
     if (!this->brick_ssbo) {
       this->brick_ssbo = rawkit_gpu_ssbo("frame bricks", ACTIVE_BRICK_COUNT * sizeof(Brick));
-      this->brick_ssbo->resource_version = 1;
+      this->brick_ssbo->resource_version++;
 
       // TODO: do this when we need to change the set of active bricks
       // fill active bricks buffer
@@ -211,7 +214,6 @@ struct World {
       sledgehammer_buffer_sync(this->brick_ssbo->buffer, inst->command_buffer);
     }
 
-    uint32_t brick_idx = 0;
     #if 0
     uint32_t obj_count = sb_count(this->objects);
     for (uint32_t obj_idx=0; obj_idx<obj_count; obj_idx++) {
@@ -399,8 +401,6 @@ struct DepthPyramid {
         return visibility;
       }
 
-
-
       // clear the debug image
       {
         VkClearColorValue value = {0};
@@ -543,7 +543,7 @@ void setup() {
       mem[i] = cube_indices[index] + cube * CUBE_VERTICES_COUNT;
     }
 
-    rawkit_gpu_buffer_update(gpu, state->index_buffer, mem, INDICES_SIZE);
+    rawkit_gpu_buffer_update(state->index_buffer, mem, INDICES_SIZE);
 
     free(mem);
   }
@@ -575,7 +575,7 @@ void setup() {
       }
     }
 #else
-   Brick brick = {
+    Brick brick = {
       .pos = vec4(64.0f, 0.0f, 0.0f, diagonal_length)
     };
     // fill_brick(&brick);
@@ -863,19 +863,19 @@ void loop() {
   {
     bool indirect = state->visibility.count;
     const rawkit_file_t *files[2] = {
-      !indirect
-        ? rawkit_file("shader/brick.vert")
-        : rawkit_file("shader/brick-indirect.vert"),
+      indirect
+        ? rawkit_file("shader/brick-indirect.vert")
+        : rawkit_file("shader/brick.vert"),
       rawkit_file("shader/brick.frag")
     };
 
     rawkit_shader_t *world_shader = rawkit_shader_ex(
       gpu,
       main_pass->render_pass,
+      nullptr,
       2,
       files
     );
-
 
     rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(
       gpu,
