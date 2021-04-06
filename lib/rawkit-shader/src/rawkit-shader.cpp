@@ -21,7 +21,8 @@ rawkit_shader_t *rawkit_shader_ex(
 
   const rawkit_glsl_t *glsl = rawkit_glsl_file_array(file_count, files);
 
-  if (!file_count || !files) {
+  if (!glsl) {
+    printf("ERROR: rawkit_glsl_file_array failed\n");
     return &ERR;
   }
 

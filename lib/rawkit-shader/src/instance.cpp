@@ -534,7 +534,7 @@ void rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue q
     );
 
     if (err != VK_SUCCESS) {
-      printf("ERROR: unable to submit compute shader\n");
+      printf("ERROR: unable to submit compute shader (%s) (%i)\n", instance->resource_name, err);
       return;
     }
   }
