@@ -7,11 +7,11 @@ using namespace std;
 
 char buffer_tmp_str[4096];
 
-static VkMemoryPropertyFlags default_memory_flags = (
+const static VkMemoryPropertyFlags default_memory_flags = (
   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 );
 
-static VkBufferUsageFlags default_buffer_usage_flags = (
+const static VkBufferUsageFlags default_buffer_usage_flags = (
   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
   VK_BUFFER_USAGE_TRANSFER_SRC_BIT
@@ -69,13 +69,18 @@ struct Buffer {
       return;
     }
 
-    if (this->_buffer->buffer_usage_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+    if ((this->_buffer->memory_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0) {
       rawkit_gpu_buffer_update(
         this->_buffer,
         (void *)values.data(),
         values.size() * sizeof(T)
       );
       return;
+    } else {
+      printf("FrameGraph::Buffer::write unhandled buffer memory flags %s (%i)\n",
+        this->_buffer->resource_name,
+        this->_buffer->memory_flags
+      );
     }
 
     // u32 l = values.size();
