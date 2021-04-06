@@ -4,6 +4,7 @@
 #include <rawkit/hash.h>
 #include <rawkit/image.h>
 #include <rawkit/texture.h>
+#include <termcolor.h>
 
 #include <string>
 using namespace std;
@@ -362,25 +363,35 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
 
   // create the image
   if (texture->image == VK_NULL_HANDLE) {
-    VkImageCreateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    info.imageType = options.depth > 1 ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
+    VkImageStencilUsageCreateInfo *stencil_usage = &texture->stencil_usage_create_info;
+    stencil_usage->sType = VK_STRUCTURE_TYPE_IMAGE_STENCIL_USAGE_CREATE_INFO;
+
+    VkImageCreateInfo *info = &texture->image_create_info;
+    info->sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    if (options.is_depth) {
+      stencil_usage->stencilUsage = options.usage;
+      info->pNext = stencil_usage;
+      info->usage = options.usage;
+    } else {
+      info->usage = options.usage;
+    }
+
+    info->imageType = options.depth > 1 ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
     // TODO: allow this to be provided
-    info.format = options.format;
-    info.extent.width = options.width;
-    info.extent.height = options.height;
-    info.extent.depth = options.depth;
-    info.mipLevels = 1;
-    info.arrayLayers = 1;
-    info.samples = VK_SAMPLE_COUNT_1_BIT;
-    info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    info.usage = options.usage;
-    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    info->format = options.format;
+    info->extent.width = options.width;
+    info->extent.height = options.height;
+    info->extent.depth = options.depth;
+    info->mipLevels = 1;
+    info->arrayLayers = 1;
+    info->samples = VK_SAMPLE_COUNT_1_BIT;
+    info->tiling = VK_IMAGE_TILING_OPTIMAL;
+    info->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    info->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     VkResult err = vkCreateImage(
       device,
-      &info,
+      info,
       gpu->allocator,
       &texture->image
     );
@@ -432,18 +443,35 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
 
   // create the image view
   if (texture->image_view == VK_NULL_HANDLE) {
-    VkImageViewCreateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    info.image = texture->image;
-    info.viewType = options.depth > 1 ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D;
-    info.format = options.format;
-    info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    info.subresourceRange.levelCount = 1;
-    info.subresourceRange.layerCount = 1;
-    info.subresourceRange.baseArrayLayer = 0;
+    VkImageViewUsageCreateInfo *view_usage = &texture->view_usage_create_info;//compute_view_usage(options.usage);
+    view_usage->sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO;
+    view_usage->usage = options.usage;
+
+    VkImageViewCreateInfo *info = &texture->image_view_create_info;
+    info->sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    if (options.is_depth) {
+      info->pNext = view_usage;
+      info->subresourceRange.aspectMask = (
+        VK_IMAGE_ASPECT_STENCIL_BIT
+        // TODO:
+        //| VK_IMAGE_ASPECT_DEPTH_BIT
+      );
+    } else {
+      info->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+
+
+    info->image = texture->image;
+    info->viewType = options.depth > 1 ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D;
+    info->format = options.format;
+
+    info->subresourceRange.levelCount = 1;
+    info->subresourceRange.layerCount = 1;
+    info->subresourceRange.baseArrayLayer = 0;
+
     VkResult err = vkCreateImageView(
       device,
-      &info,
+      info,
       gpu->allocator,
       &texture->image_view
     );
@@ -898,6 +926,7 @@ VkResult rawkit_texture_transition(
   VkImageMemoryBarrier extend
 ) {
   if (!texture || !texture->image || !command_buffer) {
+    printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " rawkit_texture_transition failed because the options were invalid\n");
     return VK_INCOMPLETE;
   }
 
@@ -910,7 +939,7 @@ VkResult rawkit_texture_transition(
   barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrier.image = texture->image;
-  barrier.subresourceRange.aspectMask = RAWKIT_DEFAULT(extend.subresourceRange.aspectMask, VK_IMAGE_ASPECT_COLOR_BIT);
+  barrier.subresourceRange.aspectMask = texture->image_view_create_info.subresourceRange.aspectMask;
   barrier.subresourceRange.levelCount = RAWKIT_DEFAULT(extend.subresourceRange.levelCount, 1);
   barrier.subresourceRange.layerCount = RAWKIT_DEFAULT(extend.subresourceRange.layerCount, 1);
 

@@ -35,8 +35,10 @@ typedef struct rawkit_texture_t {
 
   rawkit_gpu_t *gpu;
   VkImage image;
+  VkImageCreateInfo image_create_info;
   VkDeviceMemory image_memory;
   VkImageView image_view;
+  VkImageViewCreateInfo image_view_create_info;
   VkImageLayout image_layout;
   VkAccessFlags image_access;
   VkPipelineStageFlags stage_flags;
@@ -48,6 +50,8 @@ typedef struct rawkit_texture_t {
 
   VkCommandBuffer command_buffer;
 
+  VkImageStencilUsageCreateInfo stencil_usage_create_info;
+  VkImageViewUsageCreateInfo view_usage_create_info;
   // TODO: REMOVE
   const rawkit_texture_sampler_t *default_sampler;
 } rawkit_texture_t;

@@ -1,7 +1,7 @@
 #include <rawkit/texture.h>
 #include <rawkit/gpu.h>
 #include <rawkit/window.h>
-
+#include <termcolor.h>
 #include <array>
 #include <vector>
 #include <string>
@@ -26,6 +26,8 @@ VkFormat get_supported_depth_format(VkPhysicalDevice physical_device) {
       return format;
     }
   }
+
+  printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " could not find a supported depth format\n");
 
   return VK_FORMAT_UNDEFINED;
 }
