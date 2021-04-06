@@ -105,6 +105,7 @@ VkResult rawkit_gpu_copy_buffer(
   VkDeviceSize size
 );
 
+void rawkit_gpu_queue_buffer_for_deletion(rawkit_gpu_t *gpu, const rawkit_gpu_buffer_t *buffer);
 VkResult rawkit_gpu_buffer_destroy(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *buf);
 
 rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(

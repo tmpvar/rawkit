@@ -10,6 +10,7 @@ void host_init_rawkit_gpu(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_gpu_buffer_update", (void *)&rawkit_gpu_buffer_update);
   rawkit_jit_add_export(jit, "rawkit_gpu_copy_buffer", (void *)&rawkit_gpu_copy_buffer);
   rawkit_jit_add_export(jit, "rawkit_gpu_buffer_destroy", (void *)&rawkit_gpu_buffer_destroy);
+  rawkit_jit_add_export(jit, "rawkit_gpu_queue_buffer_for_deletion", (void *)&rawkit_gpu_queue_buffer_for_deletion);
   rawkit_jit_add_export(jit, "rawkit_gpu_buffer_transition", (void *)&rawkit_gpu_buffer_transition);
 
   rawkit_jit_add_export(jit, "rawkit_gpu_vertex_buffer_create", (void *)&rawkit_gpu_vertex_buffer_create);
