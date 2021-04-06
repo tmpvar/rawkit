@@ -240,6 +240,10 @@ static void check_vk_result(VkResult err)
         v->CheckVkResultFn(err);
 }
 
+static VkDeviceSize GetDeviceAlignedMemorySize(size_t req) {
+    return ((req - 1) / g_BufferMemoryAlignment + 1) * g_BufferMemoryAlignment;
+}
+
 static void CreateOrResizeBuffer(VkBuffer& buffer, VkDeviceMemory& buffer_memory, VkDeviceSize& p_buffer_size, size_t new_size, VkBufferUsageFlagBits usage)
 {
     ImGui_ImplVulkan_InitInfo* v = &g_VulkanInitInfo;
@@ -249,7 +253,7 @@ static void CreateOrResizeBuffer(VkBuffer& buffer, VkDeviceMemory& buffer_memory
     if (buffer_memory != VK_NULL_HANDLE)
         vkFreeMemory(v->Device, buffer_memory, v->Allocator);
 
-    VkDeviceSize vertex_buffer_size_aligned = ((new_size - 1) / g_BufferMemoryAlignment + 1) * g_BufferMemoryAlignment;
+    VkDeviceSize vertex_buffer_size_aligned = GetDeviceAlignedMemorySize(new_size);
     VkBufferCreateInfo buffer_info = {};
     buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     buffer_info.size = vertex_buffer_size_aligned;
@@ -353,9 +357,11 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
     {
         ImDrawVert* vtx_dst = NULL;
         ImDrawIdx* idx_dst = NULL;
-        err = vkMapMemory(v->Device, rb->VertexBufferMemory, 0, vertex_size, 0, (void**)(&vtx_dst));
+        VkDeviceSize vertex_size_aligned = GetDeviceAlignedMemorySize(vertex_size);
+        VkDeviceSize index_size_aligned = GetDeviceAlignedMemorySize(index_size);
+        err = vkMapMemory(v->Device, rb->VertexBufferMemory, 0, vertex_size_aligned, 0, (void**)(&vtx_dst));
         check_vk_result(err);
-        err = vkMapMemory(v->Device, rb->IndexBufferMemory, 0, index_size, 0, (void**)(&idx_dst));
+        err = vkMapMemory(v->Device, rb->IndexBufferMemory, 0, index_size_aligned, 0, (void**)(&idx_dst));
         check_vk_result(err);
         for (int n = 0; n < draw_data->CmdListsCount; n++)
         {
@@ -368,10 +374,13 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
         VkMappedMemoryRange range[2] = {};
         range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
         range[0].memory = rb->VertexBufferMemory;
-        range[0].size = VK_WHOLE_SIZE;
+        range[0].size = vertex_size_aligned;
+        range[0].offset = 0;
         range[1].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
         range[1].memory = rb->IndexBufferMemory;
-        range[1].size = VK_WHOLE_SIZE;
+        range[1].size = index_size_aligned;
+        range[1].offset = 0;
+
         err = vkFlushMappedMemoryRanges(v->Device, 2, range);
         check_vk_result(err);
         vkUnmapMemory(v->Device, rb->VertexBufferMemory);
@@ -500,7 +509,7 @@ bool ImGui_ImplVulkan_CreateFontsTexture(VkCommandBuffer command_buffer)
     }
 
     VkDescriptorSet font_descriptor_set = (VkDescriptorSet)ImGui_ImplVulkan_AddTexture(g_FontSampler, g_FontView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
+    VkDeviceSize upload_size_aligned;
     // Create the Upload Buffer:
     {
         VkBufferCreateInfo buffer_info = {};
@@ -516,6 +525,7 @@ bool ImGui_ImplVulkan_CreateFontsTexture(VkCommandBuffer command_buffer)
         VkMemoryAllocateInfo alloc_info = {};
         alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         alloc_info.allocationSize = req.size;
+        upload_size_aligned = req.size;
         alloc_info.memoryTypeIndex = ImGui_ImplVulkan_MemoryType(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, req.memoryTypeBits);
         err = vkAllocateMemory(v->Device, &alloc_info, v->Allocator, &g_UploadBufferMemory);
         check_vk_result(err);
@@ -526,16 +536,20 @@ bool ImGui_ImplVulkan_CreateFontsTexture(VkCommandBuffer command_buffer)
     // Upload to Buffer:
     {
         char* map = NULL;
-        err = vkMapMemory(v->Device, g_UploadBufferMemory, 0, upload_size, 0, (void**)(&map));
-        check_vk_result(err);
-        memcpy(map, pixels, upload_size);
-        VkMappedMemoryRange range[1] = {};
-        range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-        range[0].memory = g_UploadBufferMemory;
-        range[0].size = upload_size;
-        err = vkFlushMappedMemoryRanges(v->Device, 1, range);
-        check_vk_result(err);
-        vkUnmapMemory(v->Device, g_UploadBufferMemory);
+
+        if (upload_size_aligned > 0) {
+            err = vkMapMemory(v->Device, g_UploadBufferMemory, 0, upload_size_aligned, 0, (void**)(&map));
+            check_vk_result(err);
+            memcpy(map, pixels, upload_size);
+            VkMappedMemoryRange range[1] = {};
+            range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+            range[0].memory = g_UploadBufferMemory;
+            range[0].offset = 0;
+            range[0].size = upload_size_aligned;
+            err = vkFlushMappedMemoryRanges(v->Device, 1, range);
+            check_vk_result(err);
+            vkUnmapMemory(v->Device, g_UploadBufferMemory);
+        }
     }
 
     // Copy to Image:
@@ -1028,10 +1042,12 @@ void ImGui_ImplVulkanH_CreateWindowSwapChain(
 
     // We don't use ImGui_ImplVulkanH_DestroyWindow() because we want to preserve the old swapchain to create the new one.
     // Destroy old Framebuffer
-    for (uint32_t i = 0; i < wd->ImageCount; i++)
-    {
-        ImGui_ImplVulkanH_DestroyFrame(device, &wd->Frames[i], allocator);
-        ImGui_ImplVulkanH_DestroyFrameSemaphores(device, &wd->FrameSemaphores[i], allocator);
+    if (wd->Frames) {
+        for (uint32_t i = 0; i < wd->ImageCount; i++)
+        {
+            ImGui_ImplVulkanH_DestroyFrame(device, &wd->Frames[i], allocator);
+            ImGui_ImplVulkanH_DestroyFrameSemaphores(device, &wd->FrameSemaphores[i], allocator);
+        }
     }
     IM_FREE(wd->Frames);
     IM_FREE(wd->FrameSemaphores);
@@ -1300,7 +1316,7 @@ void ImGui_ImplVulkanH_CreateWindow(VkInstance instance, VkPhysicalDevice physic
 void ImGui_ImplVulkanH_DestroyWindow(VkInstance instance, VkDevice device, ImGui_ImplVulkanH_Window* wd, const VkAllocationCallbacks* allocator)
 {
     vkDeviceWaitIdle(device); // FIXME: We could wait on the Queue if we had the queue in wd-> (otherwise VulkanH functions can't use globals)
-    //vkQueueWaitIdle(g_Queue);
+    // vkQueueWaitIdle(g_Queue);
 
     for (uint32_t i = 0; i < wd->ImageCount; i++)
     {
