@@ -59,6 +59,8 @@ struct FrameGraph {
   u32 addNode(FrameGraphNode *node);
   void addInputEdge(u32 node, u32 src);
   void addOutputEdge(u32 node, u32 dst);
+
+  void end();
 };
 
 template <typename T>
@@ -101,7 +103,7 @@ struct Shader : public FrameGraphNode {
   vector<std::function<void (rawkit_shader_instance_t *)>> io;
 
   ~Shader();
-  Shader(const char *name, const vector<const char *> &filenames);
+  Shader(const char *name, const vector<const char *> &filenames, FrameGraph *framegraph);
   template <typename T>
   Shader &buffer(const char *name, Buffer<T> &buffer);
   void rebuild();
@@ -144,7 +146,7 @@ FrameGraph::~FrameGraph() {
 }
 
 Shader *FrameGraph::shader(const char *name, vector<const char *> filenames) {
-  Shader *s = new Shader(name, filenames);
+  Shader *s = new Shader(name, filenames, this);
   s->framegraph = this;
   this->shaders.push_back(s);
   return s;
@@ -164,12 +166,23 @@ void FrameGraph::addOutputEdge(u32 node, u32 dst) {
   this->output_edges[node].push_back(dst);
 }
 
+void FrameGraph::end() {
+  // TODO: ensure each shader's resources are ready to use
+  //       prior to resolving it
+  for (auto node : this->nodes) {
+    if (node->node_type == NodeType::SHADER_INVOCATION) {
+      igText("resolve: %s", node->name.c_str());
+      node->resolve();
+    }
+  }
+}
+
 // Shader Implementation
 Shader::~Shader() {
   this->files.clear();
 }
 
-Shader::Shader(const char *name, const vector<const char *> &filenames) {
+Shader::Shader(const char *name, const vector<const char *> &filenames, FrameGraph *framegraph) {
   this->node_type = NodeType::SHADER;
   this->name.assign(name);
   this->options = rawkit_shader_default_options();
@@ -179,6 +192,8 @@ Shader::Shader(const char *name, const vector<const char *> &filenames) {
       rawkit_file_relative_to(filename, RAWKIT_ENTRY_DIRNAME)
     );
   }
+
+  this->node(framegraph);
 }
 
 template <typename T>

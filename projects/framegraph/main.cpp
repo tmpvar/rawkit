@@ -42,9 +42,9 @@ void loop() {
         { "input_buf", input_buf },
         { "output_buf", output_buf },
       }
-    )
-    // TODO: wire this up in FrameGraph::end
-    ->resolve();
+    );
+
+  fg.end();
 
   vkDeviceWaitIdle(rawkit_default_gpu()->device);
 
