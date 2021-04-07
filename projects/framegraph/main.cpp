@@ -10,7 +10,7 @@ void loop() {
 
   FrameGraph fg;
 
-  Buffer<u32> input_buf(
+  auto input_buf = new Buffer<u32>(
     "inputs",
     64,
     rawkit_default_gpu(),
@@ -18,14 +18,14 @@ void loop() {
     default_buffer_usage_flags
   );
 
-  input_buf.write({
+  input_buf->write({
     1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
     1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
     1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
   });
 
-  Buffer<u32> output_buf(
+  auto output_buf = new Buffer<u32>(
     "outputs",
     4,
     rawkit_default_gpu(),
@@ -33,12 +33,18 @@ void loop() {
     default_buffer_usage_flags
   );
 
-  output_buf.write({0, 0, 0, 0});
+  output_buf->write({0, 0, 0, 0});
 
   fg.shader("sum", {"sum.comp"})
-    .buffer("input_buf", input_buf)
-    .buffer("output_buf", output_buf)
-    .dispatch(uvec3(input_buf.length, 1, 1));
+    ->dispatch(
+      uvec3(input_buf->length, 1, 1),
+      {
+        { "input_buf", input_buf },
+        { "output_buf", output_buf },
+      }
+    )
+    // TODO: wire this up in FrameGraph::end
+    ->resolve();
 
   vkDeviceWaitIdle(rawkit_default_gpu()->device);
 
@@ -70,7 +76,7 @@ void loop() {
       // copy the outputs to the ringbuffer so we can read them back
       vkCmdCopyBuffer(
         command_buffer,
-        output_buf._buffer->handle,
+        output_buf->_buffer->handle,
         fg.ring_buffer->_state->buffer->handle,
         1,
         &region
@@ -117,22 +123,4 @@ void loop() {
   igText("1: %u", buf[1]);
   igText("2: %u", buf[2]);
   igText("3: %u", buf[3]);
-
-
-  // TODO: readback should probably be done
-  // output_buf.map([](u32 *buf) {
-  //   printf("0: %u\n", buf[0]);
-  //   printf("1: %u\n", buf[1]);
-  //   printf("2: %u\n", buf[2]);
-  //   printf("3: %u\n", buf[3]);
-  // });
-
-  // vkDeviceWaitIdle(rawkit_default_gpu()->device);
-  // u32 *val = output_buf.readOne(0);
-  // if (val) {
-  //   igText("result: %u", *val);
-  // } else {
-  //   igText("result: null");
-  // }
-
 }
