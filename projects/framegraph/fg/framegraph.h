@@ -235,6 +235,7 @@ ShaderInvocation* Shader::dispatch(const glm::uvec3 &dims, vector<ShaderParam> p
     rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(
       rawkit_default_gpu(),
       this->handle,
+      // TODO: use the framegraph command buffer
       NULL,
       0
     );

@@ -2,12 +2,15 @@
 #include <rawkit/rawkit.h>
 #include "fg/framegraph.h"
 #include <glm/glm.hpp>
+
+#include "ctx/context-2d.h"
+#include "ctx/camera-2d.h"
+#include "ctx/mouse.h"
+
 using namespace glm;
 
 void setup() {}
 void loop() {
-  igText("here");
-
   FrameGraph fg;
 
   auto input_buf = new Buffer<u32>(
@@ -123,4 +126,76 @@ void loop() {
   igText("1: %u", buf[1]);
   igText("2: %u", buf[2]);
   igText("3: %u", buf[3]);
+
+  // render the graph
+  {
+    Context2D ctx;
+
+    ctx.scale(1.0, -1.0);
+    ctx.translate(vec2(0.0, -(float)rawkit_window_height()));
+
+
+
+  }
+
+  // output .dot format
+  {
+    static bool first = true;
+    if (first) {
+      first = false;
+      const char *fill_color = "#BBBBBBFF";
+      const char *border_color = "#AAAAAAFF";
+      const char *font_color = "#000000FF";
+      const char *edge_color = "#666666FF";
+
+      printf(
+        "digraph framegraph {\n"
+        "  graph [truecolor=true bgcolor=\"#00000000\"]\n"
+        "  node [style=filled fillcolor=\"%s\" color=\"%s\" fontcolor=\"%s\" fontname=\"Roboto Light\"]\n"
+        "  edge [color=\"%s\"]\n",
+        fill_color,
+        border_color,
+        font_color,
+        edge_color
+      );
+
+      for (auto node : fg.nodes) {
+        u32 idx = node->node();
+        string params = string("label=\"") + node->name + "\"";
+
+        switch (node->node_type) {
+          case NodeType::SHADER_INVOCATION:
+              params += " shape=square style=\"bold,filled\"";
+            break;
+          case NodeType::SHADER:
+              params += " shape=square style=\"filled\"";
+            break;
+          default:
+            params += " shape=box style=\"rounded,filled\"";
+        }
+
+        printf("  node_%u [%s];\n", idx, params.c_str());
+      }
+
+      for (auto node : fg.nodes) {
+        u32 idx = node->node();
+
+        auto inputs = fg.input_edges.find(idx);
+        if (inputs != fg.input_edges.end()) {
+          for (auto input : inputs->second) {
+            printf("  node_%u -> node_%u;\n", input, idx);
+          }
+        }
+
+        auto outputs = fg.output_edges.find(idx);
+        if (outputs != fg.output_edges.end()) {
+          for (auto output : outputs->second) {
+            printf("  node_%u -> node_%u;\n", idx, output);
+          }
+        }
+
+      }
+      printf("}\n");
+    }
+  }
 }
