@@ -17,9 +17,11 @@ static char framegraph_tmp_str[framegraph_tmp_str_len + 1];
 // Forward Declarations
 struct Shader;
 struct FrameGraph;
+template <typename T> struct Buffer;
+struct Upload;
+struct Download;
 
 // Struct Definitions
-
 enum NodeType {
   NONE,
   BUFFER,
@@ -28,7 +30,8 @@ enum NodeType {
   TEXTURE,
   UBO,
   SSBO,
-  CONSTANT_BUFFER
+  CONSTANT_BUFFER,
+  TRANSFER
 };
 
 #define FRAMEGRAPH_NODE_INVALID 0xFFFFFFFF
@@ -45,7 +48,7 @@ struct FrameGraphNode {
 };
 
 struct FrameGraph {
-  vector<Shader *>shaders;
+  rawkit_gpu_t *gpu = nullptr;
   RingBuffer *ring_buffer;
 
   vector<FrameGraphNode *> nodes;
@@ -54,30 +57,44 @@ struct FrameGraph {
 
   FrameGraph();
   ~FrameGraph();
-  Shader *shader(const char *name, vector<const char *> filenames);
 
   u32 addNode(FrameGraphNode *node);
   void addInputEdge(u32 node, u32 src);
   void addOutputEdge(u32 node, u32 dst);
 
   void end();
+
+  // Builder interfaces for primitives
+  Shader *shader(const char *name, vector<const char *> filenames);
+
+  template<typename T>
+  Buffer<T> *buffer(const char *name, u32 size);
+};
+
+struct Upload : FrameGraphNode {
+  RingBufferAllocation allocation ={};
+  u32 offset = 0;
+  function<void()> resolve = nullptr;
+  Upload(const RingBufferAllocation &allocation, u32 offset, FrameGraph *framegraph);
+};
+
+struct Download : FrameGraphNode {
+  RingBufferAllocation allocation ={};
+  u32 offset = 0;
+  function<void()> resolve = nullptr;
+  Download(const RingBufferAllocation &allocation, u32 offset, FrameGraph *framegraph);
 };
 
 template <typename T>
 struct Buffer : FrameGraphNode {
   rawkit_gpu_buffer_t *_buffer;
-  const u32 length;
-  Buffer(const char *name, u32 length);
-  Buffer(
-    const char *name,
-    u32 length,
-    rawkit_gpu_t *gpu,
-    VkMemoryPropertyFlags memory_flags,
-    VkBufferUsageFlags buffer_usage_flags
-  );
-
+  const u32 length = 0;
+  const u32 size = 0;
+  Buffer(const char *name, u32 length, FrameGraph *framegraph);
   rawkit_gpu_buffer_t *handle();
-  void write(vector<T> values, u32 offset = 0);
+  Buffer<T> *write(vector<T> values, u32 offset = 0);
+  Buffer<T> *read(u32 offset, u32 size, function<void(T *data, u32 size)> cb);
+
   T *readOne(u32 index);
   VkResult map(std::function<void(T *)> cb);
   rawkit_resource_t *resource() override;
@@ -139,6 +156,7 @@ rawkit_resource_t *FrameGraphNode::resource() {
 // FrameGraph Implementation
 FrameGraph::FrameGraph() {
   this->ring_buffer = new RingBuffer("FrameGraph::ring_buffer", 64 * 1024 * 1024);
+  this->gpu = rawkit_default_gpu();
 }
 
 FrameGraph::~FrameGraph() {
@@ -148,8 +166,12 @@ FrameGraph::~FrameGraph() {
 Shader *FrameGraph::shader(const char *name, vector<const char *> filenames) {
   Shader *s = new Shader(name, filenames, this);
   s->framegraph = this;
-  this->shaders.push_back(s);
   return s;
+}
+
+template<typename T>
+Buffer<T> *FrameGraph::buffer(const char *name, u32 size) {
+  return new Buffer<T>(name, size, this);
 }
 
 u32 FrameGraph::addNode(FrameGraphNode *node) {
@@ -317,6 +339,20 @@ ShaderInvocation* Shader::dispatch(const glm::uvec3 &dims, vector<ShaderParam> p
   return invocation;
 }
 
+// Upload Implementation
+Upload::Upload(const RingBufferAllocation &allocation, u32 offset, FrameGraph *framegraph) {
+  this->framegraph = framegraph;
+  this->allocation = allocation;
+  this->offset = offset;
+}
+
+// Download Implementation
+Download::Download(const RingBufferAllocation &allocation, u32 offset, FrameGraph *framegraph) {
+  this->framegraph = framegraph;
+  this->allocation = allocation;
+  this->offset = offset;
+}
+
 // ShaderInvocation Implementation
 ShaderInvocation::ShaderInvocation() {
   this->node_type = NodeType::SHADER_INVOCATION;
@@ -334,47 +370,22 @@ const static VkBufferUsageFlags default_buffer_usage_flags = (
 );
 
 template <typename T>
-Buffer<T>::Buffer(const char *name, u32 length)
-  : Buffer(
-      name,
-      length,
-      nullptr,
-      default_memory_flags,
-      default_buffer_usage_flags
-    )
+Buffer<T>::Buffer(const char *name, u32 length, FrameGraph *framegraph)
+  : length(length), size(length * sizeof(T))
 {
-}
-
-template <typename T>
-Buffer<T>::Buffer(
-  const char *name,
-  u32 length,
-  rawkit_gpu_t *gpu,
-  VkMemoryPropertyFlags memory_flags,
-  VkBufferUsageFlags buffer_usage_flags
-)
-  : length(length)
-{
-  if (gpu == nullptr) {
-    gpu = rawkit_default_gpu();
-  }
-
+  this->framegraph = framegraph;
   this->node_type = NodeType::BUFFER;
   this->name.assign(name);
-
   snprintf(framegraph_tmp_str, framegraph_tmp_str_len, "FrameGraph::Buffer::%s", name);
-  u32 size = length * sizeof(T);
-
   this->_buffer = rawkit_gpu_buffer_create(
     framegraph_tmp_str,
-    gpu,
-    size,
-    memory_flags,
-    buffer_usage_flags
+    framegraph->gpu,
+    this->size,
+    default_memory_flags,
+    default_buffer_usage_flags
   );
 
   igText("buffer %s version %u", framegraph_tmp_str, this->_buffer->resource_version);
-
 }
 
 template <typename T>
@@ -388,33 +399,64 @@ rawkit_resource_t *Buffer<T>::resource() {
 }
 
 template <typename T>
-void Buffer<T>::write(vector<T> values, u32 offset) {
+Buffer<T> *Buffer<T>::write(vector<T> values, u32 offset) {
   if (offset >= length) {
-    return;
+    return this;
   }
 
-  if ((this->_buffer->memory_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0) {
-    rawkit_gpu_buffer_update(
-      this->_buffer,
-      (void *)values.data(),
-      values.size() * sizeof(T)
-    );
-    return;
-  } else {
-    igText("FrameGraph::Buffer::write unhandled buffer memory flags %s (%i)\n",
-      this->_buffer->resource_name,
-      this->_buffer->memory_flags
-    );
+  // create an allocation in the ring buffer and copy the incoming data
+  u32 size_bytes = values.size() * sizeof(T);
+  u32 offset_bytes = offset * sizeof(T);
+  auto allocation = this->framegraph->ring_buffer->alloc(size_bytes);
+  memcpy(allocation.data(), values.data(), size_bytes);
+
+  auto upload = new Upload(allocation, offset, this->framegraph);
+  snprintf(framegraph_tmp_str, framegraph_tmp_str_len, "upload bytes(%u)", allocation.size);
+  upload->name.assign(framegraph_tmp_str);
+  upload->resolve = [this]() {
+    printf("TODO: resolve upload\n");
+  };
+  // setup the transfer from the ring buffer to the gpu buffer
+  this->framegraph->addInputEdge(
+    this->node(),
+    upload->node()
+  );
+
+  return this;
+}
+
+template <typename T>
+Buffer<T> *Buffer<T>::read(u32 offset, u32 count, function<void(T *data, u32 size)> cb) {
+  if (offset >= length) {
+    return this;
   }
 
-  // u32 l = values.size();
-  // for (u32 i=0; i<l; i++) {
-  //   u32 idx = offset + i;
-  //   if (idx >= this->length) {
-  //     break;
-  //   }
-  //   this->_buffer[idx] = values[i];
-  // }
+  // create an allocation in the ring buffer and copy the incoming data
+  u32 size_bytes = count * sizeof(T);
+  u32 offset_bytes = offset * sizeof(T);
+  if (size_bytes + offset_bytes >= this->size) {
+    size_bytes = this->size - offset_bytes;
+  }
+
+  auto allocation = this->framegraph->ring_buffer->alloc(size_bytes);
+
+  auto download = new Download(allocation, offset, this->framegraph);
+  snprintf(framegraph_tmp_str, framegraph_tmp_str_len, "download bytes(%u)", allocation.size);
+  download->name.assign(framegraph_tmp_str);
+  download->resolve = [cb](){
+    // TODO: add the buffer copy command to the command buffer
+    //       and setup a listener for when it completes (via Fences) to call cb()
+    //       with the allocation->data(), allocation.size
+    printf("TODO: resolve download\n");
+  };
+
+  // setup the transfer from the ring buffer to the gpu buffer
+  this->framegraph->addOutputEdge(
+    this->node(),
+    download->node()
+  );
+
+  return this;
 }
 
 template <typename T>
