@@ -145,4 +145,6 @@ void loop() {
       printf("}\n");
     }
   }
+
+  fg->render_force_directed_imgui();
 }

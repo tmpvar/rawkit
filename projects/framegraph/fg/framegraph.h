@@ -10,6 +10,7 @@
 using namespace std;
 
 #include <glm/glm.hpp>
+using namespace glm;
 
 #define framegraph_tmp_str_len 4096
 static char framegraph_tmp_str[framegraph_tmp_str_len + 1];
@@ -78,6 +79,9 @@ struct FrameGraph {
 
   template<typename T>
   Buffer<T> *buffer(const char *name, u32 size);
+
+  // Debugging
+  void render_force_directed_imgui();
 };
 
 template <typename T>
@@ -347,6 +351,157 @@ void FrameGraph::end() {
       this->command_pool
     );
   }
+}
+
+void FrameGraph::render_force_directed_imgui() {
+  // render with imgui drawlist
+  igBegin("FrameGraph (forced directed)", 0, 0);
+  ImDrawList* dl = igGetWindowDrawList();
+  vec2 min;
+  igGetItemRectMin((ImVec2 *)&min);
+  min.y += 20.0;
+  struct Node {
+    vec2 pos;
+    vec2 dims;
+    const char *name;
+    u32 idx;
+
+    float radius;
+  };
+  vector<Node> nodes;
+
+  float padding = 5.0f;
+  float y = 20.0f;
+  for (auto node : this->nodes) {
+    Node n = {
+      .pos = min + vec2(10, y),
+      .dims = vec2(
+        padding * 2.0f + (float)node->name.size() * 7.0f,
+        20.0f
+      ),
+      .name = node->name.c_str(),
+      .idx = static_cast<u32>(nodes.size()),
+    };
+
+    n.radius = glm::length(n.dims * 0.5f);
+
+    nodes.push_back(n);
+    y+=10.0f;
+  }
+
+  // force directed graph layout
+  {
+    for (u32 steps=0; steps<10; steps++) {
+      // distance constraint
+      for (auto &src : nodes) {
+        vec2 src_center = src.pos + src.dims * 0.5f;
+        for (auto &dst : nodes) {
+          vec2 dst_center = dst.pos + dst.dims * 0.5f;
+          if (src.idx == dst.idx) {
+            continue;
+          }
+
+          float d = glm::distance(src_center, dst_center);
+          float diff = d - (src.radius + dst.radius);
+
+          if (diff > 0) {
+            continue;
+          }
+
+          vec2 n = normalize(src_center - dst_center);
+          src.pos -= (n * diff) * 0.5f;
+          dst.pos += (n * diff) * 0.5f;
+        }
+      }
+
+      // sprint constraint
+      for (auto &src : nodes) {
+        vec2 src_center = src.pos + src.dims * 0.5f;
+        for (auto &dst_idx : this->input_edges[src.idx]) {
+          auto &dst = nodes[dst_idx];
+          vec2 dst_center = dst.pos + dst.dims * 0.5f;
+
+          float d = distance(src_center, dst_center);
+          float diff = d - (src.radius + dst.radius);
+
+          vec2 n = normalize(src_center - dst_center);
+          src.pos -= (n * diff) * 0.75f;
+          dst.pos += (n * diff) * 0.75f;
+        }
+      }
+    }
+  }
+
+  // reposition nodes to start inside the viewing area
+  {
+    // compute the lowest corner
+    vec2 lb(FLT_MAX);
+    for (auto &node : nodes) {
+      lb = glm::min(lb, node.pos - node.radius);
+    }
+
+    // apply the bounding box to each node
+    for (auto &node : nodes) {
+      node.pos = min + node.pos - lb;
+    }
+  }
+
+
+  // draw the edges first
+  for (auto &node : nodes) {
+    u32 l = strlen(node.name);
+    vec2 c = node.pos + node.dims * 0.5f;
+
+    // draw inputs
+    for (auto edge : this->input_edges[node.idx]) {
+      const auto &other = nodes[edge];
+      vec2 oc = other.pos + other.dims * 0.5f;
+      ImDrawList_AddLine(
+        dl,
+        {oc.x, oc.y},
+        {c.x, c.y},
+        0xFF00FF00,
+        1.0f
+      );
+    }
+
+    // // draw inputs
+    // for (auto edge : fg->output_edges[node.idx]) {
+    //   const auto &other = nodes[edge];
+    //   vec2 oc = other.pos + other.dims * 0.5f;
+    //   ImDrawList_AddLine(
+    //     dl,
+    //     {oc.x, oc.y},
+    //     {c.x, c.y},
+    //     0xFF0000FF,
+    //     1.0f
+    //   );
+    // }
+  }
+
+  for (auto &node : nodes) {
+    u32 l = strlen(node.name);
+    vec2 ub = node.pos + node.dims;
+    vec2 c = node.pos + node.dims * 0.5f;
+
+    ImDrawList_AddRectFilled(
+      dl,
+      {node.pos.x, node.pos.y},
+      {ub.x, ub.y},
+      0xFFFFFFFF,
+      4.0,
+      ImDrawCornerFlags_All
+    );
+
+    ImDrawList_AddTextVec2(
+      dl,
+      {node.pos.x + 5, c.y - 7.0f},
+      0xFF000000,
+      node.name,
+      node.name + l
+    );
+  }
+
 }
 
 // Shader Implementation
