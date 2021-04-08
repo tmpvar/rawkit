@@ -18,8 +18,8 @@ static char framegraph_tmp_str[framegraph_tmp_str_len + 1];
 struct Shader;
 struct FrameGraph;
 template <typename T> struct Buffer;
-struct Upload;
-struct Download;
+template <typename T> struct Upload;
+template <typename T> struct Download;
 
 // Struct Definitions
 enum NodeType {
@@ -38,18 +38,27 @@ enum NodeType {
 struct FrameGraphNode {
   FrameGraph *framegraph = nullptr;
 
+  VkAccessFlags accessMask = 0;
+
   u32 node_idx = 0xFFFFFFFF;
   NodeType node_type = NodeType::NONE;
   string name = "<invalid>";
-  function<void()> resolve = nullptr;
+  function<void(FrameGraphNode *)> _resolve_fn = nullptr;
 
   u32 node(FrameGraph *fg = nullptr);
+  void resolve();
   virtual rawkit_resource_t *resource();
 };
 
 struct FrameGraph {
   rawkit_gpu_t *gpu = nullptr;
   RingBuffer *ring_buffer;
+
+
+  VkCommandPool command_pool = VK_NULL_HANDLE;
+  VkCommandBuffer command_buffer = VK_NULL_HANDLE;
+  VkQueue queue;
+  VkFence fence = VK_NULL_HANDLE;
 
   vector<FrameGraphNode *> nodes;
   unordered_map<u32, vector<u32>> input_edges;
@@ -60,8 +69,8 @@ struct FrameGraph {
 
   u32 addNode(FrameGraphNode *node);
   void addInputEdge(u32 node, u32 src);
-  void addOutputEdge(u32 node, u32 dst);
 
+  void begin();
   void end();
 
   // Builder interfaces for primitives
@@ -71,18 +80,32 @@ struct FrameGraph {
   Buffer<T> *buffer(const char *name, u32 size);
 };
 
+template <typename T>
 struct Upload : FrameGraphNode {
   RingBufferAllocation allocation ={};
   u32 offset = 0;
-  function<void()> resolve = nullptr;
-  Upload(const RingBufferAllocation &allocation, u32 offset, FrameGraph *framegraph);
+  Buffer<T> *dest = nullptr;
+
+  Upload(
+    const RingBufferAllocation &allocation,
+    Buffer<T> *dest,
+    u32 offset,
+    FrameGraph *framegraph
+  );
 };
 
+template <typename T>
 struct Download : FrameGraphNode {
-  RingBufferAllocation allocation ={};
+  RingBufferAllocation allocation = {};
   u32 offset = 0;
-  function<void()> resolve = nullptr;
-  Download(const RingBufferAllocation &allocation, u32 offset, FrameGraph *framegraph);
+  function<void(T *data, u32 size)> cb = nullptr;
+  Buffer<T> *dest = nullptr;
+  Download(
+    const RingBufferAllocation &allocation,
+    Buffer<T> *dest,
+    u32 offset,
+    FrameGraph *framegraph
+  );
 };
 
 template <typename T>
@@ -93,6 +116,7 @@ struct Buffer : FrameGraphNode {
   Buffer(const char *name, u32 length, FrameGraph *framegraph);
   rawkit_gpu_buffer_t *handle();
   Buffer<T> *write(vector<T> values, u32 offset = 0);
+  Buffer<T> *write(T *values, u32 size, u32 offset = 0);
   Buffer<T> *read(u32 offset, u32 size, function<void(T *data, u32 size)> cb);
 
   T *readOne(u32 index);
@@ -108,6 +132,7 @@ struct ShaderParam {
 struct ShaderInvocation : FrameGraphNode {
   vector<ShaderParam> params;
   Shader *shader = nullptr;
+  glm::uvec3 dims;
   ShaderInvocation();
 };
 
@@ -149,6 +174,12 @@ u32 FrameGraphNode::node(FrameGraph *fg) {
   return this->node_idx;
 }
 
+void FrameGraphNode::resolve() {
+  if (this->_resolve_fn) {
+    this->_resolve_fn(this);
+  }
+
+}
 rawkit_resource_t *FrameGraphNode::resource() {
   return nullptr;
 }
@@ -182,20 +213,139 @@ u32 FrameGraph::addNode(FrameGraphNode *node) {
 
 void FrameGraph::addInputEdge(u32 node, u32 src) {
   this->input_edges[node].push_back(src);
+  this->output_edges[src].push_back(node);
 }
 
-void FrameGraph::addOutputEdge(u32 node, u32 dst) {
-  this->output_edges[node].push_back(dst);
+void FrameGraph::begin() {
+  this->input_edges.clear();
+  this->output_edges.clear();
+  this->nodes.clear();
 }
 
 void FrameGraph::end() {
+  this->command_pool = this->gpu->command_pool;
+  this->command_buffer = rawkit_gpu_create_command_buffer(this->gpu);
+  // begin the command buffer
+  {
+    VkCommandBufferBeginInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    VkResult err = vkBeginCommandBuffer(
+      this->command_buffer,
+      &info
+    );
+
+    if (err != VK_SUCCESS) {
+      printf("ERROR: FrameGraph::end: could not begin command buffer");
+      return;
+    }
+  }
+
+  // linearize the graph
+  {
+    printf("linearize\n");
+    for (auto node : this->nodes) {
+      printf("  %s\n", node->name.c_str());
+      if (node->node_type == NodeType::TRANSFER) {
+        node->resolve();
+        continue;
+      }
+
+      if (node->node_type == NodeType::SHADER_INVOCATION) {
+        for (auto input_idx : this->input_edges[node->node_idx]) {
+          FrameGraphNode *input = this->nodes[input_idx];
+          if (!input) {
+            continue;
+          }
+
+          printf("    input node %s\n", input->name.c_str());
+
+          switch (input->node_type) {
+            case NodeType::BUFFER: {
+              VkBufferMemoryBarrier barrier = {};
+              barrier.srcAccessMask = input->accessMask;
+              barrier.dstAccessMask = input->accessMask | VK_ACCESS_SHADER_READ_BIT;
+              input->accessMask = barrier.dstAccessMask;
+
+              rawkit_gpu_buffer_transition(
+                (rawkit_gpu_buffer_t *)input->resource(),
+                this->command_buffer,
+                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                barrier
+              );
+              break;
+            }
+
+            default:
+              break;
+          }
+        }
+
+        // for (auto input_idx : this->input_edges[node->node_idx]) {
+        //   FrameGraphNode *output = this->nodes[input_idx];
+        //   // TODO: mark the outputs as dirty
+        // }
+
+        node->resolve();
+      }
+    }
+  }
+
   // TODO: ensure each shader's resources are ready to use
   //       prior to resolving it
-  for (auto node : this->nodes) {
-    if (node->node_type == NodeType::SHADER_INVOCATION) {
-      igText("resolve: %s", node->name.c_str());
-      node->resolve();
+  // for (auto node : this->nodes) {
+  //   if (node->node_type == NodeType::SHADER_INVOCATION) {
+  //     igText("resolve: %s", node->name.c_str());
+  //     node->resolve();
+  //   }
+  // }
+
+  vkEndCommandBuffer(command_buffer);
+  {
+    VkFenceCreateInfo create = {};
+    create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    create.flags = 0;
+    VkResult err = vkCreateFence(
+      gpu->device,
+      &create,
+      gpu->allocator,
+      &this->fence
+    );
+
+    if (err) {
+      printf("ERROR: FrameGraph::end: create fence failed (%i)\n", err);
+      return;
     }
+  }
+
+  // submit the command buffer to the queue
+  {
+    VkSubmitInfo submit = {};
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.commandBufferCount = 1;
+    submit.pCommandBuffers = &command_buffer;
+    VkResult err = vkQueueSubmit(
+      this->queue,
+      1,
+      &submit,
+      this->fence
+    );
+
+    if (err) {
+      printf("ERROR: FrameGraph::end: unable to submit command buffer (%i)\n", err);
+      return;
+    }
+  }
+
+  // schedule the buffer for deletion
+  {
+    rawkit_gpu_queue_command_buffer_for_deletion(
+      gpu,
+      command_buffer,
+      fence,
+      this->command_pool
+    );
   }
 }
 
@@ -253,13 +403,17 @@ ShaderInvocation* Shader::dispatch(const glm::uvec3 &dims, vector<ShaderParam> p
   invocation->name.assign(framegraph_tmp_str);
   invocation->params = params;
   invocation->shader = this;
-  invocation->resolve = [this, invocation, dims]() {
+  invocation->dims = dims;
+  invocation->_resolve_fn = [](FrameGraphNode *node) {
+    ShaderInvocation *invocation = (ShaderInvocation *)node;
+    Shader *shader = invocation->shader;
+
     rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(
       rawkit_default_gpu(),
-      this->handle,
+      shader->handle,
       // TODO: use the framegraph command buffer
-      NULL,
-      0
+      node->framegraph->command_buffer,
+      rawkit_window_frame_index()
     );
 
     if (!inst) {
@@ -298,9 +452,9 @@ ShaderInvocation* Shader::dispatch(const glm::uvec3 &dims, vector<ShaderParam> p
 
     rawkit_shader_instance_dispatch_compute(
       inst,
-      dims.x,
-      dims.y,
-      dims.z
+      invocation->dims.x,
+      invocation->dims.y,
+      invocation->dims.z
     );
 
     rawkit_shader_instance_end(inst);
@@ -329,9 +483,9 @@ ShaderInvocation* Shader::dispatch(const glm::uvec3 &dims, vector<ShaderParam> p
 
     if (entry.writable) {
       igText("add output %s -> %s", invocation->name.c_str(), param.node->name.c_str());
-      this->framegraph->addOutputEdge(
-        invocation->node(),
-        param.node->node(this->framegraph)
+      this->framegraph->addInputEdge(
+        param.node->node(this->framegraph),
+        invocation->node()
       );
     }
   }
@@ -340,17 +494,33 @@ ShaderInvocation* Shader::dispatch(const glm::uvec3 &dims, vector<ShaderParam> p
 }
 
 // Upload Implementation
-Upload::Upload(const RingBufferAllocation &allocation, u32 offset, FrameGraph *framegraph) {
+template <typename T>
+Upload<T>::Upload(
+  const RingBufferAllocation &allocation,
+  Buffer<T> *dest,
+  u32 offset,
+  FrameGraph *framegraph
+) {
   this->framegraph = framegraph;
   this->allocation = allocation;
   this->offset = offset;
+  this->node_type = NodeType::TRANSFER;
+  this->dest = dest;
 }
 
 // Download Implementation
-Download::Download(const RingBufferAllocation &allocation, u32 offset, FrameGraph *framegraph) {
+template <typename T>
+Download<T>::Download(
+  const RingBufferAllocation &allocation,
+  Buffer<T> *dest,
+  u32 offset,
+  FrameGraph *framegraph
+) {
   this->framegraph = framegraph;
   this->allocation = allocation;
   this->offset = offset;
+  this->node_type = NodeType::TRANSFER;
+  this->dest = dest;
 }
 
 // ShaderInvocation Implementation
@@ -376,6 +546,7 @@ Buffer<T>::Buffer(const char *name, u32 length, FrameGraph *framegraph)
   this->framegraph = framegraph;
   this->node_type = NodeType::BUFFER;
   this->name.assign(name);
+
   snprintf(framegraph_tmp_str, framegraph_tmp_str_len, "FrameGraph::Buffer::%s", name);
   this->_buffer = rawkit_gpu_buffer_create(
     framegraph_tmp_str,
@@ -389,33 +560,74 @@ Buffer<T>::Buffer(const char *name, u32 length, FrameGraph *framegraph)
 }
 
 template <typename T>
-rawkit_gpu_buffer_t *Buffer<T>::handle() {
-  return this->_buffer;
-}
-
-template <typename T>
 rawkit_resource_t *Buffer<T>::resource() {
   return (rawkit_resource_t *)this->_buffer;
 }
 
 template <typename T>
 Buffer<T> *Buffer<T>::write(vector<T> values, u32 offset) {
+  return this->write(values.data(), values.size(), offset);
+}
+
+template <typename T>
+Buffer<T> *Buffer<T>::write(T *data, u32 size, u32 offset) {
   if (offset >= length) {
+    printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " Buffer::write attempt to write past the end of the buffer\n");
     return this;
   }
 
   // create an allocation in the ring buffer and copy the incoming data
-  u32 size_bytes = values.size() * sizeof(T);
+  u32 size_bytes = size * sizeof(T);
   u32 offset_bytes = offset * sizeof(T);
+printf("ATTEMPT ALLOC size(%u)\n", size_bytes, offset_bytes);
   auto allocation = this->framegraph->ring_buffer->alloc(size_bytes);
-  memcpy(allocation.data(), values.data(), size_bytes);
+printf("offset %u, size: %u\n", allocation.offset, allocation.size);
+  if (!allocation.size) {
+    printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " Buffer::write could not allocate transfer memory in ring buffer\n");
+    return this;
+  }
 
-  auto upload = new Upload(allocation, offset, this->framegraph);
+  memcpy(allocation.data(), data, size_bytes);
+
+  printf("%s write @ %u\n  ", this->name.c_str(),  allocation.offset);
+  for (u32 i=0; i<size; i++) {
+    if (i > 0 && i%16 == 0) {
+      printf("\n  ");
+    }
+    printf("%u|%u ", ((u32 *)allocation.data())[i], data[i]);
+  }
+  printf("\n");
+
+  igText("copy %u into ring buffer", size_bytes);
+
+  auto upload = new Upload<T>(allocation, this, offset, this->framegraph);
   snprintf(framegraph_tmp_str, framegraph_tmp_str_len, "upload bytes(%u)", allocation.size);
   upload->name.assign(framegraph_tmp_str);
-  upload->resolve = [this]() {
-    printf("TODO: resolve upload\n");
+  upload->_resolve_fn = [](FrameGraphNode *node) {
+    FrameGraph *fg = node->framegraph;
+    Upload<T> *upload = (Upload<T> *)node;
+    auto *src = fg->ring_buffer->gpuBuffer();
+    auto *dest = (rawkit_gpu_buffer_t *)upload->dest->resource();
+    const auto &allocation = upload->allocation;
+    VkBufferCopy copyRegion = {};
+    copyRegion.size = allocation.size;
+    copyRegion.srcOffset = allocation.offset;
+    copyRegion.dstOffset = upload->offset;
+  printf("upload size(%u) srcOffset(%u) dstOffset(%u)\n",
+    copyRegion.size,
+    copyRegion.srcOffset,
+    copyRegion.dstOffset
+  );
+
+    vkCmdCopyBuffer(
+      fg->command_buffer,
+      src->handle,
+      dest->handle,
+      1,
+      &copyRegion
+    );
   };
+
   // setup the transfer from the ring buffer to the gpu buffer
   this->framegraph->addInputEdge(
     this->node(),
@@ -440,20 +652,40 @@ Buffer<T> *Buffer<T>::read(u32 offset, u32 count, function<void(T *data, u32 siz
 
   auto allocation = this->framegraph->ring_buffer->alloc(size_bytes);
 
-  auto download = new Download(allocation, offset, this->framegraph);
+  auto download = new Download<T>(allocation, this, offset, this->framegraph);
   snprintf(framegraph_tmp_str, framegraph_tmp_str_len, "download bytes(%u)", allocation.size);
   download->name.assign(framegraph_tmp_str);
-  download->resolve = [cb](){
+  download->cb = cb;
+  download->_resolve_fn = [](FrameGraphNode *node){
+    FrameGraph *fg = node->framegraph;
+    Download<T> *download = (Download<T> *)node;
+    auto *src = (rawkit_gpu_buffer_t *)download->dest->resource();
+    auto *dest = fg->ring_buffer->gpuBuffer();
+
+    const auto &allocation = download->allocation;
+    VkBufferCopy copyRegion = {};
+    copyRegion.size = allocation.size;
+    copyRegion.srcOffset = download->offset;
+    copyRegion.dstOffset = allocation.offset;
+
+    vkCmdCopyBuffer(
+      fg->command_buffer,
+      src->handle,
+      dest->handle,
+      1,
+      &copyRegion
+    );
+
     // TODO: add the buffer copy command to the command buffer
     //       and setup a listener for when it completes (via Fences) to call cb()
     //       with the allocation->data(), allocation.size
-    printf("TODO: resolve download\n");
+
   };
 
   // setup the transfer from the ring buffer to the gpu buffer
-  this->framegraph->addOutputEdge(
-    this->node(),
-    download->node()
+  this->framegraph->addInputEdge(
+    download->node(),
+    this->node()
   );
 
   return this;

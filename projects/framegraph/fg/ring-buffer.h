@@ -74,6 +74,7 @@ struct RingBuffer {
         rawkit_default_gpu(),
         this->_state->size,
         (
+          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
         ),
@@ -96,6 +97,14 @@ struct RingBuffer {
     }
   }
 
+  rawkit_gpu_buffer_t *gpuBuffer() {
+    if (!this->_state) {
+      return nullptr;
+    }
+
+    return this->_state->buffer;
+  }
+
   u32 virt_to_physical(u32 virt_offset) {
     if (!this->_state) {
       return 0;
@@ -108,21 +117,21 @@ struct RingBuffer {
     if (!this->_state) {
       return nullptr;
     }
-
+    return this->_state->data + offset;
     u32 o = this->virt_to_physical(this->_state->write_offset);
     return (void *)(this->_state->data + o);
   }
 
-  u32 write(void *data, u32 size) {
-    if (!this->_state) {
-      return 0;
-    }
+  // u32 write(void *data, u32 size) {
+  //   if (!this->_state) {
+  //     return 0;
+  //   }
 
-    u32 o = this->virt_to_physical(this->_state->write_offset);
-    memcpy((void *)(this->_state->data + o), data, size);
-    this->_state->write_offset += size;
-    return this->_state->write_offset;
-  }
+  //   u32 o = this->virt_to_physical(this->_state->write_offset);
+  //   memcpy((void *)(this->_state->data + o), data, size);
+  //   this->_state->write_offset += size;
+  //   return this->_state->write_offset;
+  // }
 
   // void *read(u32 virt_offset) {
   //   u32 offset = this->virt_to_physical(virt_offset);
@@ -133,6 +142,7 @@ struct RingBuffer {
   RingBufferAllocation alloc(u32 size) {
     RingBufferAllocation allocation = {};
     if (!this->_state) {
+      printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " Buffer::alloc: invalid state\n");
       return allocation;
     }
 
@@ -140,6 +150,7 @@ struct RingBuffer {
     allocation.size = size;
     // TODO: ensure this doesn't overlap the read offset
     allocation.offset = this->_state->write_offset;
+    printf("alloc %u bytes @ %u\n", size, allocation.offset);
     this->_state->write_offset += size;
     return allocation;
   }
@@ -147,6 +158,7 @@ struct RingBuffer {
 
 void *RingBufferAllocation::data() {
   if (!this->buffer) {
+    printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " RingBufferAllocation::data: invalid buffer\n");
     return nullptr;
   }
   return (void *)this->buffer->data(this->offset);
