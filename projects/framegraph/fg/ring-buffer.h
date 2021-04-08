@@ -150,7 +150,6 @@ struct RingBuffer {
     allocation.size = size;
     // TODO: ensure this doesn't overlap the read offset
     allocation.offset = this->_state->write_offset;
-    printf("alloc %u bytes @ %u\n", size, allocation.offset);
     this->_state->write_offset += size;
     return allocation;
   }

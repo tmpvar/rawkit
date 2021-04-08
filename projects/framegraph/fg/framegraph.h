@@ -734,9 +734,8 @@ Buffer<T> *Buffer<T>::write(T *data, u32 size, u32 offset) {
   // create an allocation in the ring buffer and copy the incoming data
   u32 size_bytes = size * sizeof(T);
   u32 offset_bytes = offset * sizeof(T);
-printf("ATTEMPT ALLOC size(%u)\n", size_bytes, offset_bytes);
+
   auto allocation = this->framegraph->ring_buffer->alloc(size_bytes);
-printf("offset %u, size: %u\n", allocation.offset, allocation.size);
   if (!allocation.size) {
     printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " Buffer::write could not allocate transfer memory in ring buffer\n");
     return this;
@@ -744,16 +743,18 @@ printf("offset %u, size: %u\n", allocation.offset, allocation.size);
 
   memcpy(allocation.data(), data, size_bytes);
 
-  printf("%s write @ %u\n  ", this->name.c_str(),  allocation.offset);
-  for (u32 i=0; i<size; i++) {
-    if (i > 0 && i%16 == 0) {
-      printf("\n  ");
+  if (0) {
+    printf("%s write @ %u\n  ", this->name.c_str(),  allocation.offset);
+    for (u32 i=0; i<size; i++) {
+      if (i > 0 && i%16 == 0) {
+        printf("\n  ");
+      }
+      printf("%u|%u ", ((u32 *)allocation.data())[i], data[i]);
     }
-    printf("%u|%u ", ((u32 *)allocation.data())[i], data[i]);
-  }
-  printf("\n");
+    printf("\n");
 
-  igText("copy %u into ring buffer", size_bytes);
+    igText("copy %u into ring buffer", size_bytes);
+  }
 
   auto upload = new Upload<T>(allocation, this, offset, this->framegraph);
   snprintf(framegraph_tmp_str, framegraph_tmp_str_len, "upload bytes(%u)", allocation.size);
@@ -768,11 +769,6 @@ printf("offset %u, size: %u\n", allocation.offset, allocation.size);
     copyRegion.size = allocation.size;
     copyRegion.srcOffset = allocation.offset;
     copyRegion.dstOffset = upload->offset;
-  printf("upload size(%u) srcOffset(%u) dstOffset(%u)\n",
-    copyRegion.size,
-    copyRegion.srcOffset,
-    copyRegion.dstOffset
-  );
 
     vkCmdCopyBuffer(
       fg->command_buffer,
