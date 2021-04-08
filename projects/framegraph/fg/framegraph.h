@@ -113,6 +113,21 @@ struct Download : FrameGraphNode {
 };
 
 template <typename T>
+struct Fill : FrameGraphNode {
+  u64 offset = 0;
+  u64 size = 0;
+  u32 value = 0;
+  Buffer<T> *dest = nullptr;
+  Fill(
+    Buffer<T> *dest,
+    u64 offset,
+    u64 size,
+    u32 value,
+    FrameGraph *framegraph
+  );
+};
+
+template <typename T>
 struct Buffer : FrameGraphNode {
   rawkit_gpu_buffer_t *_buffer;
   const u32 length = 0;
@@ -121,7 +136,10 @@ struct Buffer : FrameGraphNode {
   rawkit_gpu_buffer_t *handle();
   Buffer<T> *write(vector<T> values, u32 offset = 0);
   Buffer<T> *write(T *values, u32 size, u32 offset = 0);
+  // deferred read
   Buffer<T> *read(u32 offset, u32 size, function<void(T *data, u32 size)> cb);
+  // fill the entire buffer with a constant value
+  Buffer<T> *fill(u32 value, u64 offset = 0, u64 size = VK_WHOLE_SIZE);
 
   T *readOne(u32 index);
   VkResult map(std::function<void(T *)> cb);
@@ -402,7 +420,7 @@ void FrameGraph::render_force_directed_imgui() {
           }
 
           float d = glm::distance(src_center, dst_center);
-          float diff = d - (src.radius + dst.radius);
+          float diff = d - (src.radius + dst.radius) * 1.5f;
 
           if (diff > 0) {
             continue;
@@ -419,14 +437,19 @@ void FrameGraph::render_force_directed_imgui() {
         vec2 src_center = src.pos + src.dims * 0.5f;
         for (auto &dst_idx : this->input_edges[src.idx]) {
           auto &dst = nodes[dst_idx];
+
+          if (dst.idx > src.idx) {
+            dst.pos.y -= 10.0f;
+          }
+
           vec2 dst_center = dst.pos + dst.dims * 0.5f;
 
           float d = distance(src_center, dst_center);
           float diff = d - (src.radius + dst.radius);
 
           vec2 n = normalize(src_center - dst_center);
-          src.pos -= (n * diff) * 0.75f;
-          dst.pos += (n * diff) * 0.75f;
+          src.pos -= (n * diff) * 0.5f;
+          dst.pos += (n * diff) * 0.5f;
         }
       }
     }
@@ -617,9 +640,12 @@ ShaderInvocation* Shader::dispatch(const glm::uvec3 &dims, vector<ShaderParam> p
 
   const rawkit_glsl_t *glsl = rawkit_shader_glsl(this->handle);
   igText("add input %s -> %s", this->name.c_str(), invocation->name.c_str());
+
+
+
   this->framegraph->addInputEdge(
-    invocation->node(),
-    this->node()
+    this->node(),
+    invocation->node()
   );
 
   for (auto param : params) {
@@ -676,6 +702,69 @@ Download<T>::Download(
   this->offset = offset;
   this->node_type = NodeType::TRANSFER;
   this->dest = dest;
+}
+
+// Fill Implementation
+template <typename T>
+Fill<T>::Fill(
+  Buffer<T> *dest,
+  u64 offset,
+  u64 size,
+  u32 value,
+  FrameGraph *framegraph
+) {
+  this->framegraph = framegraph;
+  this->offset = offset;
+  this->dest = dest;
+  this->size = size;
+  this->node_type = NodeType::TRANSFER;
+
+  snprintf(
+    framegraph_tmp_str,
+    framegraph_tmp_str_len,
+    "fill(%x)::%lu->%lu",
+    value,
+    offset,
+    glm::min(size, static_cast<u32>(dest->size) - offset)
+  );
+
+  this->name.assign(framegraph_tmp_str);
+
+  this->_resolve_fn = [](FrameGraphNode *node) {
+    auto fill = (Fill<T> *)node;
+
+    u32 not_multiple_of_4 = 3;
+    if (fill->offset & not_multiple_of_4) {
+      printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " Buffer::fill() offset must be a multiple of 4\n");
+      return;
+    }
+
+    auto buf = (rawkit_gpu_buffer_t *)fill->dest->resource();
+    u32 buf_size = static_cast<u32>(fill->dest->size);
+    u64 size = glm::min(fill->size, buf_size - fill->offset);
+
+    if (fill->offset >= buf_size) {
+      printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " Buffer::fill() offset must be less than size\n");
+      return;
+    }
+
+    if (size & not_multiple_of_4) {
+      printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " Buffer::fill() size must be a multiple of 4\n");
+      return;
+    }
+
+    if (size > buf_size) {
+      size = VK_WHOLE_SIZE;
+    }
+
+    vkCmdFillBuffer(
+      node->framegraph->command_buffer,
+      buf->handle,
+      fill->offset,
+      size,
+      fill->value
+    );
+  };
 }
 
 // ShaderInvocation Implementation
@@ -837,6 +926,24 @@ Buffer<T> *Buffer<T>::read(u32 offset, u32 count, function<void(T *data, u32 siz
   this->framegraph->addInputEdge(
     download->node(),
     this->node()
+  );
+
+  return this;
+}
+
+template <typename T>
+Buffer<T> *Buffer<T>::fill(u32 value, u64 offset, u64 size) {
+  auto fill = new Fill<T>(
+    this,
+    offset,
+    size,
+    value,
+    this->framegraph
+  );
+
+  this->framegraph->addInputEdge(
+    this->node(),
+    fill->node()
   );
 
   return this;

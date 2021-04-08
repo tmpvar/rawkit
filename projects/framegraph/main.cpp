@@ -44,7 +44,7 @@ void loop() {
   });
 
   auto output_buf = fg->buffer<u32>("outputs", 4);
-  output_buf->write({0, 0, 0, 0});
+  output_buf->fill(0);
 
   fg->shader("sum", {"sum.comp"})
     ->dispatch(
@@ -82,14 +82,6 @@ void loop() {
       printf("%u ", data[i]);
     }
     printf("\n------------------------------------------\n");
-  }
-
-  // render the graph
-  {
-    Context2D ctx;
-
-    ctx.scale(1.0, -1.0);
-    ctx.translate(vec2(0.0, -(float)rawkit_window_height()));
   }
 
   // output .dot format
