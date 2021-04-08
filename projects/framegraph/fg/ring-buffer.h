@@ -76,6 +76,10 @@ struct RingBuffer {
         (
           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+          // TODO: if we can't get a buffer that is host coherent
+          //       then we'll need to use:
+          //       - vkFlushMappedMemoryRanges for committing uploaded data
+          //       - vkInvalidateMappedMemoryRanges prior to reading downloaded data
           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
         ),
         (
