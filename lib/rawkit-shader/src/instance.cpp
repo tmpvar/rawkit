@@ -163,6 +163,7 @@ rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(rawkit_gpu_t *gpu, raw
     instance->command_pool = gpu->command_pool;
     instance->command_buffer = rawkit_gpu_create_command_buffer(gpu);
   } else {
+    instance->owns_command_buffer = false;
     instance->command_buffer = command_buffer;
   }
 
