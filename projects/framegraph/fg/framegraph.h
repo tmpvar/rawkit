@@ -165,8 +165,6 @@ struct Buffer : FrameGraphNode {
   // fill the entire buffer with a constant value
   Buffer<T> *fill(u32 value, u64 offset = 0, u64 size = VK_WHOLE_SIZE);
 
-  T *readOne(u32 index);
-  VkResult map(std::function<void(T *)> cb);
   rawkit_resource_t *resource() override;
 };
 
@@ -309,9 +307,9 @@ void FrameGraph::end() {
 
   // linearize the graph
   {
-    printf("linearize\n");
+    igText("linearize\n");
     for (auto node : this->nodes) {
-      printf("  %s\n", node->name.c_str());
+      igText("  %s\n", node->name.c_str());
       if (node->node_type == NodeType::TRANSFER) {
         node->resolve();
         continue;
@@ -324,7 +322,7 @@ void FrameGraph::end() {
             continue;
           }
 
-          printf("    input node %s\n", input->name.c_str());
+          igText("    input node %s\n", input->name.c_str());
 
           switch (input->node_type) {
             case NodeType::BUFFER: {
@@ -453,7 +451,7 @@ void FrameGraph::render_force_directed_imgui() {
 
   // force directed graph layout
   {
-    for (u32 steps=0; steps<10; steps++) {
+    for (u32 steps=0; steps<20; steps++) {
       // distance constraint
       for (auto &src : nodes) {
         vec2 src_center = src.pos + src.dims * 0.5f;
@@ -1102,66 +1100,4 @@ Buffer<T> *Buffer<T>::fill(u32 value, u64 offset, u64 size) {
   );
 
   return this;
-}
-
-template <typename T>
-T *Buffer<T>::readOne(u32 index) {
-  // if (index >= length) {
-  //   return nullptr;
-  // }
-
-  // return &this->slab[index];
-  return nullptr;
-}
-
-template <typename T>
-VkResult Buffer<T>::map(std::function<void(T *)> cb) {
-  u64 offset = 0;
-  u64 size = VK_WHOLE_SIZE;
-
-  rawkit_gpu_ssbo_t *ssbo = this->handle();
-
-  void *ptr;
-  VkResult err = vkMapMemory(
-    ssbo->gpu->device,
-    ssbo->buffer->memory,
-    offset,
-    size,
-    0,
-    &ptr
-  );
-
-  if (err) {
-    printf("ERROR: unable to map memory (%i)\n", err);
-    return err;
-  }
-
-  cb((T *)ptr);
-
-  // flush
-  {
-    VkMappedMemoryRange flush = {
-      .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-      .memory = ssbo->buffer->memory,
-      .offset = offset,
-      .size = size,
-    };
-
-    err = vkFlushMappedMemoryRanges(
-      ssbo->gpu->device,
-      1,
-      &flush
-    );
-
-    if (err) {
-      printf("ERROR: unable to flush mapped memory ranges (%i)\n", err);
-    }
-  }
-
-  vkUnmapMemory(
-    ssbo->gpu->device,
-    ssbo->buffer->memory
-  );
-
-  return err;
 }
