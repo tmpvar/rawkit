@@ -22,6 +22,7 @@ struct FrameGraph;
 template <typename T> struct Buffer;
 template <typename T> struct Upload;
 template <typename T> struct Download;
+struct PendingEvent;
 
 // Struct Definitions
 enum NodeType {
@@ -52,10 +53,30 @@ struct FrameGraphNode {
   virtual rawkit_resource_t *resource();
 };
 
+struct PendingEvent {
+  FrameGraphNode *node = nullptr;
+  VkEvent handle;
+  function<void(FrameGraphNode *)> cb;
+  bool valid = true;
+
+  PendingEvent(
+    FrameGraphNode *node,
+    VkCommandBuffer command_buffer,
+    VkPipelineStageFlags stageMask,
+    function<void(FrameGraphNode *)> cb
+  );
+
+  ~PendingEvent();
+
+  bool complete();
+};
+
+
 struct FrameGraph {
   rawkit_gpu_t *gpu = nullptr;
   RingBuffer *ring_buffer;
 
+  vector<PendingEvent *> pending_events;
 
   VkCommandPool command_pool = VK_NULL_HANDLE;
   VkCommandBuffer command_buffer = VK_NULL_HANDLE;
@@ -72,6 +93,7 @@ struct FrameGraph {
   u32 addNode(FrameGraphNode *node);
   void addInputEdge(u32 node, u32 src);
 
+  void reset();
   void begin();
   void end();
 
@@ -210,7 +232,7 @@ rawkit_resource_t *FrameGraphNode::resource() {
 
 // FrameGraph Implementation
 FrameGraph::FrameGraph() {
-  this->ring_buffer = new RingBuffer("FrameGraph::ring_buffer", 64 * 1024 * 1024);
+  this->ring_buffer = new RingBuffer("FrameGraph::ring_buffer", 1024);
   this->gpu = rawkit_default_gpu();
 }
 
@@ -240,10 +262,30 @@ void FrameGraph::addInputEdge(u32 node, u32 src) {
   this->output_edges[src].push_back(node);
 }
 
+void FrameGraph::reset() {
+  this->input_edges.clear();
+  this->output_edges.clear();
+  this->nodes.clear();
+  this->pending_events.clear();
+}
+
 void FrameGraph::begin() {
   this->input_edges.clear();
   this->output_edges.clear();
   this->nodes.clear();
+
+  // service the pending events
+  {
+    i64 l = static_cast<i64>(this->pending_events.size());
+    for (i64 i=l-1; i>=0; i--) {
+      auto event = this->pending_events[i];
+      if (event->complete()) {
+        this->pending_events.erase(
+          this->pending_events.begin() + i
+        );
+      }
+    }
+  }
 }
 
 void FrameGraph::end() {
@@ -723,6 +765,72 @@ ShaderInvocation* Shader::dispatch(const glm::uvec3 &dims, vector<ShaderParam> p
   return invocation;
 }
 
+// Pending Event Implementation
+PendingEvent::PendingEvent(
+  FrameGraphNode *node,
+  VkCommandBuffer command_buffer,
+  VkPipelineStageFlags stageMask,
+  function<void(FrameGraphNode *)> cb
+)
+{
+  if (!node || !node->framegraph || !node->framegraph->gpu) {
+    printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " PendingEvent passed an invalid node\n");
+    this->valid = false;
+    return;
+  }
+
+  this->cb = cb;
+  this->node = node;
+  VkResult err = VK_SUCCESS;
+  {
+    VkEventCreateInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_EVENT_CREATE_INFO;
+    err = vkCreateEvent(
+      node->framegraph->gpu->device,
+      &info,
+      node->framegraph->gpu->allocator,
+      &this->handle
+    );
+    if (err) {
+      printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " PendingEvent failed to create event\n");
+      this->valid = false;
+      return;
+    }
+  }
+
+  vkCmdSetEvent(
+    command_buffer,
+    this->handle,
+    stageMask
+  );
+}
+
+PendingEvent::~PendingEvent() {
+  if (!this->handle && !this->valid) {
+    return;
+  }
+
+  vkDestroyEvent(
+    this->node->framegraph->gpu->device,
+    this->handle,
+    this->node->framegraph->gpu->allocator
+  );
+}
+
+bool PendingEvent::complete() {
+  VkResult status = vkGetEventStatus(
+    this->node->framegraph->gpu->device,
+    this->handle
+  );
+
+  if (status == VK_EVENT_SET) {
+    this->cb(this->node);
+    return true;
+  }
+
+  return false;
+}
+
 // Upload Implementation
 template <typename T>
 Upload<T>::Upload(
@@ -881,19 +989,6 @@ Buffer<T> *Buffer<T>::write(T *data, u32 size, u32 offset) {
 
   memcpy(allocation.data(), data, size_bytes);
 
-  if (0) {
-    printf("%s write @ %u\n  ", this->name.c_str(),  allocation.offset);
-    for (u32 i=0; i<size; i++) {
-      if (i > 0 && i%16 == 0) {
-        printf("\n  ");
-      }
-      printf("%u|%u ", ((u32 *)allocation.data())[i], data[i]);
-    }
-    printf("\n");
-
-    igText("copy %u into ring buffer", size_bytes);
-  }
-
   auto upload = new Upload<T>(allocation, this, offset, this->framegraph);
   snprintf(framegraph_tmp_str, framegraph_tmp_str_len, "upload bytes(%u)", allocation.size);
   upload->name.assign(framegraph_tmp_str);
@@ -905,7 +1000,7 @@ Buffer<T> *Buffer<T>::write(T *data, u32 size, u32 offset) {
     const auto &allocation = upload->allocation;
     VkBufferCopy copyRegion = {};
     copyRegion.size = allocation.size;
-    copyRegion.srcOffset = allocation.offset;
+    copyRegion.srcOffset = allocation.physical_offset;
     copyRegion.dstOffset = upload->offset;
 
     vkCmdCopyBuffer(
@@ -955,7 +1050,7 @@ Buffer<T> *Buffer<T>::read(u32 offset, u32 count, function<void(T *data, u32 siz
     VkBufferCopy copyRegion = {};
     copyRegion.size = allocation.size;
     copyRegion.srcOffset = download->offset;
-    copyRegion.dstOffset = allocation.offset;
+    copyRegion.dstOffset = allocation.physical_offset;
 
     vkCmdCopyBuffer(
       fg->command_buffer,
@@ -965,10 +1060,21 @@ Buffer<T> *Buffer<T>::read(u32 offset, u32 count, function<void(T *data, u32 siz
       &copyRegion
     );
 
-    // TODO: add the buffer copy command to the command buffer
-    //       and setup a listener for when it completes (via Fences) to call cb()
-    //       with the allocation->data(), allocation.size
+    auto event = new PendingEvent(
+      node,
+      fg->command_buffer,
+      VK_PIPELINE_STAGE_TRANSFER_BIT,
+      [](FrameGraphNode *node) {
+        auto dl = (Download<T> *)node;
+        dl->cb(
+          (T *)dl->allocation.data(),
+          dl->allocation.size
+        );
+        dl->allocation.release();
+      }
+    );
 
+    fg->pending_events.push_back(event);
   };
 
   // setup the transfer from the ring buffer to the gpu buffer
