@@ -7,6 +7,7 @@
 #include <functional>
 #include <unordered_map>
 #include <vector>
+#include <sstream>
 using namespace std;
 
 #include <glm/glm.hpp>
@@ -82,6 +83,7 @@ struct FrameGraph {
 
   // Debugging
   void render_force_directed_imgui();
+  string render_graphviz_dot();
 };
 
 template <typename T>
@@ -524,7 +526,54 @@ void FrameGraph::render_force_directed_imgui() {
       node.name + l
     );
   }
+}
 
+string FrameGraph::render_graphviz_dot() {
+  stringstream s;
+  // output .dot format
+  const char *fill_color = "#BBBBBBFF";
+  const char *border_color = "#AAAAAAFF";
+  const char *font_color = "#000000FF";
+  const char *edge_color = "#666666FF";
+
+  s << "digraph framegraph {\n"
+        "  concentrate=true\n"
+        "  graph [truecolor=true bgcolor=\"#00000000\"]\n"
+        "  node [style=filled fillcolor=\"" << fill_color << "\" color=\"" << border_color << "\" fontcolor=\"" << font_color << "\" fontname=\"Roboto Light\"]\n"
+        "  edge [color=\"" << edge_color << "\"]\n";
+
+  for (auto node : this->nodes) {
+    u32 idx = node->node();
+    string params = string("label=\"") + node->name + "\"";
+
+    switch (node->node_type) {
+      case NodeType::SHADER_INVOCATION:
+          params += " shape=square style=\"bold,filled\"";
+        break;
+      case NodeType::SHADER:
+          params += " shape=square style=\"filled\"";
+        break;
+      default:
+        params += " shape=box style=\"rounded,filled\"";
+    }
+
+    printf("  node_%u [%s];\n", idx, params.c_str());
+    s << "  node_" << idx << "[" << params << "];\n";
+  }
+
+  for (auto node : this->nodes) {
+    u32 idx = node->node();
+
+    auto inputs = this->input_edges.find(idx);
+    if (inputs != this->input_edges.end()) {
+      for (auto input : inputs->second) {
+        s << "  node_" << input << " -> node_" << idx << ";\n";
+      }
+    }
+  }
+  printf("}\n");
+  s << "}\n";
+  return s.str();
 }
 
 // Shader Implementation
