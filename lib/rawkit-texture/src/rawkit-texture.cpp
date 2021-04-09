@@ -545,7 +545,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
 
   // transition the texture to be read/write
   {
-    VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(options.gpu);
+    VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(options.gpu, nullptr);
     if (!command_buffer) {
       printf("ERROR: rawkit_texture_init: could not create command buffer\n");
       return false;
@@ -681,7 +681,7 @@ bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_bu
     vkUnmapMemory(gpu->device, texture->source_cpu_buffer_memory);
   }
 
-  VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu);
+  VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu, nullptr);
   if (!command_buffer) {
     printf("ERROR: rawkit_texture_update_buffer: could not create command buffer\n");
     return false;

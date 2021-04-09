@@ -161,7 +161,7 @@ rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(rawkit_gpu_t *gpu, raw
   if (!command_buffer) {
     instance->owns_command_buffer = true;
     instance->command_pool = gpu->command_pool;
-    instance->command_buffer = rawkit_gpu_create_command_buffer(gpu);
+    instance->command_buffer = rawkit_gpu_create_command_buffer(gpu, nullptr);
   } else {
     instance->owns_command_buffer = false;
     instance->command_buffer = command_buffer;
@@ -240,7 +240,7 @@ static VkResult transition_texture_for_stage(
   VkResult err = VK_SUCCESS;
   bool owns_command_buffer = command_buffer == nullptr;
   if (owns_command_buffer) {
-    command_buffer = rawkit_gpu_create_command_buffer(gpu);
+    command_buffer = rawkit_gpu_create_command_buffer(gpu, nullptr);
     if (!command_buffer) {
       printf("ERROR: transition_texture_for_compute: could not create command buffer\n");
       return VK_INCOMPLETE;

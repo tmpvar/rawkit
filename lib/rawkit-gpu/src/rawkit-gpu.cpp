@@ -476,10 +476,10 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
   return vb;
 }
 
-VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu) {
+VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu, VkCommandPool pool) {
   VkCommandBufferAllocateInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  info.commandPool = gpu->command_pool;
+  info.commandPool = pool == VK_NULL_HANDLE ? gpu->command_pool : pool;
   info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   info.commandBufferCount = 1;
   VkCommandBuffer command_buffer;
@@ -658,7 +658,7 @@ VkResult rawkit_gpu_ssbo_transition(
   rawkit_gpu_t *gpu = ssbo->gpu;
 
   VkResult err = VK_SUCCESS;
-  VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu);
+  VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu, nullptr);
   if (!command_buffer) {
     printf("ERROR: rawkit_gpu_ssbo_ex: could not create command buffer\n");
     return err;

@@ -120,7 +120,7 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
 
 VkResult rawkit_gpu_vertex_buffer_destroy(rawkit_gpu_t *gpu, rawkit_gpu_vertex_buffer_t *buf);
 
-VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu);
+VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu, VkCommandPool pool);
 
 void rawkit_gpu_tick(rawkit_gpu_t *gpu);
 void rawkit_gpu_queue_command_buffer_for_deletion(rawkit_gpu_t *gpu, VkCommandBuffer buffer, VkFence fence, VkCommandPool pool);

@@ -309,7 +309,7 @@ rawkit_texture_target_t *rawkit_texture_target_begin(
       clearValues.push_back(clearDepth);
     }
 
-    target->command_buffer = rawkit_gpu_create_command_buffer(target->gpu);
+    target->command_buffer = rawkit_gpu_create_command_buffer(target->gpu, nullptr);
     if (!target->command_buffer) {
       printf("ERROR: rawkit_texture_init: could not create command buffer\n");
       return target;

@@ -246,7 +246,7 @@ void FrameGraph::begin() {
 
 void FrameGraph::end() {
   this->command_pool = this->gpu->command_pool;
-  this->command_buffer = rawkit_gpu_create_command_buffer(this->gpu);
+  this->command_buffer = rawkit_gpu_create_command_buffer(this->gpu, nullptr);
   // begin the command buffer
   {
     VkCommandBufferBeginInfo info = {};
