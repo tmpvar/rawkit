@@ -29,11 +29,10 @@ struct RingBuffer;
 
 struct RingBufferAllocation {
   RingBuffer *buffer;
-  u32 offset = 0;
+  u32 physical_offset = 0;
+  u32 logical_offset = 0;
   u32 size = 0;
-  void release() {
-
-  }
+  void release();
 
   void *data();
 };
@@ -121,8 +120,9 @@ struct RingBuffer {
     if (!this->_state) {
       return nullptr;
     }
-    return this->_state->data + offset;
-    u32 o = this->virt_to_physical(this->_state->write_offset);
+
+    // return (void *)(this->_state->data + offset);
+    u32 o = this->virt_to_physical(offset);
     return (void *)(this->_state->data + o);
   }
 
@@ -146,14 +146,34 @@ struct RingBuffer {
   RingBufferAllocation alloc(u32 size) {
     RingBufferAllocation allocation = {};
     if (!this->_state) {
-      printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " Buffer::alloc: invalid state\n");
+      printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " RingBuffer::alloc: invalid state\n");
+      return allocation;
+    }
+
+    if (this->_state->size < size) {
+      printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " RingBuffer::alloc: allocation size too large\n");
+      return allocation;
+    }
+
+    u32 wo = this->virt_to_physical(this->_state->write_offset);
+    u32 ro = this->virt_to_physical(this->_state->write_offset);
+
+    u32 end = wo + size;
+    if (end >= this->_state->size) {
+      this->_state->write_offset += end - this->_state->size;
+      wo = 0;
+    }
+
+    if (wo > ro && wo + size > ro) {
+      printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " RingBuffer::alloc: write head crossed read head\n");
       return allocation;
     }
 
     allocation.buffer = this;
     allocation.size = size;
-    // TODO: ensure this doesn't overlap the read offset
-    allocation.offset = this->_state->write_offset;
+    allocation.logical_offset = this->_state->write_offset;
+    allocation.physical_offset = wo;
+
     this->_state->write_offset += size;
     return allocation;
   }
@@ -164,5 +184,12 @@ void *RingBufferAllocation::data() {
     printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " RingBufferAllocation::data: invalid buffer\n");
     return nullptr;
   }
-  return (void *)this->buffer->data(this->offset);
+  return (void *)this->buffer->data(this->physical_offset);
+}
+
+void RingBufferAllocation::release() {
+  u32 offset = this->buffer->_state->read_offset;
+  if (this->buffer->_state->read_offset < this->logical_offset) {
+    this->buffer->_state->read_offset = this->logical_offset;
+  }
 }
