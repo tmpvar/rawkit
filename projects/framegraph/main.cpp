@@ -8,6 +8,7 @@
 #include "ctx/mouse.h"
 
 #include "graphs/sum.h"
+#include "graphs/texture.h"
 
 using namespace glm;
 
@@ -38,6 +39,7 @@ void loop() {
   fg->begin();
 
   graph_sum(fg);
+  graph_texture(fg);
 
   fg->end();
   fg->render_force_directed_imgui();

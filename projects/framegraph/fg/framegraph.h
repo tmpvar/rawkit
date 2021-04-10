@@ -25,6 +25,7 @@ struct FrameGraph;
 template <typename T> struct Buffer;
 template <typename T> struct Upload;
 template <typename T> struct Download;
+struct Texture;
 struct PendingEvent;
 
 // Struct Definitions
@@ -34,10 +35,8 @@ enum NodeType {
   SHADER,
   SHADER_INVOCATION,
   TEXTURE,
-  UBO,
-  SSBO,
-  CONSTANT_BUFFER,
-  TRANSFER
+  TRANSFER,
+  DEBUG,
 };
 
 #define FRAMEGRAPH_NODE_INVALID 0xFFFFFFFF
@@ -110,6 +109,10 @@ struct FrameGraph {
   template<typename T>
   Buffer<T> *buffer(const char *name, u32 size);
 
+  Texture *texture(const char *name, VkFormat format, uvec3 dims);
+  Texture *texture(const char *filename, const char *relative_file = __builtin_FILE());
+
+
   // Debugging
   void render_force_directed_imgui();
   string render_graphviz_dot();
@@ -175,6 +178,27 @@ struct Buffer : FrameGraphNode {
   rawkit_resource_t *resource() override;
 };
 
+
+struct TextureDebugImGui : FrameGraphNode {
+  Texture *texture = nullptr;
+  uvec2 dims = uvec2(256);
+
+  TextureDebugImGui(Texture *texture, FrameGraph *framegraph, uvec2 dims);
+  rawkit_resource_t *resource() override;
+};
+
+struct Texture : FrameGraphNode {
+  VkFormat format;
+  rawkit_texture_t *texture = nullptr;
+  Texture(const char *name, VkFormat format, const uvec3 &dims, FrameGraph *framegraph);
+  Texture(const char *filename, const char *relative_file, FrameGraph *framegraph);
+
+  rawkit_resource_t *resource() override;
+  uvec3 dims();
+
+  void debug_imgui(uvec2 dims = uvec2(256), rawkit_texture_sampler_t *sampler = nullptr);
+};
+
 struct ShaderParam {
   const char *name;
   FrameGraphNode *node;
@@ -209,7 +233,7 @@ struct Shader : public FrameGraphNode {
 u32 FrameGraphNode::node(FrameGraph *fg) {
   if (!this->framegraph) {
     if (!fg) {
-      printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " FrameGraphNode::node is not linked to a FrameGraph\n");
+      printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " FrameGraphNode::node(%s) is not linked to a FrameGraph\n", this->name.c_str());
       return FRAMEGRAPH_NODE_INVALID;
     }
     this->framegraph = fg;
@@ -257,6 +281,14 @@ Shader *FrameGraph::shader(const char *name, vector<string> filenames, const cha
 template<typename T>
 Buffer<T> *FrameGraph::buffer(const char *name, u32 size) {
   return new Buffer<T>(name, size, this);
+}
+
+Texture *FrameGraph::texture(const char *name, VkFormat format, uvec3 dims) {
+  return new Texture(name, format, dims, this);
+}
+
+Texture *FrameGraph::texture(const char *filename, const char *relative_file) {
+  return new Texture(filename, relative_file, this);
 }
 
 u32 FrameGraph::addNode(FrameGraphNode *node) {
@@ -361,6 +393,10 @@ void FrameGraph::end() {
         //   // TODO: mark the outputs as dirty
         // }
 
+        node->resolve();
+      }
+
+      if (node->node_type == NodeType::DEBUG) {
         node->resolve();
       }
     }
@@ -709,6 +745,23 @@ ShaderInvocation* Shader::dispatch(const glm::uvec3 &dims, vector<ShaderParam> p
           );
           break;
         }
+
+        case NodeType::TEXTURE: {
+          if (!resource) {
+            continue;
+          }
+
+          auto tex = (rawkit_texture_t *)resource;
+          rawkit_shader_instance_param_texture(
+            inst,
+            param.name,
+            tex,
+            // TODO: pass in sampler
+            nullptr
+          );
+          break;
+        }
+
 
         default: {
           printf("ERROR: unhandled shader invocation param %s\n", param.name);
@@ -1099,4 +1152,109 @@ Buffer<T> *Buffer<T>::fill(u32 value, u64 offset, u64 size) {
   );
 
   return this;
+}
+
+// TextureDebugImGui Implementation
+TextureDebugImGui::TextureDebugImGui(Texture *texture, FrameGraph *framegraph, uvec2 dims) {
+  this->texture = texture;
+  this->framegraph = framegraph;
+  this->node_type = NodeType::DEBUG;
+
+  this->name.assign(
+    this->texture->name + "-debug-imgui"
+  );
+
+  this->_resolve_fn = [](FrameGraphNode *node) {
+    auto that = (TextureDebugImGui *)node;
+    auto src_tex = (rawkit_texture_t *)node->resource();
+    if (!src_tex) {
+      return;
+    }
+
+    float scale = 0.5;
+    ImTextureID dst_tex = rawkit_imgui_texture(
+      src_tex,
+      src_tex->default_sampler
+    );
+
+    if (!dst_tex) {
+      return;
+    }
+
+    igImage(
+      dst_tex,
+      (ImVec2){ (f32)that->dims.x, (f32)that->dims.y },
+      (ImVec2){ 0.0f, 0.0f }, // uv0
+      (ImVec2){ 1.0f, 1.0f }, // uv1
+      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
+      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+    );
+  };
+}
+
+rawkit_resource_t *TextureDebugImGui::resource() {
+  if (!this->texture) {
+    return nullptr;
+  }
+  return this->texture->resource();
+}
+
+// Texture Implementation
+Texture::Texture(const char *name, VkFormat format, const uvec3 &dims, FrameGraph *framegraph) {
+  this->framegraph = framegraph;
+  this->node_type = NodeType::TEXTURE;
+  this->name.assign(name);
+
+  this->texture = rawkit_texture_mem(
+    name,
+    dims.x,
+    dims.y,
+    dims.z,
+    format
+  );
+}
+
+Texture::Texture(const char *filename, const char *relative_file, FrameGraph *framegraph) {
+  this->framegraph = framegraph;
+  this->node_type = NodeType::TEXTURE;
+  this->name.assign(name);
+
+  fs::path rel = fs::absolute(fs::path(relative_file));
+  this->name.assign(
+    fs::relative((rel / filename).string(), fs::path(RAWKIT_ENTRY_DIRNAME))
+  );
+
+  this->texture = _rawkit_texture_ex(
+    framegraph->gpu,
+    rel.string().c_str(),
+    filename,
+    uv_default_loop(),
+    rawkit_default_diskwatcher()
+  );
+  this->node();
+}
+
+uvec3 Texture::dims() {
+  if (!this->texture || !this->texture->resource_version) {
+    return uvec3(0);
+  }
+
+  return uvec3(
+    this->texture->options.width,
+    this->texture->options.height,
+    this->texture->options.depth
+  );
+}
+
+rawkit_resource_t *Texture::resource() {
+  return (rawkit_resource_t *)this->texture;
+}
+
+
+void Texture::debug_imgui(uvec2 dims, rawkit_texture_sampler_t *sampler) {
+  auto debug_node = new TextureDebugImGui(this, this->framegraph, dims);
+  this->framegraph->addInputEdge(
+    debug_node->node(),
+    this->node()
+  );
 }
