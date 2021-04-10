@@ -10,6 +10,9 @@
 #include <sstream>
 using namespace std;
 
+#include <ghc/filesystem.hpp>
+namespace fs = ghc::filesystem;
+
 #include <glm/glm.hpp>
 using namespace glm;
 
@@ -71,7 +74,6 @@ struct PendingEvent {
   bool complete();
 };
 
-
 struct FrameGraph {
   rawkit_gpu_t *gpu = nullptr;
   RingBuffer *ring_buffer;
@@ -98,7 +100,12 @@ struct FrameGraph {
   void end();
 
   // Builder interfaces for primitives
-  Shader *shader(const char *name, vector<const char *> filenames);
+
+  // Create a Shader FrameGraphNode
+  //
+  // uses a clang builtin to retrieve the caller's filename, so the list of filenames can be relative
+  // see: https://clang.llvm.org/docs/LanguageExtensions.html#source-location-builtins
+  Shader *shader(const char *name, vector<string> filenames, const char *relative_file = __builtin_FILE());
 
   template<typename T>
   Buffer<T> *buffer(const char *name, u32 size);
@@ -189,7 +196,7 @@ struct Shader : public FrameGraphNode {
   vector<std::function<void (rawkit_shader_instance_t *)>> io;
 
   ~Shader();
-  Shader(const char *name, const vector<const char *> &filenames, FrameGraph *framegraph);
+  Shader(const char *name, const vector<string> &filenames, FrameGraph *framegraph);
   template <typename T>
   Shader &buffer(const char *name, Buffer<T> &buffer);
   void rebuild();
@@ -238,7 +245,12 @@ FrameGraph::~FrameGraph() {
   delete this->ring_buffer;
 }
 
-Shader *FrameGraph::shader(const char *name, vector<const char *> filenames) {
+Shader *FrameGraph::shader(const char *name, vector<string> filenames, const char *relative_file) {
+  fs::path rel = fs::absolute(fs::path(relative_file).remove_filename());
+  for (auto &file : filenames) {
+    file.assign((rel / file).string());
+  }
+
   Shader *s = new Shader(name, filenames, this);
   s->framegraph = this;
   return s;
@@ -621,14 +633,14 @@ Shader::~Shader() {
   this->files.clear();
 }
 
-Shader::Shader(const char *name, const vector<const char *> &filenames, FrameGraph *framegraph) {
+Shader::Shader(const char *name, const vector<string> &filenames, FrameGraph *framegraph) {
   this->node_type = NodeType::SHADER;
   this->name.assign(name);
   this->options = rawkit_shader_default_options();
 
-  for (const char *filename : filenames) {
+  for (const auto &filename : filenames) {
     this->files.push_back(
-      rawkit_file_relative_to(filename, RAWKIT_ENTRY_DIRNAME)
+      rawkit_file(filename.c_str())
     );
   }
 

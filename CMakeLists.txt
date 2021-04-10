@@ -262,6 +262,7 @@ install(
 install(
   DIRECTORY
     ${CMAKE_CURRENT_LIST_DIR}/include/hot/guest/glm
+    ${CMAKE_CURRENT_LIST_DIR}/include/ghc
   DESTINATION include
 )
 
