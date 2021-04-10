@@ -178,7 +178,6 @@ struct Buffer : FrameGraphNode {
   rawkit_resource_t *resource() override;
 };
 
-
 struct TextureDebugImGui : FrameGraphNode {
   Texture *texture = nullptr;
   uvec2 dims = uvec2(256);
@@ -574,20 +573,27 @@ void FrameGraph::render_force_directed_imgui() {
         0xFF00FF00,
         1.0f
       );
-    }
 
-    // // draw inputs
-    // for (auto edge : fg->output_edges[node.idx]) {
-    //   const auto &other = nodes[edge];
-    //   vec2 oc = other.pos + other.dims * 0.5f;
-    //   ImDrawList_AddLine(
-    //     dl,
-    //     {oc.x, oc.y},
-    //     {c.x, c.y},
-    //     0xFF0000FF,
-    //     1.0f
-    //   );
-    // }
+      // draw cirles on the dest
+      {
+        float radius = 1.0f;
+
+        vec2 rd = c - oc;
+        vec2 ird = 1.0f / rd;
+        vec2 tbot = ird * (node.pos - oc);
+        vec2 ttop = ird * ((node.pos + node.dims) - oc);
+        vec2 tmin = glm::min(ttop, tbot);
+        vec2 isect = oc + rd * glm::max(tmin.x, tmin.y);
+
+        ImDrawList_AddCircleFilled(
+          dl,
+          { isect.x, isect.y },
+          4.0,
+          0xFF00FF00,
+          16
+        );
+      }
+    }
   }
 
   for (auto &node : nodes) {
@@ -785,8 +791,8 @@ ShaderInvocation* Shader::dispatch(const glm::uvec3 &dims, vector<ShaderParam> p
 
 
   this->framegraph->addInputEdge(
-    this->node(),
-    invocation->node()
+    invocation->node(),
+    this->node()
   );
 
   for (auto param : params) {
