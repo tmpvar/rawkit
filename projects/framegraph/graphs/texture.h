@@ -21,4 +21,10 @@ void graph_texture(FrameGraph *fg) {
   );
 
   tex->debug_imgui();
+
+  // moss texture
+  {
+    auto moss = fg->texture("moss.png");
+    moss->debug_imgui();
+  }
 }
