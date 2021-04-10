@@ -193,8 +193,6 @@ struct Shader : public FrameGraphNode {
   rawkit_shader_options_t options;
   u32 invocations = 0;
 
-  vector<std::function<void (rawkit_shader_instance_t *)>> io;
-
   ~Shader();
   Shader(const char *name, const vector<string> &filenames, FrameGraph *framegraph);
   template <typename T>
@@ -645,17 +643,6 @@ Shader::Shader(const char *name, const vector<string> &filenames, FrameGraph *fr
   }
 
   this->node(framegraph);
-}
-
-template <typename T>
-Shader &Shader::buffer(const char *name, Buffer<T> &buffer) {
-  // TODO: register this with the FrameGraph
-  this->io.push_back([name, &buffer, this](rawkit_shader_instance_t *inst) {
-    // TODO: this is where we'd figure out if we need to add a barrier and
-    //       add it to a queue or something
-
-  });
-  return *this;
 }
 
 void Shader::rebuild() {
