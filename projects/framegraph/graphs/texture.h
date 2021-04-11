@@ -3,7 +3,7 @@
 
 void graph_texture(FrameGraph *fg) {
   auto tex = fg->texture(
-    "mem-texture",
+    "fill-texture-output",
     VK_FORMAT_R8G8B8A8_SRGB,
     uvec3(
       rawkit_window_width(),
@@ -19,8 +19,6 @@ void graph_texture(FrameGraph *fg) {
       { "tex", tex },
     }
   );
-
-  tex->debug_imgui();
 
   // moss texture
   {

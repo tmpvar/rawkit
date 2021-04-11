@@ -41,6 +41,7 @@ void loop() {
   graph_sum(fg);
   graph_texture(fg);
 
-  fg->end();
+
   fg->render_force_directed_imgui();
+  fg->end();
 }

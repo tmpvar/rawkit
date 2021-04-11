@@ -118,6 +118,10 @@ struct FrameGraph {
   string render_graphviz_dot();
 };
 
+struct ExecutionTree {
+
+};
+
 template <typename T>
 struct Upload : FrameGraphNode {
   RingBufferAllocation allocation ={};
@@ -161,6 +165,18 @@ struct Fill : FrameGraphNode {
   );
 };
 
+struct DebugForceDirected : FrameGraphNode {
+  DebugForceDirected(FrameGraph *framegraph) {
+    this->name.assign("DebugForceDirected");
+    this->framegraph = framegraph;
+    this->node_type = NodeType::DEBUG;
+    this->node();
+  }
+  rawkit_resource_t *resource() override {
+    return nullptr;
+  };
+};
+
 template <typename T>
 struct Buffer : FrameGraphNode {
   rawkit_gpu_buffer_t *_buffer;
@@ -180,9 +196,19 @@ struct Buffer : FrameGraphNode {
 
 struct TextureDebugImGui : FrameGraphNode {
   Texture *texture = nullptr;
-  uvec2 dims = uvec2(256);
+  vec2 dims = vec2(256.0);
+  vec2 pos = vec2(0.0);
+  ImDrawList *draw_list = nullptr;
+  rawkit_texture_sampler_t *sampler = nullptr;
 
-  TextureDebugImGui(Texture *texture, FrameGraph *framegraph, uvec2 dims);
+  TextureDebugImGui(
+    Texture *texture,
+    FrameGraph *framegraph,
+    vec2 dims = vec2(256.0),
+    vec2 pos = vec2(0.0),
+    ImDrawList *dl = nullptr,
+    rawkit_texture_sampler_t *sampler = nullptr
+  );
   rawkit_resource_t *resource() override;
 };
 
@@ -195,7 +221,12 @@ struct Texture : FrameGraphNode {
   rawkit_resource_t *resource() override;
   uvec3 dims();
 
-  void debug_imgui(uvec2 dims = uvec2(256), rawkit_texture_sampler_t *sampler = nullptr);
+  void debug_imgui(
+    const vec2 &dims = vec2(256.0),
+    rawkit_texture_sampler_t *sampler = nullptr,
+    const vec2 &pos = vec2(0.0),
+    ImDrawList *dl = nullptr
+  );
 };
 
 struct ShaderParam {
@@ -459,165 +490,211 @@ void FrameGraph::end() {
 }
 
 void FrameGraph::render_force_directed_imgui() {
-  // render with imgui drawlist
-  igBegin("FrameGraph (forced directed)", 0, 0);
-  ImDrawList* dl = igGetWindowDrawList();
-  vec2 min;
-  igGetItemRectMin((ImVec2 *)&min);
-  min.y += 20.0;
-  struct Node {
-    vec2 pos;
-    vec2 dims;
-    const char *name;
-    u32 idx;
+  auto debug = new DebugForceDirected(this);
+  debug->_resolve_fn = [](FrameGraphNode *node) {
+    auto that = node->framegraph;
 
-    float radius;
-  };
-  vector<Node> nodes;
+    // render with imgui drawlist
+    igBegin("FrameGraph (forced directed)", 0, 0);
+    ImDrawList* dl = igGetWindowDrawList();
+    vec2 min;
+    igGetItemRectMin((ImVec2 *)&min);
+    min.y += 20.0;
+    struct Node {
+      vec2 pos;
+      vec2 dims;
+      const char *name;
+      u32 idx;
 
-  float padding = 5.0f;
-  float y = 20.0f;
-  for (auto node : this->nodes) {
-    Node n = {
-      .pos = min + vec2(10, y),
-      .dims = vec2(
-        padding * 2.0f + (float)node->name.size() * 7.0f,
-        20.0f
-      ),
-      .name = node->name.c_str(),
-      .idx = static_cast<u32>(nodes.size()),
+      float radius;
     };
+    vector<Node> nodes;
 
-    n.radius = glm::length(n.dims * 0.5f);
+    float padding = 5.0f;
+    float y = 0.0f;
+    for (auto node : that->nodes) {
+      Node n = {
+        .pos = vec2(0.0, y),
+        .dims = vec2(
+          padding * 2.0f + (float)node->name.size() * 7.0f,
+          padding * 2.0f + 13.0f
+        ),
 
-    nodes.push_back(n);
-    y+=10.0f;
-  }
+        .name = node->name.c_str(),
+        .idx = static_cast<u32>(nodes.size()),
 
-  // force directed graph layout
-  {
-    for (u32 steps=0; steps<20; steps++) {
-      // distance constraint
-      for (auto &src : nodes) {
-        vec2 src_center = src.pos + src.dims * 0.5f;
-        for (auto &dst : nodes) {
-          vec2 dst_center = dst.pos + dst.dims * 0.5f;
-          if (src.idx == dst.idx) {
-            continue;
-          }
+      };
 
-          float d = glm::distance(src_center, dst_center);
-          float diff = d - (src.radius + dst.radius) * 1.5f;
-
-          if (diff > 0) {
-            continue;
-          }
-
-          vec2 n = normalize(src_center - dst_center);
-          src.pos -= (n * diff) * 0.5f;
-          dst.pos += (n * diff) * 0.5f;
-        }
+      if (node->node_type == NodeType::TEXTURE) {
+        auto tex = (Texture *)node;
+        float aspect = (float)tex->texture->options.height / (float)tex->texture->options.width;
+        n.dims.y += n.dims.x * aspect + 5.0f;
       }
 
-      // sprint constraint
-      for (auto &src : nodes) {
-        vec2 src_center = src.pos + src.dims * 0.5f;
-        for (auto &dst_idx : this->input_edges[src.idx]) {
-          auto &dst = nodes[dst_idx];
+      n.radius = glm::length(n.dims * 0.5f);
 
-          if (dst.idx > src.idx) {
-            dst.pos.y -= 10.0f;
+      nodes.push_back(n);
+      y+=1.0f;
+    }
+
+    // force directed graph layout
+    {
+      for (u32 steps=0; steps<5; steps++) {
+        // distance constraint
+        for (auto &src : nodes) {
+          vec2 src_center = src.pos + src.dims * 0.5f;
+          for (auto &dst : nodes) {
+            vec2 dst_center = dst.pos + dst.dims * 0.5f;
+            if (src.idx == dst.idx) {
+              continue;
+            }
+
+            float d = glm::distance(src_center, dst_center);
+            float diff = d - (src.radius + dst.radius) * 1.0f;
+
+            if (diff > 0) {
+              continue;
+            }
+
+            vec2 n = normalize(src_center - dst_center);
+            src.pos -= (n * diff) * 0.5f;
+            dst.pos += (n * diff) * 0.5f;
           }
+        }
 
-          vec2 dst_center = dst.pos + dst.dims * 0.5f;
+        // sprint constraint
+        for (auto &src : nodes) {
+          vec2 src_center = src.pos + src.dims * 0.5f;
+          for (auto &dst_idx : that->input_edges[src.idx]) {
+            auto &dst = nodes[dst_idx];
 
-          float d = distance(src_center, dst_center);
-          float diff = d - (src.radius + dst.radius);
+            if (dst.idx > src.idx) {
+              dst.pos.y -= 10.0f;
+            }
 
-          vec2 n = normalize(src_center - dst_center);
-          src.pos -= (n * diff) * 0.5f;
-          dst.pos += (n * diff) * 0.5f;
+            vec2 dst_center = dst.pos + dst.dims * 0.5f;
+
+            float d = distance(src_center, dst_center);
+            float diff = d - (src.radius + dst.radius);
+            if (diff >= 0.0) {
+
+            }
+            vec2 n = normalize(src_center - dst_center);
+            src.pos -= (n * diff) * 0.5f;
+            dst.pos += (n * diff) * 0.5f;
+          }
         }
       }
     }
-  }
 
-  // reposition nodes to start inside the viewing area
-  {
-    // compute the lowest corner
-    vec2 lb(FLT_MAX);
-    for (auto &node : nodes) {
-      lb = glm::min(lb, node.pos - node.radius);
+    // reposition nodes to start inside the viewing area
+    {
+      // compute the lowest corner
+      vec2 lb(FLT_MAX);
+      for (auto &node : nodes) {
+        lb = glm::min(lb, node.pos - node.radius);
+      }
+
+      // apply the bounding box to each node
+      for (auto &node : nodes) {
+        node.pos = min + node.pos - lb;
+      }
     }
 
-    // apply the bounding box to each node
+
+    // draw the edges first
     for (auto &node : nodes) {
-      node.pos = min + node.pos - lb;
+      u32 l = strlen(node.name);
+      vec2 c = node.pos + node.dims * 0.5f;
+
+      // draw inputs
+      for (auto edge : that->input_edges[node.idx]) {
+        const auto &other = nodes[edge];
+        vec2 oc = other.pos + other.dims * 0.5f;
+        ImDrawList_AddLine(
+          dl,
+          {oc.x, oc.y},
+          {c.x, c.y},
+          0xFF00FF00,
+          1.0f
+        );
+
+        // draw cirles on the dest
+        {
+          float radius = 1.0f;
+
+          vec2 rd = c - oc;
+          vec2 ird = 1.0f / rd;
+          vec2 tbot = ird * (node.pos - oc);
+          vec2 ttop = ird * ((node.pos + node.dims) - oc);
+          vec2 tmin = glm::min(ttop, tbot);
+          vec2 isect = oc + rd * glm::max(tmin.x, tmin.y);
+
+          ImDrawList_AddCircleFilled(
+            dl,
+            { isect.x, isect.y },
+            4.0,
+            0xFF00FF00,
+            16
+          );
+        }
+      }
     }
-  }
 
+    for (auto &node : nodes) {
+      auto graph_node = that->nodes[node.idx];
+      u32 l = strlen(node.name);
+      vec2 ub = node.pos + node.dims;
+      vec2 c = node.pos + node.dims * 0.5f;
 
-  // draw the edges first
-  for (auto &node : nodes) {
-    u32 l = strlen(node.name);
-    vec2 c = node.pos + node.dims * 0.5f;
-
-    // draw inputs
-    for (auto edge : this->input_edges[node.idx]) {
-      const auto &other = nodes[edge];
-      vec2 oc = other.pos + other.dims * 0.5f;
-      ImDrawList_AddLine(
+      ImDrawList_AddRectFilled(
         dl,
-        {oc.x, oc.y},
-        {c.x, c.y},
-        0xFF00FF00,
-        1.0f
+        {node.pos.x, node.pos.y},
+        {ub.x, ub.y},
+        0xFFFFFFFF,
+        4.0,
+        ImDrawCornerFlags_All
       );
 
-      // draw cirles on the dest
-      {
-        float radius = 1.0f;
+      ImDrawList_AddTextVec2(
+        dl,
+        {node.pos.x + 5, node.pos.y + padding},
+        0xFF000000,
+        node.name,
+        node.name + l
+      );
 
-        vec2 rd = c - oc;
-        vec2 ird = 1.0f / rd;
-        vec2 tbot = ird * (node.pos - oc);
-        vec2 ttop = ird * ((node.pos + node.dims) - oc);
-        vec2 tmin = glm::min(ttop, tbot);
-        vec2 isect = oc + rd * glm::max(tmin.x, tmin.y);
-
-        ImDrawList_AddCircleFilled(
-          dl,
-          { isect.x, isect.y },
-          4.0,
-          0xFF00FF00,
-          16
+      if (graph_node->node_type == NodeType::TEXTURE) {
+        auto tex = (Texture *)graph_node;
+        ImTextureID dst_tex = rawkit_imgui_texture(
+          tex->texture,
+          tex->texture->default_sampler
         );
+
+        if (!dst_tex) {
+          printf("no dst_tex\n");
+          return;
+        }
+
+        float y = padding + 7.0f + padding * 2.0f;
+        vec2 lb = vec2(node.pos.x + padding, node.pos.y + y);
+        vec2 ub = lb + vec2(node.dims.x - padding * 2.0f, node.dims.y - y - padding);
+
+        ImDrawList_AddImage(
+          dl,
+          dst_tex,
+          { lb.x, lb.y },
+          { ub.x, ub.y },
+          { 0.0f, 0.0f },
+          { 1.0f, 1.0f },
+          0xFFFFFFFF
+        );
+
       }
     }
-  }
 
-  for (auto &node : nodes) {
-    u32 l = strlen(node.name);
-    vec2 ub = node.pos + node.dims;
-    vec2 c = node.pos + node.dims * 0.5f;
-
-    ImDrawList_AddRectFilled(
-      dl,
-      {node.pos.x, node.pos.y},
-      {ub.x, ub.y},
-      0xFFFFFFFF,
-      4.0,
-      ImDrawCornerFlags_All
-    );
-
-    ImDrawList_AddTextVec2(
-      dl,
-      {node.pos.x + 5, c.y - 7.0f},
-      0xFF000000,
-      node.name,
-      node.name + l
-    );
-  }
+    igEnd();
+  };
 }
 
 string FrameGraph::render_graphviz_dot() {
@@ -1161,10 +1238,23 @@ Buffer<T> *Buffer<T>::fill(u32 value, u64 offset, u64 size) {
 }
 
 // TextureDebugImGui Implementation
-TextureDebugImGui::TextureDebugImGui(Texture *texture, FrameGraph *framegraph, uvec2 dims) {
+TextureDebugImGui::TextureDebugImGui(
+  Texture *texture,
+  FrameGraph *framegraph,
+  vec2 pos,
+  vec2 dims,
+  ImDrawList *dl,
+  rawkit_texture_sampler_t *sampler
+)
+{
   this->texture = texture;
+  this->sampler = sampler;
   this->framegraph = framegraph;
   this->node_type = NodeType::DEBUG;
+
+  this->draw_list = dl;
+  this->dims = dims;
+  this->pos = pos;
 
   this->name.assign(
     this->texture->name + "-debug-imgui"
@@ -1180,21 +1270,32 @@ TextureDebugImGui::TextureDebugImGui(Texture *texture, FrameGraph *framegraph, u
     float scale = 0.5;
     ImTextureID dst_tex = rawkit_imgui_texture(
       src_tex,
-      src_tex->default_sampler
+      that->sampler ? that->sampler : src_tex->default_sampler
     );
-
     if (!dst_tex) {
       return;
     }
 
-    igImage(
-      dst_tex,
-      (ImVec2){ (f32)that->dims.x, (f32)that->dims.y },
-      (ImVec2){ 0.0f, 0.0f }, // uv0
-      (ImVec2){ 1.0f, 1.0f }, // uv1
-      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
-      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
-    );
+    if (that->draw_list) {
+      ImDrawList_AddImage(
+        that->draw_list,
+        dst_tex,
+        { that->pos.x, that->pos.y },
+        { that->pos.x + that->dims.x, that->pos.y + that->dims.y },
+        { 0.0f, 0.0f },
+        { 1.0f, 1.0f },
+        0xFF000000
+      );
+    } else {
+      igImage(
+        dst_tex,
+        (ImVec2){ (f32)that->dims.x, (f32)that->dims.y },
+        (ImVec2){ 0.0f, 0.0f }, // uv0
+        (ImVec2){ 1.0f, 1.0f }, // uv1
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+      );
+    }
   };
 }
 
@@ -1257,8 +1358,19 @@ rawkit_resource_t *Texture::resource() {
 }
 
 
-void Texture::debug_imgui(uvec2 dims, rawkit_texture_sampler_t *sampler) {
-  auto debug_node = new TextureDebugImGui(this, this->framegraph, dims);
+void Texture::debug_imgui(
+  const vec2 &dims,
+  rawkit_texture_sampler_t *sampler,
+  const vec2 &pos,
+  ImDrawList *dl
+) {
+  auto debug_node = new TextureDebugImGui(
+    this,
+    this->framegraph,
+    pos,
+    dims,
+    dl
+  );
   this->framegraph->addInputEdge(
     debug_node->node(),
     this->node()
