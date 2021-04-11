@@ -530,7 +530,7 @@ void FrameGraph::render_force_directed_imgui() {
           graph
         );
 
-        if (graph.size()) {
+        if (graph.size() > 1) {
           graphs.push_back(graph);
         }
       }
@@ -671,7 +671,6 @@ void FrameGraph::render_force_directed_imgui() {
           node.pos = min + node.pos - lb;
           node.pos.y += graph_y;
         }
-
 
         graph_y += (ub.y - lb.y) + 20.0f;
       }
