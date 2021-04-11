@@ -25,6 +25,7 @@
 #include <hot/host/rawkit-mesh.h>
 #include <hot/host/rawkit-vg.h>
 #include <hot/host/rawkit-window.h>
+#include <hot/host/lz4.h>
 #include <hot/host/uv.h>
 
 void host_hot_init_state(rawkit_jit_t *jit) {
@@ -72,6 +73,7 @@ void host_hot_init(rawkit_jit_t *jit) {
   host_init_rawkit_vg(jit);
   host_init_rawkit_window(jit);
   host_init_uv(jit);
+  host_init_lz4(jit);
 
   rawkit_jit_add_export(jit, "rawkit_now", (void *)&rawkit_now);
 }

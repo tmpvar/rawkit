@@ -52,6 +52,11 @@ include_directories(
 include(CTest)
 enable_testing()
 
+# LIB: lz4
+if (NOT TARGET rawkit::lz4)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/deps/lz4)
+endif()
+
 # LIB: pull-stream
 if (NOT TARGET pull::stream)
   add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/pull-stream)
@@ -237,6 +242,8 @@ target_link_libraries(
   rawkit::vg
   rawkit::window
   rawkit::vulkan
+
+  rawkit::lz4
 
   serial
 )
