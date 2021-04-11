@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <vector>
 #include <sstream>
+#include "bitset.h"
 using namespace std;
 
 #include <ghc/filesystem.hpp>
@@ -489,10 +490,51 @@ void FrameGraph::end() {
   }
 }
 
+
+void graph_isolator(FrameGraph *fg, Bitset &bitset, const u32 node, vector<u32> &graph) {
+  if (bitset.get(node)) {
+    return;
+  }
+
+  bitset.set(node);
+  graph.push_back(node);
+  for (u32 input : fg->input_edges[node]) {
+    graph_isolator(fg, bitset, input, graph);
+  }
+
+  for (u32 output : fg->output_edges[node]) {
+    graph_isolator(fg, bitset, output, graph);
+  }
+}
+
 void FrameGraph::render_force_directed_imgui() {
   auto debug = new DebugForceDirected(this);
   debug->_resolve_fn = [](FrameGraphNode *node) {
     auto that = node->framegraph;
+
+    // identify isolated graphs
+    vector<vector<u32>> graphs;
+    {
+      u32 l = that->nodes.size();
+      Bitset seen(that->nodes.size());
+      for (u32 i = 0; i<l; i++) {
+        if (seen.get(i)) {
+          continue;
+        }
+
+        vector<u32> graph;
+        graph_isolator(
+          that,
+          seen,
+          i,
+          graph
+        );
+
+        if (graph.size()) {
+          graphs.push_back(graph);
+        }
+      }
+    }
 
     // render with imgui drawlist
     igBegin("FrameGraph (forced directed)", 0, 0);
@@ -500,6 +542,7 @@ void FrameGraph::render_force_directed_imgui() {
     vec2 min;
     igGetItemRectMin((ImVec2 *)&min);
     min.y += 20.0;
+    min.x += 20.0;
     struct Node {
       vec2 pos;
       vec2 dims;
@@ -508,11 +551,19 @@ void FrameGraph::render_force_directed_imgui() {
 
       float radius;
     };
-    vector<Node> nodes;
 
     float padding = 5.0f;
+    float graph_y = 20.0f;
+
+    vector<Node> nodes;
+
+    // initialize the visual nodes
     float y = 0.0f;
     for (auto node : that->nodes) {
+      if (!node) {
+        continue;
+      }
+
       Node n = {
         .pos = vec2(0.0, y),
         .dims = vec2(
@@ -522,7 +573,6 @@ void FrameGraph::render_force_directed_imgui() {
 
         .name = node->name.c_str(),
         .idx = static_cast<u32>(nodes.size()),
-
       };
 
       if (node->node_type == NodeType::TEXTURE) {
@@ -534,162 +584,190 @@ void FrameGraph::render_force_directed_imgui() {
       n.radius = glm::length(n.dims * 0.5f);
 
       nodes.push_back(n);
-      y+=1.0f;
+      y+=100.0f;
     }
 
-    // force directed graph layout
-    {
-      for (u32 steps=0; steps<5; steps++) {
-        // distance constraint
-        for (auto &src : nodes) {
-          vec2 src_center = src.pos + src.dims * 0.5f;
-          for (auto &dst : nodes) {
-            vec2 dst_center = dst.pos + dst.dims * 0.5f;
-            if (src.idx == dst.idx) {
-              continue;
+    for (const auto &graph : graphs) {
+      // force directed graph layout
+      {
+        for (u32 steps=0; steps<10; steps++) {
+          // distance constraint
+          for (u32 src_idx : graph) {
+            auto &src = nodes[src_idx];
+            vec2 src_center = src.pos + src.dims * 0.5f;
+            for (auto &dst : nodes) {
+              vec2 dst_center = dst.pos + dst.dims * 0.5f;
+              if (src.idx == dst.idx) {
+                continue;
+              }
+
+              float d = glm::distance(src_center, dst_center);
+              float diff = d - (src.radius + dst.radius) * 1.15f;
+
+              if (diff > 0) {
+                continue;
+              }
+
+              vec2 n = normalize(src_center - dst_center);
+              src.pos -= (n * diff) * 0.95f;
+              dst.pos += (n * diff) * 0.95f;
             }
+          }
 
-            float d = glm::distance(src_center, dst_center);
-            float diff = d - (src.radius + dst.radius) * 1.0f;
+          // sprint constraint
+          for (u32 src_idx : graph) {
+            auto &src = nodes[src_idx];
+            vec2 src_center = src.pos + src.dims * 0.5f;
+            for (auto &dst_idx : that->input_edges[src.idx]) {
+              auto &dst = nodes[dst_idx];
 
-            if (diff > 0) {
-              continue;
+              if (dst.idx > src.idx) {
+                dst.pos.y -= 10.0f;
+              }
+
+              vec2 dst_center = dst.pos + dst.dims * 0.5f;
+
+              float d = distance(src_center, dst_center);
+              float diff = d - (src.radius + dst.radius);
+              if (diff >= 0.0) {
+
+              }
+              vec2 n = normalize(src_center - dst_center);
+              src.pos -= (n * diff) * 0.5f;
+              dst.pos += (n * diff) * 0.5f;
             }
-
-            vec2 n = normalize(src_center - dst_center);
-            src.pos -= (n * diff) * 0.5f;
-            dst.pos += (n * diff) * 0.5f;
           }
         }
+      }
 
-        // sprint constraint
-        for (auto &src : nodes) {
-          vec2 src_center = src.pos + src.dims * 0.5f;
-          for (auto &dst_idx : that->input_edges[src.idx]) {
-            auto &dst = nodes[dst_idx];
+      // reposition nodes to start inside the viewing area
+      {
+        // compute the lowest corner
+        vec2 lb(FLT_MAX);
+        vec2 ub(-FLT_MAX);
+        for (u32 node_idx : graph) {
+          auto &node = nodes[node_idx];
 
-            if (dst.idx > src.idx) {
-              dst.pos.y -= 10.0f;
-            }
-
-            vec2 dst_center = dst.pos + dst.dims * 0.5f;
-
-            float d = distance(src_center, dst_center);
-            float diff = d - (src.radius + dst.radius);
-            if (diff >= 0.0) {
-
-            }
-            vec2 n = normalize(src_center - dst_center);
-            src.pos -= (n * diff) * 0.5f;
-            dst.pos += (n * diff) * 0.5f;
-          }
+          lb = glm::min(lb, node.pos);
+          ub = glm::max(ub, node.pos + node.dims);
         }
-      }
-    }
 
-    // reposition nodes to start inside the viewing area
-    {
-      // compute the lowest corner
-      vec2 lb(FLT_MAX);
-      for (auto &node : nodes) {
-        lb = glm::min(lb, node.pos - node.radius);
-      }
-
-      // apply the bounding box to each node
-      for (auto &node : nodes) {
-        node.pos = min + node.pos - lb;
-      }
-    }
-
-
-    // draw the edges first
-    for (auto &node : nodes) {
-      u32 l = strlen(node.name);
-      vec2 c = node.pos + node.dims * 0.5f;
-
-      // draw inputs
-      for (auto edge : that->input_edges[node.idx]) {
-        const auto &other = nodes[edge];
-        vec2 oc = other.pos + other.dims * 0.5f;
-        ImDrawList_AddLine(
+        ImDrawList_AddRect(
           dl,
-          {oc.x, oc.y},
-          {c.x, c.y},
+          {min.x - padding , min.y + graph_y - padding},
+          {
+            min.x + (ub.x - lb.x) + padding,
+            min.y + graph_y + (ub.y - lb.y) + padding
+          },
           0xFF00FF00,
-          1.0f
+          1.0f,
+          0,
+          2.0f
         );
 
-        // draw cirles on the dest
-        {
-          float radius = 1.0f;
+        // apply the bounding box to each node
+        for (u32 node_idx : graph) {
+          auto &node = nodes[node_idx];
+          node.pos = min + node.pos - lb;
+          node.pos.y += graph_y;
+        }
 
-          vec2 rd = c - oc;
-          vec2 ird = 1.0f / rd;
-          vec2 tbot = ird * (node.pos - oc);
-          vec2 ttop = ird * ((node.pos + node.dims) - oc);
-          vec2 tmin = glm::min(ttop, tbot);
-          vec2 isect = oc + rd * glm::max(tmin.x, tmin.y);
 
-          ImDrawList_AddCircleFilled(
+        graph_y += (ub.y - lb.y) + 20.0f;
+      }
+
+
+      // draw the edges first
+      for (u32 node_idx : graph) {
+        auto &node = nodes[node_idx];
+        u32 l = strlen(node.name);
+        vec2 c = node.pos + node.dims * 0.5f;
+
+        // draw inputs
+        for (auto edge : that->input_edges[node.idx]) {
+          const auto &other = nodes[edge];
+          vec2 oc = other.pos + other.dims * 0.5f;
+          ImDrawList_AddLine(
             dl,
-            { isect.x, isect.y },
-            4.0,
+            {oc.x, oc.y},
+            {c.x, c.y},
             0xFF00FF00,
-            16
+            1.0f
           );
+
+          // draw cirles on the dest
+          {
+            float radius = 1.0f;
+
+            vec2 rd = c - oc;
+            vec2 ird = 1.0f / rd;
+            vec2 tbot = ird * (node.pos - oc);
+            vec2 ttop = ird * ((node.pos + node.dims) - oc);
+            vec2 tmin = glm::min(ttop, tbot);
+            vec2 isect = oc + rd * glm::max(tmin.x, tmin.y);
+
+            ImDrawList_AddCircleFilled(
+              dl,
+              { isect.x, isect.y },
+              4.0,
+              0xFF00FF00,
+              16
+            );
+          }
         }
       }
-    }
 
-    for (auto &node : nodes) {
-      auto graph_node = that->nodes[node.idx];
-      u32 l = strlen(node.name);
-      vec2 ub = node.pos + node.dims;
-      vec2 c = node.pos + node.dims * 0.5f;
+      for (u32 node_idx : graph) {
+        auto &node = nodes[node_idx];
+        auto graph_node = that->nodes[node.idx];
+        u32 l = strlen(node.name);
+        vec2 ub = node.pos + node.dims;
+        vec2 c = node.pos + node.dims * 0.5f;
 
-      ImDrawList_AddRectFilled(
-        dl,
-        {node.pos.x, node.pos.y},
-        {ub.x, ub.y},
-        0xFFFFFFFF,
-        4.0,
-        ImDrawCornerFlags_All
-      );
-
-      ImDrawList_AddTextVec2(
-        dl,
-        {node.pos.x + 5, node.pos.y + padding},
-        0xFF000000,
-        node.name,
-        node.name + l
-      );
-
-      if (graph_node->node_type == NodeType::TEXTURE) {
-        auto tex = (Texture *)graph_node;
-        ImTextureID dst_tex = rawkit_imgui_texture(
-          tex->texture,
-          tex->texture->default_sampler
-        );
-
-        if (!dst_tex) {
-          printf("no dst_tex\n");
-          return;
-        }
-
-        float y = padding + 7.0f + padding * 2.0f;
-        vec2 lb = vec2(node.pos.x + padding, node.pos.y + y);
-        vec2 ub = lb + vec2(node.dims.x - padding * 2.0f, node.dims.y - y - padding);
-
-        ImDrawList_AddImage(
+        ImDrawList_AddRectFilled(
           dl,
-          dst_tex,
-          { lb.x, lb.y },
-          { ub.x, ub.y },
-          { 0.0f, 0.0f },
-          { 1.0f, 1.0f },
-          0xFFFFFFFF
+          {node.pos.x, node.pos.y},
+          {ub.x, ub.y},
+          0xFFFFFFFF,
+          4.0,
+          ImDrawCornerFlags_All
         );
 
+        ImDrawList_AddTextVec2(
+          dl,
+          {node.pos.x + 5, node.pos.y + padding},
+          0xFF000000,
+          node.name,
+          node.name + l
+        );
+
+        if (graph_node->node_type == NodeType::TEXTURE) {
+          auto tex = (Texture *)graph_node;
+          ImTextureID dst_tex = rawkit_imgui_texture(
+            tex->texture,
+            tex->texture->default_sampler
+          );
+
+          if (!dst_tex) {
+            printf("no dst_tex\n");
+            return;
+          }
+
+          float y = padding + 7.0f + padding * 2.0f;
+          vec2 lb = vec2(node.pos.x + padding, node.pos.y + y);
+          vec2 ub = lb + vec2(node.dims.x - padding * 2.0f, node.dims.y - y - padding);
+
+          ImDrawList_AddImage(
+            dl,
+            dst_tex,
+            { lb.x, lb.y },
+            { ub.x, ub.y },
+            { 0.0f, 0.0f },
+            { 1.0f, 1.0f },
+            0xFFFFFFFF
+          );
+
+        }
       }
     }
 
