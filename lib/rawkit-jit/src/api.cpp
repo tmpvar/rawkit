@@ -91,7 +91,7 @@ bool rawkit_jit_get_message(const rawkit_jit_t *jit, uint32_t index, rawkit_jit_
     return false;
   }
 
-  DiagnosticEntry e = jit->job->messages[index];
+  const DiagnosticEntry &e = jit->job->messages[index];
 
   switch (e.level) {
     case clang::DiagnosticsEngine::Note: ret->level = RAWKIT_JIT_MESSAGE_LEVEL_NOTE; break;
