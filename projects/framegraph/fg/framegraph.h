@@ -626,7 +626,14 @@ void FrameGraph::render_force_directed_imgui() {
       y+=100.0f;
     }
 
+    u32 graph_idx = 0;
     for (const auto &graph : graphs) {
+      snprintf(
+        framegraph_tmp_str,
+        framegraph_tmp_str_len,
+        "##FrameGraph::ForceDirected::graph#%u",
+        graph_idx++
+      );
       // force directed graph layout
       {
         for (u32 steps=0; steps<10; steps++) {
@@ -691,27 +698,22 @@ void FrameGraph::render_force_directed_imgui() {
           ub = glm::max(ub, node.pos + node.dims);
         }
 
-        ImDrawList_AddRect(
-          dl,
-          {min.x - padding , min.y + graph_y - padding},
-          {
-            min.x + (ub.x - lb.x) + padding,
-            min.y + graph_y + (ub.y - lb.y) + padding
-          },
-          0xFF00FF00,
-          1.0f,
-          0,
-          2.0f
+        igBeginChildStr(
+          framegraph_tmp_str,
+          { (ub.x - lb.x) + padding * 2.0f, (ub.y - lb.y) + padding * 2.0f },
+          true,
+          0
         );
+
+        igGetItemRectMin((ImVec2 *)&min);
+        min.x += padding;
+        min.y += padding;
 
         // apply the bounding box to each node
         for (u32 node_idx : graph) {
           auto &node = nodes[node_idx];
           node.pos = min + node.pos - lb;
-          node.pos.y += graph_y;
         }
-
-        graph_y += (ub.y - lb.y) + 20.0f;
       }
 
 
@@ -807,6 +809,8 @@ void FrameGraph::render_force_directed_imgui() {
 
         }
       }
+
+      igEndChild();
     }
 
     igEnd();
