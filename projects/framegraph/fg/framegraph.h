@@ -75,6 +75,23 @@ struct PendingEvent {
 };
 
 struct FrameGraph {
+  private:
+    // Private constructor to hide away a hotreloading footgun.
+    // Use FrameGraph::create("name") instead
+    FrameGraph(const char *name, rawkit_gpu_t *gpu) {
+      snprintf(framegraph_tmp_str, framegraph_tmp_str_len,
+        "FrameGraph(%s)::ring_buffer",
+        name
+      );
+      this->ring_buffer = new RingBuffer(framegraph_tmp_str, 1024);
+      this->gpu = gpu ? gpu : rawkit_default_gpu();
+      this->queue = rawkit_vulkan_queue();
+      this->command_pool = rawkit_vulkan_command_pool();
+      this->name.assign(name);
+    }
+
+  public:
+  string name;
   rawkit_gpu_t *gpu = nullptr;
   RingBuffer *ring_buffer;
 
@@ -89,7 +106,9 @@ struct FrameGraph {
   unordered_map<u32, vector<u32>> input_edges;
   unordered_map<u32, vector<u32>> output_edges;
 
-  FrameGraph();
+  static FrameGraph *create(const char *name, rawkit_gpu_t *gpu = nullptr);
+  static FrameGraph *init(FrameGraph **dst, const char *name, rawkit_gpu_t *gpu = nullptr);
+
   ~FrameGraph();
 
   u32 addNode(FrameGraphNode *node);
@@ -282,16 +301,36 @@ void FrameGraphNode::resolve() {
   if (this->_resolve_fn) {
     this->_resolve_fn(this);
   }
-
 }
+
 rawkit_resource_t *FrameGraphNode::resource() {
   return nullptr;
 }
 
 // FrameGraph Implementation
-FrameGraph::FrameGraph() {
-  this->ring_buffer = new RingBuffer("FrameGraph::ring_buffer", 1024);
-  this->gpu = rawkit_default_gpu();
+FrameGraph *FrameGraph::create(const char *name, rawkit_gpu_t *gpu) {
+  FrameGraph **fg_ptr = rawkit_hot_state(name, FrameGraph *);
+  if (!fg_ptr) {
+    printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " FrameGraph::create(%s) could not allocate hot state\n", name);
+    return nullptr;
+  }
+
+  return FrameGraph::init(fg_ptr, name);
+}
+
+FrameGraph *FrameGraph::init(FrameGraph **dst, const char *name, rawkit_gpu_t *gpu) {
+  if (!dst) {
+    printf(ANSI_CODE_RED "ERROR:" ANSI_CODE_RESET " FrameGraph::init(%s) could not init null\n", name);
+    return nullptr;
+  }
+
+  if (!(*dst)) {
+    *dst = new FrameGraph(name, gpu);
+  } else {
+    (*dst)->reset();
+  }
+
+  return *dst;
 }
 
 FrameGraph::~FrameGraph() {
