@@ -20,6 +20,9 @@ typedef struct rawkit_shader_options_t {
   VkPrimitiveTopology topology;
   VkPolygonMode polygonMode;
   bool noVertexInput;
+  bool alphaBlend;
+  bool depthTest;
+  bool depthWrite;
 } rawkit_shader_options_t;
 
 static rawkit_shader_options_t rawkit_shader_default_options() {
@@ -27,6 +30,9 @@ static rawkit_shader_options_t rawkit_shader_default_options() {
   ret.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   ret.polygonMode = VK_POLYGON_MODE_FILL;
   ret.noVertexInput = false;
+  ret.alphaBlend = false;
+  ret.depthTest = true;
+  ret.depthWrite = true;
   return ret;
 }
 

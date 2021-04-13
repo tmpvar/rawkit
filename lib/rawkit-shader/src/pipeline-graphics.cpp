@@ -164,8 +164,18 @@ VkResult ShaderState::create_graphics_pipeline(VkRenderPass render_pass, const r
 
   VkPipelineDepthStencilStateCreateInfo     pDepthStencilState = {};
   pDepthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-  pDepthStencilState.depthTestEnable = VK_TRUE;
-  pDepthStencilState.depthWriteEnable = VK_TRUE;
+
+  if (options && options->depthTest) {
+    pDepthStencilState.depthTestEnable = VK_TRUE;
+  } else {
+    pDepthStencilState.depthTestEnable = VK_FALSE;
+  }
+
+  if (options && options->depthWrite) {
+    pDepthStencilState.depthWriteEnable = VK_TRUE;
+  } else {
+    pDepthStencilState.depthWriteEnable = VK_FALSE;
+  }
 
   pDepthStencilState.minDepthBounds = 0.0f;
   pDepthStencilState.maxDepthBounds = 1.0f;
@@ -182,7 +192,20 @@ VkResult ShaderState::create_graphics_pipeline(VkRenderPass render_pass, const r
     VK_COLOR_COMPONENT_B_BIT |
     VK_COLOR_COMPONENT_A_BIT
   );
-  colorBlendAttachment.blendEnable = VK_FALSE;
+
+  colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+  colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+  colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+  colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+  colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+  colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+  if (options && options->alphaBlend) {
+    colorBlendAttachment.blendEnable = VK_TRUE;
+  } else {
+    colorBlendAttachment.blendEnable = VK_FALSE;
+  }
+
   pColorBlendState.attachmentCount = 1;
   pColorBlendState.pAttachments = &colorBlendAttachment;
 
