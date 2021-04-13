@@ -13,6 +13,12 @@ static inline VkResult update_descriptor_set_buffer(
   rawkit_glsl_reflection_entry_t *reflection_entry,
   rawkit_gpu_buffer_t *buffer
 ) {
+
+  if (!buffer || !buffer->handle || !buffer->memory) {
+    printf("ERROR: update_descriptor_set_buffer: buffer was invalid\n");
+    return VK_ERROR_UNKNOWN;
+  }
+
   VkDescriptorBufferInfo info = {};
   info.buffer = buffer->handle;
   info.offset = 0;
@@ -98,7 +104,11 @@ ShaderInstanceState::ShaderInstanceState(rawkit_shader_t *shader, rawkit_shader_
             buffer_name.c_str(),
             gpu,
             reflection_entry->block_size,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            (
+              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+              VK_BUFFER_USAGE_TRANSFER_DST_BIT
+            ),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
           );
 
@@ -117,10 +127,7 @@ ShaderInstanceState::ShaderInstanceState(rawkit_shader_t *shader, rawkit_shader_
 
 ShaderInstanceState::~ShaderInstanceState() {
   this->descriptor_sets.clear();
-
-  for (auto &it : this->buffers) {
-    rawkit_gpu_buffer_destroy(this->instance->gpu, it.second);
-  }
+  // NOTE: this does not manage the buffer lifecycle
   this->buffers.clear();
 }
 
@@ -460,6 +467,11 @@ void rawkit_shader_instance_param_buffer(
 
   // update destriptor set
   {
+    if (!buffer || !buffer->handle) {
+      printf("ERROR: rawkit_shader_instance_param_buffer: buffer was invalid\n");
+      return;
+    }
+
     VkDescriptorBufferInfo bufferInfo = {};
     bufferInfo.buffer = buffer->handle;
     bufferInfo.offset = 0;
