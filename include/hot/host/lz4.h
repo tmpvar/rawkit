@@ -27,9 +27,6 @@ void host_init_lz4(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "LZ4_decompress_safe_continue", LZ4_decompress_safe_continue);
   rawkit_jit_add_export(jit, "LZ4_decompress_safe_usingDict", LZ4_decompress_safe_usingDict);
   rawkit_jit_add_export(jit, "LZ4_initStream", LZ4_initStream);
-  rawkit_jit_add_export(jit, "LZ4_decompress_fast", LZ4_decompress_fast);
-  rawkit_jit_add_export(jit, "LZ4_decompress_fast_continue", LZ4_decompress_fast_continue);
-  rawkit_jit_add_export(jit, "LZ4_decompress_fast_usingDict", LZ4_decompress_fast_usingDict);
   rawkit_jit_add_export(jit, "LZ4_resetStream", LZ4_resetStream);
 }
 

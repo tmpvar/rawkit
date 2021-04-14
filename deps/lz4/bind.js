@@ -3,12 +3,18 @@ const path = require('path')
 const str = fs.readFileSync(path.join(__dirname, 'lz4-1.9.3', 'lib', 'lz4.h'), 'utf8')
 const lines = str.split(/\r?\n/)
 
-const outLines = lines.map(line => {
+const outLines = lines.map((line, idx) => {
   if (line[0] == "#") {
     return false;
   }
+  const prevLine = idx ? lines[idx-1] : "";
 
-  if (!line.includes('LZ4LIB_API') || line.includes('LZ4_DEPRECATED')) {
+
+  if (
+    !line.includes('LZ4LIB_API') ||
+    line.includes('LZ4_DEPRECATED') ||
+    prevLine.includes('LZ4_DEPRECATED')
+  ) {
     return false
   }
 
