@@ -4,9 +4,11 @@
 #include <roaring/roaring.h>
 
 void host_croaring_init(rawkit_jit_t  *jit) {
-  rawkit_jit_add_export(jit, "roaring_bitmap_create", roaring_bitmap_create);
-  rawkit_jit_add_export(jit, "roaring_bitmap_from_range", roaring_bitmap_from_range);
   rawkit_jit_add_export(jit, "roaring_bitmap_create_with_capacity", roaring_bitmap_create_with_capacity);
+  rawkit_jit_add_export(jit, "roaring_bitmap_create_with_capacity", roaring_bitmap_create_with_capacity);
+  rawkit_jit_add_export(jit, "roaring_bitmap_init_with_capacity", roaring_bitmap_init_with_capacity);
+  rawkit_jit_add_export(jit, "roaring_bitmap_init_with_capacity", roaring_bitmap_init_with_capacity);
+  rawkit_jit_add_export(jit, "roaring_bitmap_from_range", roaring_bitmap_from_range);
   rawkit_jit_add_export(jit, "roaring_bitmap_of_ptr", roaring_bitmap_of_ptr);
   rawkit_jit_add_export(jit, "roaring_bitmap_printf_describe", roaring_bitmap_printf_describe);
   rawkit_jit_add_export(jit, "roaring_bitmap_of", roaring_bitmap_of);
@@ -41,6 +43,7 @@ void host_croaring_init(rawkit_jit_t  *jit) {
   rawkit_jit_add_export(jit, "roaring_bitmap_remove_range_closed", roaring_bitmap_remove_range_closed);
   rawkit_jit_add_export(jit, "roaring_bitmap_remove_many", roaring_bitmap_remove_many);
   rawkit_jit_add_export(jit, "roaring_bitmap_remove_checked", roaring_bitmap_remove_checked);
+  rawkit_jit_add_export(jit, "roaring_bitmap_contains", roaring_bitmap_contains);
   rawkit_jit_add_export(jit, "roaring_bitmap_contains_range", roaring_bitmap_contains_range);
   rawkit_jit_add_export(jit, "roaring_bitmap_get_cardinality", roaring_bitmap_get_cardinality);
   rawkit_jit_add_export(jit, "roaring_bitmap_range_cardinality", roaring_bitmap_range_cardinality);
@@ -51,8 +54,6 @@ void host_croaring_init(rawkit_jit_t  *jit) {
   rawkit_jit_add_export(jit, "roaring_bitmap_remove_run_compression", roaring_bitmap_remove_run_compression);
   rawkit_jit_add_export(jit, "roaring_bitmap_run_optimize", roaring_bitmap_run_optimize);
   rawkit_jit_add_export(jit, "roaring_bitmap_shrink_to_fit", roaring_bitmap_shrink_to_fit);
-  rawkit_jit_add_export(jit, "roaring_bitmap_size_in_bytes", roaring_bitmap_size_in_bytes);
-  rawkit_jit_add_export(jit, "roaring_bitmap_size_in_bytes", roaring_bitmap_size_in_bytes);
   rawkit_jit_add_export(jit, "roaring_bitmap_serialize", roaring_bitmap_serialize);
   rawkit_jit_add_export(jit, "roaring_bitmap_deserialize", roaring_bitmap_deserialize);
   rawkit_jit_add_export(jit, "roaring_bitmap_size_in_bytes", roaring_bitmap_size_in_bytes);
