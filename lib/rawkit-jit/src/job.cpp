@@ -220,6 +220,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
   Args.push_back("-fsyntax-only");
   Args.push_back("-fno-builtin");
+  Args.push_back("-march=native");
 
 
   // TODO: this should be configurable from command line
