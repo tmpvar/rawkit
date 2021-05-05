@@ -526,6 +526,7 @@ void setup() {
     };
 
     state->index_buffer = rawkit_gpu_buffer_create(
+      "index-buffer",
       gpu,
       INDICES_SIZE,
       (
