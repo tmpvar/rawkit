@@ -8,7 +8,13 @@
 
 #include <rawkit/mesh.h>
 
-#include <cglm/cglm.h>
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/compatibility.hpp>
+
+#include <glm/glm.hpp>
+using namespace glm;
 
 typedef struct render_mesh_state_t {
   uint32_t vb_resource_version;
@@ -149,8 +155,7 @@ void loop() {
   ubo_t ubo = {};
 
   float aspect = (float)rawkit_window_width() / (float)rawkit_window_height();
-  mat4 proj;
-  glm_perspective(90.0f, aspect, 0.1f, 1000.0f, proj);
+  mat4 proj = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 100.0f);
 
   vec3 eye = {};
   eye[1] = -5.0;
@@ -158,15 +163,13 @@ void loop() {
   eye[0] = sin(now) * 5.0f;
   eye[2] = cos(now) * 5.0f;
 
-  mat4 view;
-  glm_lookat(
+  mat4 view = glm::lookAt(
     eye,
     (vec3){ 0.0f, 0.0f, 0.0f},
-    (vec3){ 0.0f, 1.0f, 0.0f},
-    view
+    (vec3){ 0.0f, 1.0f, 0.0f}
   );
 
-  glm_mat4_mul(proj, view, ubo.mvp);
+  ubo.mvp = proj * view;
 
   // single instance
   {
