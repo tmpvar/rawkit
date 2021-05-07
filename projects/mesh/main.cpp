@@ -8,6 +8,7 @@
 
 #include <rawkit/mesh.h>
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -146,12 +147,13 @@ typedef struct ubo_t {
 } ubo_t;
 
 void loop() {
+
   rawkit_gpu_t *gpu = rawkit_default_gpu();
 
   ubo_t ubo = {};
 
   float aspect = (float)rawkit_window_width() / (float)rawkit_window_height();
-  mat4 proj = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 100.0f);
+  mat4 proj = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 10.0f);
 
   vec3 eye = {};
   eye[1] = -5.0;
@@ -169,16 +171,15 @@ void loop() {
 
 
   // render meshes into a texture
-  rawkit_texture_target_t *main_pass = nullptr;
-  {
-    main_pass = rawkit_texture_target_begin(
-      gpu,
-      "main_pass",
-      f32(rawkit_window_width()),
-      f32(rawkit_window_height()),
-      true
-    );
+  rawkit_texture_target_t *main_pass = rawkit_texture_target_begin(
+    gpu,
+    "main_pass",
+    f32(rawkit_window_width()),
+    f32(rawkit_window_height()),
+    true
+  );
 
+  {
     rawkit_shader_options_t options = rawkit_shader_default_options();
     options.depthTest = true;
     options.depthWrite = true;
@@ -262,6 +263,7 @@ void loop() {
   if (main_pass) {
     rawkit_texture_target_end(main_pass);
 
+
     // debug color texture
     {
       float scale = 0.5;
@@ -296,6 +298,46 @@ void loop() {
         (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
         (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
       );
+    }
+
+
+    // render fullscreen depth texture
+    {
+      rawkit_shader_t *shader = rawkit_shader(
+        rawkit_file("fullscreen.vert"),
+        rawkit_file("fullscreen.frag")
+      );
+
+      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
+      if (inst) {
+        rawkit_shader_instance_param_texture(inst, "tex", main_pass->depth, NULL);
+
+        VkViewport viewport = {
+          .x = 0.0f,
+          .y = 0.0f,
+          .width = (float)rawkit_window_width(),
+          .height = (float)rawkit_window_height()
+        };
+
+        vkCmdSetViewport(
+          inst->command_buffer,
+          0,
+          1,
+          &viewport
+        );
+
+        VkRect2D scissor = {};
+        scissor.extent.width = viewport.width;
+        scissor.extent.height = viewport.height;
+        vkCmdSetScissor(
+          inst->command_buffer,
+          0,
+          1,
+          &scissor
+        );
+        vkCmdDraw(inst->command_buffer, 3, 1, 0, 0);
+        rawkit_shader_instance_end(inst);
+      }
     }
   }
 }
