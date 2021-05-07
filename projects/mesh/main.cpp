@@ -153,7 +153,7 @@ void loop() {
   ubo_t ubo = {};
 
   float aspect = (float)rawkit_window_width() / (float)rawkit_window_height();
-  mat4 proj = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 10.0f);
+  mat4 proj = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 100.0f);
 
   vec3 eye = {};
   eye[1] = -5.0;
