@@ -146,11 +146,7 @@ typedef struct ubo_t {
 } ubo_t;
 
 void loop() {
-  // TODO: this should be exposed some where
-  rawkit_gpu_t gpu = {};
-  gpu.physical_device = rawkit_vulkan_physical_device();
-  gpu.device = rawkit_vulkan_device();
-  gpu.pipeline_cache = rawkit_vulkan_pipeline_cache();
+  rawkit_gpu_t *gpu = rawkit_default_gpu();
 
   ubo_t ubo = {};
 
@@ -171,49 +167,135 @@ void loop() {
 
   ubo.mvp = proj * view;
 
-  // single instance
+
+  // render meshes into a texture
+  rawkit_texture_target_t *main_pass = nullptr;
   {
-    rawkit_shader_t *shader = rawkit_shader(
-      rawkit_file("mesh.vert"),
-      rawkit_file("mesh.frag")
+    main_pass = rawkit_texture_target_begin(
+      gpu,
+      "main_pass",
+      f32(rawkit_window_width()),
+      f32(rawkit_window_height()),
+      true
     );
 
-    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
-    if (inst) {
-      rawkit_shader_instance_param_ubo(inst, "UBO", &ubo);
+    rawkit_shader_options_t options = rawkit_shader_default_options();
+    options.depthTest = true;
+    options.depthWrite = true;
 
-      render_mesh_file(
-        "cube.stl",
-        1,
-        inst
+    // single instance
+    {
+      const rawkit_file_t *files[2] = {
+        rawkit_file("mesh.vert"),
+        rawkit_file("mesh.frag")
+      };
+
+      rawkit_shader_t *shader = rawkit_shader_ex(
+        gpu,
+        main_pass->render_pass,
+        &options,
+        2,
+        files
       );
 
-      rawkit_shader_instance_end(inst);
+      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(
+        gpu,
+        shader,
+        main_pass->command_buffer,
+        rawkit_window_frame_index()
+      );
+
+      if (inst) {
+        rawkit_shader_instance_param_ubo(inst, "UBO", &ubo);
+
+        render_mesh_file(
+          "cube.stl",
+          1,
+          inst
+        );
+
+        rawkit_shader_instance_end(inst);
+      }
+    }
+
+    // instanced rendering
+    {
+      const rawkit_file_t *files[2] = {
+        rawkit_file("mesh-instanced.vert"),
+        rawkit_file("mesh.frag")
+      };
+
+      rawkit_shader_t *shader = rawkit_shader_ex(
+        gpu,
+        main_pass->render_pass,
+        &options,
+        2,
+        files
+      );
+
+      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(
+        gpu,
+        shader,
+        main_pass->command_buffer,
+        rawkit_window_frame_index()
+      );
+
+      if (inst) {
+        float offsets[40] = {};
+        for (int i=0; i<40; i+=4) {
+          offsets[i] = (float)i * 0.75;
+          offsets[i+1] = 3;
+        }
+        rawkit_shader_instance_param_ubo(inst, "UBO", &ubo);
+        rawkit_shader_instance_param_ubo(inst, "Offsets", &offsets);
+
+        render_mesh_file(
+        "cube.stl",
+          10,
+          inst
+        );
+        rawkit_shader_instance_end(inst);
+      }
     }
   }
 
-  {
-    rawkit_shader_t *shader = rawkit_shader(
-      rawkit_file("mesh-instanced.vert"),
-      rawkit_file("mesh.frag")
-    );
+  if (main_pass) {
+    rawkit_texture_target_end(main_pass);
 
-    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
-    if (inst) {
-      float offsets[40] = {};
-      for (int i=0; i<40; i+=4) {
-        offsets[i] = (float)i * 0.75;
-        offsets[i+1] = 3;
+    // debug color texture
+    {
+      float scale = 0.5;
+      ImTextureID texture = rawkit_imgui_texture(main_pass->color, main_pass->color->default_sampler);
+      if (!texture) {
+        return;
       }
-      rawkit_shader_instance_param_ubo(inst, "UBO", &ubo);
-      rawkit_shader_instance_param_ubo(inst, "Offsets", &offsets);
 
-      render_mesh_file(
-      "cube.stl",
-        10,
-        inst
+      igImage(
+        texture,
+        (ImVec2){ 768.0f * scale, 512.0f * scale },
+        (ImVec2){ 0.0f, 0.0f }, // uv0
+        (ImVec2){ 1.0f, 1.0f }, // uv1
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
       );
-      rawkit_shader_instance_end(inst);
+    }
+
+    // debug depth texture
+    {
+      float scale = 0.5;
+      ImTextureID texture = rawkit_imgui_texture(main_pass->depth, main_pass->depth->default_sampler);
+      if (!texture) {
+        return;
+      }
+
+      igImage(
+        texture,
+        (ImVec2){ 768.0f * scale, 512.0f * scale },
+        (ImVec2){ 0.0f, 0.0f }, // uv0
+        (ImVec2){ 1.0f, 1.0f }, // uv1
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
+        (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+      );
     }
   }
 }

@@ -350,10 +350,12 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       gpu,
       vertices_size,
       (
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
       ),
-      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+      (
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+      )
     );
     string staging_buffer_name = string(resource_name) + "-vertex-buffer-staging";
     rawkit_gpu_buffer_t *vertices_staging = rawkit_gpu_buffer_create(
@@ -362,10 +364,11 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       vertices_size,
       (
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
       ),
-      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+      (
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+      )
     );
 
     err = rawkit_gpu_buffer_update(
@@ -389,7 +392,8 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       vertices_size
     );
 
-    rawkit_gpu_buffer_destroy(gpu, vertices_staging);
+    // TODO: schedule a deletion
+    // rawkit_gpu_buffer_destroy(gpu, vertices_staging);
 
     if (err) {
       printf("ERROR: unable to copy buffer `vertices_staging` to `vb->vertices`\n");
@@ -410,10 +414,12 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       gpu,
       indices_size,
       (
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
       ),
-      VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+      (
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT
+      )
     );
 
     string staging_buffer_name = string(resource_name) + "-index-buffer-staging";
@@ -423,10 +429,9 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       indices_size,
       (
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
       ),
-      VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+      VK_BUFFER_USAGE_TRANSFER_SRC_BIT
     );
 
     err = rawkit_gpu_buffer_update(
@@ -458,7 +463,8 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       rawkit_gpu_buffer_destroy(gpu, staging);
       return NULL;
     }
-    rawkit_gpu_buffer_destroy(gpu, staging);
+    // TODO: schedule a deletion
+    // rawkit_gpu_buffer_destroy(gpu, staging);
   }
 
   if (vb->vertices) {

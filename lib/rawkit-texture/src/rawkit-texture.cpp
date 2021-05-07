@@ -445,16 +445,16 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
   if (texture->image_view == VK_NULL_HANDLE) {
     VkImageViewUsageCreateInfo *view_usage = &texture->view_usage_create_info;//compute_view_usage(options.usage);
     view_usage->sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO;
-    view_usage->usage = options.usage;
+    view_usage->usage = options.usage | VK_IMAGE_USAGE_SAMPLED_BIT;
+
 
     VkImageViewCreateInfo *info = &texture->image_view_create_info;
     info->sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     if (options.is_depth) {
       info->pNext = view_usage;
       info->subresourceRange.aspectMask = (
-        VK_IMAGE_ASPECT_STENCIL_BIT
-        // TODO:
-        //| VK_IMAGE_ASPECT_DEPTH_BIT
+        VK_IMAGE_ASPECT_DEPTH_BIT
+        // Can only be one or the other VK_IMAGE_ASPECT_STENCIL_BIT
       );
     } else {
       info->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -939,7 +939,13 @@ VkResult rawkit_texture_transition(
   barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrier.image = texture->image;
-  barrier.subresourceRange.aspectMask = texture->image_view_create_info.subresourceRange.aspectMask;
+
+  VkImageAspectFlags aspectMask = texture->image_view_create_info.subresourceRange.aspectMask;
+  if ((aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) || (aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT)) {
+    aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+  }
+
+  barrier.subresourceRange.aspectMask = aspectMask;
   barrier.subresourceRange.levelCount = RAWKIT_DEFAULT(extend.subresourceRange.levelCount, 1);
   barrier.subresourceRange.layerCount = RAWKIT_DEFAULT(extend.subresourceRange.layerCount, 1);
 

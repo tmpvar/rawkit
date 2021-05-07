@@ -15,14 +15,32 @@ const std::vector<VkFormat> depthFormats = {
   VK_FORMAT_D16_UNORM
 };
 
-VkFormat get_supported_depth_format(VkPhysicalDevice physical_device) {
+VkFormat get_supported_depth_format(VkPhysicalDevice physical_device, VkFlags usage) {
+  VkFlags reqs = 0;
+  if (usage & VK_IMAGE_USAGE_SAMPLED_BIT) {
+    reqs |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
+  }
+
+  if (usage & VK_IMAGE_USAGE_STORAGE_BIT) {
+    reqs |= VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
+  }
+
+  if (usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) {
+    reqs |= VK_FORMAT_FEATURE_TRANSFER_SRC_BIT;
+  }
+
+  if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+    reqs |= VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+  }
+
   // Since all depth formats may be optional, we need to find a suitable depth format to use
   // Start with the highest precision packed format
   for (auto& format : depthFormats) {
     VkFormatProperties formatProps;
     vkGetPhysicalDeviceFormatProperties(physical_device, format, &formatProps);
+
     // Format must support depth stencil attachment for optimal tiling
-    if (formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+    if ((formatProps.optimalTilingFeatures & reqs) == reqs) {
       return format;
     }
   }
@@ -71,7 +89,8 @@ VkResult rawkit_texture_target_attachment(rawkit_texture_target_t *target, VkIma
     }
 
     case VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT: {
-      options.format = get_supported_depth_format(target->gpu->physical_device);
+      options.usage = usage | VK_IMAGE_USAGE_SAMPLED_BIT;
+      options.format = get_supported_depth_format(target->gpu->physical_device, options.usage);
       string resource_name = string("mem+rawkit-texture-target+depth://") + target->name;
       uint64_t id = rawkit_hash_resources(resource_name.c_str(), 1, (const rawkit_resource_t **)&target);
       target->depth = rawkit_hot_resource_id(resource_name.c_str(), id, rawkit_texture_t);
@@ -88,12 +107,7 @@ VkResult rawkit_texture_target_attachment(rawkit_texture_target_t *target, VkIma
         options.format
       );
 
-      options.usage = (
-        VK_IMAGE_USAGE_SAMPLED_BIT |
-        VK_IMAGE_USAGE_STORAGE_BIT |
-        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
-      );
+
 
       options.is_depth = true;
 
@@ -208,14 +222,20 @@ rawkit_texture_target_t *rawkit_texture_target_begin(
     // depth attachment
     if (depth) {
       VkAttachmentDescription attachment = {};
-      attachment.format = get_supported_depth_format(target->gpu->physical_device);
+      attachment.format = get_supported_depth_format(
+        target->gpu->physical_device,
+        (
+          VK_IMAGE_USAGE_SAMPLED_BIT
+        )
+      );
       attachment.samples = VK_SAMPLE_COUNT_1_BIT;
       attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
       attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
       attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
       attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
       attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-      attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+      // attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+      attachment.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
       attachment_descriptions.push_back(attachment);
 
       subpass_description.pDepthStencilAttachment = &depth_reference;
