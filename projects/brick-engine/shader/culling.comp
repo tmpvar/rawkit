@@ -41,9 +41,11 @@ bool sampleVisibility(uvec2 coordinate, uvec4 mip_rect, float z) {
     if (coordinate.y - mip_rect.y < mip_rect.w) {
       float s = texelFetch(tex, ivec2(coordinate), 0).x;
       // Debug plot to depth pyramid debug texture
-      imageAtomicAdd(debug_tex, ivec2(coordinate), 1);
-      return z < s + 4.0/MAX_DEPTH;
-      return floor(z * MAX_DEPTH) <= floor(s * MAX_DEPTH);
+      // imageAtomicAdd(debug_tex, ivec2(coordinate), 1);
+      // return s<z;
+      return s > z;
+      // return s > z + 4.0/MAX_DEPTH;
+      // return floor(z * MAX_DEPTH) <= floor(s * MAX_DEPTH);
     }
   }
 
@@ -55,18 +57,25 @@ void main() {
   int instance = int(gl_GlobalInvocationID.x);
 
   vec4 instance_pos_rad = bricks[instance].pos;
+  float radius = instance_pos_rad.w;
+  vec3 position = instance_pos_rad.xyz;// + radius;
 
-  if (!dj_culltest(ubo.scene.worldToScreen, instance_pos_rad.xyz, instance_pos_rad.xyz + 1.0)) {
+  if (!dj_culltest(ubo.scene.worldToScreen, position, position + radius * 2.0)) {
     return;
   }
 
-  vec3 position = instance_pos_rad.xyz + 0.5;
   vec3 to_eye = normalize(position - ubo.scene.eye.xyz);
-  float radius = instance_pos_rad.w;
   vec4 position_screen = (ubo.scene.worldToScreen * vec4(position - radius * to_eye, 1.0));
-
+  // vec4 position_screen = (ubo.scene.worldToScreen * vec4(position, 1.0));
+  position_screen.xyz /= position_screen.w;
+  if (position_screen.z < 0) {
+    return;
+  }
   float conservative_bias = 1.0;
-#if 1
+  float drad = radius / position_screen.w;
+  float radius_screen = radius / position_screen.w;
+
+#if 0
   float pointSize = 0.0;
   vec4 nop;
   quadricProj(
@@ -79,19 +88,13 @@ void main() {
   );
 
   float mip = floor(log2(pointSize * conservative_bias));
-  position_screen.xyz /= position_screen.w;
+  //mip = log2(pointSize) - 3;
   position_screen.xy = vec2(position_screen.xy * 0.5 + 0.5);
 #else
-  position_screen = ubo.scene.worldToScreen * vec4(position, 1.0);
-  //position_screen = near;
-
-  position_screen.xyz /= position_screen.w;
   position_screen.xy = position_screen.xy * 0.5 + 0.5;
-
-  // Cheap approximation of mip level (not 100% correct)
-  float radius_screen = radius / position_screen.w;
   radius_screen *= 256;
-  float mip = floor(log2(radius_screen)) * conservative_bias;
+  float mip = round(log2(radius_screen));
+
 #endif
 
   // debug mip write
@@ -116,17 +119,19 @@ void main() {
     // We have only 7 levels in the pyramid. Skip occlusion culling if bounds is too big.
     if (mip < 7) {
       uvec4 mip_rect = image_mip_rect(push.depth_pyramid.diameter, clamp(int(mip), 0, 6));
-      uvec2 coordinate = uvec2(position_screen.xy * vec2(mip_rect.zw) - vec2(0.5, 0.5));
+      uvec2 coordinate = uvec2(position_screen.xy * vec2(mip_rect.zw));// - vec2(0.5, 0.5));
       coordinate += mip_rect.xy;
 
       // TODO: Use min filter or gather, bias Z by radius (front_z instead of center point!)
-      float front_z = position_screen.z + radius / MAX_DEPTH * 2.25;
+      // float front_z = position_screen.z - radius / MAX_DEPTH * 10.25;
+      float front_z = position_screen.z - drad * 0.06;
 
       visible = false;
       visible = visible || sampleVisibility(coordinate + uvec2(0, 0), mip_rect, front_z);
       visible = visible || sampleVisibility(coordinate + uvec2(1, 0), mip_rect, front_z);
       visible = visible || sampleVisibility(coordinate + uvec2(0, 1), mip_rect, front_z);
       visible = visible || sampleVisibility(coordinate + uvec2(1, 1), mip_rect, front_z);
+
     }
   }
 

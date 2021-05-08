@@ -16,7 +16,7 @@ using namespace std;
 
 
 void sledgehammer_buffer_sync(rawkit_gpu_buffer_t *buffer, VkCommandBuffer command_buffer) {
-  return;
+
   VkBufferMemoryBarrier memoryBarrier = {
     .srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT |
                     VK_ACCESS_INDEX_READ_BIT |
@@ -55,6 +55,49 @@ void sledgehammer_buffer_sync(rawkit_gpu_buffer_t *buffer, VkCommandBuffer comma
     command_buffer,
     VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // srcStageMask
     VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // dstStageMask
+    memoryBarrier
+  );
+}
+
+void sledgehammer_texture_sync(rawkit_texture_t *texture, VkCommandBuffer command_buffer) {
+
+  VkImageMemoryBarrier memoryBarrier = {
+    .srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT |
+                    VK_ACCESS_INDEX_READ_BIT |
+                    VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT |
+                    VK_ACCESS_UNIFORM_READ_BIT |
+                    VK_ACCESS_INPUT_ATTACHMENT_READ_BIT |
+                    VK_ACCESS_SHADER_READ_BIT |
+                    VK_ACCESS_SHADER_WRITE_BIT |
+                    VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                    VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                    VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                    VK_ACCESS_TRANSFER_READ_BIT |
+                    VK_ACCESS_TRANSFER_WRITE_BIT |
+                    VK_ACCESS_HOST_READ_BIT |
+                    VK_ACCESS_HOST_WRITE_BIT,
+    .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT |
+                    VK_ACCESS_INDEX_READ_BIT |
+                    VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT |
+                    VK_ACCESS_UNIFORM_READ_BIT |
+                    VK_ACCESS_INPUT_ATTACHMENT_READ_BIT |
+                    VK_ACCESS_SHADER_READ_BIT |
+                    VK_ACCESS_SHADER_WRITE_BIT |
+                    VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                    VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                    VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                    VK_ACCESS_TRANSFER_READ_BIT |
+                    VK_ACCESS_TRANSFER_WRITE_BIT |
+                    VK_ACCESS_HOST_READ_BIT |
+                    VK_ACCESS_HOST_WRITE_BIT
+  };
+
+  rawkit_texture_transition(
+    texture,
+    command_buffer,
+    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // srcStageMask
     memoryBarrier
   );
 }
@@ -246,6 +289,7 @@ struct State {
   World world;
   Scene scene;
   Camera *camera;
+  Camera *debug_camera;
   double last_time;
   vec2 last_mouse_pos;
   bool camera_rotating;
@@ -328,10 +372,8 @@ struct DepthPyramid {
           1
         );
       }
-
       rawkit_shader_instance_end(inst);
     }
-
     // fill the remaining mips of the depth pyramid
     {
       rawkit_shader_t *shader = rawkit_shader(
@@ -339,6 +381,7 @@ struct DepthPyramid {
       );
 
       for (uint32_t mip=1; mip<this->mips; mip++) {
+
         rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(
           rawkit_default_gpu(),
           shader,
@@ -348,11 +391,13 @@ struct DepthPyramid {
         if (!inst) {
           return;
         }
+
         uint32_t mip2 = 1 << mip;
-        constants.mip = mip - 1;
+        uint32_t constant_mip = mip - 1;
 
         // push constants?
         rawkit_shader_instance_param_ubo(inst, "DepthPyramidUBO", &constants);
+        rawkit_shader_instance_param_push_constants(inst, &constant_mip, sizeof(constant_mip));
         rawkit_shader_instance_param_texture(inst, "tex", this->texture, NULL);
         rawkit_shader_instance_dispatch_compute(
           inst,
@@ -362,7 +407,6 @@ struct DepthPyramid {
         );
         rawkit_shader_instance_end(inst);
       }
-
     }
   }
 
@@ -494,7 +538,7 @@ struct DepthPyramid {
       rawkit_shader_instance_param_ssbo(inst, "Bricks", world->brick_ssbo);
       rawkit_shader_instance_param_ssbo(inst, "Index", visibility.index);
       rawkit_shader_instance_param_ssbo(inst, "Count", visibility.count);
-
+      igText("active bricks: %u", world->active_bricks);
       rawkit_shader_instance_dispatch_compute(
         inst,
         world->active_bricks,
@@ -559,7 +603,7 @@ void setup() {
     Object *obj = new Object;
     sprintf(tmp_str, "object#%u", object_id++);
     obj->name.assign(tmp_str);
-    float d = 32.0f;
+    float d = 64.0f;
     float s = 1.0f;
     float diagonal_length = glm::length(vec3(1.0f));
 #if 1
@@ -599,6 +643,10 @@ void setup() {
     state->camera->setTranslation(center);
     state->camera->setRotation(vec3(0.0, 130.0, 0.0));
 
+    state->debug_camera = new Camera;
+    state->debug_camera->type = Camera::firstperson;
+    state->debug_camera->flipY = true;
+    state->debug_camera->position = vec3(0, 500.0f, 0);
   }
 
   if (state->last_time == 0.0) {
@@ -751,11 +799,19 @@ void loop() {
     state->camera->setPerspective(
       90.0f,
       state->scene.screen_dims.x / state->scene.screen_dims.y,
-      0.1f,
+      0.5f,
       (float)MAX_DEPTH
     );
     state->camera->update(dt);
 
+
+    state->debug_camera->setPerspective(
+      90.0f,
+      state->scene.screen_dims.x / state->scene.screen_dims.y,
+      0.1f,
+      (float)MAX_DEPTH
+    );
+    state->debug_camera->update(dt);
 
     GLFWwindow *window = rawkit_glfw_window();
     if (window && glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) {
@@ -822,13 +878,13 @@ void loop() {
     state->scene.brick_dims = vec4(64.0f);
     // state->scene.eye = vec4(state->camera->position, 1.0f);
     state->scene.eye = state->camera->viewPos;
-    state->scene.time = vec4((float)rawkit_now());
+    state->scene.time = vec4((float)rawkit_now() * 0.1);
 
     Brick *brick = &state->world.objects[0]->bricks[0];
 
     vec3 res = quadricProj(
       vec3(brick->pos),
-      1.0f,
+      0.1f,
       state->scene.worldToScreen,
       vec2(state->scene.screen_dims)
     );
@@ -1045,7 +1101,7 @@ void loop() {
     }
   }
   // fill screen with texture
-  if (1) {
+  if (0) {
     rawkit_shader_t *shader = rawkit_shader(
       rawkit_file("shader/fullscreen.vert"),
       rawkit_file("shader/fullscreen.frag")
@@ -1082,5 +1138,73 @@ void loop() {
       vkCmdDraw(inst->command_buffer, 3, 1, 0, 0);
       rawkit_shader_instance_end(inst);
     }
+  } else {
+    // render debug view from above
+    if (state->visibility.count) {
+      rawkit_shader_t *world_shader = rawkit_shader(
+        rawkit_file("shader/brick-indirect.vert"),
+        rawkit_file("shader/brick-debug.frag")
+      );
+
+      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(world_shader);
+
+      if (inst) {
+        Scene local_scene;
+
+        state->debug_camera->setRotation(vec3(90, 90 + 45, 0));
+        state->debug_camera->setPosition(vec3(-16, -128, -16));
+        state->debug_camera->update(0.1);
+        local_scene.eye = state->debug_camera->viewPos;
+        local_scene.screen_dims = state->scene.screen_dims;
+        mat4 clip = glm::mat4(
+          1.0f,  0.0f, 0.0f, 0.0f,
+          0.0f, -1.0f, 0.0f, 0.0f,
+          0.0f,  0.0f, 0.5f, 0.0f,
+          0.0f,  0.0f, 0.5f, 1.0f
+        );
+
+        local_scene.worldToScreen = clip * state->debug_camera->matrices.perspective * state->debug_camera->matrices.view;
+        rawkit_shader_instance_param_ubo(inst, "UBO", &local_scene);
+
+        VkViewport viewport = {
+          .x = 0.0f,
+          .y = 0.0f,
+          .width = state->scene.screen_dims.x,
+          .height = state->scene.screen_dims.y,
+          .minDepth = 0.0,
+          .maxDepth = 1.0
+        };
+
+        vkCmdSetViewport(
+          inst->command_buffer,
+          0,
+          1,
+          &viewport
+        );
+
+        VkRect2D scissor = {};
+        scissor.extent.width = viewport.width;
+        scissor.extent.height = viewport.height;
+        vkCmdSetScissor(
+          inst->command_buffer,
+          0,
+          1,
+          &scissor
+        );
+
+        state->world.render(inst, state->index_buffer);
+
+        rawkit_shader_instance_param_ssbo(inst, "Index", state->visibility.index);
+        vkCmdDrawIndexedIndirect(
+          inst->command_buffer,
+          state->visibility.count->buffer->handle,
+          0, // offset
+          1, // draw count
+          0  // stride
+        );
+        rawkit_shader_instance_end(inst);
+      }
+    }
   }
+
 }

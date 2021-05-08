@@ -1,5 +1,6 @@
 #ifdef CPU_HOST
   #pragma once
+  #define GLM_FORCE_DEPTH_ZERO_TO_ONE
   #define GLM_FORCE_RADIANS
   #include <glm/glm.hpp>
   #include <glm/gtc/matrix_transform.hpp>
@@ -14,7 +15,8 @@
   #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #endif
 
-#define MAX_DEPTH 1000.0
+#define MIN_DEPTH 0.1
+#define MAX_DEPTH 4000.0
 
 struct Scene {
   mat4 worldToScreen;
