@@ -61,16 +61,18 @@ const vec3 cube_vert_positions[36] = vec3[36](
 );
 
 vec3 normals[6] = vec3[6](
-  vec3(0.0, 0.5, 0.5),
-  vec3(0.5, 0.0, 0.5),
-  vec3(0.5, 0.5, 0.0),
-  vec3(1.0, 0.5, 0.5),
-  vec3(0.5, 1.0, 0.5),
-  vec3(0.5, 0.5, 1.0)
+  vec3(-1.0,  0.0,  0.0),
+  vec3( 0.0, -1.0,  0.0),
+  vec3( 0.0,  0.0, -1.0),
+  vec3( 1.0,  0.0,  0.0),
+  vec3( 0.0,  1.0,  0.0),
+  vec3( 0.0,  0.0,  1.0)
 );
+
 
 out vec3 rayOrigin;
 out vec3 normal;
+out vec3 worldPos;
 flat out vec3 eye;
 flat out uint brick_id;
 
@@ -79,7 +81,7 @@ void main() {
 
   rayOrigin = cube_vert_positions[gl_VertexIndex];
   uint brick_pos_bits = positions[gl_InstanceIndex];
-  vec3 brick_pos = vec3(
+  worldPos = vec3(
     (brick_pos_bits) & 0xFF,
     (brick_pos_bits >> 8) & 0xFF,
     (brick_pos_bits >> 16) & 0xFF
@@ -87,13 +89,13 @@ void main() {
 
   // vec3 brick_pos = positions[gl_InstanceIndex].xyz;
 
-  eye = ubo.scene.eye.xyz - brick_pos.xyz;
+  eye = ubo.scene.eye.xyz - worldPos.xyz;
 
   int face_idx = gl_VertexIndex / 3 / 2;
   normal = normals[face_idx];
 
 	gl_Position = ubo.scene.worldToScreen * vec4(
-    rayOrigin + brick_pos.xyz,
+    rayOrigin + worldPos.xyz,
     1.0
   );
 }
