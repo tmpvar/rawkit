@@ -63,34 +63,34 @@ void setup() {
     );
   }
 
-  if (!state->index_buffer) {
-    u32 splat_indices[SPLAT_INDICES_COUNT] = {
-      0, 2, 1, 2, 3, 1,
-    };
+  // if (!state->index_buffer) {
+  //   u32 splat_indices[SPLAT_INDICES_COUNT] = {
+  //     0, 2, 1, 2, 3, 1,
+  //   };
 
-    state->index_buffer = rawkit_gpu_buffer_create(
-      "index-buffer",
-      gpu,
-      INDICES_SIZE,
-      (
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT
-      ),
-      VK_BUFFER_USAGE_INDEX_BUFFER_BIT
-    );
+  //   state->index_buffer = rawkit_gpu_buffer_create(
+  //     "index-buffer",
+  //     gpu,
+  //     INDICES_SIZE,
+  //     (
+  //       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+  //       VK_BUFFER_USAGE_TRANSFER_DST_BIT
+  //     ),
+  //     VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+  //   );
 
-    u32 *mem = (u32 *)malloc(INDICES_SIZE);
-    u32 len = SPLAT_INDICES_COUNT * MAX_BRICK_COUNT;
-    for (uint32_t i=0; i<len; i++) {
-      u32 splat = i / SPLAT_INDICES_COUNT;
-      u32 index = i % SPLAT_INDICES_COUNT;
-      mem[i] = splat_indices[index] + splat * SPLAT_VERTICES_COUNT;
-    }
+  //   u32 *mem = (u32 *)malloc(INDICES_SIZE);
+  //   u32 len = SPLAT_INDICES_COUNT * MAX_BRICK_COUNT;
+  //   for (uint32_t i=0; i<len; i++) {
+  //     u32 splat = i / SPLAT_INDICES_COUNT;
+  //     u32 index = i % SPLAT_INDICES_COUNT;
+  //     mem[i] = splat_indices[index] + splat * SPLAT_VERTICES_COUNT;
+  //   }
 
-    rawkit_gpu_buffer_update(state->index_buffer, mem, INDICES_SIZE);
+  //   rawkit_gpu_buffer_update(state->index_buffer, mem, INDICES_SIZE);
 
-    free(mem);
-  }
+  //   free(mem);
+  // }
 
   // setup indirect count buffer
   {
@@ -260,6 +260,9 @@ void loop() {
     FastNoiseLite noise;
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
+    vec3 grid_radius = vec3(VISIBLE_GRID_DIMS) * 0.5f;
+
+
     state->active_bricks = 0;
     for (u32 z=0; z<VISIBLE_GRID_DIMS.z; z++) {
       for (u32 y=0; y<VISIBLE_GRID_DIMS.y; y++) {
@@ -267,7 +270,8 @@ void loop() {
 
           u32 idx = x + y * VISIBLE_GRID_DIMS.x + z * VISIBLE_GRID_DIMS.x * VISIBLE_GRID_DIMS.y;
           u32 pidx = x + 1 + y * VISIBLE_GRID_DIMS.x + z * VISIBLE_GRID_DIMS.x * VISIBLE_GRID_DIMS.y;
-          state->grid[idx] = state->grid[pidx];
+
+          state->grid[idx] = pidx >= MAX_BRICK_COUNT ? -1 : state->grid[pidx];
         }
       }
     }
@@ -278,16 +282,16 @@ void loop() {
 
           u32 idx = x + y * VISIBLE_GRID_DIMS.x + z * VISIBLE_GRID_DIMS.x * VISIBLE_GRID_DIMS.y;
 
+          f32 noise_value = state->grid[idx];
           if (x == VISIBLE_GRID_DIMS.x - 1) {
-            f32 noise_value = noise.GetNoise(
-              f64(x) * 100.0 + rawkit_now() * 100.0,
-              f64(y),
-              f64(z)
+            noise_value = noise.GetNoise(
+              f64(x) * 7.0 + rawkit_now() * 200.0,
+              f64(y) * 7.0,
+              f64(z) * 7.0
             );
             state->grid[idx] = noise_value;
           }
 
-          f32 noise_value = state->grid[idx];
           if (noise_value < 0.2) {
             continue;
           }
