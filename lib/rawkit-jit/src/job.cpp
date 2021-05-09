@@ -224,7 +224,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
 
 
   // TODO: this should be configurable from command line
-  if (rawkit_is_debugger_attached()) {
+  if (false && rawkit_is_debugger_attached()) {
     Args.push_back("-O0");
     Args.push_back("-g");
   } else {
