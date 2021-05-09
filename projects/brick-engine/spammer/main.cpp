@@ -138,10 +138,6 @@ void setup() {
   for (u32 z=0; z<VISIBLE_GRID_DIMS.z; z++) {
     for (u32 y=0; y<64; y++) {
       for (u32 x=0; x<VISIBLE_GRID_DIMS.x; x++) {
-
-
-
-
         u32 idx = x + y * VISIBLE_GRID_DIMS.x + z * VISIBLE_GRID_DIMS.x * VISIBLE_GRID_DIMS.y;
         f32 noise_value = noise.GetNoise(
           f64(x) * 6.0,
@@ -301,53 +297,33 @@ void loop() {
     vec3 grid_radius = vec3(VISIBLE_GRID_DIMS) * 0.5f;
 
 
-    // state->active_bricks = 0;
-    // for (u32 z=0; z<VISIBLE_GRID_DIMS.z; z++) {
-    //   for (u32 y=0; y<VISIBLE_GRID_DIMS.y; y++) {
-    //     for (u32 x=0; x<VISIBLE_GRID_DIMS.x; x++) {
+    // rebuild the entire world
+    state->active_bricks = 0;
 
-    //       u32 idx = x + y * VISIBLE_GRID_DIMS.x + z * VISIBLE_GRID_DIMS.x * VISIBLE_GRID_DIMS.y;
-    //       u32 pidx = x + 1 + y * VISIBLE_GRID_DIMS.x + z * VISIBLE_GRID_DIMS.x * VISIBLE_GRID_DIMS.y;
+    for (u32 z=0; z<VISIBLE_GRID_DIMS.z; z++) {
+      for (u32 y=0; y<64; y++) {
+        for (u32 x=0; x<VISIBLE_GRID_DIMS.x; x++) {
+          u32 idx = x + y * VISIBLE_GRID_DIMS.x + z * VISIBLE_GRID_DIMS.x * VISIBLE_GRID_DIMS.y;
+          f32 v = state->grid[idx];
 
-    //       state->grid[idx] = pidx >= MAX_BRICK_COUNT ? -1 : state->grid[pidx];
-    //     }
-    //   }
-    // }
+          if (y < 10.0) {
+            v = 1.0;
+          } else if (distance(vec2(x, z), vec2(127, 127)) < 30.0) {
+            continue;
+          }
 
-    // for (u32 z=0; z<VISIBLE_GRID_DIMS.z; z++) {
-    //   for (u32 y=0; y<20; y++) {
-    //     for (u32 x=0; x<VISIBLE_GRID_DIMS.x; x++) {
+          if (v < 0.2) {
+            continue;
+          }
 
-    //       u32 idx = x + y * VISIBLE_GRID_DIMS.x + z * VISIBLE_GRID_DIMS.x * VISIBLE_GRID_DIMS.y;
-
-    //       f32 noise_value = state->grid[idx];
-    //       if (x == VISIBLE_GRID_DIMS.x - 1) {
-    //         noise_value = noise.GetNoise(
-    //           f64(x) * 3.0 + rawkit_now() * 200.0,
-    //           f64(y) * 3.0,
-    //           f64(z) * 3.0
-    //         );
-    //         state->grid[idx] = noise_value;
-    //       }
-
-    //       if (y < 10.0) {
-    //         noise_value = 1.0;
-    //       }
-
-    //       if (noise_value < 0.2) {
-    //         continue;
-    //       }
-
-    //       // state->positions_staging[state->active_bricks] = vec4(x, y, z, 0);
-    //       state->positions_staging[state->active_bricks] = (
-    //         ((x & 0xFF)) |
-    //         ((y & 0xFF) << 8) |
-    //         ((z & 0xFF) << 16)
-    //       );
-    //       state->active_bricks++;
-    //     }
-    //   }
-    // }
+          state->positions_staging[state->active_bricks++] = (
+            ((x & 0xFF)) |
+            ((y & 0xFF) << 8) |
+            ((z & 0xFF) << 16)
+          );
+        }
+      }
+    }
     igText("active bricks: %u", state->active_bricks);
 
 
