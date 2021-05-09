@@ -77,7 +77,7 @@ flat out uint brick_id;
 void main() {
   brick_id = gl_InstanceIndex;
 
-  vec3 rayOrigin = cube_vert_positions[gl_VertexIndex];
+  rayOrigin = cube_vert_positions[gl_VertexIndex];
   uint brick_pos_bits = positions[gl_InstanceIndex];
   vec3 brick_pos = vec3(
     (brick_pos_bits) & 0xFF,

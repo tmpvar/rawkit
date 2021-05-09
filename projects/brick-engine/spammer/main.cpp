@@ -16,8 +16,8 @@
 #include <functional>
 using namespace std;
 
-// #define VISIBLE_GRID_DIMS uvec3(256, 128, 256)
-#define VISIBLE_GRID_DIMS uvec3(128, 64, 128)
+#define VISIBLE_GRID_DIMS uvec3(256, 128, 256)
+// #define VISIBLE_GRID_DIMS uvec3(128, 64, 128)
 
 // #define VISIBLE_GRID_DIMS uvec3(64, 32, 64)
 #define BRICK_DIAMETER 32.0f // for an effective visible range of (4096, 2048, 4096)
@@ -29,6 +29,8 @@ using namespace std;
 struct State {
   rawkit_gpu_ssbo_t *positions;
   u32 *positions_staging;
+
+  f32 *grid;
 
   rawkit_gpu_buffer_t *index_buffer;
   rawkit_gpu_ssbo_t *indirect_count;
@@ -125,6 +127,10 @@ void setup() {
   if (state->last_time == 0.0) {
     state->last_time = rawkit_now();
   }
+
+  if (!state->grid) {
+    state->grid = (f32 *)calloc(MAX_BRICK_COUNT, sizeof(f32));
+  }
 }
 
 
@@ -198,6 +204,8 @@ void loop() {
         // if (igIsKeyDown(32)) {
         //   camera->pos.y += move;
         // }
+
+        state->camera->setMovementSpeed(100.0);
       }
 
       state->camera->setPerspective(
@@ -256,12 +264,30 @@ void loop() {
     for (u32 z=0; z<VISIBLE_GRID_DIMS.z; z++) {
       for (u32 y=0; y<VISIBLE_GRID_DIMS.y; y++) {
         for (u32 x=0; x<VISIBLE_GRID_DIMS.x; x++) {
-          f32 noise_value = noise.GetNoise(
-            f64(x) * 3.0 + rawkit_now() * 20.0,
-            f64(y) * 3.0,
-            f64(z) * 3.0
-          );
 
+          u32 idx = x + y * VISIBLE_GRID_DIMS.x + z * VISIBLE_GRID_DIMS.x * VISIBLE_GRID_DIMS.y;
+          u32 pidx = x + 1 + y * VISIBLE_GRID_DIMS.x + z * VISIBLE_GRID_DIMS.x * VISIBLE_GRID_DIMS.y;
+          state->grid[idx] = state->grid[pidx];
+        }
+      }
+    }
+
+    for (u32 z=0; z<VISIBLE_GRID_DIMS.z; z++) {
+      for (u32 y=0; y<VISIBLE_GRID_DIMS.y; y++) {
+        for (u32 x=0; x<VISIBLE_GRID_DIMS.x; x++) {
+
+          u32 idx = x + y * VISIBLE_GRID_DIMS.x + z * VISIBLE_GRID_DIMS.x * VISIBLE_GRID_DIMS.y;
+
+          if (x == VISIBLE_GRID_DIMS.x - 1) {
+            f32 noise_value = noise.GetNoise(
+              f64(x) * 100.0 + rawkit_now() * 100.0,
+              f64(y),
+              f64(z)
+            );
+            state->grid[idx] = noise_value;
+          }
+
+          f32 noise_value = state->grid[idx];
           if (noise_value < 0.2) {
             continue;
           }
@@ -325,14 +351,15 @@ void loop() {
       1,
       &scissor
     );
-
-    vkCmdDraw(
-      inst->command_buffer,
-      36,
-      state->active_bricks - 2,
-      0, // firstIndex
-      0
-    );
+    if (state->active_bricks > 2) {
+      vkCmdDraw(
+        inst->command_buffer,
+        36,
+        state->active_bricks,
+        0, // firstIndex
+        0
+      );
+    }
 
     rawkit_shader_instance_end(inst);
   }
