@@ -213,6 +213,7 @@ inline unsigned int hsl(float h, float s, float l) {
 
 void loop() {
   State *state = rawkit_hot_state("state", State);
+  auto gpu = rawkit_default_gpu();
 
   // frame setup
   {
@@ -242,7 +243,6 @@ void loop() {
         }
       }
     }
-
     // setup state
     {
       double now = rawkit_now();
@@ -368,6 +368,7 @@ void loop() {
         }
       }
     }
+
     igText("active bricks: %u", state->active_bricks);
 
     // build a "tree"
@@ -480,8 +481,6 @@ void loop() {
       }
     }
 
-
-
     rawkit_gpu_copy_buffer(
       rawkit_default_gpu(),
       rawkit_vulkan_queue(),
@@ -492,52 +491,140 @@ void loop() {
     );
   }
 
-  auto spammer = rawkit_shader(
-    rawkit_file("spam.vert"),
-    rawkit_file("spam.frag")
+  // spam bricks into a framebuffer
+  rawkit_texture_target_t *spam_pass = rawkit_texture_target_begin(
+    gpu,
+    "spam",
+    state->scene.screen_dims.x,
+    state->scene.screen_dims.y,
+    true
   );
 
-  auto inst = rawkit_shader_instance_begin(spammer);
-  if (inst) {
+  if (!spam_pass) {
+    igText("ERROR: could not create spam_pass");
+    return;
+  }
 
-    rawkit_shader_instance_param_ubo(inst, "UBO", &state->scene);
-    rawkit_shader_instance_param_ssbo(inst, "Positions", state->positions);
-
-    VkViewport viewport = {
-      .x = 0.0f,
-      .y = 0.0f,
-      .width = state->scene.screen_dims.x,
-      .height = state->scene.screen_dims.y,
-      .minDepth = 0.0,
-      .maxDepth = 1.0
+  {
+    const rawkit_file_t *files[2] = {
+      rawkit_file("spam.vert"),
+      rawkit_file("spam.frag")
     };
 
-    vkCmdSetViewport(
-      inst->command_buffer,
-      0,
-      1,
-      &viewport
+    auto spammer = rawkit_shader_ex(
+      gpu,
+      spam_pass->render_pass,
+      nullptr,
+      2,
+      files
     );
 
-    VkRect2D scissor = {};
-    scissor.extent.width = viewport.width;
-    scissor.extent.height = viewport.height;
-    vkCmdSetScissor(
-      inst->command_buffer,
-      0,
-      1,
-      &scissor
+    auto inst = rawkit_shader_instance_begin_ex(
+      gpu,
+      spammer,
+      spam_pass->command_buffer,
+      rawkit_window_frame_index()
     );
-    if (state->active_bricks > 2) {
-      vkCmdDraw(
+
+    if (inst) {
+      rawkit_shader_instance_param_ubo(inst, "UBO", &state->scene);
+      rawkit_shader_instance_param_ssbo(inst, "Positions", state->positions);
+
+      VkViewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = state->scene.screen_dims.x,
+        .height = state->scene.screen_dims.y,
+        .minDepth = 0.0,
+        .maxDepth = 1.0
+      };
+
+      vkCmdSetViewport(
         inst->command_buffer,
-        36,
-        state->active_bricks,
-        0, // firstIndex
-        0
+        0,
+        1,
+        &viewport
       );
+
+      VkRect2D scissor = {};
+      scissor.extent.width = viewport.width;
+      scissor.extent.height = viewport.height;
+      vkCmdSetScissor(
+        inst->command_buffer,
+        0,
+        1,
+        &scissor
+      );
+      if (state->active_bricks > 2) {
+        vkCmdDraw(
+          inst->command_buffer,
+          36,
+          state->active_bricks,
+          0, // firstIndex
+          0
+        );
+      }
+
+      rawkit_shader_instance_end(inst);
     }
 
-    rawkit_shader_instance_end(inst);
+    rawkit_texture_target_end(spam_pass);
+  }
+
+  // debug imgui render of spam framebuffer
+  {
+    float scale = 0.5;
+    ImTextureID texture = rawkit_imgui_texture(spam_pass->color, spam_pass->color->default_sampler);
+    if (!texture) {
+      return;
+    }
+
+    igImage(
+      texture,
+      (ImVec2){ 768.0f * scale, 512.0f * scale },
+      (ImVec2){ 0.0f, 0.0f }, // uv0
+      (ImVec2){ 1.0f, 1.0f }, // uv1
+      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f}, // tint color
+      (ImVec4){1.0f, 1.0f, 1.0f, 1.0f} // border color
+    );
+  }
+
+  // debug fullscreen render of spam framebuffer
+  {
+    rawkit_shader_t *shader = rawkit_shader(
+      rawkit_file("fullscreen.vert"),
+      rawkit_file("fullscreen.frag")
+    );
+
+    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
+    if (inst) {
+      rawkit_shader_instance_param_texture(inst, "tex", spam_pass->color, NULL);
+
+      VkViewport viewport = {
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = state->scene.screen_dims.x,
+        .height = state->scene.screen_dims.y
+      };
+
+      vkCmdSetViewport(
+        inst->command_buffer,
+        0,
+        1,
+        &viewport
+      );
+
+      VkRect2D scissor = {};
+      scissor.extent.width = viewport.width;
+      scissor.extent.height = viewport.height;
+      vkCmdSetScissor(
+        inst->command_buffer,
+        0,
+        1,
+        &scissor
+      );
+      vkCmdDraw(inst->command_buffer, 3, 1, 0, 0);
+      rawkit_shader_instance_end(inst);
+    }
   }
 }
