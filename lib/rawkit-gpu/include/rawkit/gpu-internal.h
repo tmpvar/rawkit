@@ -18,7 +18,7 @@ struct GPUDeleteBufferEntry {
   //       ideally, we'd wire all of this stuff up to a fence that we query (no wait) later on
   //       and refcount all of the resouces that were associated with that fence (and by effect a queue submission).
   uint32_t target_tick_idx;
-  rawkit_gpu_buffer_t buffer;
+  rawkit_gpu_buffer_t *buffer;
 };
 
 class GPUState {

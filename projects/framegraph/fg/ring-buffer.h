@@ -62,7 +62,8 @@ struct RingBuffer {
           this->_state->buffer->memory
         );
 
-        rawkit_gpu_queue_buffer_for_deletion(*this->_state->buffer);
+        rawkit_gpu_queue_buffer_for_deletion(this->_state->buffer);
+        this->_state->buffer = nullptr;
       }
 
       string buffer_name = string(name) + "-buffer";

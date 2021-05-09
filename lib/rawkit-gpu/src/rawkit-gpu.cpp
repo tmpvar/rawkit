@@ -64,8 +64,14 @@ uint32_t rawkit_vulkan_find_memory_type(rawkit_gpu_t *gpu, VkMemoryPropertyFlags
 }
 
 VkResult rawkit_gpu_buffer_destroy(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *buf) {
+  if (!buf || !buf->memory || !buf->handle) {
+    return VK_SUCCESS;
+  }
+
   vkFreeMemory(gpu->device, buf->memory, NULL);
   vkDestroyBuffer(gpu->device, buf->handle, NULL);
+  buf->memory = nullptr;
+  buf->handle = nullptr;
   return VK_SUCCESS;
 }
 
@@ -98,7 +104,7 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
   }
 
   if (buf->handle) {
-    rawkit_gpu_queue_buffer_for_deletion(*buf);
+    rawkit_gpu_queue_buffer_for_deletion(buf);
   }
 
   buf->size = size;
@@ -544,7 +550,7 @@ void rawkit_gpu_tick(rawkit_gpu_t *gpu) {
       break;
     }
 
-    rawkit_gpu_buffer_destroy(gpu, &e.buffer);
+    rawkit_gpu_buffer_destroy(gpu, e.buffer);
     state->completed_buffers.pop();
   }
   state->completed_command_buffers.clear();
@@ -565,12 +571,12 @@ void rawkit_gpu_queue_command_buffer_for_deletion(rawkit_gpu_t *gpu, VkCommandBu
   state->completed_command_buffers.push_back(b);
 }
 
-void rawkit_gpu_queue_buffer_for_deletion(rawkit_gpu_buffer_t buffer) {
-  if (!buffer.gpu || !buffer.gpu->_state) {
+void rawkit_gpu_queue_buffer_for_deletion(rawkit_gpu_buffer_t *buffer) {
+  if (!buffer->gpu || !buffer->gpu->_state) {
     return;
   }
 
-  GPUState *state = (GPUState *)buffer.gpu->_state;
+  GPUState *state = (GPUState *)buffer->gpu->_state;
   GPUDeleteBufferEntry e = {};
   e.buffer = buffer;
   e.target_tick_idx = state->tick_idx + 5;
@@ -604,13 +610,21 @@ rawkit_gpu_ssbo_t *rawkit_gpu_ssbo_ex(
   );
 
   if (dirty) {
+    printf("Rebuilding SSBO (%llu, %s) size(%u -> %u)\n",
+      ssbo->resource_id,
+      ssbo->resource_name,
+      ssbo->buffer ? ssbo->buffer->size : 0,
+      size
+    );
     ssbo->resource_version = 0;
     if (ssbo->buffer) {
-      rawkit_gpu_queue_buffer_for_deletion(*ssbo->buffer);
+      rawkit_gpu_queue_buffer_for_deletion(ssbo->buffer);
+      ssbo->buffer = nullptr;
     }
 
     if (ssbo->staging_buffer) {
-      rawkit_gpu_queue_buffer_for_deletion(*ssbo->staging_buffer);
+      rawkit_gpu_queue_buffer_for_deletion(ssbo->staging_buffer);
+      ssbo->staging_buffer = nullptr;
     }
 
     std::string buffer_name = resource_name + "/buffer";
