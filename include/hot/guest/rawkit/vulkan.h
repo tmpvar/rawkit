@@ -9,6 +9,8 @@ extern "C" {
   // The main renderpass command buffer
   VkCommandBuffer rawkit_vulkan_command_buffer();
   VkCommandPool rawkit_vulkan_command_pool();
+  // the current frame's main command buffer
+  VkCommandBuffer rawkit_vulkan_command_buffer();
   VkQueue rawkit_vulkan_queue();
   VkPipelineCache rawkit_vulkan_pipeline_cache();
   VkRenderPass rawkit_vulkan_renderpass();

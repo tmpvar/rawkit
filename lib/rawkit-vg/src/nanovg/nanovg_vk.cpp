@@ -1,6 +1,7 @@
 #include "nanovg_vk.h"
 
 #include <rawkit/window.h>
+#include <rawkit/vulkan.h>
 
 void vknvg_set_current_command_buffer(VKNVGcontext *vk, VkCommandBuffer cmdBuffer) {
   vk->command_buffer = cmdBuffer;
@@ -1043,6 +1044,11 @@ int vknvg_renderCreateTexture(void *uptr, int type, int w, int h, int imageFlags
   VkImageMemoryBarrier barrier = {};
   barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
   barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+  if (!vk->command_buffer) {
+    vk->command_buffer = rawkit_vulkan_command_buffer();
+  }
+
   rawkit_texture_transition(
     tex->resource,
     vk->command_buffer,
