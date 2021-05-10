@@ -502,7 +502,7 @@ VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu, VkCommandPoo
   );
 
   if (err) {
-    printf("ERROR: failed to allocate command buffers\n");
+    printf("ERROR: failed to allocate command buffers (%i)\n", err);
     return VK_NULL_HANDLE;
   }
 

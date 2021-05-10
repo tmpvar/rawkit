@@ -498,7 +498,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
 
   // transition the texture to be read/write
   {
-    VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(options.gpu, nullptr);
+    VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu, nullptr);
     if (!command_buffer) {
       printf("ERROR: rawkit_texture_init: could not create command buffer\n");
       return false;
@@ -526,7 +526,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
       end_info.pCommandBuffers = &command_buffer;
       VkResult end_result = vkEndCommandBuffer(command_buffer);
       if (end_result != VK_SUCCESS) {
-        printf("ERROR: rawkit-texture: could not end command buffer");
+        printf("ERROR: rawkit-texture: could not end command buffer (%i)\n", end_result);
         return false;
       }
 
@@ -545,7 +545,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
       VkResult submit_result = vkQueueSubmit(queue, 1, &end_info, fence);
       rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
       if (submit_result != VK_SUCCESS) {
-        printf("ERROR: rawkit-texture: could not submit command buffer");
+        printf("ERROR: rawkit-texture: could not submit command buffer (%i)\n", submit_result);
         return false;
       }
 
@@ -703,7 +703,7 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
     VkResult submit_result = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, fence);
     rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
     if (submit_result != VK_SUCCESS) {
-      printf("ERROR: rawkit-texture: could not submit command buffer");
+      printf("ERROR: rawkit-texture: could not submit command buffer\n");
       return false;
     }
   }
