@@ -45,9 +45,7 @@ typedef struct rawkit_texture_t {
 
   rawkit_texture_options_t options;
 
-  VkBuffer source_cpu_buffer;
-  VkDeviceMemory source_cpu_buffer_memory;
-
+  rawkit_gpu_buffer_t *staging_buffer;
   VkCommandBuffer command_buffer;
 
   VkImageStencilUsageCreateInfo stencil_usage_create_info;
@@ -77,6 +75,11 @@ rawkit_texture_t *_rawkit_texture_mem(
   VkFormat format
 );
 
+// Performs a one-off upload of cpu data to the gpu. If you are updating a texture on a frequent
+// basis, consider using rawkit_texture_push_staging_buffer with the staging buffer persistently mapped
+// instead.
+//
+// This will map and unmap the staging buffer which is expensive.
 bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_buffer_t *buffer);
 static inline bool rawkit_texture_update(rawkit_texture_t *texture, void *data, uint64_t size) {
   rawkit_cpu_buffer_t buffer = {};
@@ -84,6 +87,9 @@ static inline bool rawkit_texture_update(rawkit_texture_t *texture, void *data, 
   buffer.size = size;
   return rawkit_texture_update_buffer(texture, &buffer);
 }
+
+// Upload the texture->staging_buffer to the gpu
+bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture);
 
 #define rawkit_texture_mem(name, width, height, depth, format) _rawkit_texture_mem(rawkit_default_gpu(), name, width, height, depth, format)
 

@@ -295,14 +295,9 @@ void rawkit_texture_destroy(rawkit_texture_t *texture) {
       texture->image_memory = VK_NULL_HANDLE;
     }
 
-    if (texture->source_cpu_buffer != VK_NULL_HANDLE) {
-      vkDestroyBuffer(gpu->device, texture->source_cpu_buffer, gpu->allocator);
-      texture->source_cpu_buffer = VK_NULL_HANDLE;
-    }
-
-    if (texture->source_cpu_buffer_memory != VK_NULL_HANDLE) {
-      vkFreeMemory(gpu->device, texture->source_cpu_buffer_memory, gpu->allocator);
-      texture->source_cpu_buffer_memory = VK_NULL_HANDLE;
+    if (texture->staging_buffer) {
+      rawkit_gpu_queue_buffer_for_deletion(texture->staging_buffer);
+      texture->staging_buffer = nullptr;
     }
   }
 }
@@ -483,64 +478,22 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
   }
 
   // create the upload buffer
-  if (texture->source_cpu_buffer_memory == VK_NULL_HANDLE && options.size) {
-    // create the upload buffer
-    VkBufferCreateInfo buffer_info = {};
-    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buffer_info.size = options.size;
-    buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    VkResult create_result = vkCreateBuffer(
-      device,
-      &buffer_info,
-      NULL, // v->Allocator,
-      &texture->source_cpu_buffer
-    );
-
-    if (create_result != VK_SUCCESS) {
-      printf("ERROR: rawkit-texture: could not create upload buffer\n");
-      return false;
-    }
-
-    VkMemoryRequirements req;
-    vkGetBufferMemoryRequirements(
-      device,
-      texture->source_cpu_buffer,
-      &req
-    );
-
-    VkMemoryAllocateInfo alloc_info = {};
-    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    alloc_info.allocationSize = req.size;
-    alloc_info.memoryTypeIndex = rawkit_vulkan_find_memory_type(
+  if (!texture->staging_buffer && options.size) {
+    string staging_buffer_name(texture->resource_name);
+    staging_buffer_name += "::staging_buffer";
+    texture->staging_buffer = rawkit_gpu_buffer_create(
+      staging_buffer_name.c_str(),
       gpu,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-      req.memoryTypeBits
+      options.size,
+      (
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+      ),
+      (
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT
+      )
     );
-
-    VkResult alloc_result = vkAllocateMemory(
-      device,
-      &alloc_info,
-      NULL, // v->Allocator,
-      &texture->source_cpu_buffer_memory
-    );
-
-    if (alloc_result != VK_SUCCESS) {
-      printf("ERROR: rawkit-texture: could not allocate cpu buffer\n");
-      return false;
-    }
-
-    VkResult bind_result = vkBindBufferMemory(
-      device,
-      texture->source_cpu_buffer,
-      texture->source_cpu_buffer_memory,
-      0
-    );
-
-    if (bind_result != VK_SUCCESS) {
-      printf("ERROR: rawkit-texture: could not bind cpu buffer memory\n");
-      return false;
-    }
   }
 
   // transition the texture to be read/write
@@ -652,34 +605,12 @@ rawkit_texture_t *_rawkit_texture_mem(
   return texture;
 }
 
-bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_buffer_t *buffer) {
-  // upload the new image data
-  if (!texture || !texture->source_cpu_buffer_memory) {
+bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
+  if (!texture || !texture->staging_buffer) {
     return false;
   }
 
   rawkit_gpu_t *gpu = texture->options.gpu;
-  // copy the new data into the source_cpu memory
-  {
-    size_t size = static_cast<size_t>(buffer->size);
-    void *pixels;
-    VkResult map_result = vkMapMemory(
-      gpu->device,
-      texture->source_cpu_buffer_memory,
-      0,
-      size,
-      0,
-      &pixels
-    );
-
-    if (map_result != VK_SUCCESS) {
-      printf("ERROR: rawkit-texture: could not map buffer\n");
-      return false;
-    }
-
-    memcpy(pixels, buffer->data, size);
-    vkUnmapMemory(gpu->device, texture->source_cpu_buffer_memory);
-  }
 
   VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu, nullptr);
   if (!command_buffer) {
@@ -721,7 +652,7 @@ bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_bu
     region.imageExtent.depth = texture->options.depth;
     vkCmdCopyBufferToImage(
       command_buffer,
-      texture->source_cpu_buffer,
+      texture->staging_buffer->handle,
       texture->image,
       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
       1,
@@ -776,8 +707,38 @@ bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_bu
       return false;
     }
   }
+}
 
-  return true;
+bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_buffer_t *buffer) {
+  // upload the new image data
+  if (!texture || !texture->staging_buffer) {
+    return false;
+  }
+
+  rawkit_gpu_t *gpu = texture->options.gpu;
+  // copy the new data into the source_cpu memory
+  {
+    size_t size = static_cast<size_t>(buffer->size);
+    void *pixels;
+    VkResult map_result = vkMapMemory(
+      gpu->device,
+      texture->staging_buffer->memory,
+      0,
+      size,
+      0,
+      &pixels
+    );
+
+    if (map_result != VK_SUCCESS) {
+      printf("ERROR: rawkit-texture: could not map buffer\n");
+      return false;
+    }
+
+    memcpy(pixels, buffer->data, size);
+    vkUnmapMemory(gpu->device, texture->staging_buffer->memory);
+  }
+
+  return rawkit_texture_push_staging_buffer(texture);
 }
 
 rawkit_texture_t *_rawkit_texture_ex(
