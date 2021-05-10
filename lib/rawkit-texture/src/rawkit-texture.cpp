@@ -542,10 +542,10 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
         }
       }
 
-      VkResult submit_result = vkQueueSubmit(queue, 1, &end_info, fence);
+      VkResult submit_err = vkQueueSubmit(queue, 1, &end_info, fence);
       rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
-      if (submit_result != VK_SUCCESS) {
-        printf("ERROR: rawkit-texture: could not submit command buffer (%i)\n", submit_result);
+      if (submit_err) {
+        printf("ERROR: rawkit_texture_init: rawkit-texture: could not submit command buffer (%i)\n", submit_err);
         return false;
       }
 
@@ -611,10 +611,9 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
   }
 
   rawkit_gpu_t *gpu = texture->options.gpu;
-
-  VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu, nullptr);
+  VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu, gpu->command_pool);
   if (!command_buffer) {
-    printf("ERROR: rawkit_texture_update_buffer: could not create command buffer\n");
+    printf("ERROR: rawkit_texture_push_staging_buffer: could not create command buffer\n");
     return false;
   }
 
@@ -623,9 +622,9 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    VkResult begin_result = vkBeginCommandBuffer(command_buffer, &begin_info);
-    if (begin_result != VK_SUCCESS) {
-      printf("ERROR: rawkit-texture: could not begin command buffer\n");
+    VkResult begin_err = vkBeginCommandBuffer(command_buffer, &begin_info);
+    if (begin_err) {
+      printf("ERROR: rawkit_texture_push_staging_buffer: could not begin command buffer (%i)\n", begin_err);
       return false;
     }
 
@@ -640,7 +639,7 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
     );
 
     if (copy_transition_err) {
-      printf("ERROR: rawkit-texture: could transition for upload");
+      printf("ERROR: rawkit_texture_push_staging_buffer: could not transition for upload (%i)\n", copy_transition_err);
       return false;
     }
 
@@ -670,7 +669,7 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
     );
 
     if (use_transition_err) {
-      printf("ERROR: rawkit-texture: could not transition to general");
+      printf("ERROR: rawkit-texture: could not transition to general (%i)\n", use_transition_err);
       return false;
     }
   }
@@ -682,9 +681,9 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
     end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     end_info.commandBufferCount = 1;
     end_info.pCommandBuffers = &command_buffer;
-    VkResult end_result = vkEndCommandBuffer(command_buffer);
-    if (end_result != VK_SUCCESS) {
-      printf("ERROR: rawkit-texture: could not end command buffer");
+    VkResult end_err = vkEndCommandBuffer(command_buffer);
+    if (end_err) {
+      printf("ERROR: rawkit-texture: could not end command buffer (%i)\n", end_err);
       return false;
     }
 
@@ -700,13 +699,20 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
       }
     }
 
-    VkResult submit_result = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, fence);
-    rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
-    if (submit_result != VK_SUCCESS) {
-      printf("ERROR: rawkit-texture: could not submit command buffer\n");
+    VkResult submit_err = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, fence);
+    if (submit_err) {
+      printf("ERROR: rawkit_texture_push_staging_buffer: rawkit-texture: could not submit command buffer (%i)\n", submit_err);
+      vkFreeCommandBuffers(
+        gpu->device,
+        gpu->command_pool,
+        1,
+        &command_buffer
+      );
       return false;
     }
+    rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
   }
+  return true;
 }
 
 bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_buffer_t *buffer) {
