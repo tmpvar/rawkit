@@ -200,12 +200,14 @@ VkResult rawkit_gpu_vertex_buffer_destroy(rawkit_gpu_t *gpu, rawkit_gpu_vertex_b
 }
 
 
-VkResult rawkit_gpu_copy_buffer(
+VkFence rawkit_gpu_copy_buffer(
   rawkit_gpu_t *gpu,
   VkQueue queue,
   VkCommandPool pool,
   rawkit_gpu_buffer_t *src,
   rawkit_gpu_buffer_t *dst,
+  VkDeviceSize src_offset,
+  VkDeviceSize dst_offset,
   VkDeviceSize size
 ) {
   VkResult err;
@@ -221,7 +223,7 @@ VkResult rawkit_gpu_copy_buffer(
     err = vkAllocateCommandBuffers(gpu->device, &info, &command_buffer);
     if (err) {
       printf("ERROR: could not allocate command buffers while copying buffer (%i)\n", err);
-      return err;
+      return VK_NULL_HANDLE;
     }
   }
 
@@ -233,12 +235,13 @@ VkResult rawkit_gpu_copy_buffer(
     err = vkBeginCommandBuffer(command_buffer, &info);
     if (err) {
       printf("ERROR: could not begin command buffer while copying buffer (%i)\n", err);
-      return err;
+      return VK_NULL_HANDLE;
     }
   }
 
-
   VkBufferCopy copyRegion = {};
+  copyRegion.srcOffset = src_offset;
+  copyRegion.dstOffset = dst_offset;
   copyRegion.size = size;
 
   // Vertex buffer
@@ -259,7 +262,7 @@ VkResult rawkit_gpu_copy_buffer(
     err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
     if (err) {
       printf("ERROR: create fence failed while copying buffer (%i)\n", err);
-      return err;
+      return VK_NULL_HANDLE;
     }
   }
 
@@ -272,7 +275,7 @@ VkResult rawkit_gpu_copy_buffer(
     err = vkQueueSubmit(queue, 1, &submit, fence);
     if (err) {
       printf("ERROR: unable to submit command buffer to queue while copying buffer (%i)\n", err);
-      return err;
+      return VK_NULL_HANDLE;
     }
   }
 
@@ -286,7 +289,7 @@ VkResult rawkit_gpu_copy_buffer(
     );
   }
 
-  return VK_SUCCESS;
+  return fence;
 }
 
 VkResult rawkit_gpu_buffer_update(
@@ -389,12 +392,14 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       return NULL;
     }
 
-    err = rawkit_gpu_copy_buffer(
+    rawkit_gpu_copy_buffer(
       gpu,
       queue,
       pool,
       vertices_staging,
       vertices,
+      0,
+      0,
       vertices_size
     );
 
@@ -453,12 +458,14 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
       return NULL;
     }
 
-    err = rawkit_gpu_copy_buffer(
+    rawkit_gpu_copy_buffer(
       gpu,
       queue,
       pool,
       staging,
       indices,
+      0,
+      0,
       indices_size
     );
 
@@ -767,6 +774,8 @@ VkResult rawkit_gpu_ssbo_update(
     pool,
     ssbo->staging_buffer,
     ssbo->buffer,
+    0,
+    0,
     ssbo->buffer->size < size ? ssbo->buffer->size : size
   );
 

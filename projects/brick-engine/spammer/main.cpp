@@ -487,6 +487,8 @@ void loop() {
       rawkit_vulkan_command_pool(),
       state->positions->staging_buffer,
       state->positions->buffer,
+      0,
+      0,
       state->positions->buffer->size
     );
   }
