@@ -605,16 +605,16 @@ rawkit_texture_t *_rawkit_texture_mem(
   return texture;
 }
 
-bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
+VkFence rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
   if (!texture || !texture->staging_buffer) {
-    return false;
+    return VK_NULL_HANDLE;
   }
 
   rawkit_gpu_t *gpu = texture->options.gpu;
   VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu, gpu->command_pool);
   if (!command_buffer) {
     printf("ERROR: rawkit_texture_push_staging_buffer: could not create command buffer\n");
-    return false;
+    return VK_NULL_HANDLE;
   }
 
   // copy the data to the texture on the gpu
@@ -625,7 +625,7 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
     VkResult begin_err = vkBeginCommandBuffer(command_buffer, &begin_info);
     if (begin_err) {
       printf("ERROR: rawkit_texture_push_staging_buffer: could not begin command buffer (%i)\n", begin_err);
-      return false;
+      return VK_NULL_HANDLE;
     }
 
     VkImageMemoryBarrier copy_barrier = {};
@@ -640,7 +640,7 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
 
     if (copy_transition_err) {
       printf("ERROR: rawkit_texture_push_staging_buffer: could not transition for upload (%i)\n", copy_transition_err);
-      return false;
+      return VK_NULL_HANDLE;
     }
 
     VkBufferImageCopy region = {};
@@ -664,18 +664,19 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
     VkResult use_transition_err = rawkit_texture_transition(
       texture,
       command_buffer,
-      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
       use_barrier
     );
 
     if (use_transition_err) {
       printf("ERROR: rawkit-texture: could not transition to general (%i)\n", use_transition_err);
-      return false;
+      return VK_NULL_HANDLE;
     }
   }
 
   // Blindly submit this command buffer, this is a supreme hack to get something
   // rendering on the screen.
+  VkFence fence = VK_NULL_HANDLE;
   {
     VkSubmitInfo end_info = {};
     end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -684,10 +685,10 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
     VkResult end_err = vkEndCommandBuffer(command_buffer);
     if (end_err) {
       printf("ERROR: rawkit-texture: could not end command buffer (%i)\n", end_err);
-      return false;
+      return VK_NULL_HANDLE;
     }
 
-    VkFence fence;
+
     {
       VkFenceCreateInfo create = {};
       create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -695,7 +696,7 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
       VkResult err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
       if (err) {
         printf("ERROR: rawkit_texture_update_buffer: create fence failed (%i)\n", err);
-        return false;
+        return VK_NULL_HANDLE;
       }
     }
 
@@ -708,11 +709,11 @@ bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
         1,
         &command_buffer
       );
-      return false;
+      return VK_NULL_HANDLE;
     }
     rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
   }
-  return true;
+  return fence;
 }
 
 bool rawkit_texture_update_buffer(rawkit_texture_t *texture, const rawkit_cpu_buffer_t *buffer) {

@@ -89,7 +89,7 @@ static inline bool rawkit_texture_update(rawkit_texture_t *texture, void *data, 
 }
 
 // Upload the texture->staging_buffer to the gpu
-bool rawkit_texture_push_staging_buffer(rawkit_texture_t *texture);
+VkFence rawkit_texture_push_staging_buffer(rawkit_texture_t *texture);
 
 #define rawkit_texture_mem(name, width, height, depth, format) _rawkit_texture_mem(rawkit_default_gpu(), name, width, height, depth, format)
 
