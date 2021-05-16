@@ -60,6 +60,8 @@ rawkit_jit_t *rawkit_default_jit();
 #define rawkit_teardown_fn(data, fn) rawkit_teardown_fn_ex(rawkit_default_jit(), data, fn)
 void rawkit_teardown_fn_ex(rawkit_jit_t *jit, void *user_data, rawkit_teardown_fn_t fn);
 
+void rawkit_jit_set_debug(rawkit_jit_t *jit, bool v);
+
 #ifdef __cplusplus
 }
 #endif

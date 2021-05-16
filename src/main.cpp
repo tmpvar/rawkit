@@ -432,6 +432,7 @@ int main(int argc, char **argv) {
       return -1;
     }
     rawkit_set_default_jit(jit);
+    rawkit_jit_set_debug(jit, args.get<bool>("rawkit-jit-debug", false));
 
     #if defined(_WIN32)
       // add guest support for dirent.h

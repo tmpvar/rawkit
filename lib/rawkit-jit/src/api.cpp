@@ -154,3 +154,11 @@ void rawkit_teardown_fn_ex(rawkit_jit_t *jit, void *user_data, rawkit_teardown_f
     .fn = fn
   });
 }
+
+void rawkit_jit_set_debug(rawkit_jit_t *jit, bool v) {
+  if (!jit || !jit->job) {
+    return;
+  }
+
+  jit->job->debug_build = v;
+}

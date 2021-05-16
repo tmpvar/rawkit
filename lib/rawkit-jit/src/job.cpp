@@ -222,16 +222,6 @@ JitJob *JitJob::create(int argc, const char **argv) {
   Args.push_back("-fno-builtin");
   Args.push_back("-march=native");
 
-
-  // TODO: this should be configurable from command line
-  if (false && rawkit_is_debugger_attached()) {
-    Args.push_back("-O0");
-    Args.push_back("-g");
-  } else {
-    Args.push_back("-O3");
-  }
-  // Args.push_back("-v");
-
   /*
   Args.push_back("-fsyntax-only");
   Args.push_back("-fvisibility-inlines-hidden");
@@ -308,10 +298,22 @@ JitJob *JitJob::create(int argc, const char **argv) {
 bool JitJob::rebuild() {
   Profiler timeit("JitJob::rebuild");
 
+  llvm::opt::ArgStringList args(
+    this->compilation_args
+  );
+
+  if (this->debug_build) {
+    args.push_back("-O0");
+    args.push_back("-g");
+    args.push_back("-v");
+  } else {
+    args.push_back("-O3");
+  }
+
   std::unique_ptr<CompilerInvocation> invocation(new CompilerInvocation);
   CompilerInvocation::CreateFromArgs(
     *invocation,
-    this->compilation_args,
+    args,
     *this->diag_engine
   );
 

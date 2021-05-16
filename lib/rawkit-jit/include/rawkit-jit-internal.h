@@ -168,6 +168,7 @@ class JitJob {
     std::string program_file;
     vector<DiagnosticEntry> messages;
     std::unique_ptr<Runnable> active_runnable;
+    bool debug_build = false;
     static JitJob *create(int argc, const char **argv);
     bool rebuild();
     void addExport(const char *name, void *addr);
