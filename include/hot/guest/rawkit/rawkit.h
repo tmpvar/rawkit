@@ -17,6 +17,7 @@
 #include <rawkit/shader.h>
 #include <rawkit/vg.h>
 #include <rawkit/window.h>
+#include <rawkit/jit.h>
 
 #include <termcolor.h>
 #include <stb_sb.h>

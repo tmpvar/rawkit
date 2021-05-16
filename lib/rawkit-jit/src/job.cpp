@@ -354,6 +354,13 @@ bool JitJob::rebuild() {
     this->watched_files.push_back(entry);
   }
 
+  // call any registered teardown functions
+  while (this->teardown_functions.size()) {
+    TeardownFnWrap wrap = this->teardown_functions.front();
+    this->teardown_functions.pop();
+    wrap.fn(wrap.ptr);
+  }
+
   this->active_runnable.reset(run);
   return true;
 }

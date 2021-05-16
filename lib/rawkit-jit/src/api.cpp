@@ -134,3 +134,23 @@ uint64_t rawkit_jit_version(const rawkit_jit_t *jit) {
 
   return jit->version;
 }
+
+static rawkit_jit_t *default_rawkit_jit = nullptr;
+void rawkit_set_default_jit(rawkit_jit_t *jit) {
+  default_rawkit_jit = jit;
+}
+
+rawkit_jit_t *rawkit_default_jit() {
+  return default_rawkit_jit;
+}
+
+void rawkit_teardown_fn_ex(rawkit_jit_t *jit, void *user_data, rawkit_teardown_fn_t fn) {
+  if (!jit || !jit->job || !fn) {
+    return;
+  }
+
+  jit->job->teardown_functions.push({
+    .ptr = user_data,
+    .fn = fn
+  });
+}

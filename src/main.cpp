@@ -431,6 +431,7 @@ int main(int argc, char **argv) {
     if (!jit) {
       return -1;
     }
+    rawkit_set_default_jit(jit);
 
     #if defined(_WIN32)
       // add guest support for dirent.h

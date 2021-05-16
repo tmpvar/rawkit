@@ -52,6 +52,14 @@ void rawkit_jit_call_loop(rawkit_jit_t *jit);
 
 uint64_t rawkit_jit_version(const rawkit_jit_t *jit);
 
+typedef void(*rawkit_teardown_fn_t)(void *user_data);
+
+void rawkit_set_default_jit(rawkit_jit_t *jit);
+rawkit_jit_t *rawkit_default_jit();
+
+#define rawkit_teardown_fn(data, fn) rawkit_teardown_fn_ex(rawkit_default_jit(), data, fn)
+void rawkit_teardown_fn_ex(rawkit_jit_t *jit, void *user_data, rawkit_teardown_fn_t fn);
+
 #ifdef __cplusplus
 }
 #endif

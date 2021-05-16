@@ -48,11 +48,14 @@
 
 #pragma warning(pop)
 
+#include <rawkit/jit.h>
+
 #include <stdio.h>
 #include <iostream>
 #include <chrono>
 #include <vector>
 #include <string>
+#include <queue>
 using namespace std;
 
 namespace llvm {
@@ -173,4 +176,11 @@ class JitJob {
     bool tick();
     void setup();
     void loop();
+
+    // teardown fn
+    struct TeardownFnWrap {
+      void *ptr = nullptr;
+      rawkit_teardown_fn_t fn = nullptr;
+    };
+    queue<TeardownFnWrap> teardown_functions;
 };
