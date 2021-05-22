@@ -151,31 +151,29 @@ JitJob *JitJob::create(int argc, const char **argv) {
   job->driver->setTitle("rawkit-jit-job");
   job->driver->setCheckInputsExist(false);
 
-  SmallVector<const char *, 16> Args;
-
-  Args.push_back(job->exe_arg.c_str());
+  job->compilation_args.push_back(job->exe_arg.c_str());
   for (int32_t i = 0; i < argc; i++) {
-    Args.push_back(argv[i]);
+    job->compilation_args.push_back(argv[i]);
   }
 
   if (fs::path(job->path).extension() == ".cpp") {
-    Args.push_back("-x");
-    Args.push_back("c++");
-    Args.push_back("-std=c++17");
+    job->compilation_args.push_back("-x");
+    job->compilation_args.push_back("c++");
+    job->compilation_args.push_back("-std=c++17");
   }
 
-  Args.push_back("-DRAWKIT_GUEST");
+  job->compilation_args.push_back("-DRAWKIT_GUEST");
   #if defined(_WIN32)
-    Args.push_back("-fms-extensions");
-    Args.push_back("-fms-compatibility");
-    Args.push_back("-fdelayed-template-parsing");
-    Args.push_back("-fms-compatibility-version=19.00");
-    Args.push_back("-D_CRT_SECURE_NO_DEPRECATE");
-    Args.push_back("-D_CRT_SECURE_NO_WARNINGS");
-    Args.push_back("-D_CRT_NONSTDC_NO_DEPRECATE");
-    Args.push_back("-D_CRT_NONSTDC_NO_WARNINGS");
-    Args.push_back("-D_SCL_SECURE_NO_DEPRECATE");
-    Args.push_back("-D_SCL_SECURE_NO_WARNINGS");
+    job->compilation_args.push_back("-fms-extensions");
+    job->compilation_args.push_back("-fms-compatibility");
+    job->compilation_args.push_back("-fdelayed-template-parsing");
+    job->compilation_args.push_back("-fms-compatibility-version=19.00");
+    job->compilation_args.push_back("-D_CRT_SECURE_NO_DEPRECATE");
+    job->compilation_args.push_back("-D_CRT_SECURE_NO_WARNINGS");
+    job->compilation_args.push_back("-D_CRT_NONSTDC_NO_DEPRECATE");
+    job->compilation_args.push_back("-D_CRT_NONSTDC_NO_WARNINGS");
+    job->compilation_args.push_back("-D_SCL_SECURE_NO_DEPRECATE");
+    job->compilation_args.push_back("-D_SCL_SECURE_NO_WARNINGS");
     /*
       <command line>:9:9 note: previous definition is here
       E:\c\rawkit\build\install\include\clang\xmmintrin.h:2070:9 warning: '_MM_HINT_T0' macro redefined
@@ -183,12 +181,12 @@ JitJob *JitJob::create(int argc, const char **argv) {
       E:\c\rawkit\build\install\include\clang\xmmintrin.h:2072:9 warning: '_MM_HINT_T2' macro redefined
       C:\Program Files (x86)\Windows Kits\10\include\10.0.18362.0\um\winnt.h:3334:9 note: previous definition is here
     */
-    // Args.push_back("-DWIN32_LEAN_AND_MEAN");
-    Args.push_back("-DNOGDI");
+    // compilation_args.push_back("-DWIN32_LEAN_AND_MEAN");
+    job->compilation_args.push_back("-DNOGDI");
   #endif
 
   #ifdef __linux__
-    Args.push_back("-I/home/tmpvar/llvm/lib/clang/10.0.1/include/");
+    job->compilation_args.push_back("-I/home/tmpvar/llvm/lib/clang/10.0.1/include/");
 
     // find the clang include path
     for (auto &p : fs::directory_iterator("/usr/lib/clang/")) {
@@ -206,91 +204,60 @@ JitJob *JitJob::create(int argc, const char **argv) {
   #endif
 
   #ifdef __APPLE__
-    Args.push_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/");
-    Args.push_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/");
-    Args.push_back("-I/Library/Developer/CommandLineTools/usr/include/c++/v1/");
-    Args.push_back("-Wno-nullability-completeness");
-    Args.push_back("-Wno-expansion-to-defined");
+    job->compilation_args.push_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/");
+    job->compilation_args.push_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/");
+    job->compilation_args.push_back("-I/Library/Developer/CommandLineTools/usr/include/c++/v1/");
+    job->compilation_args.push_back("-Wno-nullability-completeness");
+    job->compilation_args.push_back("-Wno-expansion-to-defined");
     // TODO: this is not safe, but it is unclear how to get around missing `___stack_chk_guard` symbols on mac
-    Args.push_back("-fno-stack-protector");
+    job->compilation_args.push_back("-fno-stack-protector");
     // avoid error: 'TARGET_OS_IPHONE' is not defined error
     // see: https://www.gitmemory.com/issue/shirou/gopsutil/976/719870639
-    Args.push_back("-Wno-undef-prefix");
+    job->compilation_args.push_back("-Wno-undef-prefix");
   #endif
 
-  Args.push_back("-fsyntax-only");
-  Args.push_back("-fno-builtin");
-  Args.push_back("-march=native");
+  job->compilation_args.push_back("-fsyntax-only");
+  job->compilation_args.push_back("-fno-builtin");
+  job->compilation_args.push_back("-march=native");
 
   /*
-  Args.push_back("-fsyntax-only");
-  Args.push_back("-fvisibility-inlines-hidden");
-  Args.push_back("-fno-exceptions");
-  Args.push_back("-fno-rtti");
+  compilation_args.push_back("-fsyntax-only");
+  compilation_args.push_back("-fvisibility-inlines-hidden");
+  compilation_args.push_back("-fno-exceptions");
+  compilation_args.push_back("-fno-rtti");
   // TODO: use this and add the appropriate handlers
-  Args.push_back("-fsanitize=integer-divide-by-zero");
+  compilation_args.push_back("-fsanitize=integer-divide-by-zero");
   */
 
-  Args.push_back(job->guest_include.c_str());
+  job->compilation_args.push_back(job->guest_include.c_str());
 
-  Args.push_back(job->system_include.c_str());
+  job->compilation_args.push_back(job->system_include.c_str());
 
   #if defined(_WIN32)
     if (true || IsDebuggerPresent()) {
       // TODO: this assumes cwd is in the build directory
-      Args.push_back("-Iinstall/include");
+      job->compilation_args.push_back("-Iinstall/include");
     }
   #endif
 
   /* TODO: only use these when debugging.. maybe
-  Args.push_back("-I../deps/");
-  Args.push_back("-I../deps/cimgui");
-  Args.push_back("-I../include/hot/guest");
-  Args.push_back(RAWKIT_GUEST_INCLUDE_DIR);
-  Args.push_back(RAWKIT_CIMGUI_INCLUDE_DIR);
+  job->compilation_args.push_back("-I../deps/");
+  job->compilation_args.push_back("-I../deps/cimgui");
+  job->compilation_args.push_back("-I../include/hot/guest");
+  job->compilation_args.push_back(RAWKIT_GUEST_INCLUDE_DIR);
+  job->compilation_args.push_back(RAWKIT_CIMGUI_INCLUDE_DIR);
   */
 
   // Args.push_back("-Iinstall/include");
-  Args.push_back("-DHOT_GUEST=1");
-  Args.push_back("-DRAWKIT_GUEST=1");
-  Args.push_back("-D_DLL");
+  job->compilation_args.push_back("-DHOT_GUEST=1");
+  job->compilation_args.push_back("-DRAWKIT_GUEST=1");
+  job->compilation_args.push_back("-D_DLL");
 
   job->entry_dirname.assign("-DRAWKIT_ENTRY_DIRNAME=");
   job->entry_dirname += "\"";
   job->entry_dirname += job->program_dir.string();
   job->entry_dirname += "\"";
-  Args.push_back(job->entry_dirname.c_str());
-
-  job->compilation.reset(job->driver->BuildCompilation(Args));
-  if (!job->compilation) {
-    return nullptr;
-  }
-
-  // FIXME: This is copied from ASTUnit.cpp; simplify and eliminate.
-
-  // We expect to get back exactly one command job, if we didn't something
-  // failed. Extract that job from the compilation.
-  const driver::JobList &compilation_jobs = job->compilation->getJobs();
-  if (compilation_jobs.size() != 1 || !isa<driver::Command>(*compilation_jobs.begin())) {
-    SmallString<256> Msg;
-    llvm::raw_svector_ostream OS(Msg);
-    compilation_jobs.Print(OS, "; ", true);
-    job->diag_engine->Report(diag::err_fe_expected_compiler_job) << OS.str();
-    delete job;
-    return nullptr;
-  }
-
-  const driver::Command &Cmd = cast<driver::Command>(*compilation_jobs.begin());
-  if (llvm::StringRef(Cmd.getCreator().getName()) != "clang") {
-    job->diag_engine->Report(diag::err_fe_expected_clang_command);
-    delete job;
-    return nullptr;
-  }
-
-  // Initialize a compiler invocation object from the clang (-cc1) arguments.
-
-  job->compilation_args = FilterArgs(Cmd.getArguments());
-
+  job->compilation_args.push_back(job->entry_dirname.c_str());
 
   return job;
 }
@@ -298,17 +265,41 @@ JitJob *JitJob::create(int argc, const char **argv) {
 bool JitJob::rebuild() {
   Profiler timeit("JitJob::rebuild");
 
-  llvm::opt::ArgStringList args(
-    this->compilation_args
-  );
-
   if (this->debug_build) {
-    args.push_back("-O0");
-    args.push_back("-g");
-    args.push_back("-v");
+    compilation_args.push_back("-O0");
+    compilation_args.push_back("-v");
+    compilation_args.push_back("-g");
   } else {
-    args.push_back("-O3");
+    compilation_args.push_back("-O3");
   }
+
+  compilation.reset(driver->BuildCompilation(compilation_args));
+  if (!compilation) {
+    return false;
+  }
+
+  // FIXME: This is copied from ASTUnit.cpp; simplify and eliminate.
+
+  // We expect to get back exactly one command job, if we didn't something
+  // failed. Extract that job from the compilation.
+  const driver::JobList &compilation_jobs = compilation->getJobs();
+  if (compilation_jobs.size() != 1 || !isa<driver::Command>(*compilation_jobs.begin())) {
+    SmallString<256> Msg;
+    llvm::raw_svector_ostream OS(Msg);
+    compilation_jobs.Print(OS, "; ", true);
+    diag_engine->Report(diag::err_fe_expected_compiler_job) << OS.str();
+    return false;
+  }
+
+  const driver::Command &Cmd = cast<driver::Command>(*compilation_jobs.begin());
+  if (llvm::StringRef(Cmd.getCreator().getName()) != "clang") {
+    diag_engine->Report(diag::err_fe_expected_clang_command);
+    return false;
+  }
+
+  // Initialize a compiler invocation object from the clang (-cc1) arguments.
+
+  llvm::opt::ArgStringList args = FilterArgs(Cmd.getArguments());
 
   std::unique_ptr<CompilerInvocation> invocation(new CompilerInvocation);
   CompilerInvocation::CreateFromArgs(
@@ -316,7 +307,6 @@ bool JitJob::rebuild() {
     args,
     *this->diag_engine
   );
-
 
   vector<DiagnosticEntry> local_messages;
 
