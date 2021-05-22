@@ -25,6 +25,10 @@
 // legacy includes
 #include "time.h"
 
+// Windows is a nightmare
+#undef near
+#undef far
+
 #ifdef __cplusplus
 #include "string.h"
 #include "serial.h"

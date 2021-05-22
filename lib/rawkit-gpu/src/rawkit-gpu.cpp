@@ -857,12 +857,11 @@ VkResult rawkit_gpu_buffer_unmap(rawkit_gpu_t *gpu, rawkit_gpu_buffer_t *dst, Vk
   VkResult err = VK_SUCCESS;
   // flush
   {
-    VkMappedMemoryRange flush = {
-      .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-      .memory = dst->memory,
-      .offset = offset,
-      .size = size,
-    };
+    VkMappedMemoryRange flush = {};
+    flush.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+    flush.memory = dst->memory;
+    flush.offset = offset;
+    flush.size = size;
 
     VkResult err = vkFlushMappedMemoryRanges(
       gpu->device,

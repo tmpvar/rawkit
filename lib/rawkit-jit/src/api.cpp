@@ -149,10 +149,11 @@ void rawkit_teardown_fn_ex(rawkit_jit_t *jit, void *user_data, rawkit_teardown_f
     return;
   }
 
-  jit->job->teardown_functions.push({
-    .ptr = user_data,
-    .fn = fn
-  });
+  JitJob::TeardownFnWrap wrap = {};
+  wrap.ptr = user_data;
+  wrap.fn = fn;
+
+  jit->job->teardown_functions.push(std::move(wrap));
 }
 
 void rawkit_jit_set_debug(rawkit_jit_t *jit, bool v) {

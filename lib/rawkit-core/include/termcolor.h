@@ -36,10 +36,11 @@ extern "C" {
 #endif
 
 #if !(defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__)))
-#error Your platform is currently unsupported
+// #warn Your platform is currently unsupported
+#else
+#include <unistd.h>
 #endif
 
-#include <unistd.h>
 #include <stdio.h>
 #include <stdbool.h>
 
@@ -71,7 +72,11 @@ extern "C" {
 
 /* TODO: Maybe non-TTYs support color? idk */
 static bool supports_color(FILE* stream) {
+  #ifdef WIN32
+    return false;
+  #else
     return isatty(fileno(stream));
+  #endif
 }
 
 /**
