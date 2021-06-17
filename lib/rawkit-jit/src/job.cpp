@@ -265,15 +265,17 @@ JitJob *JitJob::create(int argc, const char **argv) {
 bool JitJob::rebuild() {
   Profiler timeit("JitJob::rebuild");
 
+  llvm::opt::ArgStringList cargs(compilation_args);
+
   if (this->debug_build) {
-    compilation_args.push_back("-O0");
-    compilation_args.push_back("-v");
-    compilation_args.push_back("-g");
+    cargs.push_back("-O0");
+    cargs.push_back("-v");
+    cargs.push_back("-g");
   } else {
-    compilation_args.push_back("-O3");
+    cargs.push_back("-O3");
   }
 
-  compilation.reset(driver->BuildCompilation(compilation_args));
+  compilation.reset(driver->BuildCompilation(cargs));
   if (!compilation) {
     return false;
   }
