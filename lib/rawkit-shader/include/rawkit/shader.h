@@ -217,7 +217,7 @@ void _rawkit_shader_instance_param_ubo(
 
 void rawkit_shader_instance_param_push_constants(
   rawkit_shader_instance_t *instance,
-  void *data,
+  const void *data,
   uint64_t bytes
 );
 
