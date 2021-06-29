@@ -40,6 +40,8 @@ class State {
     unordered_map<uint32_t, uint32_t> bindings_per_set;
     vector<RawkitStage *> stages;
 
+    unordered_map<string, uint32_t> included_file_versions;
+
     ~State() {
       for (auto &entry : this->reflection_entries) {
         free(entry.name);

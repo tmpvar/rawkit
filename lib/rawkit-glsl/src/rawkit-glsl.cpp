@@ -2,6 +2,7 @@
 
 #include <rawkit/hash.h>
 #include <rawkit/hot.h>
+#include <rawkit/diskwatcher.h>
 #include "util.h"
 
 static const rawkit_glsl_t ERR = {};
@@ -126,10 +127,28 @@ const rawkit_glsl_t *rawkit_glsl_file_array(uint8_t file_count, const rawkit_fil
     (rawkit_resource_t **)files
   );
 
+  State *old_state = (State *)glsl->_state;
+  auto watcher = rawkit_default_diskwatcher();
+
+  // look for dependency changes
+  if (old_state) {
+    auto it = old_state->included_file_versions.begin();
+    for (it; it != old_state->included_file_versions.end(); it++) {
+      uint32_t current_version = rawkit_diskwatcher_file_version(
+        watcher,
+        it->first.c_str()
+      );
+
+      if (current_version != it->second) {
+        dirty = true;
+        break;
+      }
+    }
+  }
+
   if (!dirty) {
     return glsl;
   }
-
 
   // attempt a compile
   State *state = new State();
@@ -251,9 +270,15 @@ const rawkit_glsl_t *rawkit_glsl_file_array(uint8_t file_count, const rawkit_fil
     // printf("reflection:\n%s\n", json.c_str());
   }
 
-  if (glsl->_state) {
-    State *old_state = (State *)glsl->_state;
+  if (old_state) {
     delete old_state;
+  }
+
+  for (const auto &dep : includer.dependencies) {
+    state->included_file_versions[dep] = rawkit_diskwatcher_file_version(
+      watcher,
+      dep.c_str()
+    );
   }
 
   glsl->_state = (void *)state;

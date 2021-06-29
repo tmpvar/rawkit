@@ -36,6 +36,11 @@ if (NOT TARGET rawkit::file)
   add_subdirectory(../rawkit-file deps/rawkit-file)
 endif()
 
+# DEP: rawkit-diskwatcher (sibling)
+if (NOT TARGET rawkit::diskwatcher)
+  add_subdirectory(../rawkit-diskwatcher deps/rawkit-diskwatcher)
+endif()
+
 # DEP: glslang
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/deps/glslang)
 
@@ -72,6 +77,7 @@ target_link_libraries(${PROJECT_NAME}
     pull::stream
     rawkit::core
     rawkit::file
+    rawkit::diskwatcher
     rawkit::hash
     rawkit::hot
 )
