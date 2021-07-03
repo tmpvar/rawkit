@@ -279,7 +279,7 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
       );
     }
 
-    run->jit->define(absoluteSymbols(symbol_map));
+    run->jit->getMainJITDylib().define(absoluteSymbols(symbol_map));
   }
 
   symbol_timer.end();

@@ -195,7 +195,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
         continue;
       }
 
-      if (strp.find("11.") == string::npos) {
+      if (strp.find("12.") == string::npos) {
         continue;
       }
       job->system_include = string("-I") + strp + "/include";
