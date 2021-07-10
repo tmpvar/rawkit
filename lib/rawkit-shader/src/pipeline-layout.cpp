@@ -1,4 +1,5 @@
 #include "shader-state.h"
+#include <rawkit/glsl-internal.h>
 #include "util.h"
 
 typedef vector<VkDescriptorSetLayoutBinding> SetBindingVector;
@@ -8,13 +9,8 @@ VkResult ShaderState::create_pipeline_layout() {
     return VK_INCOMPLETE;
   }
 
-  VkPushConstantRange pushConstantRange = {};
-  // TODO: there can only be one push constant buffer per stage, so when this changes we'll need
-  //       to use another mechanism to track
-  pushConstantRange.stageFlags = VK_SHADER_STAGE_ALL;
-  pushConstantRange.offset = 0;
-  pushConstantRange.size = 0;
 
+  vector<VkPushConstantRange> push_constant_ranges;
   vector<SetBindingVector> sets;
   // create descriptor set layout bindings
   {
@@ -25,7 +21,13 @@ VkResult ShaderState::create_pipeline_layout() {
 
       // push constant ranges
       if (entry->entry_type == RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER) {
-        pushConstantRange.size += entry->block_size;
+        VkPushConstantRange range = {};
+
+        range.offset = entry->offset;
+        range.size = entry->block_size;
+        range.stageFlags = stage_flags(entry->stage);
+        push_constant_ranges.push_back(range);
+
         continue;
       }
 
@@ -41,8 +43,7 @@ VkResult ShaderState::create_pipeline_layout() {
       VkDescriptorSetLayoutBinding o = {};
       o.descriptorType = rawkit_glsl_reflection_entry_to_vulkan_descriptor_type(entry);
 
-      // TODO: how is this supposed to work?
-      o.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_ALL_GRAPHICS;//VK_PIPELINE_STAGE_ALL_COMMANDS_BIT; //stage_flags(entry->stage);
+      o.stageFlags = stage_flags(entry->stage);
       o.binding = entry->binding;
       o.descriptorCount = 1;
       sets[entry->set].push_back(o);
@@ -84,9 +85,9 @@ VkResult ShaderState::create_pipeline_layout() {
     info.setLayoutCount = static_cast<uint32_t>(this->descriptor_set_layouts.size());
     info.pSetLayouts = this->descriptor_set_layouts.data();
 
-    if (pushConstantRange.size > 0) {
-      info.pushConstantRangeCount = 1;
-      info.pPushConstantRanges = &pushConstantRange;
+    if (push_constant_ranges.size()) {
+      info.pushConstantRangeCount = push_constant_ranges.size();
+      info.pPushConstantRanges = push_constant_ranges.data();
     }
 
     VkResult err = vkCreatePipelineLayout(

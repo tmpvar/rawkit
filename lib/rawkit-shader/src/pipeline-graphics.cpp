@@ -3,8 +3,8 @@
 
 #include "util.h"
 
-static VkShaderStageFlagBits stage_flags_at_index(const rawkit_glsl_t *glsl, uint8_t stage_idx) {
-  return stage_flags(rawkit_glsl_stage_at_index(glsl, stage_idx));
+static VkShaderStageFlagBits stage_flag_bits_at_index(const rawkit_glsl_t *glsl, uint8_t stage_idx) {
+  return stage_flag_bits(rawkit_glsl_stage_at_index(glsl, stage_idx));
 }
 
 static VkFormat type_and_count_to_format(rawkit_glsl_base_type type, uint32_t count) {
@@ -87,7 +87,7 @@ VkResult ShaderState::create_graphics_pipeline(VkRenderPass render_pass, const r
   const char *entry_point = "main";
   for (uint8_t stage_idx=0; stage_idx<stage_count; stage_idx++) {
     pipelineShaderStageCreateInfos[stage_idx].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    pipelineShaderStageCreateInfos[stage_idx].stage = stage_flags_at_index(this->glsl, stage_idx);
+    pipelineShaderStageCreateInfos[stage_idx].stage = stage_flag_bits_at_index(this->glsl, stage_idx);
     pipelineShaderStageCreateInfos[stage_idx].module = this->modules[stage_idx];
     pipelineShaderStageCreateInfos[stage_idx].pName = entry_point;
   }

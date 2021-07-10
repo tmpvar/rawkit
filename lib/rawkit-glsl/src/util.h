@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rawkit/glsl.h>
+#include <rawkit/glsl-internal.h>
 
 
 #include "../internal/includer.h"
@@ -17,39 +17,6 @@
 
 #include <string>
 using namespace std;
-
-class RawkitStage {
-  public:
-    RawkitStage() {}
-    uint32_t *data = nullptr;
-    uint64_t len = 0;
-    uint64_t bytes = 0;
-    uint32_t workgroup_size[3] = {0, 0, 0};
-    rawkit_glsl_stage_mask mask = RAWKIT_GLSL_STAGE_NONE_BIT;
-};
-
-class State {
-  public:
-    bool compute = false;
-    bool valid = true;
-    vector<rawkit_glsl_reflection_entry_t> reflection_entries;
-    unordered_map<string, uint64_t> reflection_name_to_index;
-    unordered_map<uint64_t, string> binding_offset;
-
-    // the number of bindings per descriptor set
-    unordered_map<uint32_t, uint32_t> bindings_per_set;
-    vector<RawkitStage *> stages;
-
-    unordered_map<string, uint32_t> included_file_versions;
-
-    ~State() {
-      for (auto &entry : this->reflection_entries) {
-        free(entry.name);
-      }
-    }
-};
-
-
 
 static EShLanguage filename_to_stage(string filename) {
   fs::path p = filename;
@@ -90,7 +57,7 @@ static rawkit_glsl_stage_mask glsl_language_to_stage_mask(EShLanguage lang) {
 }
 
 
-static bool rawkit_glsl_reflection_add_entry(State *state, string name, rawkit_glsl_reflection_entry_t entry) {
+static bool rawkit_glsl_reflection_add_entry(GLSLState *state, string name, rawkit_glsl_reflection_entry_t entry) {
   if (!state) {
     printf("ERROR: glsl was null\n");
     return false;
@@ -167,7 +134,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
 
     }
 
-    void populate_push_constants(State *state) {
+    void populate_push_constants(GLSLState *state) {
       spirv_cross::ShaderResources res = this->get_shader_resources();
       // NOTE: there should only ever be one of these.
       for (auto& buffer : res.push_constant_buffers) {
@@ -261,7 +228,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       }
     }
 
-    void populate_storage_images(State *state) {
+    void populate_storage_images(GLSLState *state) {
       spirv_cross::ShaderResources res = this->get_shader_resources();
       for (auto& image : res.storage_images) {
         rawkit_glsl_reflection_entry_t entry = {};
@@ -286,7 +253,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       }
     }
 
-    void populate_textures(State *state) {
+    void populate_textures(GLSLState *state) {
       spirv_cross::ShaderResources res = this->get_shader_resources();
       for (auto& texture : res.sampled_images) {
         rawkit_glsl_reflection_entry_t entry = {};
@@ -309,7 +276,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       }
     }
 
-    void populate_ssbos(State *state) {
+    void populate_ssbos(GLSLState *state) {
       spirv_cross::ShaderResources res = this->get_shader_resources();
       for (auto& ssbo : res.storage_buffers) {
         rawkit_glsl_reflection_entry_t entry = {};
@@ -339,7 +306,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       }
     }
 
-    void populate_separate_images(State *state) {
+    void populate_separate_images(GLSLState *state) {
       spirv_cross::ShaderResources res = this->get_shader_resources();
       for (auto& image : res.separate_images) {
         rawkit_glsl_reflection_entry_t entry = {};
@@ -364,7 +331,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       }
     }
 
-    void populate_separate_samplers(State *state) {
+    void populate_separate_samplers(GLSLState *state) {
       spirv_cross::ShaderResources res = this->get_shader_resources();
       for (auto& sampler : res.separate_samplers) {
         rawkit_glsl_reflection_entry_t entry = {};
@@ -389,7 +356,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       }
     }
 
-    void populate_uniform_buffers(State *state) {
+    void populate_uniform_buffers(GLSLState *state) {
       spirv_cross::ShaderResources res = this->get_shader_resources();
       for (auto& ubo : res.uniform_buffers) {
         rawkit_glsl_reflection_entry_t entry = {};
@@ -419,7 +386,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       }
     }
 
-    void populate_inputs(State *state) {
+    void populate_inputs(GLSLState *state) {
       spirv_cross::ShaderResources res = this->get_shader_resources();
       for (auto& input : res.stage_inputs) {
         auto& type = this->get_type(input.type_id);
@@ -454,7 +421,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       }
     }
 
-    void populate_outputs(State *state) {
+    void populate_outputs(GLSLState *state) {
       spirv_cross::ShaderResources res = this->get_shader_resources();
       for (auto& output : res.stage_outputs) {
         auto& type = this->get_type(output.type_id);
@@ -476,7 +443,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       }
     }
 
-    void populate_subpass_inputs(State *state) {
+    void populate_subpass_inputs(GLSLState *state) {
       spirv_cross::ShaderResources res = this->get_shader_resources();
       for (auto& input : res.subpass_inputs) {
         auto& type = this->get_type(input.type_id);
@@ -499,7 +466,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       }
     }
 
-    void populate_acceleration_structures(State *state) {
+    void populate_acceleration_structures(GLSLState *state) {
       spirv_cross::ShaderResources res = this->get_shader_resources();
       for (auto& acc : res.acceleration_structures) {
         auto& type = this->get_type(acc.type_id);
@@ -523,7 +490,7 @@ class RawkitGLSLCompiler : public spirv_cross::CompilerReflection {
       }
     }
 
-    void populate_reflection(State *state) {
+    void populate_reflection(GLSLState *state) {
       this->populate_push_constants(state);
       this->populate_storage_images(state);
       this->populate_textures(state);

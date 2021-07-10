@@ -127,7 +127,7 @@ const rawkit_glsl_t *rawkit_glsl_file_array(uint8_t file_count, const rawkit_fil
     (rawkit_resource_t **)files
   );
 
-  State *old_state = (State *)glsl->_state;
+  GLSLState *old_state = (GLSLState *)glsl->_state;
   auto watcher = rawkit_default_diskwatcher();
 
   // look for dependency changes
@@ -151,7 +151,7 @@ const rawkit_glsl_t *rawkit_glsl_file_array(uint8_t file_count, const rawkit_fil
   }
 
   // attempt a compile
-  State *state = new State();
+  GLSLState *state = new GLSLState();
   GLSLIncluder includer;
   for (uint8_t i = 0; i < file_count; i++) {
     const rawkit_file_t* file = files[i];
@@ -287,21 +287,21 @@ const rawkit_glsl_t *rawkit_glsl_file_array(uint8_t file_count, const rawkit_fil
 }
 
 
-static inline State *get_state(const rawkit_glsl_t *ref) {
+static inline GLSLState *get_state(const rawkit_glsl_t *ref) {
   if (!ref || !ref->_state) {
     return NULL;
   }
 
-  return (State *)ref->_state;
+  return (GLSLState *)ref->_state;
 }
 
 bool rawkit_glsl_valid(const rawkit_glsl_t *ref) {
-  State *state = get_state(ref);
+  GLSLState *state = get_state(ref);
   return state && state->valid;
 }
 
 static const RawkitStage *get_stage(const rawkit_glsl_t *ref, uint8_t index) {
-  State *state = get_state(ref);
+  GLSLState *state = get_state(ref);
   if (!state || index >= state->stages.size()) {
     return NULL;
   }
@@ -343,7 +343,7 @@ rawkit_glsl_stage_mask rawkit_glsl_stage_at_index(const rawkit_glsl_t *ref, uint
 
 
 uint8_t rawkit_glsl_stage_count(const rawkit_glsl_t *ref) {
-  State *state = get_state(ref);
+  GLSLState *state = get_state(ref);
   if (!state) {
     return 0;
   }
@@ -352,7 +352,7 @@ uint8_t rawkit_glsl_stage_count(const rawkit_glsl_t *ref) {
 }
 
 const uint32_t rawkit_glsl_reflection_descriptor_set_max(const rawkit_glsl_t* ref) {
-  State *state = get_state(ref);
+  GLSLState *state = get_state(ref);
   if (!state) {
     printf("rawkit_glsl_reflection_descriptor_set_max: null ref\n");
     return 0;
@@ -362,7 +362,7 @@ const uint32_t rawkit_glsl_reflection_descriptor_set_max(const rawkit_glsl_t* re
 }
 
 const uint32_t rawkit_glsl_reflection_binding_count_for_set(const rawkit_glsl_t* ref, uint32_t set) {
-  State *state = get_state(ref);
+  GLSLState *state = get_state(ref);
   if (!state) {
     return 0;
   }
@@ -376,7 +376,7 @@ const uint32_t rawkit_glsl_reflection_binding_count_for_set(const rawkit_glsl_t*
 }
 
 const rawkit_glsl_reflection_entry_t rawkit_glsl_reflection_entry(const rawkit_glsl_t *ref, const char *name) {
-  State *state = get_state(ref);
+  GLSLState *state = get_state(ref);
   rawkit_glsl_reflection_entry_t entry = {};
   entry.entry_type = RAWKIT_GLSL_REFLECTION_ENTRY_NOT_FOUND;
 
@@ -398,7 +398,7 @@ const rawkit_glsl_reflection_entry_t rawkit_glsl_reflection_entry(const rawkit_g
 
 
 const rawkit_glsl_reflection_vector_t rawkit_glsl_reflection_entries(const rawkit_glsl_t* ref) {
-  State *state = get_state(ref);
+  GLSLState *state = get_state(ref);
   rawkit_glsl_reflection_vector_t vec = {};
   if (!state) {
     return vec;
@@ -411,7 +411,7 @@ const rawkit_glsl_reflection_vector_t rawkit_glsl_reflection_entries(const rawki
 }
 
 bool rawkit_glsl_is_compute(const rawkit_glsl_t *ref) {
-  State *state = get_state(ref);
+  GLSLState *state = get_state(ref);
   if (!state) {
     return false;
   }

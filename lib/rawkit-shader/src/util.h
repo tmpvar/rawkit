@@ -1,6 +1,6 @@
 #pragma once
 
-static VkShaderStageFlagBits stage_flags(rawkit_glsl_stage_mask_t stage) {
+static VkShaderStageFlagBits stage_flag_bits(rawkit_glsl_stage_mask_t stage) {
   switch (stage) {
     case RAWKIT_GLSL_STAGE_VERTEX_BIT: return VK_SHADER_STAGE_VERTEX_BIT;
     case RAWKIT_GLSL_STAGE_TESSELLATION_CONTROL_BIT: return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
@@ -17,6 +17,60 @@ static VkShaderStageFlagBits stage_flags(rawkit_glsl_stage_mask_t stage) {
 
     default: return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
   }
+}
+
+static VkShaderStageFlags stage_flags(rawkit_glsl_stage_mask_t stage) {
+  VkShaderStageFlags ret = 0;
+
+  if (stage & RAWKIT_GLSL_STAGE_VERTEX_BIT) {
+    ret |= VK_SHADER_STAGE_VERTEX_BIT;
+  }
+
+  if (stage & RAWKIT_GLSL_STAGE_TESSELLATION_CONTROL_BIT) {
+    ret |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+  }
+
+  if (stage & RAWKIT_GLSL_STAGE_TESSELLATION_EVALUATION_BIT) {
+    ret |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+  }
+
+  if (stage & RAWKIT_GLSL_STAGE_GEOMETRY_BIT) {
+    ret |= VK_SHADER_STAGE_GEOMETRY_BIT;
+  }
+
+  if (stage & RAWKIT_GLSL_STAGE_FRAGMENT_BIT) {
+    ret |= VK_SHADER_STAGE_FRAGMENT_BIT;
+  }
+
+  if (stage & RAWKIT_GLSL_STAGE_COMPUTE_BIT) {
+    ret |= VK_SHADER_STAGE_COMPUTE_BIT;
+  }
+
+  if (stage & RAWKIT_GLSL_STAGE_RAYGEN_BIT) {
+    ret |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+  }
+
+  if (stage & RAWKIT_GLSL_STAGE_ANY_HIT_BIT) {
+    ret |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+  }
+
+  if (stage & RAWKIT_GLSL_STAGE_CLOSEST_HIT_BIT) {
+    ret |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+  }
+
+  if (stage & RAWKIT_GLSL_STAGE_MISS_BIT) {
+    ret |= VK_SHADER_STAGE_MISS_BIT_KHR;
+  }
+
+  if (stage & RAWKIT_GLSL_STAGE_INTERSECTION_BIT) {
+    ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+  }
+
+  if (stage & RAWKIT_GLSL_STAGE_CALLABLE_BIT) {
+    ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+  }
+
+  return ret;
 }
 
 static VkDescriptorType rawkit_glsl_reflection_entry_to_vulkan_descriptor_type(const rawkit_glsl_reflection_entry_t *entry) {

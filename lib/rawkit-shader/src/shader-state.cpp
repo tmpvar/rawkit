@@ -141,19 +141,36 @@ ShaderState::~ShaderState() {
   }
 
   for (VkDescriptorSetLayout layout : this->descriptor_set_layouts) {
-    vkDestroyDescriptorSetLayout(this->gpu->device, layout, this->gpu->allocator);
+    vkDestroyDescriptorSetLayout(
+      this->gpu->device,
+      layout,
+      this->gpu->allocator
+    );
   }
+
   this->descriptor_set_layouts.clear();
 
   if (this->pipeline_layout) {
-    vkDestroyPipelineLayout(this->gpu->device, this->pipeline_layout, this->gpu->allocator);
+    vkDestroyPipelineLayout(
+      this->gpu->device,
+      this->pipeline_layout,
+      this->gpu->allocator
+    );
   }
 
   for (VkShaderModule module : this->modules) {
-    vkDestroyShaderModule(this->gpu->device, module, this->gpu->allocator);
+    vkDestroyShaderModule(
+      this->gpu->device,
+      module,
+      this->gpu->allocator
+    );
   }
 
   if (this->pipeline) {
-    vkDestroyPipeline(this->gpu->device, this->pipeline, this->gpu->allocator);
+    vkDestroyPipeline(
+      this->gpu->device,
+      this->pipeline,
+      this->gpu->allocator
+    );
   }
 }
