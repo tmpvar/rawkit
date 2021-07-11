@@ -34,11 +34,11 @@ class ShaderState {
     vector<VkWriteDescriptorSet> writes;
     vector<VkShaderModule> modules;
 
-    VkDescriptorPool descriptor_pool;
+    VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
 
     vector<VkDescriptorSetLayout> descriptor_set_layouts;
-    VkPipelineLayout pipeline_layout;
-    VkPipeline pipeline;
+    VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
+    VkPipeline pipeline = VK_NULL_HANDLE;
 
     uint32_t gpu_tick_idx = 0xFFFFFFFF;
     uint64_t instance_idx = 0;
@@ -47,6 +47,7 @@ class ShaderState {
       rawkit_gpu_t *gpu,
       const rawkit_glsl_t *glsl,
       VkRenderPass render_pass,
+      ShaderState *prev_state,
       const rawkit_shader_options_t *options = nullptr
     );
     ~ShaderState();

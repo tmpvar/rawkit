@@ -13,6 +13,7 @@ ShaderState *ShaderState::create(
   rawkit_gpu_t *gpu,
   const rawkit_glsl_t *glsl,
   VkRenderPass render_pass,
+  ShaderState *prev_state,
   const rawkit_shader_options_t *options
 ) {
   if (!gpu || !gpu->device || !gpu->physical_device || !glsl || !render_pass) {
@@ -24,6 +25,13 @@ ShaderState *ShaderState::create(
   state->glsl = glsl;
   state->instance_idx = 0;
   state->gpu_tick_idx = rawkit_gpu_get_tick_idx(gpu);
+
+  if (prev_state) {
+    // Carry the pool forward
+    if (prev_state->descriptor_pool) {
+      state->descriptor_pool = prev_state->descriptor_pool;
+    }
+  }
 
   if (options) {
     state->options = *options;
@@ -57,8 +65,8 @@ ShaderState *ShaderState::create(
     }
   }
 
-  // create the descriptor pool
-  {
+  // create the descriptor pool if we couldn't carry one forward from prev_states
+  if (!state->descriptor_pool) {
     // TODO: compute these sizes from the shader, remember these are `descriptors` not descriptor sets
     //       which means the computed values need to be multiplied by the frame count
     vector<VkDescriptorPoolSize> pool_sizes = {
@@ -128,16 +136,6 @@ ShaderState::~ShaderState() {
 
   if (!this->gpu || !this->gpu->device) {
     return;
-  }
-
-  vkDeviceWaitIdle(this->gpu->device);
-
-  if (this->descriptor_pool) {
-    vkDestroyDescriptorPool(
-      this->gpu->device,
-      this->descriptor_pool,
-      this->gpu->allocator
-    );
   }
 
   for (VkDescriptorSetLayout layout : this->descriptor_set_layouts) {

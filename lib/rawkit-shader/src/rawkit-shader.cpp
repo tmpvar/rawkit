@@ -68,12 +68,19 @@ rawkit_shader_t *rawkit_shader_ex(
     return shader;
   }
 
-  ShaderState *state = ShaderState::create(gpu, glsl, render_pass, options);
+  ShaderState *state = ShaderState::create(
+    gpu,
+    glsl,
+    render_pass,
+    current_state,
+    options
+  );
   if (!state) {
     printf("ERROR: rawkit-shader: failed to create ShaderState\n");
     return shader;
   }
 
+  // FIXME: only delete the state when all instances of this shader have completed
   if (current_state) {
     delete current_state;
   }
