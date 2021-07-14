@@ -84,6 +84,10 @@ JitJob::JitJob() {
 }
 
 
+void JitJob::addCompilerArg(const char *str) {
+  compilation_args.push_back(str);
+}
+
 JitJob *JitJob::create(int argc, const char **argv) {
   if (!argc || !argv || !argv[0]) {
     return nullptr;
@@ -151,29 +155,29 @@ JitJob *JitJob::create(int argc, const char **argv) {
   job->driver->setTitle("rawkit-jit-job");
   job->driver->setCheckInputsExist(false);
 
-  job->compilation_args.push_back(job->exe_arg.c_str());
+  job->addCompilerArg(job->exe_arg.c_str());
   for (int32_t i = 0; i < argc; i++) {
-    job->compilation_args.push_back(argv[i]);
+    job->addCompilerArg(argv[i]);
   }
 
   if (fs::path(job->path).extension() == ".cpp") {
-    job->compilation_args.push_back("-x");
-    job->compilation_args.push_back("c++");
-    job->compilation_args.push_back("-std=c++17");
+    job->addCompilerArg("-x");
+    job->addCompilerArg("c++");
+    job->addCompilerArg("-std=c++17");
   }
 
-  job->compilation_args.push_back("-DRAWKIT_GUEST");
+  job->addCompilerArg("-DRAWKIT_GUEST");
   #if defined(_WIN32)
-    job->compilation_args.push_back("-fms-extensions");
-    job->compilation_args.push_back("-fms-compatibility");
-    job->compilation_args.push_back("-fdelayed-template-parsing");
-    job->compilation_args.push_back("-fms-compatibility-version=19.00");
-    job->compilation_args.push_back("-D_CRT_SECURE_NO_DEPRECATE");
-    job->compilation_args.push_back("-D_CRT_SECURE_NO_WARNINGS");
-    job->compilation_args.push_back("-D_CRT_NONSTDC_NO_DEPRECATE");
-    job->compilation_args.push_back("-D_CRT_NONSTDC_NO_WARNINGS");
-    job->compilation_args.push_back("-D_SCL_SECURE_NO_DEPRECATE");
-    job->compilation_args.push_back("-D_SCL_SECURE_NO_WARNINGS");
+    job->addCompilerArg("-fms-extensions");
+    job->addCompilerArg("-fms-compatibility");
+    job->addCompilerArg("-fdelayed-template-parsing");
+    job->addCompilerArg("-fms-compatibility-version=19.00");
+    job->addCompilerArg("-D_CRT_SECURE_NO_DEPRECATE");
+    job->addCompilerArg("-D_CRT_SECURE_NO_WARNINGS");
+    job->addCompilerArg("-D_CRT_NONSTDC_NO_DEPRECATE");
+    job->addCompilerArg("-D_CRT_NONSTDC_NO_WARNINGS");
+    job->addCompilerArg("-D_SCL_SECURE_NO_DEPRECATE");
+    job->addCompilerArg("-D_SCL_SECURE_NO_WARNINGS");
     /*
       <command line>:9:9 note: previous definition is here
       E:\c\rawkit\build\install\include\clang\xmmintrin.h:2070:9 warning: '_MM_HINT_T0' macro redefined
@@ -182,11 +186,11 @@ JitJob *JitJob::create(int argc, const char **argv) {
       C:\Program Files (x86)\Windows Kits\10\include\10.0.18362.0\um\winnt.h:3334:9 note: previous definition is here
     */
     // compilation_args.push_back("-DWIN32_LEAN_AND_MEAN");
-    job->compilation_args.push_back("-DNOGDI");
+    job->addCompilerArg("-DNOGDI");
   #endif
 
   #ifdef __linux__
-    job->compilation_args.push_back("-I/home/tmpvar/llvm/lib/clang/10.0.1/include/");
+    job->addCompilerArg("-I/home/tmpvar/llvm/lib/clang/10.0.1/include/");
 
     // find the clang include path
     for (auto &p : fs::directory_iterator("/usr/lib/clang/")) {
@@ -204,21 +208,21 @@ JitJob *JitJob::create(int argc, const char **argv) {
   #endif
 
   #ifdef __APPLE__
-    job->compilation_args.push_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/");
-    job->compilation_args.push_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/");
-    job->compilation_args.push_back("-I/Library/Developer/CommandLineTools/usr/include/c++/v1/");
-    job->compilation_args.push_back("-Wno-nullability-completeness");
-    job->compilation_args.push_back("-Wno-expansion-to-defined");
+    job->addCompilerArg("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/");
+    job->addCompilerArg("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/");
+    job->addCompilerArg("-I/Library/Developer/CommandLineTools/usr/include/c++/v1/");
+    job->addCompilerArg("-Wno-nullability-completeness");
+    job->addCompilerArg("-Wno-expansion-to-defined");
     // TODO: this is not safe, but it is unclear how to get around missing `___stack_chk_guard` symbols on mac
-    job->compilation_args.push_back("-fno-stack-protector");
+    job->addCompilerArg("-fno-stack-protector");
     // avoid error: 'TARGET_OS_IPHONE' is not defined error
     // see: https://www.gitmemory.com/issue/shirou/gopsutil/976/719870639
-    job->compilation_args.push_back("-Wno-undef-prefix");
+    job->addCompilerArg("-Wno-undef-prefix");
   #endif
 
-  job->compilation_args.push_back("-fsyntax-only");
-  job->compilation_args.push_back("-fno-builtin");
-  job->compilation_args.push_back("-march=native");
+  job->addCompilerArg("-fsyntax-only");
+  job->addCompilerArg("-fno-builtin");
+  job->addCompilerArg("-march=native");
 
   /*
   compilation_args.push_back("-fsyntax-only");
@@ -229,35 +233,43 @@ JitJob *JitJob::create(int argc, const char **argv) {
   compilation_args.push_back("-fsanitize=integer-divide-by-zero");
   */
 
-  job->compilation_args.push_back(job->guest_include.c_str());
+  job->addCompilerArg(job->guest_include.c_str());
 
-  job->compilation_args.push_back(job->system_include.c_str());
+  job->addCompilerArg(job->system_include.c_str());
 
   #if defined(_WIN32)
     if (true || IsDebuggerPresent()) {
       // TODO: this assumes cwd is in the build directory
-      job->compilation_args.push_back("-Iinstall/include");
+      job->addCompilerArg("-Iinstall/include". CompilerArgType::DEBUG);
+    }
+  #else
+    if (job->debug_build) {
+      job->addCompilerArg("-O0");
+      job->addCompilerArg("-v");
+      job->addCompilerArg("-g");
+    } else {
+      job->addCompilerArg("-O3");
     }
   #endif
 
   /* TODO: only use these when debugging.. maybe
-  job->compilation_args.push_back("-I../deps/");
-  job->compilation_args.push_back("-I../deps/cimgui");
-  job->compilation_args.push_back("-I../include/hot/guest");
-  job->compilation_args.push_back(RAWKIT_GUEST_INCLUDE_DIR);
-  job->compilation_args.push_back(RAWKIT_CIMGUI_INCLUDE_DIR);
+  job->addCompilerArg("-I../deps/");
+  job->addCompilerArg("-I../deps/cimgui");
+  job->addCompilerArg("-I../include/hot/guest");
+  job->addCompilerArg(RAWKIT_GUEST_INCLUDE_DIR);
+  job->addCompilerArg(RAWKIT_CIMGUI_INCLUDE_DIR);
   */
 
   // Args.push_back("-Iinstall/include");
-  job->compilation_args.push_back("-DHOT_GUEST=1");
-  job->compilation_args.push_back("-DRAWKIT_GUEST=1");
-  job->compilation_args.push_back("-D_DLL");
+  job->addCompilerArg("-DHOT_GUEST=1");
+  job->addCompilerArg("-DRAWKIT_GUEST=1");
+  job->addCompilerArg("-D_DLL");
 
   job->entry_dirname.assign("-DRAWKIT_ENTRY_DIRNAME=");
   job->entry_dirname += "\"";
   job->entry_dirname += job->program_dir.string();
   job->entry_dirname += "\"";
-  job->compilation_args.push_back(job->entry_dirname.c_str());
+  job->addCompilerArg(job->entry_dirname.c_str());
 
   return job;
 }
@@ -265,19 +277,15 @@ JitJob *JitJob::create(int argc, const char **argv) {
 bool JitJob::rebuild() {
   Profiler timeit("JitJob::rebuild");
 
-  llvm::opt::ArgStringList cargs(compilation_args);
-
-  if (this->debug_build) {
-    cargs.push_back("-O0");
-    cargs.push_back("-v");
-    cargs.push_back("-g");
-  } else {
-    cargs.push_back("-O3");
-  }
-
-  compilation.reset(driver->BuildCompilation(cargs));
   if (!compilation) {
-    return false;
+    auto new_compilation = driver->BuildCompilation(compilation_args);
+
+    if (!new_compilation) {
+      printf("ERROR: could not build new compilation\n");
+      return false;
+    }
+
+    compilation.reset(new_compilation);
   }
 
   // FIXME: This is copied from ASTUnit.cpp; simplify and eliminate.
@@ -349,6 +357,7 @@ bool JitJob::rebuild() {
   }
 
   // call any registered teardown functions
+  Profiler teardown_timeit("JitJob::rebuild::teardown");
   while (this->teardown_functions.size()) {
     TeardownFnWrap wrap = this->teardown_functions.front();
     this->teardown_functions.pop();
