@@ -186,6 +186,12 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     // e.g. VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU if available, or with the greatest memory available, etc.
     // for sake of simplicity we'll just take the first one, assuming it has a graphics queue family.
     gpu->physical_device = gpus[0];
+
+    vkGetPhysicalDeviceProperties(
+      gpu->physical_device,
+      &gpu->physical_device_properties
+    );
+
     free(gpus);
   }
 
