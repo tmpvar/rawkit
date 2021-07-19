@@ -103,6 +103,13 @@ rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
     return buf;
   }
 
+  printf("Rebuilding Buffer (%llu, %s) size(%u -> %u)\n",
+    buf->resource_id,
+    buf->resource_name,
+    buf->size,
+    size
+  );
+
   if (buf->handle) {
     rawkit_gpu_queue_buffer_for_deletion(buf);
   }
