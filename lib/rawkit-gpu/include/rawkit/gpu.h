@@ -21,7 +21,8 @@ typedef struct rawkit_gpu_t {
 
   VkInstance instance;
   VkPhysicalDevice physical_device;
-  VkPhysicalDeviceProperties physical_device_properties;
+  VkPhysicalDeviceProperties2 physical_device_properties;
+  VkPhysicalDeviceSubgroupProperties physical_device_subgroup_properties;
   VkDevice device;
   VkAllocationCallbacks *allocator;
   VkPipelineCache pipeline_cache;

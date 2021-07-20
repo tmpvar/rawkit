@@ -187,7 +187,16 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     // for sake of simplicity we'll just take the first one, assuming it has a graphics queue family.
     gpu->physical_device = gpus[0];
 
-    vkGetPhysicalDeviceProperties(
+    // initialize the device properties structs
+    {
+      gpu->physical_device_subgroup_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
+      gpu->physical_device_subgroup_properties.pNext = nullptr;
+
+      gpu->physical_device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+      gpu->physical_device_properties.pNext = &gpu->physical_device_subgroup_properties;
+    }
+
+    vkGetPhysicalDeviceProperties2(
       gpu->physical_device,
       &gpu->physical_device_properties
     );
