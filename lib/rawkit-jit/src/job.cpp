@@ -240,7 +240,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
   #if defined(_WIN32)
     if (true || IsDebuggerPresent()) {
       // TODO: this assumes cwd is in the build directory
-      job->addCompilerArg("-Iinstall/include". CompilerArgType::DEBUG);
+      job->addCompilerArg("-Iinstall/include");
     }
   #else
     if (job->debug_build) {
