@@ -34,6 +34,8 @@
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
 
+
+#include <thread>
 using namespace std;
 // #define IMGUI_UNLIMITED_FRAME_RATE
 #ifdef _DEBUG
@@ -504,6 +506,54 @@ int main(int argc, char **argv) {
       #endif
     );
 
+    if (args.get<bool>("headless")) {
+      double headless_start = rawkit_now();
+      double avg_cycle_time = -1.0;
+      double min_cycle_time = FLT_MAX;
+      double max_cycle_time = -1.0;
+      u32 cycles = 0;
+      while(1) {
+        cycles++;
+        rawkit_gpu_tick(gpu);
+
+        // TODO: rerun if any of the dependencies change - file, shader, etc..
+        if (rawkit_jit_tick(jit)) {
+          rawkit_jit_call_setup(jit);
+        }
+
+        double cycle_start = rawkit_now();
+        rawkit_jit_call_loop(jit);
+        double diff = rawkit_now() - cycle_start;
+        if (diff < min_cycle_time) {
+          min_cycle_time = diff;
+        }
+
+        if (diff > max_cycle_time) {
+          max_cycle_time = diff;
+        }
+
+        if (avg_cycle_time < 0.0) {
+          avg_cycle_time = diff;
+        } else {
+          avg_cycle_time = (diff + avg_cycle_time) * 0.5;
+        }
+
+        if (args.get<bool>("once")) {
+          break;
+        }
+
+        u32 sleep_time = args.get<u32>("rawkit-loop-sleep-ms", 250);
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
+      }
+      fprintf(stderr, "done %fms\n", (rawkit_now() - headless_start) * 1000.0);
+      fprintf(stderr, "cycle time (%u samples): \n avg: %fms\n min: %fms\n max: %fms\n",
+        cycles,
+        avg_cycle_time * 1000.0,
+        min_cycle_time * 1000.0,
+        max_cycle_time * 1000.0
+      );
+      return 0;
+    }
 
     string title = "rawkit " + string(rawkit_jit_program_path(jit));
 

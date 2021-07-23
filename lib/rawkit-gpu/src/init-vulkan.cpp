@@ -105,9 +105,9 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     debug_utils_create_info.pfnUserCallback = debug_utils_messenger_callback;
     create_info.pNext = &debug_utils_create_info;
 
-    for (uint32_t i=0; i<create_info.enabledExtensionCount; i++) {
-      printf("extension: %s\n", create_info.ppEnabledExtensionNames[i]);
-    }
+    // for (uint32_t i=0; i<create_info.enabledExtensionCount; i++) {
+    //   printf("extension: %s\n", create_info.ppEnabledExtensionNames[i]);
+    // }
 
     // Create Vulkan Instance
     err = vkCreateInstance(&create_info,  gpu->allocator, &gpu->instance);
