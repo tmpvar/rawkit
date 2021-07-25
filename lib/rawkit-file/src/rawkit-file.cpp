@@ -27,10 +27,10 @@ typedef struct file_state_t {
 static const rawkit_file_t ERR = {};
 
 const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv_loop_t *loop, rawkit_diskwatcher_t *watcher) {
-  fs::path rel_dir = fs::path(from_file).remove_filename();
 
   fs::path full_path(path);
   if (!fs::exists(full_path)) {
+    fs::path rel_dir = fs::path(from_file).remove_filename();
     full_path = rel_dir / full_path;
   }
 
@@ -84,7 +84,7 @@ const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv
     }
 
     case NOT_FOUND:
-      printf("ERROR: _rawkit_file_ex file could nto be found (%s)\n", full_path.string().c_str());
+      printf("ERROR: _rawkit_file_ex file could not be found (%s)\n", full_path.string().c_str());
       return f;
 
     default: {
