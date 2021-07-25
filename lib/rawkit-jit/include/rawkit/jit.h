@@ -25,7 +25,14 @@ const char *rawkit_jit_program_path(rawkit_jit_t *jit);
 void _rawkit_jit_add_export(rawkit_jit_t *jit, const char *name, void *address);
 #define rawkit_jit_add_export(jit, name, address) _rawkit_jit_add_export(jit, name, (void *)address)
 
-bool rawkit_jit_tick(rawkit_jit_t *jit);
+enum rawkit_jit_tick_status {
+  RAWKIT_JIT_TICK_INVALID = 0,
+  RAWKIT_JIT_TICK_ERROR = 1,
+  RAWKIT_JIT_TICK_BUILT = 2,
+  RAWKIT_JIT_TICK_CLEAN = 3,
+};
+
+rawkit_jit_tick_status rawkit_jit_tick(rawkit_jit_t *jit);
 
 enum rawkit_jit_message_level {
   RAWKIT_JIT_MESSAGE_LEVEL_NONE = 0,
@@ -61,6 +68,8 @@ rawkit_jit_t *rawkit_default_jit();
 void rawkit_teardown_fn_ex(rawkit_jit_t *jit, void *user_data, rawkit_teardown_fn_t fn);
 
 void rawkit_jit_set_debug(rawkit_jit_t *jit, bool v);
+
+uint32_t rawkit_jit_get_version(rawkit_jit_t *jit);
 
 #ifdef __cplusplus
 }

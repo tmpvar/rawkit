@@ -165,18 +165,19 @@ class JitJob {
     std::vector<JitJobFileEntry> watched_files;
     bool dirty;
   public:
+    uint32_t version = 0;
     std::string program_file;
     vector<DiagnosticEntry> messages;
     std::unique_ptr<Runnable> active_runnable;
     bool debug_build = false;
     static JitJob *create(int argc, const char **argv);
-    bool rebuild();
+    rawkit_jit_tick_status rebuild();
     void addExport(const char *name, void *addr);
     void addExport(const char *name, llvm::JITTargetAddress addr);
 
     void addCompilerArg(const char *str);
 
-    bool tick();
+    rawkit_jit_tick_status tick();
     void setup();
     void loop();
 

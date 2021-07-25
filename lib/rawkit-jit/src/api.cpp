@@ -70,16 +70,16 @@ void _rawkit_jit_add_export(rawkit_jit_t *jit, const char *name, void *address) 
   jit->job->addExport(name, address);
 }
 
-bool rawkit_jit_tick(rawkit_jit_t *jit) {
+rawkit_jit_tick_status rawkit_jit_tick(rawkit_jit_t *jit) {
   if (!jit || !jit->job) {
-    return false;
+    return RAWKIT_JIT_TICK_INVALID;
   }
 
-  if (jit->job->tick()) {
+  rawkit_jit_tick_status status = jit->job->tick();
+  if (status == RAWKIT_JIT_TICK_BUILT) {
     jit->version++;
-    return true;
   }
-  return false;
+  return status;
 }
 
 bool rawkit_jit_get_message(const rawkit_jit_t *jit, uint32_t index, rawkit_jit_message_t *ret) {
@@ -162,4 +162,12 @@ void rawkit_jit_set_debug(rawkit_jit_t *jit, bool v) {
   }
 
   jit->job->debug_build = v;
+}
+
+uint32_t rawkit_jit_get_version(rawkit_jit_t *jit) {
+  if (!jit || !jit->job) {
+    return 0;
+  }
+
+  return jit->job->version;
 }

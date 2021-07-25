@@ -16,4 +16,5 @@ void host_init_rawkit_jit(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_default_jit", rawkit_default_jit);
   rawkit_jit_add_export(jit, "rawkit_teardown_fn_ex", rawkit_teardown_fn_ex);
   rawkit_jit_add_export(jit, "rawkit_jit_set_debug", rawkit_jit_set_debug);
+  rawkit_jit_add_export(jit, "rawkit_jit_get_version", rawkit_jit_get_version);
 }

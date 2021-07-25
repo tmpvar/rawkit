@@ -274,7 +274,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
   return job;
 }
 
-bool JitJob::rebuild() {
+rawkit_jit_tick_status JitJob::rebuild() {
   Profiler timeit("JitJob::rebuild");
 
   if (!compilation) {
@@ -282,7 +282,7 @@ bool JitJob::rebuild() {
 
     if (!new_compilation) {
       printf("ERROR: could not build new compilation\n");
-      return false;
+      return RAWKIT_JIT_TICK_ERROR;
     }
 
     compilation.reset(new_compilation);
@@ -298,13 +298,13 @@ bool JitJob::rebuild() {
     llvm::raw_svector_ostream OS(Msg);
     compilation_jobs.Print(OS, "; ", true);
     diag_engine->Report(diag::err_fe_expected_compiler_job) << OS.str();
-    return false;
+    return RAWKIT_JIT_TICK_ERROR;
   }
 
   const driver::Command &Cmd = cast<driver::Command>(*compilation_jobs.begin());
   if (llvm::StringRef(Cmd.getCreator().getName()) != "clang") {
     diag_engine->Report(diag::err_fe_expected_clang_command);
-    return false;
+    return RAWKIT_JIT_TICK_ERROR;
   }
 
   // Initialize a compiler invocation object from the clang (-cc1) arguments.
@@ -334,7 +334,7 @@ bool JitJob::rebuild() {
       watched_files.push_back(entry);
     }
 
-    return false;
+    return RAWKIT_JIT_TICK_ERROR;
   }
 
   this->watched_files.clear();
@@ -364,8 +364,9 @@ bool JitJob::rebuild() {
     wrap.fn(wrap.ptr);
   }
 
+  version++;
   this->active_runnable.reset(run);
-  return true;
+  return RAWKIT_JIT_TICK_BUILT;
 }
 
 void JitJob::addExport(const char *name, void *addr) {
@@ -382,7 +383,7 @@ void JitJob::addExport(const char *name, llvm::JITTargetAddress addr) {
   });
 }
 
-bool JitJob::tick() {
+rawkit_jit_tick_status JitJob::tick() {
   if (!this->dirty) {
     for (auto &entry: this->watched_files) {
       try {
@@ -398,7 +399,7 @@ bool JitJob::tick() {
   }
 
   if (!this->dirty) {
-    return false;
+    return RAWKIT_JIT_TICK_CLEAN;
   }
 
   this->dirty = false;

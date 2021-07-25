@@ -714,10 +714,9 @@ int main(int argc, char **argv) {
 
         rawkit_gpu_tick(gpu);
 
-        if (rawkit_jit_tick(jit)) {
+        if (rawkit_jit_tick(jit) == RAWKIT_JIT_TICK_BUILT) {
           rawkit_jit_call_setup(jit);
         }
-
 
 
         // service libuv
