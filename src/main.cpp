@@ -506,7 +506,24 @@ int main(int argc, char **argv) {
       #endif
     );
 
+    rawkit_set_default_gpu(gpu);
+
     if (args.get<bool>("headless")) {
+      {
+        VkCommandPoolCreateInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        // FIXME: we definitely do not need to be using a graphics queue here.
+        info.queueFamilyIndex = gpu->graphics_queue_family_index;
+        VkResult err = vkCreateCommandPool(
+          gpu->device,
+          &info,
+          gpu->allocator,
+          &gpu->command_pool
+        );
+        check_vk_result(err);
+      }
+
       double headless_start = rawkit_now();
       double avg_cycle_time = -1.0;
       double min_cycle_time = FLT_MAX;
@@ -517,7 +534,40 @@ int main(int argc, char **argv) {
         rawkit_gpu_tick(gpu);
 
         // TODO: rerun if any of the dependencies change - file, shader, etc..
-        if (rawkit_jit_tick(jit)) {
+        auto tick_result = rawkit_jit_tick(jit);
+
+        if (tick_result == RAWKIT_JIT_TICK_ERROR) {
+          uint32_t i = 0;
+          rawkit_jit_message_t msg;
+          while (rawkit_jit_get_message(jit, i, &msg)) {
+            if (i == 0) {
+              fprintf(stderr, "program compilation issues\n");
+            }
+
+            const char *level_str = "<null>";
+            switch (msg.level) {
+              case RAWKIT_JIT_MESSAGE_LEVEL_NOTE: level_str = "note"; break;
+              case RAWKIT_JIT_MESSAGE_LEVEL_WARNING: level_str = "warning"; break;
+              case RAWKIT_JIT_MESSAGE_LEVEL_REMARK: level_str = "remark"; break;
+              case RAWKIT_JIT_MESSAGE_LEVEL_ERROR: level_str = "error"; break;
+              case RAWKIT_JIT_MESSAGE_LEVEL_FATAL: level_str = "fatal"; break;
+              default:
+                level_str = "none";
+            }
+
+            fprintf(stderr, "%s %s:%u:%u %s\n",
+              level_str,
+              msg.filename,
+              msg.line,
+              msg.column,
+              msg.str
+            );
+
+            i++;
+          }
+        }
+
+        if (tick_result == RAWKIT_JIT_TICK_BUILT) {
           rawkit_jit_call_setup(jit);
         }
 
@@ -657,7 +707,6 @@ int main(int argc, char **argv) {
 
     gpu->command_pool = wd->Frames[0].CommandPool;
     printf("set default gpu pool(%p)\n", gpu->command_pool);
-    rawkit_set_default_gpu(gpu);
 
     // Our state
     bool show_demo_window = true;
