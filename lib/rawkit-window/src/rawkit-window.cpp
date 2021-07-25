@@ -40,7 +40,7 @@ void rawkit_window_init(int width, int height, const char *title) {
 uint32_t rawkit_window_frame_index() {
   rawkit_window_t *window = rawkit_hot_resource(resource_name, rawkit_window_t);
   if (!window || !window->_state) {
-    return 0;
+    return 1;
   }
 
   WindowState *state = (WindowState *)window->_state;
@@ -50,7 +50,7 @@ uint32_t rawkit_window_frame_index() {
 uint32_t rawkit_window_frame_count() {
   rawkit_window_t *window = rawkit_hot_resource(resource_name, rawkit_window_t);
   if (!window || !window->_state) {
-    return 0;
+    return 1;
   }
 
   WindowState *state = (WindowState *)window->_state;
