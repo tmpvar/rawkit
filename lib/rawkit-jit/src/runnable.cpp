@@ -376,11 +376,6 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
         }
       }
     }
-
-    if (run->setup_fn == nullptr) {
-      printf("could not find setup()\n");
-      return nullptr;
-    }
   }
 
   {
@@ -424,7 +419,9 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
 }
 
 void Runnable::setup() {
-  this->setup_fn();
+  if (this->setup_fn) {
+    this->setup_fn();
+  }
 }
 
 void Runnable::loop() {
