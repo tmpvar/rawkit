@@ -16,7 +16,7 @@ ShaderState *ShaderState::create(
   ShaderState *prev_state,
   const rawkit_shader_options_t *options
 ) {
-  if (!gpu || !gpu->device || !gpu->physical_device || !glsl || !render_pass) {
+  if (!gpu || !gpu->device || !gpu->physical_device || !glsl) {
     return nullptr;
   }
 
@@ -118,6 +118,10 @@ ShaderState *ShaderState::create(
     if (rawkit_glsl_is_compute(glsl)){
       err = state->create_compute_pipeline();
     } else {
+      if (!render_pass) {
+        printf("ERROR: ShaderState: cannot create a graphics pipeline without a render pass\n");
+        return nullptr;
+      }
       err = state->create_graphics_pipeline(render_pass, options);
     }
 
