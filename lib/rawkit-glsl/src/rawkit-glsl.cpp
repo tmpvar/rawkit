@@ -55,16 +55,22 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
     glslang::EShTargetSpv_1_5
   );
 
-  shader->setPreamble(
-    "\n#extension GL_GOOGLE_include_directive: enable\n"
-  );
+  string preamble =
+    "\n#extension GL_GOOGLE_cpp_style_line_directive: enable\n"
+    "#extension GL_GOOGLE_include_directive: enable\n"
+    "#define RESOURCE_NAME \"shader://dumb.comp\"\n";
+
+  // preamble += "#line 1 \"";
+  // preamble += name;
+  // preamble += "\"\n";
+
+  shader->setPreamble(preamble.c_str());
 
   shader->setAutoMapBindings(true);
   shader->setAutoMapLocations(true);
   shader->setEntryPoint("main");
 
   string output;
-
 
   TBuiltInResource resource_limits = get_default_resource_limits();
 
@@ -79,9 +85,11 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
     includer
   );
 
+  printf("PREPROCESS: %s\n", output.c_str());
+
   int r = shader->parse(
     &resource_limits,
-    450,
+    460,
     false,
     EShMsgRelaxedErrors,
     includer
