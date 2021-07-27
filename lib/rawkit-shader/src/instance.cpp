@@ -516,9 +516,9 @@ void rawkit_shader_instance_param_ssbo(
   );
 }
 
-void rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue queue) {
+VkFence rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue queue) {
   if (!instance || !instance->can_launch || !queue) {
-    return;
+    return VK_NULL_HANDLE;
   }
 
   VkResult err = VK_SUCCESS;
@@ -529,7 +529,7 @@ void rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue q
     err = vkEndCommandBuffer(instance->command_buffer);
     if (err != VK_SUCCESS) {
       printf("ERROR: vkEndCommandBuffer: failed %i\n", err);
-      return;
+      return VK_NULL_HANDLE;
     }
 
     VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
@@ -547,7 +547,7 @@ void rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue q
       err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
       if (err) {
         printf("ERROR: fill_rect: create fence failed (%i)\n", err);
-        return;
+        return VK_NULL_HANDLE;
       }
     }
 
@@ -567,9 +567,11 @@ void rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue q
 
     if (err != VK_SUCCESS) {
       printf("ERROR: unable to submit compute shader (%s) (%i)\n", instance->resource_name, err);
-      return;
+      return VK_NULL_HANDLE;
     }
+    return fence;
   }
+  return VK_NULL_HANDLE;
 }
 
 

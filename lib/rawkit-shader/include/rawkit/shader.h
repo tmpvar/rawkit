@@ -245,7 +245,7 @@ void rawkit_shader_instance_dispatch_compute(
   uint32_t depth
 );
 
-void rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue queue);
+VkFence rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue queue);
 
 #define rawkit_shader_instance_end(instance) rawkit_shader_instance_end_ex( \
   instance, \
