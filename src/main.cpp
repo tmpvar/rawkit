@@ -426,10 +426,14 @@ rawkit_vg_t *rawkit_default_vg() {
 }
 
 int main(int argc, char **argv) {
-
     const flags::args args(argc, argv);
+    auto pargs = args.positional();
+    if (!pargs.size()) {
+      printf("usage: rawkit path/to/file.cpp [--rawkit-jit-debug] [--rawkit-vulkan-validation]\n");
+      return -1;
+    }
 
-    rawkit_jit_t *jit = rawkit_jit_create(argv[1]);
+    rawkit_jit_t *jit = rawkit_jit_create(pargs[0].data());
     if (!jit) {
       return -1;
     }
