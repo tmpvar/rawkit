@@ -265,12 +265,8 @@ JitJob *JitJob::create(int argc, const char **argv) {
   job->addCompilerArg("-DRAWKIT_GUEST=1");
   job->addCompilerArg("-D_DLL");
 
-  job->entry_dirname.assign("-DRAWKIT_ENTRY_DIRNAME=");
-  job->entry_dirname += "\"";
-  job->entry_dirname += job->program_dir.string();
-  job->entry_dirname += "\"";
+  job->entry_dirname.assign("-DRAWKIT_ENTRY_DIRNAME=" + job->program_dir.string());
   job->addCompilerArg(job->entry_dirname.c_str());
-
   return job;
 }
 
