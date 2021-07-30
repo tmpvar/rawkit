@@ -112,8 +112,8 @@ class Runnable {
 
   public:
     std::vector<string> includes;
-    rawkit_jit_guest_fn setup_fn;
-    rawkit_jit_guest_fn loop_fn;
+    rawkit_jit_guest_fn setup_fn = nullptr;
+    rawkit_jit_guest_fn loop_fn = nullptr;
     static Runnable *create(clang::CodeGenAction *action, const llvm::orc::JITSymbolBag &symbols);
     static Runnable *compile(
       std::unique_ptr<clang::CompilerInvocation> invocation,

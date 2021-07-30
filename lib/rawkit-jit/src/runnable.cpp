@@ -297,7 +297,7 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
     string mangled = f.getName().str();
     string demangled = llvm::demangle(mangled);
     // printf("  %s (%s)\n", demangled.c_str(), mangled.c_str());
-    if (demangled.find("__cdecl setup(", 0) != string::npos) {
+    if (demangled.find("void __cdecl setup(", 0) == 0) {
       mangledSetup.assign(mangled);
       continue;
     }
@@ -312,7 +312,7 @@ Runnable *Runnable::create(clang::CodeGenAction *action, const llvm::orc::JITSym
       continue;
     }
 
-    if (demangled.find("__cdecl loop(", 0) != string::npos) {
+    if (demangled.find("void __cdecl loop(", 0) == 0) {
       mangledLoop.assign(mangled);
       continue;
     }
