@@ -85,7 +85,6 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
     includer
   );
 
-  printf("PREPROCESS: %s\n", output.c_str());
 
   int r = shader->parse(
     &resource_limits,
@@ -96,6 +95,7 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
   );
 
   if (!r) {
+    printf("source after preprocessing:\n %s\n", output.c_str());
     printf("Debug log for %s\n%s\n", name, shader->getInfoDebugLog());
     printf("glslang: failed to parse shader %s\nLOG: %s",
       name,
