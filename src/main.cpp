@@ -28,7 +28,7 @@
 
 #include <rawkit/jit.h>
 #include <rawkit/vg.h>
-
+#include <hidapi/hidapi.h>
 #include <rawkit/window-internal.h>
 
 #include <ghc/filesystem.hpp>
@@ -474,6 +474,13 @@ int main(int argc, char **argv) {
       return obj.description.find("Arduino") == 0 || obj.description.find("USB Serial Device") == 0;
     });
 
+
+    if(hid_init()) {
+      printf("ERROR: failed to init hidapi\n");
+      return 1;
+    }
+
+
     string port = "/dev/null";
     serial::Serial sp;
     if (port != "/dev/null") {
@@ -893,6 +900,6 @@ int main(int argc, char **argv) {
 
     glfwDestroyWindow(window);
     glfwTerminate();
-
+    hid_exit();
     return 0;
 }
