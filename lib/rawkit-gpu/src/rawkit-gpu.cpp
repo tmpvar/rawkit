@@ -811,7 +811,9 @@ VkResult rawkit_gpu_buffer_transition(
   VkBufferMemoryBarrier barrier = {};
   barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
 
-  barrier.srcAccessMask = RAWKIT_DEFAULT(extend.srcAccessMask, buffer->access);
+  // FIXME: when transitioning between transfer/host r+w things appear to be out of sync
+  //        and a validation error is thrown.
+  // barrier.srcAccessMask = RAWKIT_DEFAULT(extend.srcAccessMask, buffer->access);
   barrier.dstAccessMask = RAWKIT_DEFAULT(extend.dstAccessMask, VK_ACCESS_SHADER_READ_BIT);
   barrier.size = VK_WHOLE_SIZE;
   barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
