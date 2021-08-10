@@ -60,6 +60,7 @@ static inline VkResult update_descriptor_set_buffer(
 
 ShaderInstanceState::ShaderInstanceState(rawkit_shader_t *shader, rawkit_shader_instance_t *instance) {
   this->instance = instance;
+  this->shader = shader;
 
   ShaderState *shader_state = (ShaderState *)shader->_state;
 
@@ -237,68 +238,6 @@ rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(rawkit_gpu_t *gpu, raw
   return instance;
 }
 
-static VkResult transition_texture_for_stage(
-  rawkit_gpu_t *gpu,
-  rawkit_texture_t *texture,
-  VkImageMemoryBarrier barrier,
-  VkPipelineStageFlags stageFlags,
-  VkCommandBuffer command_buffer = nullptr
-) {
-  VkResult err = VK_SUCCESS;
-  bool owns_command_buffer = command_buffer == nullptr;
-  if (owns_command_buffer) {
-    command_buffer = rawkit_gpu_create_command_buffer(gpu, nullptr);
-    if (!command_buffer) {
-      printf("ERROR: transition_texture_for_compute: could not create command buffer\n");
-      return VK_INCOMPLETE;
-    }
-    VkCommandBufferBeginInfo begin_info = {};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    VkResult begin_result = vkBeginCommandBuffer(command_buffer, &begin_info);
-  }
-
-  rawkit_texture_transition(
-    texture,
-    command_buffer,
-    stageFlags,
-    barrier
-  );
-
-  if (owns_command_buffer) {
-    VkSubmitInfo end_info = {};
-    end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    end_info.commandBufferCount = 1;
-    end_info.pCommandBuffers = &command_buffer;
-    err = vkEndCommandBuffer(command_buffer);
-    if (err) {
-      printf("ERROR: transition_texture_for_stage: could not end command buffer (%i)\n", err);
-      return err;
-    }
-
-    VkFence fence;
-    {
-      VkFenceCreateInfo create = {};
-      create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-      create.flags = 0;
-      err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
-      if (err) {
-        printf("ERROR: transition_texture_for_stage: create fence failed (%i)\n", err);
-        return err;
-      }
-    }
-
-    err = vkQueueSubmit(gpu->graphics_queue, 1, &end_info, fence);
-    rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
-    if (err) {
-      printf("ERROR: transition_texture_for_stage: could not submit command buffer (%i)\n", err);
-      return err;
-    }
-  }
-
-  return err;
-}
-
 void rawkit_shader_instance_param_texture(
   rawkit_shader_instance_t *instance,
   const char *name,
@@ -338,47 +277,44 @@ void rawkit_shader_instance_param_texture(
   }
 
   ShaderInstanceState *state = (ShaderInstanceState *)instance->_state;
+  ShaderState *shader_state = (ShaderState *)state->shader->_state;
 
-  VkImageMemoryBarrier barrier = {};
-  barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-  barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  if (entry.writable) {
-    barrier.dstAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
-    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-  } else {
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  // Note: we only transition for tetures not being bound to a compute shader.
+  //       transitioning images while in a renderpass requires more coordination
+  //       and so we've pushed that responsibility to the caller / a higher level
+  //       abstraction.
+  if (!shader_state->render_pass) {
+    VkImageMemoryBarrier barrier = {};
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if (entry.writable) {
+      barrier.dstAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+      barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    } else {
+      barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
+
+    // TODO: this throws validation errors when not in general.
+    // barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    if (texture->options.is_depth) {
+      barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+      // Stencil aspect should only be set on depth + stencil formats
+      // (VK_FORMAT_D16_UNORM_S8_UINT..VK_FORMAT_D32_SFLOAT_S8_UINT
+      // if (texture->options.format >= VK_FORMAT_D16_UNORM_S8_UINT) {
+      //   barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+      // }
+    } else {
+      barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+
+    rawkit_texture_transition(
+      texture,
+      instance->command_buffer,
+      rawkit_glsl_vulkan_stage_flags(entry.stage),
+      barrier
+    );
   }
-
-  // TODO: this throws validation errors when not in general.
-  // barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-  if (texture->options.is_depth) {
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    // Stencil aspect should only be set on depth + stencil formats
-    // (VK_FORMAT_D16_UNORM_S8_UINT..VK_FORMAT_D32_SFLOAT_S8_UINT
-    // if (texture->options.format >= VK_FORMAT_D16_UNORM_S8_UINT) {
-    //   barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-    // }
-  } else {
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  }
-
-
-  // transition_texture_for_stage(
-  //   gpu,
-  //   texture,
-  //   barrier,
-  //   rawkit_glsl_vulkan_stage_flags(entry.stage),
-  //   instance->command_buffer
-  // );
-
-  rawkit_texture_transition(
-    texture,
-    instance->command_buffer,
-    rawkit_glsl_vulkan_stage_flags(entry.stage),
-    barrier
-  );
-
   // update destriptor set
   {
     VkDescriptorImageInfo imageInfo = {};

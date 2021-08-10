@@ -25,6 +25,7 @@ ShaderState *ShaderState::create(
   state->glsl = glsl;
   state->instance_idx = 0;
   state->gpu_tick_idx = rawkit_gpu_get_tick_idx(gpu);
+  state->render_pass = render_pass;
 
   if (prev_state) {
     // Carry the pool forward

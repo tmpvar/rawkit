@@ -19,6 +19,7 @@ class ShaderInstanceState {
     ShaderInstanceState(rawkit_shader_t *shader, rawkit_shader_instance_t *instance);
     ~ShaderInstanceState();
     rawkit_shader_instance_t *instance;
+    rawkit_shader_t *shader;
     vector<VkDescriptorSet> descriptor_sets;
     VkCommandBuffer command_buffer;
     unordered_map<string, rawkit_gpu_buffer_t *> buffers;
@@ -39,7 +40,7 @@ class ShaderState {
     vector<VkDescriptorSetLayout> descriptor_set_layouts;
     VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
     VkPipeline pipeline = VK_NULL_HANDLE;
-
+    VkRenderPass render_pass = VK_NULL_HANDLE;
     uint32_t gpu_tick_idx = 0xFFFFFFFF;
     uint64_t instance_idx = 0;
 
