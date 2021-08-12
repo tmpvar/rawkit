@@ -73,10 +73,17 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
       "VK_LAYER_KHRONOS_validation",
     };
 
+    vector <VkValidationFeatureEnableEXT> validation_feature_enables;
+
     if (validation) {
       // Enabling multiple validation layers grouped as LunarG standard validation
       create_info.enabledLayerCount = layers.size();
       create_info.ppEnabledLayerNames = layers.data();
+
+      validation_feature_enables.push_back(
+        VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
+      );
+
     }
 
     vector<const char *> extensions_ext;
@@ -99,11 +106,22 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     };
 
     debug_utils_create_info.messageSeverity = (
-      VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+      VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+      VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+      VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+      VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
     );
     debug_utils_create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
     debug_utils_create_info.pfnUserCallback = debug_utils_messenger_callback;
-    create_info.pNext = &debug_utils_create_info;
+
+
+    VkValidationFeaturesEXT validation_features = {};
+    validation_features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+    validation_features.enabledValidationFeatureCount = validation_feature_enables.size();
+    validation_features.pEnabledValidationFeatures = validation_feature_enables.data();
+
+    create_info.pNext = &validation_features;
+    validation_features.pNext = &debug_utils_create_info;
 
     // for (uint32_t i=0; i<create_info.enabledExtensionCount; i++) {
     //   printf("extension: %s\n", create_info.ppEnabledExtensionNames[i]);
@@ -149,7 +167,13 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
         // Setup the debug report callback
         VkDebugReportCallbackCreateInfoEXT debug_report_ci = {};
         debug_report_ci.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-        debug_report_ci.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
+        debug_report_ci.flags = (
+          VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
+          VK_DEBUG_REPORT_DEBUG_BIT_EXT |
+          VK_DEBUG_REPORT_ERROR_BIT_EXT |
+          VK_DEBUG_REPORT_WARNING_BIT_EXT |
+          VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT
+        );
         debug_report_ci.pfnCallback = debug_callback;
         debug_report_ci.pUserData = NULL;
         err = vkCreateDebugReportCallbackEXT(gpu->instance, &debug_report_ci, gpu->allocator, &gpu->debug_report);

@@ -929,7 +929,7 @@ VkResult rawkit_texture_transition(
     command_buffer,
     texture->stage_flags,
     dstStageMask,
-    0,
+    VK_DEPENDENCY_BY_REGION_BIT,
     0,
     NULL,
     0,
