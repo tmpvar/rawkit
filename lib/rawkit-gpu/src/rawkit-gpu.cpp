@@ -263,10 +263,7 @@ VkFence rawkit_gpu_copy_buffer(
   vkEndCommandBuffer(command_buffer);
   VkFence fence = VK_NULL_HANDLE;
   {
-    VkFenceCreateInfo create = {};
-    create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    create.flags = 0;
-    err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
+    err = rawkit_gpu_fence_create(gpu, &fence);
     if (err) {
       printf("ERROR: create fence failed while copying buffer (%i)\n", err);
       return VK_NULL_HANDLE;
@@ -523,6 +520,63 @@ VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu, VkCommandPoo
   return command_buffer;
 }
 
+
+
+VkResult rawkit_gpu_fence_create(rawkit_gpu_t *gpu, VkFence *fence) {
+  if (!gpu || !gpu->_state) {
+    return VK_INCOMPLETE;
+  }
+
+  GPUState *state = (GPUState *)gpu->_state;
+
+  VkFenceCreateInfo create = {};
+  create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  create.flags = 0;
+  VkResult err = vkCreateFence(gpu->device, &create, gpu->allocator, fence);
+  if (err) {
+    return err;
+  }
+
+  state->fences[*fence] = VK_NOT_READY;
+  return VK_SUCCESS;
+}
+
+void rawkit_gpu_fence_destroy(rawkit_gpu_t *gpu, VkFence fence) {
+  if (!gpu || !gpu->_state) {
+    return;
+  }
+
+  GPUState *state = (GPUState *)gpu->_state;
+
+  auto it = state->fences.find(fence);
+  if (it != state->fences.end()) {
+    state->fences.erase(it);
+    vkDestroyFence(
+      gpu->device,
+      fence,
+      gpu->allocator
+    );
+    printf("rawkit_gpu_fence_destroy(%i)\n", fence);
+  } else {
+    printf("ERROR: rawkit_gpu_fence_destroy: could not find reference to fence(%i)\n", fence);
+  }
+}
+
+
+VkResult rawkit_gpu_fence_status(rawkit_gpu_t *gpu, VkFence fence) {
+  if (!gpu || !gpu->_state) {
+    return VK_INCOMPLETE;
+  }
+
+  GPUState *state = (GPUState *)gpu->_state;
+
+  auto fence_it = state->fences.find(fence);
+  if (fence_it != state->fences.end()) {
+    return fence_it->second;
+  }
+  return VK_SUCCESS;
+}
+
 void rawkit_gpu_tick(rawkit_gpu_t *gpu) {
   if (!gpu || !gpu->_state) {
     return;
@@ -530,31 +584,28 @@ void rawkit_gpu_tick(rawkit_gpu_t *gpu) {
 
   GPUState *state = (GPUState *)gpu->_state;
   std::vector<GPUCommandBuffer> buffers;
-  for (auto &buffer : state->completed_command_buffers) {
-    VkResult res = vkGetFenceStatus(gpu->device, buffer.fence);
-    switch (res) {
-      case VK_SUCCESS:
-        {
-          vkFreeCommandBuffers(
-            gpu->device,
-            buffer.pool,
-            1,
-            &buffer.handle
-          );
 
-          vkDestroyFence(
-            gpu->device,
-            buffer.fence,
-            gpu->allocator
-          );
-        }
-        break;
-      case VK_NOT_READY:
-        buffers.push_back(buffer);
-        break;
-      case VK_ERROR_DEVICE_LOST:
-        printf("ERROR: lost device %s:%u\n", __FILE__, __LINE__);
-        break;
+  auto it = state->completed_command_buffers.begin();
+  while(it != state->completed_command_buffers.end()) {
+    bool removed = false;
+    if (rawkit_gpu_fence_status(gpu, it->fence) == VK_SUCCESS) {
+      if (it->handle != VK_NULL_HANDLE) {
+        vkFreeCommandBuffers(
+          gpu->device,
+          it->pool,
+          1,
+          &it->handle
+        );
+
+        it->handle = VK_NULL_HANDLE;
+      }
+      rawkit_gpu_fence_destroy(gpu, it->fence);
+      state->completed_command_buffers.erase(it);
+      removed = true;
+    }
+
+    if (!removed) {
+      it++;
     }
   }
 
@@ -567,8 +618,6 @@ void rawkit_gpu_tick(rawkit_gpu_t *gpu) {
     rawkit_gpu_buffer_destroy(gpu, e.buffer);
     state->completed_buffers.pop();
   }
-  state->completed_command_buffers.clear();
-  state->completed_command_buffers = buffers;
   state->tick_idx++;
 }
 
@@ -727,10 +776,7 @@ VkResult rawkit_gpu_ssbo_transition(
 
     VkFence fence;
     {
-      VkFenceCreateInfo create = {};
-      create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-      create.flags = 0;
-      err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
+      err = rawkit_gpu_fence_create(gpu, &fence);
       if (err) {
         printf("ERROR: rawkit_gpu_ssbo_ex: create fence failed (%i)\n", err);
         return err;

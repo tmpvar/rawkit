@@ -130,6 +130,11 @@ void rawkit_gpu_tick(rawkit_gpu_t *gpu);
 void rawkit_gpu_queue_command_buffer_for_deletion(rawkit_gpu_t *gpu, VkCommandBuffer buffer, VkFence fence, VkCommandPool pool);
 uint32_t rawkit_gpu_get_tick_idx(rawkit_gpu_t *gpu);
 
+
+VkResult rawkit_gpu_fence_create(rawkit_gpu_t *gpu, VkFence *fence);
+void rawkit_gpu_fence_destroy(rawkit_gpu_t *gpu, VkFence fence);
+VkResult rawkit_gpu_fence_status(rawkit_gpu_t *gpu, VkFence fence);
+
 // SSBO
 typedef struct rawkit_gpu_ssbo_t {
   RAWKIT_RESOURCE_FIELDS

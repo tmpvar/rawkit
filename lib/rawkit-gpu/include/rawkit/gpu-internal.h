@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <queue>
+#include <unordered_map>
 
 struct GPUCommandBuffer {
   VkCommandBuffer handle;
@@ -25,5 +26,6 @@ class GPUState {
   public:
     std::vector<GPUCommandBuffer> completed_command_buffers;
     std::queue<GPUDeleteBufferEntry> completed_buffers;
+    std::unordered_map<VkFence, VkResult> fences;
     uint32_t tick_idx = 0;
 };

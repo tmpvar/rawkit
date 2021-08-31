@@ -406,10 +406,7 @@ void rawkit_texture_target_end(rawkit_texture_target_t *target) {
 
   VkFence fence;
   {
-    VkFenceCreateInfo create = {};
-    create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    create.flags = 0;
-    err = vkCreateFence(target->gpu->device, &create, target->gpu->allocator, &fence);
+    err = rawkit_gpu_fence_create(target->gpu, &fence);
     if (err) {
       printf("ERROR: fill_rect: create fence failed (%i)\n", err);
       return;

@@ -442,7 +442,6 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     view_usage->sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO;
     view_usage->usage = options.usage | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-
     VkImageViewCreateInfo *info = &texture->image_view_create_info;
     info->sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     if (options.is_depth) {
@@ -459,7 +458,6 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
     info->image = texture->image;
     info->viewType = options.depth > 1 ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D;
     info->format = options.format;
-
     info->subresourceRange.levelCount = 1;
     info->subresourceRange.layerCount = 1;
     info->subresourceRange.baseArrayLayer = 0;
@@ -532,10 +530,7 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
 
       VkFence fence;
       {
-        VkFenceCreateInfo create = {};
-        create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        create.flags = 0;
-        VkResult err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
+        VkResult err = rawkit_gpu_fence_create(gpu, &fence);
         if (err) {
           printf("ERROR: rawkit_texture_init: create fence failed (%i)\n", err);
           return false;
@@ -688,12 +683,8 @@ VkFence rawkit_texture_push_staging_buffer(rawkit_texture_t *texture) {
       return VK_NULL_HANDLE;
     }
 
-
     {
-      VkFenceCreateInfo create = {};
-      create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-      create.flags = 0;
-      VkResult err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
+      VkResult err = rawkit_gpu_fence_create(gpu, &fence);
       if (err) {
         printf("ERROR: rawkit_texture_update_buffer: create fence failed (%i)\n", err);
         return VK_NULL_HANDLE;
@@ -902,7 +893,7 @@ VkResult rawkit_texture_transition(
   barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.srcAccessMask = RAWKIT_DEFAULT(extend.srcAccessMask, texture->image_access);
   barrier.dstAccessMask = RAWKIT_DEFAULT(extend.dstAccessMask, VK_ACCESS_SHADER_READ_BIT);
-  barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; //texture->image_layout;
+  barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   barrier.newLayout = RAWKIT_DEFAULT(extend.newLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;

@@ -477,10 +477,7 @@ VkFence rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueu
 
     VkFence fence;
     {
-      VkFenceCreateInfo create = {};
-      create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-      create.flags = 0;
-      err = vkCreateFence(gpu->device, &create, gpu->allocator, &fence);
+      err = rawkit_gpu_fence_create(gpu, &fence);
       if (err) {
         printf("ERROR: fill_rect: create fence failed (%i)\n", err);
         return VK_NULL_HANDLE;

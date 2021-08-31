@@ -483,16 +483,8 @@ void FrameGraph::end() {
 
   vkEndCommandBuffer(command_buffer);
   {
-    VkFenceCreateInfo create = {};
-    create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    create.flags = 0;
-    VkResult err = vkCreateFence(
-      gpu->device,
-      &create,
-      gpu->allocator,
-      &this->fence
-    );
 
+    VkResult err = rawkit_gpu_fence_create(gpu, &this->fence);
     if (err) {
       printf("ERROR: FrameGraph::end: create fence failed (%i)\n", err);
       return;
