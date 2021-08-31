@@ -535,8 +535,8 @@ void rawkit_shader_instance_param_push_constants(
     // TODO: dodge a validation error:
     // vkCmdPushConstants(): stageFlags (VK_SHADER_STAGE_COMPUTE_BIT, offset (0), and size (16),
     // must contain all stages in overlapping VkPushConstantRange stageFlags
-    //is_compute ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_ALL_GRAPHICS,
-    VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_ALL_GRAPHICS,
+    is_compute ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_ALL_GRAPHICS,
+    // VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_ALL_GRAPHICS,
     0,
     bytes,
     data
