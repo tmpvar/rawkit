@@ -556,7 +556,6 @@ void rawkit_gpu_fence_destroy(rawkit_gpu_t *gpu, VkFence fence) {
       fence,
       gpu->allocator
     );
-    printf("rawkit_gpu_fence_destroy(%i)\n", fence);
   } else {
     printf("ERROR: rawkit_gpu_fence_destroy: could not find reference to fence(%i)\n", fence);
   }
@@ -572,7 +571,9 @@ VkResult rawkit_gpu_fence_status(rawkit_gpu_t *gpu, VkFence fence) {
 
   auto fence_it = state->fences.find(fence);
   if (fence_it != state->fences.end()) {
-    return fence_it->second;
+    VkResult fence_status = vkGetFenceStatus(gpu->device, fence);
+    fence_it->second = fence_status;
+    return fence_status;
   }
   return VK_SUCCESS;
 }
