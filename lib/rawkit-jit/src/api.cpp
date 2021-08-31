@@ -160,7 +160,7 @@ void rawkit_jit_set_debug(rawkit_jit_t *jit, bool v) {
   if (!jit || !jit->job) {
     return;
   }
-
+  printf("rawkit_jit_set_debug(%s)\n", v ? "true" : "false");
   jit->job->debug_build = v;
 }
 
