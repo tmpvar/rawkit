@@ -160,8 +160,17 @@ void rawkit_jit_set_debug(rawkit_jit_t *jit, bool v) {
   if (!jit || !jit->job) {
     return;
   }
+
   printf("rawkit_jit_set_debug(%s)\n", v ? "true" : "false");
   jit->job->debug_build = v;
+
+  if (v) {
+    jit->job->addCompilerArg("-O0");
+    jit->job->addCompilerArg("-v");
+    jit->job->addCompilerArg("-g");
+  } else {
+    jit->job->addCompilerArg("-O3");
+  }
 }
 
 uint32_t rawkit_jit_get_version(rawkit_jit_t *jit) {

@@ -242,14 +242,6 @@ JitJob *JitJob::create(int argc, const char **argv) {
       // TODO: this assumes cwd is in the build directory
       job->addCompilerArg("-Iinstall/include");
     }
-  #else
-    if (job->debug_build) {
-      job->addCompilerArg("-O0");
-      job->addCompilerArg("-v");
-      job->addCompilerArg("-g");
-    } else {
-      job->addCompilerArg("-O3");
-    }
   #endif
 
   /* TODO: only use these when debugging.. maybe
