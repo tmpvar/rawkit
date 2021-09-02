@@ -23,6 +23,8 @@
     uint8_t *data;
     uint64_t len;
 
+    char full_path[2048];
+
     // internal state tracking
     void *_state;
   } rawkit_file_t;

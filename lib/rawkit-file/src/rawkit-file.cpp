@@ -54,6 +54,8 @@ const rawkit_file_t *_rawkit_file_ex(const char *from_file, const char *path, uv
 
   file_state_t *state = (file_state_t *)f->_state;
 
+  strncpy(f->full_path, full_path.c_str(), sizeof(rawkit_file_t::full_path) - 1);
+
   if (watcher) {
     uint64_t version = rawkit_diskwatcher_file_version(watcher, full_path.string().c_str());
 
