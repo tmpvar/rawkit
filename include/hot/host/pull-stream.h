@@ -3,7 +3,7 @@
 #include <rawkit/jit.h>
 #include <pull/stream.h>
 
-void host_init_pull_stream(rawkit_jit_t *jit) {
+static void host_init_pull_stream(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "create_file_source", create_file_source);
   rawkit_jit_add_export(jit, "create_file_sink", create_file_sink);
   rawkit_jit_add_export(jit, "ps_uv_alloc_cb", ps_uv_alloc_cb);

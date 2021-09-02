@@ -1,3 +1,5 @@
+#pragma once
+
 #include <rawkit/jit.h>
 #include <stdlib.h>
 
@@ -7,7 +9,7 @@ typedef errno_t (*rawkit_wcstombs_s)(size_t *, char *, size_t, const wchar_t *, 
 typedef errno_t (*rawkit_mbstowcs_s)(size_t *, wchar_t *, size_t, const char *, size_t);
 
 
-void host_init_stdlib(rawkit_jit_t *jit)
+static void host_init_stdlib(rawkit_jit_t *jit)
 {
   rawkit_jit_add_export(jit, "malloc", (void *)&malloc);
   rawkit_jit_add_export(jit, "abort", (void *)&abort);

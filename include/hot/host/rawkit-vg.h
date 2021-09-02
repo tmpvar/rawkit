@@ -2,7 +2,7 @@
 #include <rawkit/jit.h>
 #include <rawkit/vg.h>
 
-void host_init_rawkit_vg(rawkit_jit_t *jit) {
+static void host_init_rawkit_vg(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_vg", rawkit_vg);
   rawkit_jit_add_export(jit, "rawkit_default_vg", rawkit_default_vg);
   rawkit_jit_add_export(jit, "rawkit_vg_texture", rawkit_vg_texture);

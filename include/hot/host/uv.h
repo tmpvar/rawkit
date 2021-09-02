@@ -1,9 +1,9 @@
-
 #pragma once
+
 #include <rawkit/jit.h>
 #include <uv.h>
 
-void host_init_uv(rawkit_jit_t *jit) {
+static void host_init_uv(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "uv_version", uv_version);
   rawkit_jit_add_export(jit, "uv_version_string", uv_version_string);
   rawkit_jit_add_export(jit, "uv_library_shutdown", uv_library_shutdown);

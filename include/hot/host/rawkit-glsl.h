@@ -3,7 +3,7 @@
 #include <rawkit/jit.h>
 #include <rawkit/glsl.h>
 
-void host_init_rawkit_glsl(rawkit_jit_t *jit) {
+static void host_init_rawkit_glsl(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_glsl_file_array", (void *)&rawkit_glsl_file_array);
   rawkit_jit_add_export(jit, "_rawkit_glsl_va", (void *)&_rawkit_glsl_va);
   rawkit_jit_add_export(jit, "rawkit_glsl_valid", (void *)&rawkit_glsl_valid);

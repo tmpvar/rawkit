@@ -3,7 +3,7 @@
 #include <rawkit/jit.h>
 #include <lz4.h>
 
-void host_init_lz4(rawkit_jit_t *jit) {
+static void host_init_lz4(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "LZ4_versionNumber", LZ4_versionNumber);
   rawkit_jit_add_export(jit, "LZ4_versionString", LZ4_versionString);
   rawkit_jit_add_export(jit, "LZ4_compress_default", LZ4_compress_default);

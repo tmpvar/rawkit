@@ -2,27 +2,27 @@
 
 #include <rawkit/jit.h>
 
-const void *string_host_memchr(const void *a, int b, size_t c)
+static const void *string_host_memchr(const void *a, int b, size_t c)
 {
   return memchr(a, b, c);
 }
 
-const char *string_host_strrchr(const char *a, int b)
+static const char *string_host_strrchr(const char *a, int b)
 {
   return strrchr(a, b);
 }
 
-const char *string_host_strpbrk(const char *a, const char *b)
+static const char *string_host_strpbrk(const char *a, const char *b)
 {
   return strpbrk(a, b);
 }
 
-const char *string_host_strstr(const char *a, const char *b)
+static const char *string_host_strstr(const char *a, const char *b)
 {
   return strstr(a, b);
 }
 
-void host_init_string(rawkit_jit_t *jit) {
+static void host_init_string(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "memcpy", (void *)&memcpy);
   rawkit_jit_add_export(jit, "memmove", (void *)&memmove);
   rawkit_jit_add_export(jit, "memchr", (void *)&string_host_memchr);

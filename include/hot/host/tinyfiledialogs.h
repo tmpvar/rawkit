@@ -1,8 +1,10 @@
+#pragma once
+
 #include <rawkit/jit.h>
 
 #include <tinyfiledialogs.h>
 
-void host_init_tinyfiledialogs(rawkit_jit_t *jit) {
+static void host_init_tinyfiledialogs(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "tinyfd_beep", (void *)tinyfd_beep);
   rawkit_jit_add_export(jit, "tinyfd_notifyPopup", (void *)tinyfd_notifyPopup);
   rawkit_jit_add_export(jit, "tinyfd_messageBox", (void *)tinyfd_messageBox);

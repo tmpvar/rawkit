@@ -266,6 +266,16 @@ rawkit_jit_tick_status JitJob::rebuild() {
   Profiler timeit("JitJob::rebuild");
 
   if (!compilation) {
+
+    {
+      u32 c = compilation_args.size();
+      printf("rawkit/jit compiler args\n");
+      for (u32 i=0; i<c; i++) {
+        printf("  %s\n", compilation_args[i]);
+      }
+      printf("\n");
+    }
+
     auto new_compilation = driver->BuildCompilation(compilation_args);
 
     if (!new_compilation) {

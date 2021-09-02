@@ -1,3 +1,5 @@
+#pragma once
+
 #include <rawkit/jit.h>
 #include <stdio.h>
 
@@ -10,7 +12,7 @@
 #endif
 
 
-void host_init_stdio(rawkit_jit_t *jit) {
+static void host_init_stdio(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "fclose", fclose);
   rawkit_jit_add_export(jit, "clearerr", clearerr);
   rawkit_jit_add_export(jit, "feof", feof);

@@ -2,7 +2,7 @@
 
 #include <rawkit/jit.h>
 
-void host_init_rawkit_jit(rawkit_jit_t *jit) {
+static void host_init_rawkit_jit(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_jit_create", rawkit_jit_create);
   rawkit_jit_add_export(jit, "rawkit_jit_get_status", rawkit_jit_get_status);
   rawkit_jit_add_export(jit, "_rawkit_jit_destroy", _rawkit_jit_destroy);
@@ -17,4 +17,5 @@ void host_init_rawkit_jit(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_teardown_fn_ex", rawkit_teardown_fn_ex);
   rawkit_jit_add_export(jit, "rawkit_jit_set_debug", rawkit_jit_set_debug);
   rawkit_jit_add_export(jit, "rawkit_jit_get_version", rawkit_jit_get_version);
+  rawkit_jit_add_export(jit, "rawkit_jit_add_define", rawkit_jit_add_define);
 }

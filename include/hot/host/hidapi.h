@@ -3,7 +3,7 @@
 #include <rawkit/jit.h>
 #include <hidapi/hidapi.h>
 
-void host_init_hidapi(rawkit_jit_t *jit) {
+static void host_init_hidapi(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "hid_init", hid_init);
   rawkit_jit_add_export(jit, "hid_exit", hid_exit);
   rawkit_jit_add_export(jit, "hid_enumerate", hid_enumerate);

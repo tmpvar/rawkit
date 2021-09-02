@@ -145,6 +145,11 @@ if (NOT TARGET rawkit::window)
   add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-window)
 endif()
 
+# LIB: rawkit-worker
+if (NOT TARGET rawkit::worker)
+  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-worker)
+endif()
+
 add_executable(
   rawkit
   ${SRC_DIR}/main.cpp
@@ -247,6 +252,8 @@ target_link_libraries(
   rawkit::vg
   rawkit::window
   rawkit::vulkan
+
+  rawkit::worker
 
   rawkit::lz4
   hidapi::hidapi

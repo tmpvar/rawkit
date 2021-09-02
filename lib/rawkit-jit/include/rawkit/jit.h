@@ -25,6 +25,8 @@ const char *rawkit_jit_program_path(rawkit_jit_t *jit);
 void _rawkit_jit_add_export(rawkit_jit_t *jit, const char *name, void *address);
 #define rawkit_jit_add_export(jit, name, address) _rawkit_jit_add_export(jit, name, (void *)address)
 
+void rawkit_jit_add_define(rawkit_jit_t *jit, const char *value);
+
 enum rawkit_jit_tick_status {
   RAWKIT_JIT_TICK_INVALID = 0,
   RAWKIT_JIT_TICK_ERROR = 1,

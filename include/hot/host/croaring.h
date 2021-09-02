@@ -3,7 +3,7 @@
 #include <rawkit/jit.h>
 #include <roaring/roaring.h>
 
-void host_croaring_init(rawkit_jit_t  *jit) {
+static void host_croaring_init(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "roaring_bitmap_create_with_capacity", roaring_bitmap_create_with_capacity);
   rawkit_jit_add_export(jit, "roaring_bitmap_create_with_capacity", roaring_bitmap_create_with_capacity);
   rawkit_jit_add_export(jit, "roaring_bitmap_init_with_capacity", roaring_bitmap_init_with_capacity);

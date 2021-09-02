@@ -3,11 +3,6 @@
 
 #include <rawkit-jit-internal.h>
 
-typedef struct rawkit_jit_t {
-  JitJob *job;
-  uint64_t version;
-} rawkit_jit_t;
-
 rawkit_jit_t *rawkit_jit_create(const char *file) {
   if (!file) {
     return NULL;
@@ -68,6 +63,14 @@ void _rawkit_jit_add_export(rawkit_jit_t *jit, const char *name, void *address) 
   }
 
   jit->job->addExport(name, address);
+}
+
+void rawkit_jit_add_define(rawkit_jit_t *jit, const char *value) {
+  if (!jit || !jit->job || !value) {
+    return;
+  }
+
+  jit->job->addCompilerArg(value);
 }
 
 rawkit_jit_tick_status rawkit_jit_tick(rawkit_jit_t *jit) {

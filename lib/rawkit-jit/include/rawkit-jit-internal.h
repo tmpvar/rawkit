@@ -58,6 +58,8 @@
 #include <queue>
 using namespace std;
 
+
+
 namespace llvm {
   namespace orc {
     using JITSymbolBag = DenseMap<const char *, JITTargetAddress>;
@@ -188,3 +190,8 @@ class JitJob {
     };
     queue<TeardownFnWrap> teardown_functions;
 };
+
+typedef struct rawkit_jit_t {
+  JitJob *job;
+  uint64_t version;
+} rawkit_jit_t;
