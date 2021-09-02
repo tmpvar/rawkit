@@ -1,6 +1,7 @@
 #pragma once
 
 #include <rawkit/hot.h>
+#include <pull/stream.h>
 
 typedef struct rawkit_worker_t {
   RAWKIT_RESOURCE_FIELDS
@@ -10,6 +11,11 @@ typedef struct rawkit_worker_t {
   // internal
   void *_state;
 } rawkit_worker_t;
+
+typedef struct rawkit_worker_message_t {
+  PS_VALUE_FIELDS
+} rawkit_worker_message_t;
+
 
 typedef struct rawkit_worker_queue_status_t {
   u64 tx_count;
@@ -25,10 +31,12 @@ rawkit_worker_t *rawkit_worker_create_ex(const char *name, const char *file, con
 
 #define rawkit_worker_host() RAWKIT_WORKER_HOST_ADDRESS
 
-void rawkit_worker_send_ex(rawkit_worker_t *worker, void *data, bool target_host);
-void *rawkit_worker_recv_ex(rawkit_worker_t *worker, bool target_host);
+void rawkit_worker_send_ex(rawkit_worker_t *worker, void *data, u32 size, bool target_host);
+rawkit_worker_message_t *rawkit_worker_recv_ex(rawkit_worker_t *worker, bool target_host);
+#define rawkit_worker_message_release ps_destroy
+
 rawkit_worker_queue_status_t rawkit_worker_queue_status(rawkit_worker_t *worker);
 
 
-#define rawkit_worker_send(worker, data) rawkit_worker_send_ex(worker, data, worker == rawkit_worker_host())
+#define rawkit_worker_send(worker, data) rawkit_worker_send_ex(worker, data, sizeof(*data), worker == rawkit_worker_host())
 #define rawkit_worker_recv(worker) rawkit_worker_recv_ex(worker, worker == rawkit_worker_host())

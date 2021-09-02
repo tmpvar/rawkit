@@ -172,7 +172,7 @@ rawkit_worker_t *rawkit_worker_create_ex(const char *name, const char *file, con
   return worker;
 }
 
-void rawkit_worker_send_ex(rawkit_worker_t *worker, void *data, bool worker_to_host) {
+void rawkit_worker_send_ex(rawkit_worker_t *worker, void *data, u32 size, bool worker_to_host) {
   if (!worker || !worker->_state || !data) {
     printf("rawkit_worker_send_ex worker or worker->_state or was null\n");
     return;
@@ -184,10 +184,17 @@ void rawkit_worker_send_ex(rawkit_worker_t *worker, void *data, bool worker_to_h
     ? state->host_rx
     : state->host_tx;
 
-  q.enqueue(data);
+
+  auto *msg = ps_create_value(rawkit_worker_message_t, NULL);
+
+  msg->data = malloc(size);
+  msg->len = size;
+  memcpy(msg->data, data, size);
+
+  q.enqueue(msg);
 }
 
-void *rawkit_worker_recv_ex(rawkit_worker_t *worker, bool worker_to_host) {
+rawkit_worker_message_t *rawkit_worker_recv_ex(rawkit_worker_t *worker, bool worker_to_host) {
   if (!worker || !worker->_state) {
     printf("rawkit_worker_recv_ex worker or worker->_state was null\n");
     return nullptr;
@@ -199,13 +206,19 @@ void *rawkit_worker_recv_ex(rawkit_worker_t *worker, bool worker_to_host) {
     ? state->host_tx
     : state->host_rx;
 
-
-  void *msg = nullptr;
-  if (!q.try_dequeue(msg)) {
+  void *mem = nullptr;
+  if (!q.try_dequeue(mem)) {
     return nullptr;
   }
 
-  return msg;
+  auto msg = (rawkit_worker_message_t *)mem;
+
+  if (msg && (!msg->data || !msg->len)) {
+    rawkit_worker_message_release(msg);
+    return nullptr;
+  }
+
+  return (rawkit_worker_message_t *)msg;
 }
 
 
