@@ -171,8 +171,10 @@ void rawkit_jit_set_debug(rawkit_jit_t *jit, bool v) {
     jit->job->addCompilerArg("-O0");
     jit->job->addCompilerArg("-v");
     jit->job->addCompilerArg("-g");
+    jit->job->addCompilerArg("-DRAWKIT_JIT_DEBUG=1");
   } else {
     jit->job->addCompilerArg("-O3");
+    jit->job->addCompilerArg("-DRAWKIT_JIT_DEBUG=0");
   }
 }
 

@@ -22,8 +22,8 @@ typedef struct rawkit_worker_queue_status_t {
   u64 rx_count;
 } rawkit_worker_queue_status_t;
 
-rawkit_worker_t *rawkit_worker_create_ex(const char *name, const char *file, const char *relative_file);
-#define rawkit_worker(name, file) rawkit_worker_create_ex(name, file, __FILE__);
+rawkit_worker_t *rawkit_worker_create_ex(const char *name, const char *file, const char *relative_file, bool jit_debug);
+#define rawkit_worker(name, file) rawkit_worker_create_ex(name, file, __FILE__, RAWKIT_JIT_DEBUG);
 
 #ifndef RAWKIT_WORKER_HOST_ADDRESS
   #define RAWKIT_WORKER_HOST_ADDRESS ((void *)0)

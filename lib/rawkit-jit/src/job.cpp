@@ -269,7 +269,7 @@ rawkit_jit_tick_status JitJob::rebuild() {
 
     {
       u32 c = compilation_args.size();
-      printf("rawkit/jit compiler args\n");
+      printf("rawkit/jit compiler args for %s\n", program_source.c_str());
       for (u32 i=0; i<c; i++) {
         printf("  %s\n", compilation_args[i]);
       }

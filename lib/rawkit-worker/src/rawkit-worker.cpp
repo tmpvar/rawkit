@@ -103,14 +103,13 @@ struct WorkerState {
     return nullptr;
   }
 
-  WorkerState(rawkit_worker_t *w, const char *full_path) {
+  WorkerState(rawkit_worker_t *w, const char *full_path, bool jit_debug) {
     worker = w;
     this->full_path = full_path;
     jit = rawkit_jit_create(full_path);
+    rawkit_jit_set_debug(jit, jit_debug);
     worker_hot_init(jit);
     rawkit_jit_add_define(jit, "-DRAWKIT_WORKER=1");
-
-
 
     snprintf(
       worker_host_address_define,
@@ -120,35 +119,12 @@ struct WorkerState {
     );
 
     rawkit_jit_add_define(jit, worker_host_address_define);
-
-    // rawkit_jit_add_export(
-    //   jit,
-    //   "rawkit_worker_host_2",
-    //   static_get_host_worker
-    // );
-
-    // get_host_worker_fn = [this]() -> rawkit_worker_t * {
-    //   return this->worker;
-    // };
-
-    // rawkit_jit_add_export(
-    //   jit,
-    //   "rawkit_worker_host",
-    //   get_host_worker_fn
-    // );
-
-    // jit->job->addExport(
-    //   "rawkit_worker_host_2",
-    //   llvm::pointerToJITTargetAddress(static_get_host_worker)
-    // );
-
-
     thread_wrap = new ThreadWrap(this);
   }
 
 };
 
-rawkit_worker_t *rawkit_worker_create_ex(const char *name, const char *file, const char *from_file) {
+rawkit_worker_t *rawkit_worker_create_ex(const char *name, const char *file, const char *from_file, bool jit_debug) {
   fs::path full_path(file);
   if (!fs::exists(full_path)) {
     fs::path rel_dir = fs::path(from_file).remove_filename();
@@ -166,7 +142,11 @@ rawkit_worker_t *rawkit_worker_create_ex(const char *name, const char *file, con
   );
 
   if (!worker->_state) {
-    WorkerState *state = new WorkerState(worker, worker->full_path);
+    WorkerState *state = new WorkerState(
+      worker,
+      worker->full_path,
+      jit_debug
+    );
     worker->_state = (void *)state;
   }
   return worker;
