@@ -1,23 +1,44 @@
+#pragma once
+
 #include <vulkan/vulkan.h>
 #include <cimgui.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-  VkDevice rawkit_vulkan_device();
-  VkPhysicalDevice rawkit_vulkan_physical_device();
-  // The main renderpass command buffer
-  VkCommandBuffer rawkit_vulkan_command_buffer();
-  VkCommandPool rawkit_vulkan_command_pool();
-  // the current frame's main command buffer
-  VkCommandBuffer rawkit_vulkan_command_buffer();
-  VkQueue rawkit_vulkan_queue();
-  VkPipelineCache rawkit_vulkan_pipeline_cache();
-  VkRenderPass rawkit_vulkan_renderpass();
-  VkDescriptorPool rawkit_vulkan_descriptor_pool();
-  // TODO: this is legacy, use rawkit_vulkan_find_queue instead
-  int32_t rawkit_vulkan_queue_family();
-  VkFramebuffer rawkit_current_framebuffer();
+  #ifdef RAWKIT_WORKER
+    static inline VkDevice rawkit_vulkan_device() { return VK_NULL_HANDLE; }
+    static inline VkPhysicalDevice rawkit_vulkan_physical_device() { return VK_NULL_HANDLE; }
+
+    // The main renderpass command buffer
+    static inline VkCommandBuffer rawkit_vulkan_command_buffer() { return VK_NULL_HANDLE; }
+    static inline VkCommandPool rawkit_vulkan_command_pool() { return VK_NULL_HANDLE; }
+
+    // the current frame's main command buffer
+    static inline VkQueue rawkit_vulkan_queue() { return VK_NULL_HANDLE; }
+    static inline VkPipelineCache rawkit_vulkan_pipeline_cache() { return VK_NULL_HANDLE; }
+    static inline VkRenderPass rawkit_vulkan_renderpass() { return VK_NULL_HANDLE; }
+    static inline VkDescriptorPool rawkit_vulkan_descriptor_pool() { return VK_NULL_HANDLE; }
+
+    // TODO: this is legacy, use rawkit_vulkan_find_queue instead
+    static inline int32_t rawkit_vulkan_queue_family() { return 0; }
+    static inline VkFramebuffer rawkit_current_framebuffer() { return VK_NULL_HANDLE; }
+
+  #else
+    VkDevice rawkit_vulkan_device();
+    VkPhysicalDevice rawkit_vulkan_physical_device();
+    // The main renderpass command buffer
+    VkCommandBuffer rawkit_vulkan_command_buffer();
+    VkCommandPool rawkit_vulkan_command_pool();
+    // the current frame's main command buffer
+    VkQueue rawkit_vulkan_queue();
+    VkPipelineCache rawkit_vulkan_pipeline_cache();
+    VkRenderPass rawkit_vulkan_renderpass();
+    VkDescriptorPool rawkit_vulkan_descriptor_pool();
+    // TODO: this is legacy, use rawkit_vulkan_find_queue instead
+    int32_t rawkit_vulkan_queue_family();
+    VkFramebuffer rawkit_current_framebuffer();
+  #endif
 #ifdef __cplusplus
 }
 #endif

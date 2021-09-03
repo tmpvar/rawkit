@@ -71,7 +71,6 @@ rawkit_gpu_t *rawkit_gpu_init(
 );
 
 rawkit_gpu_t *rawkit_default_gpu();
-void rawkit_set_default_gpu(rawkit_gpu_t *gpu);
 
 int32_t rawkit_vulkan_find_queue_family_index(rawkit_gpu_t *gpu, VkQueueFlags flags);
 VkQueue rawkit_vulkan_find_queue(rawkit_gpu_t *gpu, VkQueueFlags flags);

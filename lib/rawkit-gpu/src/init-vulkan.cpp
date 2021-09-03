@@ -1,5 +1,5 @@
 #include <rawkit/core.h>
-#include <rawkit/gpu-internal.h>
+#include <rawkit-gpu-internal.h>
 #include <rawkit/hot.h>
 #include <termcolor.h>
 #include <vulkan/vulkan.h>

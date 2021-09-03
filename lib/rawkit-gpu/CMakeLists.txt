@@ -51,6 +51,11 @@ target_compile_features(${PROJECT_NAME}
 )
 
 target_include_directories(${PROJECT_NAME}
+  PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/include
+)
+
+target_include_directories(${PROJECT_NAME}
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>

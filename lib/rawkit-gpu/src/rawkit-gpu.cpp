@@ -1,21 +1,12 @@
 #pragma optimize("", off)
 #include <rawkit/core.h>
-#include <rawkit/gpu-internal.h>
+#include <rawkit-gpu-internal.h>
 #include <rawkit/hash.h>
 #include <rawkit/hot.h>
 
 
 #include <string>
 using namespace std;
-
-static rawkit_gpu_t *default_gpu = nullptr;
-rawkit_gpu_t *rawkit_default_gpu() {
-  return default_gpu;
-}
-
-void rawkit_set_default_gpu(rawkit_gpu_t *gpu) {
-  default_gpu = gpu;
-}
 
 int32_t rawkit_vulkan_find_queue_family_index(rawkit_gpu_t *gpu, VkQueueFlags flags) {
   if (!gpu->queue_family_properties) {

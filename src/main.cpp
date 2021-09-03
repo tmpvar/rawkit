@@ -425,6 +425,11 @@ rawkit_vg_t *rawkit_default_vg() {
   return g_RawkitVG;
 }
 
+static rawkit_gpu_t *default_gpu = nullptr;
+rawkit_gpu_t *rawkit_default_gpu() {
+  return default_gpu;
+}
+
 int main(int argc, char **argv) {
     const flags::args args(argc, argv);
     auto pargs = args.positional();
@@ -465,6 +470,8 @@ int main(int argc, char **argv) {
     rawkit_jit_add_export(jit, "rawkit_vulkan_queue_family", rawkit_vulkan_queue_family);
     rawkit_jit_add_export(jit, "rawkit_current_framebuffer", rawkit_current_framebuffer);
     rawkit_jit_add_export(jit, "rawkit_randf", rawkit_randf);
+
+    rawkit_jit_add_export(jit, "rawkit_default_gpu", rawkit_default_gpu);
 
     host_hot_init(jit);
 
@@ -517,7 +524,7 @@ int main(int argc, char **argv) {
       #endif
     );
 
-    rawkit_set_default_gpu(gpu);
+    default_gpu = gpu;
 
     if (args.get<bool>("headless")) {
       {

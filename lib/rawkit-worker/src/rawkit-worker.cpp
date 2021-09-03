@@ -36,6 +36,22 @@ struct WorkerState {
     }
   };
 
+  static rawkit_gpu_t *rawkit_worker_default_gpu(rawkit_worker_t *worker) {
+    if (!worker || !worker->_state) {
+      return nullptr;
+    }
+
+    auto state = (WorkerState *)worker->_state;
+    if (!state->gpu) {
+      // TODO: copy gpu
+      auto root = rawkit_default_gpu();
+    }
+
+
+
+    return state->gpu;
+  }
+
   moodycamel::ConcurrentQueue<PayloadType> host_rx;
   moodycamel::ConcurrentQueue<PayloadType> host_tx;
 
@@ -92,16 +108,17 @@ struct WorkerState {
   using GetHostWorkerFn = function<rawkit_worker_t *()>;
   GetHostWorkerFn get_host_worker_fn = nullptr;
 
+  rawkit_gpu_t *gpu = nullptr;
+
   rawkit_worker_t *get_worker() {
     return this->worker;
   }
 
-  char worker_host_address_define[512] = "";
-
-  static rawkit_worker_t *static_get_host_worker() {
-    printf("static works fine.....\n");
-    return nullptr;
+  rawkit_gpu_t *get_parent_gpu() {
+    return rawkit_default_gpu();
   }
+
+  char worker_host_address_define[512] = "";
 
   WorkerState(rawkit_worker_t *w, const char *full_path, bool jit_debug) {
     worker = w;
@@ -109,6 +126,9 @@ struct WorkerState {
     jit = rawkit_jit_create(full_path);
     rawkit_jit_set_debug(jit, jit_debug);
     worker_hot_init(jit);
+
+    rawkit_jit_add_export(jit, "rawkit_worker_default_gpu", rawkit_worker_default_gpu);
+
     rawkit_jit_add_define(jit, "-DRAWKIT_WORKER=1");
 
     snprintf(

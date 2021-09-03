@@ -40,3 +40,10 @@ rawkit_worker_queue_status_t rawkit_worker_queue_status(rawkit_worker_t *worker)
 
 #define rawkit_worker_send(worker, data) rawkit_worker_send_ex(worker, data, sizeof(*data), worker == rawkit_worker_host())
 #define rawkit_worker_recv(worker) rawkit_worker_recv_ex(worker, worker == rawkit_worker_host())
+
+// Compatibility
+
+#ifdef RAWKIT_WORKER
+  rawkit_gpu_t *rawkit_worker_default_gpu(rawkit_worker_t *worker);
+  #define rawkit_default_gpu() rawkit_worker_default_gpu(rawkit_worker_host())
+#endif
