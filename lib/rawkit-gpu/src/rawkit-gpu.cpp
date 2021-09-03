@@ -8,6 +8,13 @@
 #include <string>
 using namespace std;
 
+static inline u32 countBits(u32 i) {
+  i = i - ((i >> 1) & 0x55555555);        // add pairs of bits
+  i = (i & 0x33333333) + ((i >> 2) & 0x33333333);  // quads
+  i = (i + (i >> 4)) & 0x0F0F0F0F;        // groups of 8
+  return (i * 0x01010101) >> 24;          // horizontal sum of bytes
+}
+
 int32_t rawkit_vulkan_find_queue_family_index(rawkit_gpu_t *gpu, VkQueueFlags flags) {
   if (!gpu->queue_family_properties) {
     vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical_device, &gpu->queue_count, NULL);
@@ -19,10 +26,24 @@ int32_t rawkit_vulkan_find_queue_family_index(rawkit_gpu_t *gpu, VkQueueFlags fl
     vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical_device, &gpu->queue_count, gpu->queue_family_properties);
   }
 
-  for (uint32_t i = 0; i < gpu->queue_count; i++) {
-    if (gpu->queue_family_properties[i].queueFlags & flags) {
-      return i;
+  u32 best_match = 0xFFFFFFFF;
+  u32 best_bit_count = 0xFFFFFFFF;
+
+  u32 flags_bit_count = countBits(flags);
+
+  for (i32 i = 0; i < gpu->queue_count; i++) {
+    u32 queue_flags = gpu->queue_family_properties[i].queueFlags;
+    if (queue_flags & flags) {
+      u32 queue_bit_count = countBits(queue_flags);
+      if (queue_bit_count < best_bit_count) {
+        best_bit_count = queue_bit_count;
+        best_match = i;
+      }
     }
+  }
+
+  if (best_match != 0xFFFFFFFF) {
+    return best_match;
   }
 
   printf("ERROR: rawkit_vulkan_find_queue_family_index failed - could not locate queue (%i)\n", flags);
@@ -30,7 +51,7 @@ int32_t rawkit_vulkan_find_queue_family_index(rawkit_gpu_t *gpu, VkQueueFlags fl
 }
 
 VkQueue rawkit_vulkan_find_queue(rawkit_gpu_t *gpu, VkQueueFlags flags) {
-  uint32_t idx = rawkit_vulkan_find_queue_family_index(gpu, flags);
+  i32 idx = rawkit_vulkan_find_queue_family_index(gpu, flags);
   if (idx < 0) {
     return VK_NULL_HANDLE;
   }
