@@ -14,6 +14,8 @@ namespace fs = ghc::filesystem;
 #include <chrono>
 using namespace std;
 
+rawkit_gpu_t *rawkit_worker_default_gpu(rawkit_worker_t *worker);
+
 struct WorkerState {
   using PayloadType = void *;
 
@@ -35,22 +37,6 @@ struct WorkerState {
       }
     }
   };
-
-  static rawkit_gpu_t *rawkit_worker_default_gpu(rawkit_worker_t *worker) {
-    if (!worker || !worker->_state) {
-      return nullptr;
-    }
-
-    auto state = (WorkerState *)worker->_state;
-    if (!state->gpu) {
-      // TODO: copy gpu
-      auto root = rawkit_default_gpu();
-    }
-
-
-
-    return state->gpu;
-  }
 
   moodycamel::ConcurrentQueue<PayloadType> host_rx;
   moodycamel::ConcurrentQueue<PayloadType> host_tx;
@@ -94,6 +80,10 @@ struct WorkerState {
         rawkit_jit_call_setup(worker_state->jit);
       }
 
+      if (worker_state->gpu.valid) {
+        rawkit_gpu_tick(&worker_state->gpu);
+      }
+
       rawkit_jit_call_loop(worker_state->jit);
 
       std::this_thread::sleep_for (std::chrono::milliseconds(1));
@@ -108,7 +98,7 @@ struct WorkerState {
   using GetHostWorkerFn = function<rawkit_worker_t *()>;
   GetHostWorkerFn get_host_worker_fn = nullptr;
 
-  rawkit_gpu_t *gpu = nullptr;
+  rawkit_gpu_t gpu;
 
   rawkit_worker_t *get_worker() {
     return this->worker;
@@ -233,4 +223,34 @@ rawkit_worker_queue_status_t rawkit_worker_queue_status(rawkit_worker_t *worker)
   ret.rx_count = state->host_rx.size_approx();
   ret.tx_count = state->host_tx.size_approx();
   return ret;
+}
+
+rawkit_gpu_t *rawkit_worker_default_gpu(rawkit_worker_t *worker) {
+  if (!worker || !worker->_state) {
+    return nullptr;
+  }
+
+  auto state = (WorkerState *)worker->_state;
+
+  auto gpu = &state->gpu;
+  if (!state->gpu.valid) {
+    // TODO: copy gpu
+    auto root = rawkit_default_gpu();
+    if (!root || !root->valid) {
+      return nullptr;
+    }
+
+    gpu->instance = root->instance;
+    gpu->physical_device = root->physical_device;
+    gpu->physical_device_properties = root->physical_device_properties;
+    gpu->physical_device_subgroup_properties = root->physical_device_subgroup_properties;
+    gpu->device = root->device;
+    gpu->allocator = root->allocator;
+
+    gpu->_state = new GPUState();
+
+    gpu->valid = true;
+  }
+
+  return gpu;
 }
