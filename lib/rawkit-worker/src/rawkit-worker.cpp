@@ -98,7 +98,7 @@ struct WorkerState {
   using GetHostWorkerFn = function<rawkit_worker_t *()>;
   GetHostWorkerFn get_host_worker_fn = nullptr;
 
-  rawkit_gpu_t gpu;
+  rawkit_gpu_t gpu = {};
 
   rawkit_worker_t *get_worker() {
     return this->worker;
