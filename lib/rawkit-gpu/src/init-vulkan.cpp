@@ -243,11 +243,13 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     int device_extension_count = 1;
     const char* device_extensions[] = { "VK_KHR_swapchain" };
     const float queue_priority[] = { 1.0f };
-    VkDeviceQueueCreateInfo queue_info[1] = {};
-    queue_info[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue_info[0].queueFamilyIndex = gpu->graphics_queue_family_index;
-    queue_info[0].queueCount = 1;
-    queue_info[0].pQueuePriorities = queue_priority;
+    std::vector<VkDeviceQueueCreateInfo> queue_info(gpu->queue_count);
+    for (u32 i=0; i<gpu->queue_count; i++) {
+      queue_info[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+      queue_info[i].queueFamilyIndex = i;
+      queue_info[i].queueCount = 1;
+      queue_info[i].pQueuePriorities = queue_priority;
+    }
 
     VkPhysicalDeviceFeatures features = {};
     // TODO: make this configurable
@@ -258,8 +260,8 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
 
     VkDeviceCreateInfo create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    create_info.queueCreateInfoCount = sizeof(queue_info) / sizeof(queue_info[0]);
-    create_info.pQueueCreateInfos = queue_info;
+    create_info.queueCreateInfoCount = queue_info.size();
+    create_info.pQueueCreateInfos = queue_info.data();
     create_info.enabledExtensionCount = device_extension_count;
     create_info.ppEnabledExtensionNames = device_extensions;
     create_info.pEnabledFeatures = &features;
