@@ -207,10 +207,7 @@ rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(
   VkCommandBuffer command_buffer
 );
 
-#define rawkit_shader_instance_begin(inst) rawkit_shader_instance_begin_ex( \
-  inst, \
-  rawkit_vulkan_command_buffer() \
-)
+#define rawkit_shader_instance_begin(inst) rawkit_shader_instance_begin_ex(inst, rawkit_vulkan_command_buffer())
 
 void rawkit_shader_instance_param_texture(
   rawkit_shader_instance_t *instance,

@@ -21,7 +21,6 @@ extern "C" {
     static inline VkDescriptorPool rawkit_vulkan_descriptor_pool() { return VK_NULL_HANDLE; }
 
     // TODO: this is legacy, use rawkit_vulkan_find_queue instead
-    static inline int32_t rawkit_vulkan_queue_family() { return 0; }
     static inline VkFramebuffer rawkit_current_framebuffer() { return VK_NULL_HANDLE; }
 
   #else
@@ -35,8 +34,7 @@ extern "C" {
     VkPipelineCache rawkit_vulkan_pipeline_cache();
     VkRenderPass rawkit_vulkan_renderpass();
     VkDescriptorPool rawkit_vulkan_descriptor_pool();
-    // TODO: this is legacy, use rawkit_vulkan_find_queue instead
-    int32_t rawkit_vulkan_queue_family();
+
     VkFramebuffer rawkit_current_framebuffer();
   #endif
 #ifdef __cplusplus

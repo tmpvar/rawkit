@@ -35,7 +35,6 @@ typedef struct rawkit_gpu_t {
   VkQueueFamilyProperties *queue_family_properties;
 
   VkDescriptorPool default_descriptor_pool;
-  int32_t graphics_queue_family_index;
   VkQueue graphics_queue;
 
   // internal
@@ -92,10 +91,12 @@ rawkit_gpu_queue_t rawkit_gpu_queue_ex(rawkit_gpu_t *gpu, VkQueueFlags flags, u3
 
 // choose the queue with the largest number of flags
 rawkit_gpu_queue_t rawkit_gpu_default_queue_ex(rawkit_gpu_t *gpu);
+#define rawkit_gpu_default_queue() rawkit_gpu_default_queue_ex(rawkit_default_gpu())
 
 // retrieve the command_pool associated with the queue that has
 // the largest number of flags.
 VkCommandPool rawkit_gpu_default_command_pool_ex(rawkit_gpu_t *gpu);
+#define rawkit_gpu_default_command_pool() rawkit_gpu_default_command_pool_ex(rawkit_default_gpu())
 
 // threadsafe enqueing of command buffers into the specified rawkit queue
 VkResult rawkit_gpu_queue_submit_ex(

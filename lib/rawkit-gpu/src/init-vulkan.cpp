@@ -233,18 +233,11 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     free(gpus);
   }
 
-  // find and store the graphics queue
+  // Create Logical Device (with 1 queue per queue family)
   {
-    int32_t index = rawkit_vulkan_find_queue_family_index(gpu, VK_QUEUE_GRAPHICS_BIT);
-    if (index < 0) {
-      printf("ERROR: rawkit_gpu_init: could not find graphics queue\n");
-      return gpu;
-    }
-    gpu->graphics_queue_family_index = index;
-  }
+    // build the queue cache for this gpu
+    rawkit_gpu_populate_queue_cache(gpu);
 
-  // Create Logical Device (with 1 queue)
-  {
     int device_extension_count = 1;
     const char* device_extensions[] = { "VK_KHR_swapchain" };
     const float queue_priority[] = { 1.0f };

@@ -7,6 +7,9 @@
 #include <unordered_map>
 #include <mutex>
 
+
+void rawkit_gpu_populate_queue_cache(rawkit_gpu_t *gpu);
+
 struct GPUCommandBuffer {
   VkCommandBuffer handle;
   VkFence fence;

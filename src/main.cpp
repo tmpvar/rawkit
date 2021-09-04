@@ -80,9 +80,11 @@ static void SetupVulkanWindow(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd, V
 {
     wd->Surface = surface;
 
+    u32 family_idx = rawkit_vulkan_find_queue_family_index(gpu, VK_QUEUE_GRAPHICS_BIT);
+
     // Check for WSI support
     VkBool32 res;
-    vkGetPhysicalDeviceSurfaceSupportKHR(gpu->physical_device, gpu->graphics_queue_family_index, wd->Surface, &res);
+    vkGetPhysicalDeviceSurfaceSupportKHR(gpu->physical_device, family_idx, wd->Surface, &res);
     if (res != VK_TRUE)
     {
         fprintf(stderr, "Error no WSI support on physical device 0\n");
@@ -104,7 +106,17 @@ static void SetupVulkanWindow(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd, V
     //printf("[vulkan] Selected PresentMode = %d\n", wd->PresentMode);
     // Create SwapChain, RenderPass, Framebuffer, etc.
     IM_ASSERT(g_MinImageCount >= 2);
-    ImGui_ImplVulkanH_CreateWindow(gpu->instance, gpu->physical_device, gpu->device, wd, gpu->graphics_queue_family_index, gpu->allocator, width, height, g_MinImageCount);
+    ImGui_ImplVulkanH_CreateWindow(
+      gpu->instance,
+      gpu->physical_device,
+      gpu->device,
+      wd,
+      family_idx,
+      gpu->allocator,
+      width,
+      height,
+      g_MinImageCount
+    );
 }
 
 static void CleanupVulkan(rawkit_gpu_t *gpu)
@@ -135,7 +147,7 @@ void ResizeSwapChain(rawkit_gpu_t *gpu) {
       gpu->physical_device,
       gpu->device,
       &g_MainWindowData,
-      gpu->graphics_queue_family_index,
+      rawkit_vulkan_find_queue_family_index(gpu, VK_QUEUE_GRAPHICS_BIT),
       gpu->allocator,
       g_SwapChainResizeWidth,
       g_SwapChainResizeHeight,
@@ -412,15 +424,6 @@ VkRenderPass rawkit_vulkan_renderpass() {
   return g_MainWindowData.RenderPass;
 }
 
-int32_t rawkit_vulkan_queue_family() {
-  rawkit_gpu_t *gpu = rawkit_default_gpu();
-  if (!gpu) {
-    return -1;
-  }
-
-  return gpu->graphics_queue_family_index;
-}
-
 rawkit_vg_t *rawkit_default_vg() {
   return g_RawkitVG;
 }
@@ -467,7 +470,6 @@ int main(int argc, char **argv) {
     rawkit_jit_add_export(jit, "rawkit_vulkan_pipeline_cache", rawkit_vulkan_pipeline_cache);
     rawkit_jit_add_export(jit, "rawkit_vulkan_renderpass", rawkit_vulkan_renderpass);
     rawkit_jit_add_export(jit, "rawkit_vulkan_descriptor_pool", rawkit_vulkan_descriptor_pool);
-    rawkit_jit_add_export(jit, "rawkit_vulkan_queue_family", rawkit_vulkan_queue_family);
     rawkit_jit_add_export(jit, "rawkit_current_framebuffer", rawkit_current_framebuffer);
     rawkit_jit_add_export(jit, "rawkit_randf", rawkit_randf);
 
@@ -531,8 +533,7 @@ int main(int argc, char **argv) {
         VkCommandPoolCreateInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        // FIXME: we definitely do not need to be using a graphics queue here.
-        info.queueFamilyIndex = gpu->graphics_queue_family_index;
+        info.queueFamilyIndex = rawkit_vulkan_find_queue_family_index(gpu, VK_QUEUE_COMPUTE_BIT);
         VkResult err = vkCreateCommandPool(
           gpu->device,
           &info,
@@ -663,7 +664,7 @@ int main(int argc, char **argv) {
     init_info.Instance = gpu->instance;
     init_info.PhysicalDevice = gpu->physical_device;
     init_info.Device = gpu->device;
-    init_info.QueueFamily = gpu->graphics_queue_family_index;
+    init_info.QueueFamily = rawkit_vulkan_find_queue_family_index(gpu, VK_QUEUE_GRAPHICS_BIT);
     init_info.Queue = gpu->graphics_queue;
     init_info.PipelineCache = gpu->pipeline_cache;
     init_info.DescriptorPool = gpu->default_descriptor_pool;

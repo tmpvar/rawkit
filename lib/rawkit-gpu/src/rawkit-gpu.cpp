@@ -7,15 +7,19 @@
 #include <string>
 using namespace std;
 
+void rawkit_gpu_populate_queue_cache(rawkit_gpu_t *gpu) {
+  vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical_device, &gpu->queue_count, NULL);
+  gpu->queue_family_properties = (VkQueueFamilyProperties*)malloc(sizeof(VkQueueFamilyProperties) * gpu->queue_count);
+  if (!gpu->queue_family_properties) {
+    printf("ERROR: rawkit_vulkan_find_queue_family_index failed - out of memory\n");
+    return;
+  }
+  vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical_device, &gpu->queue_count, gpu->queue_family_properties);
+}
+
 int32_t rawkit_vulkan_find_queue_family_index(rawkit_gpu_t *gpu, VkQueueFlags flags) {
   if (!gpu->queue_family_properties) {
-    vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical_device, &gpu->queue_count, NULL);
-    gpu->queue_family_properties = (VkQueueFamilyProperties*)malloc(sizeof(VkQueueFamilyProperties) * gpu->queue_count);
-    if (!gpu->queue_family_properties) {
-      printf("ERROR: rawkit_vulkan_find_queue_family_index failed - out of memory\n");
-      return 0;
-    }
-    vkGetPhysicalDeviceQueueFamilyProperties(gpu->physical_device, &gpu->queue_count, gpu->queue_family_properties);
+    rawkit_gpu_populate_queue_cache(gpu);
   }
 
   u32 best_match = 0xFFFFFFFF;
