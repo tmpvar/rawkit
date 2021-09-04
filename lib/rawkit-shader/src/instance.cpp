@@ -307,8 +307,16 @@ void rawkit_shader_instance_param_texture(
     VkImageMemoryBarrier barrier = {};
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    if (entry.readable) {
+      barrier.dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+    }
+
     if (entry.writable) {
       barrier.dstAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+    }
+
+    if (entry.writable || descriptor_type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
       barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
     } else {
       barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
