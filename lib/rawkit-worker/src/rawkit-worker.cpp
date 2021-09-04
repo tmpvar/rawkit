@@ -1,6 +1,7 @@
 #include <rawkit/worker.h>
 #include <rawkit-jit-internal.h>
 #include <rawkit-gpu-internal.h>
+#include <rawkit-hot-internal.h>
 
 #define RAWKIT_EXPORT_FILTER_WORKER
 #include <hot/host/hot.h>
@@ -19,6 +20,8 @@ rawkit_gpu_t *rawkit_worker_default_gpu(rawkit_worker_t *worker);
 
 struct WorkerState {
   using PayloadType = void *;
+
+  rawkit_hot_context_t hot_ctx;
 
   struct ThreadWrap {
     atomic<bool> complete;
@@ -224,6 +227,14 @@ rawkit_worker_queue_status_t rawkit_worker_queue_status(rawkit_worker_t *worker)
   ret.rx_count = state->host_rx.size_approx();
   ret.tx_count = state->host_tx.size_approx();
   return ret;
+}
+
+rawkit_hot_context_t *rawkit_worker_hot_context(rawkit_worker_t *worker) {
+  if (!worker || !worker->_state) {
+    return nullptr;
+  }
+  auto state = (WorkerState *)worker->_state;
+  return &state->hot_ctx;
 }
 
 rawkit_gpu_t *rawkit_worker_default_gpu(rawkit_worker_t *worker) {

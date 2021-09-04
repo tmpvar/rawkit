@@ -37,6 +37,8 @@ rawkit_worker_message_t *rawkit_worker_recv_ex(rawkit_worker_t *worker, bool tar
 
 rawkit_worker_queue_status_t rawkit_worker_queue_status(rawkit_worker_t *worker);
 
+rawkit_hot_context_t *rawkit_worker_hot_context(rawkit_worker_t *worker);
+
 
 #define rawkit_worker_send(worker, data) rawkit_worker_send_ex(worker, data, sizeof(*data), worker == rawkit_worker_host())
 #define rawkit_worker_recv(worker) rawkit_worker_recv_ex(worker, worker == rawkit_worker_host())
@@ -46,4 +48,6 @@ rawkit_worker_queue_status_t rawkit_worker_queue_status(rawkit_worker_t *worker)
 #ifdef RAWKIT_WORKER
   rawkit_gpu_t *rawkit_worker_default_gpu(rawkit_worker_t *worker);
   #define rawkit_default_gpu() rawkit_worker_default_gpu(rawkit_worker_host())
+
+  #define rawkit_default_hot_context() rawkit_worker_hot_context(rawkit_worker_host())
 #endif

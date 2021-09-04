@@ -1,4 +1,4 @@
-#include <rawkit/hot.h>
+#include <rawkit-hot-internal.h>
 #include <rawkit/core.h>
 
 #include <string.h>
@@ -6,22 +6,27 @@
 #include <unordered_map>
 using namespace std;
 
-typedef struct entry_t {
-  const char *name;
-  void *data;
-  uint64_t len;
-} entry_t;
+static rawkit_hot_context_t root_context;
 
-static unordered_map<uint64_t, entry_t> state_registry;
+void *rawkit_hot_state_ctx(
+  rawkit_hot_context_t *ctx,
+  const char *name,
+  uint64_t id,
+  uint64_t len,
+  void *data,
+  uint8_t is_resource
+) {
+  if (!ctx) {
+    ctx = &root_context;
+  }
 
-void *_rawkit_hot_state(const char *name, uint64_t id, uint64_t len, void *data, uint8_t is_resource) {
-  auto it = state_registry.find(id);
-  if (it != state_registry.end()) {
+  auto it = ctx->state_registry.find(id);
+  if (it != ctx->state_registry.end()) {
     // TODO: check if len is the same as the entry. When should we memset 0 vs resize?
     return it->second.data;
   }
 
-  entry_t entry = {};
+  rawkit_hot_entry_t entry = {};
   entry.len = len;
   if (!data) {
     data = calloc(len, 1);
@@ -37,14 +42,18 @@ void *_rawkit_hot_state(const char *name, uint64_t id, uint64_t len, void *data,
   }
 
   entry.data = data;
-  state_registry.emplace(id, entry);
+  ctx->state_registry.emplace(id, entry);
 
   return data;
 }
 
-void rawkit_hot_resource_destroy(uint64_t id) {
-  auto it = state_registry.find(id);
-  if (it == state_registry.end()) {
+void rawkit_hot_resource_destroy_ctx(rawkit_hot_context_t *ctx, uint64_t id) {
+  if (!ctx) {
+    ctx = &root_context;
+  }
+
+  auto it = ctx->state_registry.find(id);
+  if (it == ctx->state_registry.end()) {
     return;
   }
 
@@ -53,7 +62,7 @@ void rawkit_hot_resource_destroy(uint64_t id) {
     free(entry);
   }
 
-  state_registry.erase(it);
+  ctx->state_registry.erase(it);
 }
 
 
