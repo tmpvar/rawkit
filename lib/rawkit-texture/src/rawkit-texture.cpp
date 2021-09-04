@@ -305,9 +305,6 @@ void rawkit_texture_destroy(rawkit_texture_t *texture) {
 bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options_t options) {
   rawkit_gpu_t *gpu = options.gpu;
   VkDevice device = gpu->device;
-  VkQueue queue = rawkit_vulkan_find_queue(gpu, VK_QUEUE_GRAPHICS_BIT);
-  VkCommandPool command_pool = gpu->command_pool;
-  VkPipelineCache pipeline_cache = gpu->pipeline_cache;
 
   if (!texture->default_sampler) {
     VkSamplerCreateInfo info = {};
@@ -454,7 +451,6 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
       info->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     }
 
-
     info->image = texture->image;
     info->viewType = options.depth > 1 ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D;
     info->format = options.format;
@@ -492,59 +488,6 @@ bool rawkit_texture_init(rawkit_texture_t *texture, const rawkit_texture_options
         VK_BUFFER_USAGE_TRANSFER_DST_BIT
       )
     );
-  }
-
-  // transition the texture to be read/write
-  {
-    VkCommandBuffer command_buffer = rawkit_gpu_create_command_buffer(gpu, nullptr);
-    if (!command_buffer) {
-      printf("ERROR: rawkit_texture_init: could not create command buffer\n");
-      return false;
-    }
-    VkCommandBufferBeginInfo begin_info = {};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    VkResult begin_result = vkBeginCommandBuffer(command_buffer, &begin_info);
-
-    VkImageMemoryBarrier barrier = {};
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    rawkit_texture_transition(
-      texture,
-      command_buffer,
-      VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-      barrier
-    );
-    // Blindly submit this command buffer, this is a supreme hack to get something
-    // rendering on the screen.
-    {
-      VkSubmitInfo end_info = {};
-      end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-      end_info.commandBufferCount = 1;
-      end_info.pCommandBuffers = &command_buffer;
-      VkResult end_result = vkEndCommandBuffer(command_buffer);
-      if (end_result != VK_SUCCESS) {
-        printf("ERROR: rawkit-texture: could not end command buffer (%i)\n", end_result);
-        return false;
-      }
-
-      VkFence fence;
-      {
-        VkResult err = rawkit_gpu_fence_create(gpu, &fence);
-        if (err) {
-          printf("ERROR: rawkit_texture_init: create fence failed (%i)\n", err);
-          return false;
-        }
-      }
-
-      VkResult submit_err = vkQueueSubmit(queue, 1, &end_info, fence);
-      rawkit_gpu_queue_command_buffer_for_deletion(gpu, command_buffer, fence, gpu->command_pool);
-      if (submit_err) {
-        printf("ERROR: rawkit_texture_init: rawkit-texture: could not submit command buffer (%i)\n", submit_err);
-        return false;
-      }
-
-    }
   }
 
   texture->options = options;
