@@ -136,7 +136,8 @@ typedef struct rawkit_shader_instance_t {
   bool owns_command_buffer;
   bool can_launch;
   VkCommandBuffer command_buffer;
-  VkCommandPool command_pool;
+
+  rawkit_gpu_queue_t queue;
 
   // internal
   void *_state;
@@ -178,19 +179,37 @@ const rawkit_glsl_t *rawkit_shader_glsl(rawkit_shader_t *shader);
 
 VkPipelineStageFlags rawkit_glsl_vulkan_stage_flags(rawkit_glsl_stage_mask_t stage);
 
+
 // Shader Instances
-rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(
+rawkit_shader_instance_t *rawkit_shader_instance_create_ex(
   rawkit_gpu_t *gpu,
   rawkit_shader_t *shader,
-  VkCommandBuffer command_buffer,
+  rawkit_gpu_queue_t queue,
   uint32_t frame_idx
 );
 
-#define rawkit_shader_instance_begin(shader) rawkit_shader_instance_begin_ex( \
+#define rawkit_shader_instance_create(shader) rawkit_shader_instance_create_ex( \
   rawkit_default_gpu(), \
   shader, \
-  rawkit_vulkan_command_buffer(), \
+  rawkit_gpu_default_queue(), \
   rawkit_window_frame_index() \
+)
+
+#define rawkit_shader_instance_create_q(shader, queue_flags) rawkit_shader_instance_create_ex( \
+  rawkit_default_gpu(), \
+  shader, \
+  rawkit_gpu_queue(queue_flags), \
+  rawkit_window_frame_index() \
+)
+
+rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(
+  rawkit_shader_instance_t *inst,
+  VkCommandBuffer command_buffer
+);
+
+#define rawkit_shader_instance_begin(inst) rawkit_shader_instance_begin_ex( \
+  inst, \
+  rawkit_vulkan_command_buffer() \
 )
 
 void rawkit_shader_instance_param_texture(
@@ -245,13 +264,9 @@ void rawkit_shader_instance_dispatch_compute(
   uint32_t depth
 );
 
-VkFence rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue queue);
+VkFence rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance);
 
-#define rawkit_shader_instance_end(instance) rawkit_shader_instance_end_ex( \
-  instance, \
-  instance->gpu ? instance->gpu->graphics_queue : NULL \
-)
-
+#define rawkit_shader_instance_end(instance) rawkit_shader_instance_end_ex(instance)
 
 #ifdef __cplusplus
 }

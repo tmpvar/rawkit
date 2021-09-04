@@ -58,9 +58,9 @@ static inline VkResult update_descriptor_set_buffer(
 }
 
 
-ShaderInstanceState::ShaderInstanceState(rawkit_shader_t *shader, rawkit_shader_instance_t *instance) {
+ShaderInstanceState::ShaderInstanceState(rawkit_shader_instance_t *instance) {
   this->instance = instance;
-  this->shader = shader;
+  this->shader = instance->shader;
 
   ShaderState *shader_state = (ShaderState *)shader->_state;
 
@@ -132,7 +132,12 @@ ShaderInstanceState::~ShaderInstanceState() {
   this->buffers.clear();
 }
 
-rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(rawkit_gpu_t *gpu, rawkit_shader_t *shader, VkCommandBuffer command_buffer, uint32_t frame_idx) {
+rawkit_shader_instance_t *rawkit_shader_instance_create_ex(
+  rawkit_gpu_t *gpu,
+  rawkit_shader_t *shader,
+  rawkit_gpu_queue_t queue,
+  uint32_t frame_idx
+) {
   if (!gpu || !shader || !shader->_state || !shader->resource_version) {
     return NULL;
   }
@@ -165,11 +170,26 @@ rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(rawkit_gpu_t *gpu, raw
   instance->can_launch = true;
   instance->gpu = gpu;
   instance->shader = shader;
+  instance->queue = queue;
+  return instance;
+}
+
+rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(
+  rawkit_shader_instance_t *instance,
+  VkCommandBuffer command_buffer
+) {
+  if (!instance || !instance->shader) {
+    return nullptr;
+  }
+  auto gpu = instance->gpu;
+  ShaderState *shader_state = (ShaderState *)instance->shader->_state;
 
   if (!command_buffer) {
     instance->owns_command_buffer = true;
-    instance->command_pool = gpu->command_pool;
-    instance->command_buffer = rawkit_gpu_create_command_buffer(gpu, nullptr);
+    instance->command_buffer = rawkit_gpu_create_command_buffer(
+      gpu,
+      instance->queue.command_pool
+    );
   } else {
     instance->owns_command_buffer = false;
     instance->command_buffer = command_buffer;
@@ -184,7 +204,7 @@ rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(rawkit_gpu_t *gpu, raw
     VkCommandBufferBeginInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    err = vkBeginCommandBuffer(
+    VkResult err = vkBeginCommandBuffer(
       instance->command_buffer,
       &info
     );
@@ -208,7 +228,7 @@ rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(rawkit_gpu_t *gpu, raw
   bool dirty = rawkit_resource_sources_array(
     (rawkit_resource_t *)instance,
     1,
-    (rawkit_resource_t **)&shader
+    (rawkit_resource_t **)&instance->shader
   );
 
 
@@ -218,7 +238,7 @@ rawkit_shader_instance_t *rawkit_shader_instance_begin_ex(rawkit_gpu_t *gpu, raw
       delete instance_state;
     }
 
-    instance_state = new ShaderInstanceState(shader, instance);
+    instance_state = new ShaderInstanceState(instance);
     instance->_state = (void *)instance_state;
     instance->resource_version++;
   }
@@ -459,8 +479,8 @@ void rawkit_shader_instance_param_ssbo(
   );
 }
 
-VkFence rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueue queue) {
-  if (!instance || !instance->can_launch || !queue) {
+VkFence rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance) {
+  if (!instance || !instance->can_launch || !instance->queue.handle) {
     return VK_NULL_HANDLE;
   }
 
@@ -492,7 +512,7 @@ VkFence rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueu
     }
 
     err = vkQueueSubmit(
-      queue,
+      instance->queue.handle,
       1,
       &computeSubmitInfo,
       fence
@@ -502,7 +522,7 @@ VkFence rawkit_shader_instance_end_ex(rawkit_shader_instance_t *instance, VkQueu
       gpu,
       instance->command_buffer,
       fence,
-      instance->command_pool
+      instance->queue.command_pool
     );
 
     if (err != VK_SUCCESS) {
@@ -599,7 +619,7 @@ void rawkit_shader_instance_dispatch_compute(
   uint32_t height,
   uint32_t depth
 ) {
-  if (!instance || !instance->shader) {
+  if (!instance || !instance->shader || !instance->command_buffer) {
     return;
   }
 

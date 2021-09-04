@@ -16,7 +16,7 @@ using namespace std;
 
 class ShaderInstanceState {
   public:
-    ShaderInstanceState(rawkit_shader_t *shader, rawkit_shader_instance_t *instance);
+    ShaderInstanceState(rawkit_shader_instance_t *instance);
     ~ShaderInstanceState();
     rawkit_shader_instance_t *instance;
     rawkit_shader_t *shader;
