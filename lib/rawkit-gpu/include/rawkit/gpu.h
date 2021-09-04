@@ -75,8 +75,38 @@ rawkit_gpu_t *rawkit_default_gpu();
 int32_t rawkit_vulkan_find_queue_family_index(rawkit_gpu_t *gpu, VkQueueFlags flags);
 VkQueue rawkit_vulkan_find_queue(rawkit_gpu_t *gpu, VkQueueFlags flags);
 
-uint32_t rawkit_vulkan_find_memory_type(rawkit_gpu_t *gpu, VkMemoryPropertyFlags properties, uint32_t type_bits);
+typedef struct rawkit_gpu_queue_t {
+  VkQueue handle;
+  i32 family_idx;
+  VkCommandPool command_pool;
 
+  // internal
+  void *_state;
+} rawkit_gpu_queue_t;
+
+// Note: inside of a worker, the queue is shared with the root thread, but all threads synchronise
+rawkit_gpu_queue_t rawkit_gpu_queue_ex(rawkit_gpu_t *gpu, VkQueueFlags flags, u32 queue_idx);
+
+
+#define rawkit_gpu_queue(flags) rawkit_gpu_queue_ex(rawkit_default_gpu(), flags, 0)
+
+// choose the queue with the largest number of flags
+rawkit_gpu_queue_t rawkit_gpu_default_queue_ex(rawkit_gpu_t *gpu);
+
+// retrieve the command_pool associated with the queue that has
+// the largest number of flags.
+VkCommandPool rawkit_gpu_default_command_pool_ex(rawkit_gpu_t *gpu);
+
+// threadsafe enqueing of command buffers into the specified rawkit queue
+VkResult rawkit_gpu_queue_submit_ex(
+  rawkit_gpu_queue_t *queue,
+  VkCommandBuffer command_buffer,
+  VkFence fence
+);
+
+#define rawkit_gpu_queue_submit rawkit_gpu_queue_submit_ex
+
+uint32_t rawkit_vulkan_find_memory_type(rawkit_gpu_t *gpu, VkMemoryPropertyFlags properties, uint32_t type_bits);
 
 rawkit_gpu_buffer_t *rawkit_gpu_buffer_create(
   const char *name,
@@ -122,6 +152,9 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
 );
 
 VkResult rawkit_gpu_vertex_buffer_destroy(rawkit_gpu_t *gpu, rawkit_gpu_vertex_buffer_t *buf);
+
+VkCommandPool rawkit_gpu_command_pool_ex(rawkit_gpu_t *gpu, VkQueueFlags flags);
+#define rawkit_gpu_command_pool(flags) rawkit_gpu_command_pool_ex(rawkit_default_gpu(), flags)
 
 VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu, VkCommandPool pool);
 

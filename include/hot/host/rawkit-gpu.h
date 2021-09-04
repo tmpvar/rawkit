@@ -6,6 +6,13 @@
 static void host_init_rawkit_gpu(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_vulkan_find_memory_type", (void *)&rawkit_vulkan_find_memory_type);
   rawkit_jit_add_export(jit, "rawkit_vulkan_find_queue", (void *)&rawkit_vulkan_find_queue);
+  rawkit_jit_add_export(jit, "rawkit_gpu_queue_ex", (void *)&rawkit_gpu_queue_ex);
+  rawkit_jit_add_export(jit, "rawkit_gpu_queue_submit_ex", (void *)&rawkit_gpu_queue_submit_ex);
+
+  rawkit_jit_add_export(jit, "rawkit_gpu_default_queue_ex", (void *)&rawkit_gpu_default_queue_ex);
+  rawkit_jit_add_export(jit, "rawkit_gpu_default_command_pool_ex", (void *)&rawkit_gpu_default_command_pool_ex);
+
+  rawkit_jit_add_export(jit, "rawkit_gpu_command_pool_ex", (void *)&rawkit_gpu_command_pool_ex);
   rawkit_jit_add_export(jit, "rawkit_gpu_buffer_create", (void *)&rawkit_gpu_buffer_create);
   rawkit_jit_add_export(jit, "rawkit_gpu_buffer_update", (void *)&rawkit_gpu_buffer_update);
   rawkit_jit_add_export(jit, "rawkit_gpu_copy_buffer", (void *)&rawkit_gpu_copy_buffer);

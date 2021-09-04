@@ -49,9 +49,14 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
 
   VkResult err;
 
-  if (!gpu->_state) {
-    gpu->_state = (void *)new GPUState;
+  auto state = new GPUState;
+
+  if (gpu->_state) {
+    auto old_state = (GPUState *)gpu->_state;
+    delete old_state;
   }
+
+  gpu->_state = (void *)state;
 
   // Create Vulkan Instance
   {
@@ -244,13 +249,26 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     const char* device_extensions[] = { "VK_KHR_swapchain" };
     const float queue_priority[] = { 1.0f };
     std::vector<VkDeviceQueueCreateInfo> queue_info(gpu->queue_count);
-    for (u32 i=0; i<gpu->queue_count; i++) {
-      queue_info[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-      queue_info[i].queueFamilyIndex = i;
-      queue_info[i].queueCount = 1;
-      queue_info[i].pQueuePriorities = queue_priority;
-    }
 
+    {
+      u32 most_generic_queue = 0xFFFFFFFF;
+      u32 most_queue_flag_bits = 0;
+
+      for (u32 i=0; i<gpu->queue_count; i++) {
+        queue_info[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queue_info[i].queueFamilyIndex = i;
+        queue_info[i].queueCount = 1;
+        queue_info[i].pQueuePriorities = queue_priority;
+
+        u32 bits = countBits(gpu->queue_family_properties[i].queueFlags);
+        if (bits > most_queue_flag_bits) {
+          most_queue_flag_bits = bits;
+          most_generic_queue = i;
+        }
+      }
+
+      state->default_queue = most_generic_queue;
+    }
     VkPhysicalDeviceFeatures features = {};
     // TODO: make this configurable
     features.shaderInt64 = true;

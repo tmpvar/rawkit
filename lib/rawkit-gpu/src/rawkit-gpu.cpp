@@ -4,16 +4,8 @@
 #include <rawkit/hash.h>
 #include <rawkit/hot.h>
 
-
 #include <string>
 using namespace std;
-
-static inline u32 countBits(u32 i) {
-  i = i - ((i >> 1) & 0x55555555);        // add pairs of bits
-  i = (i & 0x33333333) + ((i >> 2) & 0x33333333);  // quads
-  i = (i + (i >> 4)) & 0x0F0F0F0F;        // groups of 8
-  return (i * 0x01010101) >> 24;          // horizontal sum of bytes
-}
 
 int32_t rawkit_vulkan_find_queue_family_index(rawkit_gpu_t *gpu, VkQueueFlags flags) {
   if (!gpu->queue_family_properties) {
@@ -59,6 +51,95 @@ VkQueue rawkit_vulkan_find_queue(rawkit_gpu_t *gpu, VkQueueFlags flags) {
 
   vkGetDeviceQueue(gpu->device, idx, 0, &queue);
   return queue;
+}
+
+
+rawkit_gpu_queue_t rawkit_gpu_queue_ex(rawkit_gpu_t *gpu, VkQueueFlags flags, u32 queue_idx) {
+  if (!gpu || !gpu->_state || !i32(flags)) {
+    return {};
+  }
+
+  auto state = (GPUState *)gpu->_state;
+
+  i32 family_idx = rawkit_vulkan_find_queue_family_index(gpu, flags);
+  if (family_idx < 0) {
+    return {};
+  }
+
+  auto it = state->queues.find(family_idx);
+  if (it == state->queues.end()) {
+    rawkit_gpu_queue_t q = {};
+    vkGetDeviceQueue(gpu->device, family_idx, queue_idx, &q.handle);
+    q.family_idx = family_idx;
+
+    // Create the associated command pool
+    {
+      VkCommandPoolCreateInfo info = {};
+      info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+      info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+      info.queueFamilyIndex = family_idx;
+      VkResult err = vkCreateCommandPool(
+        gpu->device,
+        &info,
+        gpu->allocator,
+        &q.command_pool
+      );
+
+      if (err) {
+        printf("ERROR: rawkit_gpu_queue: could not allocate command pool (%i)\n", err);
+        return {};
+      }
+    }
+
+    state->queues[family_idx] = new GPUQueue(q);
+    return q;
+  }
+
+  return it->second->queue;
+}
+
+VkResult rawkit_gpu_queue_submit_ex(
+  rawkit_gpu_queue_t *queue,
+  VkCommandBuffer command_buffer,
+  VkFence fence
+) {
+  // we need the root level rawkit_gpu here so all threads lock against
+  // the same set of mutexes.
+  auto gpu = rawkit_default_gpu();
+
+  if (!gpu || !gpu->_state) {
+    printf("ERROR: rawkit_gpu_queue_enqueue: invalid gpu\n");
+    return VK_INCOMPLETE;
+  }
+
+  if (!queue || !queue->_state) {
+    printf("ERROR: rawkit_gpu_queue_enqueue: invalid queue\n");
+    return VK_INCOMPLETE;
+  }
+
+  if (!command_buffer) {
+    printf("ERROR: rawkit_gpu_queue_enqueue: invalid command_buffer\n");
+    return VK_INCOMPLETE;
+  }
+
+  auto gpu_state = (GPUState *)gpu->_state;
+  auto queue_state = (GPUQueue *)queue->_state;
+
+  {
+    std::lock_guard<std::mutex> guard(queue_state->queue_mutex);
+
+    VkSubmitInfo submit = {};
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.commandBufferCount = 1;
+    submit.pCommandBuffers = &command_buffer;
+    VkResult err = vkQueueSubmit(queue->handle, 1, &submit, fence);
+    if (err) {
+      printf("ERROR: rawkit_gpu_queue_submit_ex: unable to submit command buffer (%i)\n", err);
+      return err;
+    }
+  }
+
+  return VK_SUCCESS;
 }
 
 uint32_t rawkit_vulkan_find_memory_type(rawkit_gpu_t *gpu, VkMemoryPropertyFlags properties, uint32_t type_bits) {
@@ -511,7 +592,41 @@ rawkit_gpu_vertex_buffer_t *rawkit_gpu_vertex_buffer_create(
   return vb;
 }
 
+rawkit_gpu_queue_t rawkit_gpu_default_queue_ex(rawkit_gpu_t *gpu) {
+  if (!gpu || !gpu->_state) {
+    return {};
+  }
+
+  auto state = (GPUState *)gpu->_state;
+
+  auto it = state->queues.find(state->default_queue);
+  if (it == state->queues.end()) {
+    return {};
+  }
+
+  return it->second->queue;
+}
+
+VkCommandPool rawkit_gpu_default_command_pool_ex(rawkit_gpu_t *gpu) {
+  auto queue = rawkit_gpu_default_queue_ex(gpu);
+  return queue.command_pool;
+}
+
+VkCommandPool rawkit_gpu_command_pool_ex(rawkit_gpu_t *gpu, VkQueueFlags flags) {
+  if (!gpu || !gpu->_state || !flags) {
+    printf("ERROR: rawkit_gpu_command_pool_ex: invalid arguments\n");
+    return VK_NULL_HANDLE;
+  }
+
+  auto queue = rawkit_gpu_queue_ex(gpu, flags, 0);
+  return queue.command_pool;
+}
+
 VkCommandBuffer rawkit_gpu_create_command_buffer(rawkit_gpu_t *gpu, VkCommandPool pool) {
+  if (!gpu || !pool) {
+    printf("ERROR: rawkit_gpu_create_command_buffer: invalid arguments\n");
+    return VK_NULL_HANDLE;
+  }
   VkCommandBufferAllocateInfo info = {};
   info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   info.commandPool = pool == VK_NULL_HANDLE ? gpu->command_pool : pool;
