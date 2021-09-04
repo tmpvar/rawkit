@@ -117,6 +117,7 @@ ShaderState *ShaderState::create(
   {
     VkResult err = VK_SUCCESS;
     if (rawkit_glsl_is_compute(glsl)){
+      state->render_pass = nullptr;
       err = state->create_compute_pipeline();
     } else {
       if (!render_pass) {
