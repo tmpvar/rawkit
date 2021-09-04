@@ -1,5 +1,6 @@
 #include <rawkit/worker.h>
 #include <rawkit-jit-internal.h>
+#include <rawkit-gpu-internal.h>
 
 #define RAWKIT_EXPORT_FILTER_WORKER
 #include <hot/host/hot.h>
