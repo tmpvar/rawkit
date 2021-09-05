@@ -57,19 +57,8 @@ VkQueue rawkit_vulkan_find_queue(rawkit_gpu_t *gpu, VkQueueFlags flags) {
   return queue;
 }
 
-
-rawkit_gpu_queue_t rawkit_gpu_queue_ex(rawkit_gpu_t *gpu, VkQueueFlags flags, u32 queue_idx) {
-  if (!gpu || !gpu->_state || !i32(flags)) {
-    return {};
-  }
-
+rawkit_gpu_queue_t rawkit_gpu_queue_by_family(rawkit_gpu_t *gpu, u32 family_idx, u32 queue_idx) {
   auto state = (GPUState *)gpu->_state;
-
-  i32 family_idx = rawkit_vulkan_find_queue_family_index(gpu, flags);
-  if (family_idx < 0) {
-    return {};
-  }
-
   auto it = state->queues.find(family_idx);
   if (it == state->queues.end()) {
     rawkit_gpu_queue_t q = {};
@@ -100,6 +89,20 @@ rawkit_gpu_queue_t rawkit_gpu_queue_ex(rawkit_gpu_t *gpu, VkQueueFlags flags, u3
   }
 
   return it->second->queue;
+}
+rawkit_gpu_queue_t rawkit_gpu_queue_ex(rawkit_gpu_t *gpu, VkQueueFlags flags, u32 queue_idx) {
+  if (!gpu || !gpu->_state || !i32(flags)) {
+    return {};
+  }
+
+  auto state = (GPUState *)gpu->_state;
+
+  i32 family_idx = rawkit_vulkan_find_queue_family_index(gpu, flags);
+  if (family_idx < 0) {
+    return {};
+  }
+
+  return rawkit_gpu_queue_by_family(gpu, family_idx, queue_idx);
 }
 
 VkResult rawkit_gpu_queue_submit_ex(
@@ -603,12 +606,7 @@ rawkit_gpu_queue_t rawkit_gpu_default_queue_ex(rawkit_gpu_t *gpu) {
 
   auto state = (GPUState *)gpu->_state;
 
-  auto it = state->queues.find(state->default_queue);
-  if (it == state->queues.end()) {
-    return {};
-  }
-
-  return it->second->queue;
+  return rawkit_gpu_queue_by_family(gpu, state->default_queue, 0);
 }
 
 VkCommandPool rawkit_gpu_default_command_pool_ex(rawkit_gpu_t *gpu) {
