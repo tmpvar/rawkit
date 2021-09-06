@@ -469,10 +469,12 @@ void rawkit_shader_instance_param_buffer_ex(
   }
 }
 
-void rawkit_shader_instance_param_ssbo(
+void rawkit_shader_instance_param_ssbo_ex(
   rawkit_shader_instance_t *instance,
   const char *name,
-  rawkit_gpu_ssbo_t *ssbo
+  rawkit_gpu_ssbo_t *ssbo,
+  VkDeviceSize offset,
+  VkDeviceSize size
 ) {
   if (!instance || !instance->_state || !ssbo || !ssbo->resource_version || !name) {
     return;
@@ -482,10 +484,12 @@ void rawkit_shader_instance_param_ssbo(
     return;
   }
 
-  rawkit_shader_instance_param_buffer(
+  rawkit_shader_instance_param_buffer_ex(
     instance,
     name,
-    ssbo->buffer
+    ssbo->buffer,
+    offset,
+    size
   );
 }
 

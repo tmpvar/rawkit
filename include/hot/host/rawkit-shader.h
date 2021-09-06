@@ -21,7 +21,7 @@ static void host_init_rawkit_shader(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "rawkit_shader_instance_end_ex", rawkit_shader_instance_end_ex);
 
   // SSBO
-  rawkit_jit_add_export(jit, "rawkit_shader_instance_param_ssbo", rawkit_shader_instance_param_ssbo);
+  rawkit_jit_add_export(jit, "rawkit_shader_instance_param_ssbo_ex", rawkit_shader_instance_param_ssbo_ex);
 
   // Buffer
   rawkit_jit_add_export(jit, "rawkit_shader_instance_param_buffer_ex", rawkit_shader_instance_param_buffer_ex);
