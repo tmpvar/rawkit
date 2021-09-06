@@ -434,7 +434,7 @@ void rawkit_shader_instance_param_buffer_ex(
     name
   );
   if (entry.entry_type != RAWKIT_GLSL_REFLECTION_ENTRY_STORAGE_BUFFER) {
-    printf("WARN: rawkit_shader_instance_param_buffer: could not set '%s' as Storage Buffer\n", name);
+    printf("WARN: rawkit_shader_instance_param_buffer: could not set '%s' as Storage Buffer (entry_type: %i)\n", name, entry.entry_type);
     return;
   }
 
