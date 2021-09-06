@@ -6,6 +6,19 @@ using namespace std;
 #include "stb_sb.h"
 #include <stdarg.h>
 
+#include <chrono>
+using namespace std;
+
+static chrono::high_resolution_clock::time_point program_start_time = chrono::high_resolution_clock::now();
+double rawkit_now() {
+  auto t = chrono::high_resolution_clock::now();
+  auto d = chrono::duration_cast<chrono::duration<double>>(
+    t - program_start_time
+  );
+  return d.count();
+}
+
+
 bool _rawkit_resource_sources(rawkit_resource_t *res, uint32_t source_count, ...) {
   if (!res) {
     return false;

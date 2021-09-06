@@ -62,6 +62,9 @@ typedef double    f64;
 #endif
 
 
+double rawkit_now();
+
+
 #ifdef __cplusplus
   }
 #endif

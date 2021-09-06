@@ -38,17 +38,9 @@ static void host_hot_init_state(rawkit_jit_t *jit) {
   #include <hot/host/rawkit-vg.h>
   #include <hot/host/rawkit-window.h>
 
-  // FIXME: maybe we should use chrono for this instead
-  double rawkit_now() {
-    return glfwGetTime();
-  }
-
-
-
   void host_rawkit_serial_init(rawkit_jit_t *jit);
 
   void host_hot_init(rawkit_jit_t *jit) {
-
     host_hot_init_state(jit);
     // host_init_string(jit);
 
@@ -86,8 +78,6 @@ static void host_hot_init_state(rawkit_jit_t *jit) {
     host_init_uv(jit);
     host_init_lz4(jit);
     host_init_hidapi(jit);
-
-    rawkit_jit_add_export(jit, "rawkit_now", (void *)&rawkit_now);
   }
 #endif
 
@@ -116,6 +106,4 @@ static void worker_hot_init(rawkit_jit_t *jit) {
   host_init_uv(jit);
   // host_init_lz4(jit);
   // host_init_hidapi(jit);
-
-  // rawkit_jit_add_export(jit, "rawkit_now", (void *)&rawkit_now);
 }
