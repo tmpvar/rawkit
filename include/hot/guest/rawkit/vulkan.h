@@ -20,8 +20,8 @@ extern "C" {
     static inline VkRenderPass rawkit_vulkan_renderpass() { return VK_NULL_HANDLE; }
     static inline VkDescriptorPool rawkit_vulkan_descriptor_pool() { return VK_NULL_HANDLE; }
 
-    // TODO: this is legacy, use rawkit_vulkan_find_queue instead
     static inline VkFramebuffer rawkit_current_framebuffer() { return VK_NULL_HANDLE; }
+    static inline void rawkit_renderpass_timeline_semaphore(VkSemaphore semaphore, u64 signal, u64 wait) {}
 
   #else
     VkDevice rawkit_vulkan_device();
@@ -36,6 +36,9 @@ extern "C" {
     VkDescriptorPool rawkit_vulkan_descriptor_pool();
 
     VkFramebuffer rawkit_current_framebuffer();
+
+    void rawkit_renderpass_timeline_semaphore(VkSemaphore semaphore, u64 wait, u64 signal);
+
   #endif
 #ifdef __cplusplus
 }

@@ -235,18 +235,52 @@ static void EndMainRenderPass(rawkit_gpu_t *gpu, ImGui_ImplVulkanH_Window* wd, V
   }
 
   {
-    VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     info.commandBufferCount = 1;
     info.pCommandBuffers = &fd->CommandBuffer;
-    info.pWaitDstStageMask = &wait_stage;
+
+    vector<VkSemaphore> wait_semaphores;
+    vector<VkSemaphore> signal_semaphores;
+    vector<u64> waits;
+    vector<u64> signals;
+    vector<VkPipelineStageFlags> wait_stages;
+
+    // setup the frame semaphores
+    wait_semaphores.push_back(image_acquired_semaphore);
+    signal_semaphores.push_back(render_complete_semaphore);
+    waits.push_back(0);
+    signals.push_back(0);
+    wait_stages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+    // populate using the pending timeline semaphores
+    {
+      auto it = wd->TimelineSemaphores.begin();
+      while(it != wd->TimelineSemaphores.end()) {
+        wait_semaphores.push_back(it->handle);
+        signal_semaphores.push_back(it->handle);
+        waits.push_back(it->wait);
+        signals.push_back(it->signal);
+        wd->TimelineSemaphores.erase(it);
+        wait_stages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+      }
+    }
+    info.pWaitDstStageMask = wait_stages.data();
+
+    VkTimelineSemaphoreSubmitInfo timelineInfo;
+    timelineInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+    timelineInfo.pNext = NULL;
+    timelineInfo.waitSemaphoreValueCount = waits.size();
+    timelineInfo.pWaitSemaphoreValues = waits.data();
+    timelineInfo.signalSemaphoreValueCount = signals.size();
+    timelineInfo.pSignalSemaphoreValues = signals.data();
 
     if (!renderpass_err) {
-      info.waitSemaphoreCount = 1;
-      info.pWaitSemaphores = &image_acquired_semaphore;
-      info.signalSemaphoreCount = 1;
-      info.pSignalSemaphores = &render_complete_semaphore;
+      info.pNext = &timelineInfo;
+      info.waitSemaphoreCount = wait_semaphores.size();
+      info.pWaitSemaphores = wait_semaphores.data();
+      info.signalSemaphoreCount = signal_semaphores.size();
+      info.pSignalSemaphores = signal_semaphores.data();
     }
 
     err = vkEndCommandBuffer(fd->CommandBuffer);
@@ -433,6 +467,11 @@ rawkit_gpu_t *rawkit_default_gpu() {
   return default_gpu;
 }
 
+void rawkit_renderpass_timeline_semaphore(VkSemaphore semaphore, u64 wait, u64 signal) {
+  ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+  wd->TimelineSemaphores.push_back(std::move(TimelineSemaphore(semaphore, signal, wait)));
+}
+
 int main(int argc, char **argv) {
     const flags::args args(argc, argv);
     auto pargs = args.positional();
@@ -471,6 +510,7 @@ int main(int argc, char **argv) {
     rawkit_jit_add_export(jit, "rawkit_vulkan_renderpass", rawkit_vulkan_renderpass);
     rawkit_jit_add_export(jit, "rawkit_vulkan_descriptor_pool", rawkit_vulkan_descriptor_pool);
     rawkit_jit_add_export(jit, "rawkit_current_framebuffer", rawkit_current_framebuffer);
+    rawkit_jit_add_export(jit, "rawkit_renderpass_timeline_semaphore", rawkit_renderpass_timeline_semaphore);
     rawkit_jit_add_export(jit, "rawkit_randf", rawkit_randf);
 
     rawkit_jit_add_export(jit, "rawkit_default_gpu", rawkit_default_gpu);

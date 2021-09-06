@@ -1,6 +1,7 @@
 #pragma once
 
 #include <rawkit/hot.h>
+#include <vulkan/vulkan.h>
 #include <pull/stream.h>
 
 typedef struct rawkit_worker_t {
@@ -43,6 +44,17 @@ rawkit_hot_context_t *rawkit_worker_hot_context(rawkit_worker_t *worker);
 
 #define rawkit_worker_send(worker, data) rawkit_worker_send_ex(worker, data, sizeof(*data), worker == rawkit_worker_host())
 #define rawkit_worker_recv(worker) rawkit_worker_recv_ex(worker, worker == rawkit_worker_host())
+
+
+// Vulkan Synchronization
+VkSemaphore rawkit_worker_timeline_semaphore(rawkit_worker_t *worker);
+
+// adds one to the counter and returns the original value
+//   usage:
+//   u64 wait = rawkit_worker_timeline_counter_next(...)
+//   u64 signal = wait + 1;
+//   use wait and signal in a VkQueueSubmit call
+u64 rawkit_worker_timeline_counter_next(rawkit_worker_t *worker);
 
 // Compatibility
 

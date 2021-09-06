@@ -14,14 +14,21 @@ namespace fs = ghc::filesystem;
 #include <thread>
 #include <atomic>
 #include <chrono>
+#include <atomic>
 using namespace std;
 
 rawkit_gpu_t *rawkit_worker_default_gpu(rawkit_worker_t *worker);
 
 struct WorkerState {
   using PayloadType = void *;
+  moodycamel::ConcurrentQueue<PayloadType> host_rx;
+  moodycamel::ConcurrentQueue<PayloadType> host_tx;
 
   rawkit_hot_context_t hot_ctx;
+
+  // Vulkan synchronisation state
+  atomic<u64> timeline_counter = 0;
+  VkSemaphore timeline_semaphore = VK_NULL_HANDLE;
 
   struct ThreadWrap {
     atomic<bool> complete;
@@ -41,9 +48,6 @@ struct WorkerState {
       }
     }
   };
-
-  moodycamel::ConcurrentQueue<PayloadType> host_rx;
-  moodycamel::ConcurrentQueue<PayloadType> host_tx;
 
   static void thread_tick(WorkerState *worker_state, ThreadWrap *thread_wrap) {
     while(!thread_wrap->complete.load()) {
@@ -134,6 +138,26 @@ struct WorkerState {
 
     rawkit_jit_add_define(jit, worker_host_address_define);
     thread_wrap = new ThreadWrap(this);
+
+    {
+      VkSemaphoreTypeCreateInfo timelineCreateInfo;
+      timelineCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+      timelineCreateInfo.pNext = NULL;
+      timelineCreateInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+      timelineCreateInfo.initialValue = 0;
+
+      VkSemaphoreCreateInfo createInfo;
+      createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+      createInfo.pNext = &timelineCreateInfo;
+      createInfo.flags = 0;
+
+      vkCreateSemaphore(
+        rawkit_default_gpu()->device,
+        &createInfo,
+        NULL,
+        &timeline_semaphore
+      );
+    }
   }
 
 };
@@ -227,6 +251,25 @@ rawkit_worker_queue_status_t rawkit_worker_queue_status(rawkit_worker_t *worker)
   ret.rx_count = state->host_rx.size_approx();
   ret.tx_count = state->host_tx.size_approx();
   return ret;
+}
+
+VkSemaphore rawkit_worker_timeline_semaphore(rawkit_worker_t *worker) {
+  if (!worker || !worker->_state) {
+    return VK_NULL_HANDLE;
+  }
+
+  auto state = (WorkerState *)worker->_state;
+  return state->timeline_semaphore;
+}
+
+u64 rawkit_worker_timeline_counter_next(rawkit_worker_t *worker) {
+  if (!worker || !worker->_state) {
+    printf("ERROR: rawkit_worker_timeline_counter_next: invalid worker\n");
+    return 0;
+  }
+
+  auto state = (WorkerState *)worker->_state;
+  return state->timeline_counter.fetch_add(1, std::memory_order_seq_cst);
 }
 
 rawkit_hot_context_t *rawkit_worker_hot_context(rawkit_worker_t *worker) {

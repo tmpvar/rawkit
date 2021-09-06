@@ -47,7 +47,7 @@
 #include "imgui_impl_vulkan.h"
 #include <stdio.h>
 
-#include <vector>
+
 using namespace std;
 
 // Reusable buffers used for rendering 1 current in-flight frame, for ImGui_ImplVulkan_RenderDrawData()

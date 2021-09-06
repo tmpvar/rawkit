@@ -22,6 +22,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+#include <vector>
 
 // Initialization data, for ImGui_ImplVulkan_Init()
 // [Please zero-clear before use!]
@@ -97,6 +98,16 @@ struct ImGui_ImplVulkanH_FrameSemaphores
     VkSemaphore         RenderCompleteSemaphore;
 };
 
+struct TimelineSemaphore {
+    TimelineSemaphore(VkSemaphore handle, uint64_t signal, uint64_t wait)
+        : handle(handle), signal(signal), wait(wait)
+    {}
+
+    VkSemaphore handle = VK_NULL_HANDLE;
+    uint64_t signal = 0;
+    uint64_t wait = 0;
+};
+
 // Helper structure to hold the data needed by one rendering context into one OS window
 // (Used by example's main.cpp. Used by multi-viewport features. Probably NOT used by your own engine/app.)
 struct ImGui_ImplVulkanH_Window
@@ -115,6 +126,8 @@ struct ImGui_ImplVulkanH_Window
     uint32_t            SemaphoreIndex;         // Current set of swapchain wait semaphores we're using (needs to be distinct from per frame data)
     ImGui_ImplVulkanH_Frame*            Frames = nullptr;
     ImGui_ImplVulkanH_FrameSemaphores*  FrameSemaphores = nullptr;
+    std::vector<TimelineSemaphore> TimelineSemaphores;
+
 
     VkImage             Depthbuffer;
     VkImageView         DepthbufferView;
