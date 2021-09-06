@@ -237,11 +237,17 @@ void rawkit_shader_instance_param_push_constants(
   uint64_t bytes
 );
 
-void rawkit_shader_instance_param_buffer(
+void rawkit_shader_instance_param_buffer_ex(
   rawkit_shader_instance_t *instance,
   const char *name,
-  rawkit_gpu_buffer_t *buffer
+  rawkit_gpu_buffer_t *buffer,
+  VkDeviceSize offset,
+  VkDeviceSize size
 );
+
+#define rawkit_shader_instance_param_buffer(inst, name, buffer) \
+  rawkit_shader_instance_param_buffer_ex(inst, name, buffer, 0, VK_WHOLE_SIZE)
+
 
 void rawkit_shader_instance_param_ssbo(
   rawkit_shader_instance_t *instance,

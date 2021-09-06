@@ -408,10 +408,12 @@ void _rawkit_shader_instance_param_ubo(
   );
 }
 
-void rawkit_shader_instance_param_buffer(
+void rawkit_shader_instance_param_buffer_ex(
   rawkit_shader_instance_t *instance,
   const char *name,
-  rawkit_gpu_buffer_t *buffer
+  rawkit_gpu_buffer_t *buffer,
+  VkDeviceSize offset,
+  VkDeviceSize size
 ) {
   if (!instance || !instance->_state || !buffer || !buffer->handle || !name) {
     printf("WARN: rawkit_shader_instance_param_buffer: invalid instance for args name(%s) buffer(%s)\n", name, buffer->resource_name);
@@ -445,8 +447,8 @@ void rawkit_shader_instance_param_buffer(
 
     VkDescriptorBufferInfo bufferInfo = {};
     bufferInfo.buffer = buffer->handle;
-    bufferInfo.offset = 0;
-    bufferInfo.range = buffer->size;
+    bufferInfo.offset = offset;
+    bufferInfo.range = size;
 
     ShaderInstanceState *state = (ShaderInstanceState *)instance->_state;
 
