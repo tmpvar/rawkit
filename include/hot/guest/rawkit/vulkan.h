@@ -21,7 +21,7 @@ extern "C" {
     static inline VkDescriptorPool rawkit_vulkan_descriptor_pool() { return VK_NULL_HANDLE; }
 
     static inline VkFramebuffer rawkit_current_framebuffer() { return VK_NULL_HANDLE; }
-    static inline void rawkit_renderpass_timeline_semaphore(VkSemaphore semaphore, u64 signal, u64 wait) {}
+    static inline void rawkit_renderpass_timeline_semaphore(VkSemaphore semaphore, u64 wait, u64 signal) {}
 
   #else
     VkDevice rawkit_vulkan_device();

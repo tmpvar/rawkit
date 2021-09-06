@@ -99,13 +99,13 @@ struct ImGui_ImplVulkanH_FrameSemaphores
 };
 
 struct TimelineSemaphore {
-    TimelineSemaphore(VkSemaphore handle, uint64_t signal, uint64_t wait)
-        : handle(handle), signal(signal), wait(wait)
+    TimelineSemaphore(VkSemaphore handle, uint64_t wait, uint64_t signal)
+        : handle(handle), wait(wait), signal(signal)
     {}
 
-    VkSemaphore handle = VK_NULL_HANDLE;
-    uint64_t signal = 0;
-    uint64_t wait = 0;
+    VkSemaphore handle;
+    uint64_t signal;
+    uint64_t wait;
 };
 
 // Helper structure to hold the data needed by one rendering context into one OS window

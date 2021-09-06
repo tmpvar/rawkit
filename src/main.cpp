@@ -468,8 +468,9 @@ rawkit_gpu_t *rawkit_default_gpu() {
 }
 
 void rawkit_renderpass_timeline_semaphore(VkSemaphore semaphore, u64 wait, u64 signal) {
-  ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
-  wd->TimelineSemaphores.push_back(std::move(TimelineSemaphore(semaphore, signal, wait)));
+  printf("ERROR: rawkit_renderpass_timeline_semaphore has been disabled as it causes deadlocks\n");
+  // ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
+  // wd->TimelineSemaphores.push_back(std::move(TimelineSemaphore(semaphore, wait, signal)));
 }
 
 int main(int argc, char **argv) {
