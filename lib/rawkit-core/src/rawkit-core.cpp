@@ -7,6 +7,7 @@ using namespace std;
 #include <stdarg.h>
 
 #include <chrono>
+#include <random>
 using namespace std;
 
 static chrono::high_resolution_clock::time_point program_start_time = chrono::high_resolution_clock::now();
@@ -18,6 +19,12 @@ double rawkit_now() {
   return d.count();
 }
 
+float rawkit_randf() {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> dis(0.0, 1.0);
+  return dis(gen);
+}
 
 bool _rawkit_resource_sources(rawkit_resource_t *res, uint32_t source_count, ...) {
   if (!res) {

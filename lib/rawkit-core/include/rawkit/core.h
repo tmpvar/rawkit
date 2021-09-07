@@ -63,7 +63,7 @@ typedef double    f64;
 
 
 double rawkit_now();
-
+float rawkit_randf();
 
 #ifdef __cplusplus
   }

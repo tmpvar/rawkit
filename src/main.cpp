@@ -437,14 +437,6 @@ VkFramebuffer rawkit_current_framebuffer() {
   return fb;
 }
 
-
-float rawkit_randf() {
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_real_distribution<> dis(0.0, 1.0);
-  return dis(gen);
-}
-
 VkPipelineCache rawkit_vulkan_pipeline_cache() {
   rawkit_gpu_t *gpu = rawkit_default_gpu();
   if (!gpu) {
@@ -512,7 +504,6 @@ int main(int argc, char **argv) {
     rawkit_jit_add_export(jit, "rawkit_vulkan_descriptor_pool", rawkit_vulkan_descriptor_pool);
     rawkit_jit_add_export(jit, "rawkit_current_framebuffer", rawkit_current_framebuffer);
     rawkit_jit_add_export(jit, "rawkit_renderpass_timeline_semaphore", rawkit_renderpass_timeline_semaphore);
-    rawkit_jit_add_export(jit, "rawkit_randf", rawkit_randf);
 
     rawkit_jit_add_export(jit, "rawkit_default_gpu", rawkit_default_gpu);
 
