@@ -105,7 +105,6 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     create_info.enabledExtensionCount = extensions_ext.size();
     create_info.ppEnabledExtensionNames = extensions_ext.data();
 
-
     VkDebugUtilsMessengerCreateInfoEXT debug_utils_create_info = {
       VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT
     };
@@ -263,14 +262,21 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
       state->default_queue = most_generic_queue;
     }
     VkPhysicalDeviceFeatures features = {};
+
     // TODO: make this configurable
     features.shaderInt64 = true;
     features.shaderFloat64 = true;
     features.fragmentStoresAndAtomics = true;
     features.fillModeNonSolid = true;
 
+    VkPhysicalDeviceVulkan12Features vk12_features = {};
+    vk12_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    vk12_features.timelineSemaphore = true;
+
+
     VkDeviceCreateInfo create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    create_info.pNext = &vk12_features;
     create_info.queueCreateInfoCount = queue_info.size();
     create_info.pQueueCreateInfos = queue_info.data();
     create_info.enabledExtensionCount = device_extension_count;
