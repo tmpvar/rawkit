@@ -56,6 +56,11 @@ typedef uint64_t  u64;
 typedef float     f32;
 typedef double    f64;
 
+#ifdef RAWKIT_GUEST
+typedef __int128_t i128;
+typedef __uint128_t u128;
+#endif
+
 #ifndef __cplusplus
   #define min(a, b) a<b?a:b
   #define max(a, b) a>b?a:b
