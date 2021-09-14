@@ -853,7 +853,6 @@ int main(int argc, char **argv) {
         {
           const std::lock_guard<std::mutex> lock(active_jits_mutex);
           for (const auto it : active_jits) {
-            ImGui::Text("%s status: %u",  it.first.c_str(), it.second.status);
             if (it.second.status == RAWKIT_JIT_TICK_ERROR) {
               string title = it.first;
               ImGui::Begin(title.c_str());
