@@ -172,6 +172,7 @@ class JitJob {
     vector<DiagnosticEntry> messages;
     std::unique_ptr<Runnable> active_runnable;
     bool debug_build = false;
+    rawkit_jit_tick_status last_build_status;
     static JitJob *create(int argc, const char **argv);
     rawkit_jit_tick_status rebuild();
     void addExport(const char *name, void *addr);

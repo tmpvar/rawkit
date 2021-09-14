@@ -15,7 +15,7 @@ enum rawkit_jit_status {
 };
 
 rawkit_jit_t *rawkit_jit_create(const char *file);
-rawkit_jit_status rawkit_jit_get_status(rawkit_jit_t *jit);
+rawkit_jit_status rawkit_jit_get_status(const rawkit_jit_t *jit);
 
 void _rawkit_jit_destroy(rawkit_jit_t **jit);
 #define rawkit_jit_destroy(jit) _rawkit_jit_destroy(&jit)
@@ -53,8 +53,14 @@ typedef struct rawkit_jit_message_t {
   const char *str;
 } rawkit_jit_message_t;
 
+const char *rawkit_jit_get_program_path(const rawkit_jit_t *jit);
 bool rawkit_jit_get_message(const rawkit_jit_t *jit, uint32_t index, rawkit_jit_message_t *msg);
+typedef void (*rawkit_jit_status_callback_t)(const rawkit_jit_t *jit, rawkit_jit_tick_status status);
 
+#ifndef RAWKIT_GUEST
+  // this would be a footgun to expose to guests
+  void rawkit_jit_set_global_status_callback(rawkit_jit_status_callback_t cb);
+#endif
 
 void rawkit_jit_call_setup(rawkit_jit_t *jit);
 void rawkit_jit_call_loop(rawkit_jit_t *jit);

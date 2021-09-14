@@ -16,6 +16,7 @@
 #include <iostream>
 #include <cctype>
 #include <random>
+#include <mutex>
 
 
 #include <stdio.h>
@@ -465,6 +466,32 @@ void rawkit_renderpass_timeline_semaphore(VkSemaphore semaphore, u64 wait, u64 s
   // wd->TimelineSemaphores.push_back(std::move(TimelineSemaphore(semaphore, wait, signal)));
 }
 
+
+struct ActiveJit {
+  ActiveJit(const rawkit_jit_t *jit, rawkit_jit_tick_status status)
+    : jit(jit), status(status) {}
+  const rawkit_jit_t *jit;
+  rawkit_jit_tick_status status;
+};
+
+
+
+std::mutex active_jits_mutex;
+unordered_map<string, ActiveJit> active_jits;
+
+void jit_status_callback(const rawkit_jit_t *jit, rawkit_jit_tick_status status) {
+  const std::lock_guard<std::mutex> lock(active_jits_mutex);
+
+  string name(rawkit_jit_get_program_path(jit));
+  const auto &it = active_jits.find(name);
+  if (it == active_jits.end()) {
+    printf("add active jit: %s\n", name.c_str());
+    active_jits.insert(std::pair(name, ActiveJit(jit, status)));
+  } else {
+     it->second.status = status;
+  }
+}
+
 int main(int argc, char **argv) {
     const flags::args args(argc, argv);
     auto pargs = args.positional();
@@ -477,6 +504,9 @@ int main(int argc, char **argv) {
     if (!jit) {
       return -1;
     }
+
+
+    rawkit_jit_set_global_status_callback(jit_status_callback);
     rawkit_set_default_jit(jit);
     rawkit_jit_set_debug(jit, args.get<bool>("rawkit-jit-debug", false));
 
@@ -586,37 +616,6 @@ int main(int argc, char **argv) {
 
         // TODO: rerun if any of the dependencies change - file, shader, etc..
         auto tick_result = rawkit_jit_tick(jit);
-
-        if (tick_result == RAWKIT_JIT_TICK_ERROR) {
-          uint32_t i = 0;
-          rawkit_jit_message_t msg;
-          while (rawkit_jit_get_message(jit, i, &msg)) {
-            if (i == 0) {
-              fprintf(stderr, "program compilation issues\n");
-            }
-
-            const char *level_str = "<null>";
-            switch (msg.level) {
-              case RAWKIT_JIT_MESSAGE_LEVEL_NOTE: level_str = "note"; break;
-              case RAWKIT_JIT_MESSAGE_LEVEL_WARNING: level_str = "warning"; break;
-              case RAWKIT_JIT_MESSAGE_LEVEL_REMARK: level_str = "remark"; break;
-              case RAWKIT_JIT_MESSAGE_LEVEL_ERROR: level_str = "error"; break;
-              case RAWKIT_JIT_MESSAGE_LEVEL_FATAL: level_str = "fatal"; break;
-              default:
-                level_str = "none";
-            }
-
-            fprintf(stderr, "%s %s:%u:%u %s\n",
-              level_str,
-              msg.filename,
-              msg.line,
-              msg.column,
-              msg.str
-            );
-
-            i++;
-          }
-        }
 
         if (tick_result == RAWKIT_JIT_TICK_BUILT) {
           rawkit_jit_call_setup(jit);
@@ -852,31 +851,32 @@ int main(int argc, char **argv) {
 
         // show compilation errors
         {
-          uint32_t i = 0;
-          rawkit_jit_message_t msg;
-          while (rawkit_jit_get_message(jit, i, &msg)) {
-            if (i == 0) {
-              ImGui::Begin("program compilation issues");
+          const std::lock_guard<std::mutex> lock(active_jits_mutex);
+          for (const auto it : active_jits) {
+            ImGui::Text("%s status: %u",  it.first.c_str(), it.second.status);
+            if (it.second.status == RAWKIT_JIT_TICK_ERROR) {
+              string title = it.first;
+              ImGui::Begin(title.c_str());
+                uint32_t i = 0;
+                rawkit_jit_message_t msg;
+                while (rawkit_jit_get_message(it.second.jit, i, &msg)) {
+                  const char *level_str = "<null>";
+                  switch (msg.level) {
+                    case RAWKIT_JIT_MESSAGE_LEVEL_NOTE: level_str = "note"; break;
+                    case RAWKIT_JIT_MESSAGE_LEVEL_WARNING: level_str = "warning"; break;
+                    case RAWKIT_JIT_MESSAGE_LEVEL_REMARK: level_str = "remark"; break;
+                    case RAWKIT_JIT_MESSAGE_LEVEL_ERROR: level_str = "error"; break;
+                    case RAWKIT_JIT_MESSAGE_LEVEL_FATAL: level_str = "fatal"; break;
+                    default:
+                      level_str = "none";
+                  }
+
+                  ImGui::Text("%s %s:%u:%u %s", level_str, msg.filename, msg.line, msg.column, msg.str);
+
+                  i++;
+                }
+              ImGui::End();
             }
-
-            const char *level_str = "<null>";
-            switch (msg.level) {
-              case RAWKIT_JIT_MESSAGE_LEVEL_NOTE: level_str = "note"; break;
-              case RAWKIT_JIT_MESSAGE_LEVEL_WARNING: level_str = "warning"; break;
-              case RAWKIT_JIT_MESSAGE_LEVEL_REMARK: level_str = "remark"; break;
-              case RAWKIT_JIT_MESSAGE_LEVEL_ERROR: level_str = "error"; break;
-              case RAWKIT_JIT_MESSAGE_LEVEL_FATAL: level_str = "fatal"; break;
-              default:
-                level_str = "none";
-            }
-
-            ImGui::Text("%s %s:%u:%u %s", level_str, msg.filename, msg.line, msg.column, msg.str);
-
-            i++;
-          }
-
-          if (i > 0) {
-            ImGui::End();
           }
         }
 

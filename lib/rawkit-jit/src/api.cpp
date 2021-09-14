@@ -36,7 +36,7 @@ const char *rawkit_jit_program_path(rawkit_jit_t *jit) {
   return jit->job->program_file.c_str();
 }
 
-rawkit_jit_status rawkit_jit_get_status(rawkit_jit_t *jit) {
+rawkit_jit_status rawkit_jit_get_status(const rawkit_jit_t *jit) {
   if (!jit || !jit->job) {
     return RAWKIT_JIT_STATUS_ERR;
   }
@@ -73,12 +73,30 @@ void rawkit_jit_add_define(rawkit_jit_t *jit, const char *value) {
   jit->job->addCompilerArg(value);
 }
 
+const char *rawkit_jit_get_program_path(const rawkit_jit_t *jit) {
+  if (!jit || !jit->job) {
+    return "<invalid jit>";
+  }
+
+  return jit->job->program_file.c_str();
+}
+
+static rawkit_jit_status_callback_t global_status_callback = nullptr;
+void rawkit_jit_set_global_status_callback(rawkit_jit_status_callback_t cb) {
+  global_status_callback = cb;
+}
+
 rawkit_jit_tick_status rawkit_jit_tick(rawkit_jit_t *jit) {
   if (!jit || !jit->job) {
     return RAWKIT_JIT_TICK_INVALID;
   }
 
   rawkit_jit_tick_status status = jit->job->tick();
+
+  if (global_status_callback) {
+    global_status_callback(jit, jit->job->last_build_status);
+  }
+
   if (status == RAWKIT_JIT_TICK_BUILT) {
     jit->version++;
   }

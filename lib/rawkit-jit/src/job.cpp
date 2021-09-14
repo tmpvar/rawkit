@@ -401,7 +401,9 @@ rawkit_jit_tick_status JitJob::tick() {
   }
 
   this->dirty = false;
-  return this->rebuild();
+  rawkit_jit_tick_status status = this->rebuild();
+  this->last_build_status = status;
+  return status;
 }
 
 void JitJob::setup() {
