@@ -1,6 +1,7 @@
 #pragma once
 
-#include <rawkit/glsl-internal.h>
+#include <rawkit-glsl-internal.h>
+
 
 
 #include "../internal/includer.h"
@@ -9,11 +10,8 @@
 #include <SPIRV/GlslangToSpv.h>
 #include <SPIRV/SpvTools.h>
 #include <SPIRV/disassemble.h>
-#include <glslang/Public/ShaderLang.h>
-
 #include <spirv_cross.hpp>
 #include <spirv_reflect.hpp>
-
 
 #include <string>
 using namespace std;

@@ -2,6 +2,8 @@
 
 #include <rawkit/glsl.h>
 
+#include <glslang/Public/ShaderLang.h>
+
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -37,3 +39,14 @@ class GLSLState {
       }
     }
 };
+
+
+
+struct rawkit_glsl_compile_status_t {
+  bool valid;
+  string name;
+  string log;
+};
+
+typedef void (*rawkit_glsl_compile_callback_t)(rawkit_glsl_compile_status_t status);
+void rawkit_glsl_set_global_status_callback(rawkit_glsl_compile_callback_t cb);

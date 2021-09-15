@@ -1,5 +1,5 @@
 #include "shader-state.h"
-#include <rawkit/glsl-internal.h>
+#include <rawkit-glsl-internal.h>
 #include "util.h"
 
 typedef vector<VkDescriptorSetLayoutBinding> SetBindingVector;

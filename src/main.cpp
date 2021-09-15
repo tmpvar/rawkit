@@ -31,6 +31,7 @@
 #include <rawkit/vg.h>
 #include <hidapi/hidapi.h>
 #include <rawkit/window-internal.h>
+#include <rawkit-glsl-internal.h>
 
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
@@ -474,8 +475,6 @@ struct ActiveJit {
   rawkit_jit_tick_status status;
 };
 
-
-
 std::mutex active_jits_mutex;
 unordered_map<string, ActiveJit> active_jits;
 
@@ -489,6 +488,21 @@ void jit_status_callback(const rawkit_jit_t *jit, rawkit_jit_tick_status status)
     active_jits.insert(std::pair(name, ActiveJit(jit, status)));
   } else {
      it->second.status = status;
+  }
+}
+
+std::mutex glsl_status_mutex;
+unordered_map<string, rawkit_glsl_compile_status_t> glsl_status;
+
+void glsl_status_callback(rawkit_glsl_compile_status_t status) {
+  const std::lock_guard<std::mutex> lock(glsl_status_mutex);
+
+  const auto &it = glsl_status.find(status.name);
+  if (it == glsl_status.end()) {
+    glsl_status.insert(std::pair(status.name, status));
+  } else {
+    it->second.valid = status.valid;
+    it->second.log.assign(status.log);
   }
 }
 
@@ -507,6 +521,8 @@ int main(int argc, char **argv) {
 
 
     rawkit_jit_set_global_status_callback(jit_status_callback);
+    rawkit_glsl_set_global_status_callback(glsl_status_callback);
+
     rawkit_set_default_jit(jit);
     rawkit_jit_set_debug(jit, args.get<bool>("rawkit-jit-debug", false));
 
@@ -870,12 +886,31 @@ int main(int argc, char **argv) {
                       level_str = "none";
                   }
 
-                  ImGui::Text("%s %s:%u:%u %s", level_str, msg.filename, msg.line, msg.column, msg.str);
+                  ImGui::TextWrapped("%s %s:%u:%u %s", level_str, msg.filename, msg.line, msg.column, msg.str);
 
                   i++;
                 }
               ImGui::End();
             }
+          }
+        }
+
+        // show shader compilation errors
+        {
+          const std::lock_guard<std::mutex> lock(glsl_status_mutex);
+          bool open = false;
+          for (const auto &it : glsl_status) {
+            if (!it.second.valid) {
+              if (!open) {
+                ImGui::Begin("Shader Compilation Issues");
+                open = true;
+              }
+
+              ImGui::TextWrapped("%s\n%s", it.first.c_str(), it.second.log.c_str());
+            }
+          }
+          if (open) {
+            ImGui::End();
           }
         }
 

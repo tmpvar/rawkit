@@ -8,6 +8,12 @@
 static const rawkit_glsl_t ERR = {};
 static const char *resource_name = "rawkit::glsl";
 
+static rawkit_glsl_compile_callback_t global_compile_callback = nullptr;
+void rawkit_glsl_set_global_status_callback(rawkit_glsl_compile_callback_t cb) {
+  global_compile_callback = cb;
+}
+
+
 const rawkit_glsl_t *_rawkit_glsl_va(uint8_t count, ...) {
   if (!count) {
     return &ERR;
@@ -83,7 +89,6 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
     includer
   );
 
-
   int r = shader->parse(
     &resource_limits,
     460,
@@ -93,15 +98,31 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
   );
 
   if (!r) {
+    auto info_log = shader->getInfoLog();
+    if (global_compile_callback) {
+      rawkit_glsl_compile_status_t status = {};
+      status.valid = false;
+      status.name.assign(name);
+      status.log.assign(info_log);
+      global_compile_callback(status);
+    };
+
     printf("source after preprocessing:\n %s\n", output.c_str());
     printf("Debug log for %s\n%s\n", name, shader->getInfoDebugLog());
-    printf("glslang: failed to parse shader %s\nLOG: %s",
+    printf("glslang: failed to parse shader %s\n%s",
       name,
-      shader->getInfoLog()
+      info_log
     );
 
     return false;
   } else {
+    if (global_compile_callback) {
+      rawkit_glsl_compile_status_t status = {};
+      status.valid = true;
+      status.name.assign(name);
+      global_compile_callback(status);
+    };
+
     printf("\e[0;32m" "rebuilt %s\n" "\e[0m", name);
   }
 
@@ -201,6 +222,7 @@ const rawkit_glsl_t *rawkit_glsl_file_array(uint8_t file_count, const rawkit_fil
       );
 
       if (!compiled) {
+        printf("SHADER COMPILE FAILURE: %s\n", shader->getInfoLog());
         return glsl;
       }
 
