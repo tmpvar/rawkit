@@ -899,14 +899,22 @@ int main(int argc, char **argv) {
         {
           const std::lock_guard<std::mutex> lock(glsl_status_mutex);
           bool open = false;
-          for (const auto &it : glsl_status) {
-            if (!it.second.valid) {
-              if (!open) {
-                ImGui::Begin("Shader Compilation Issues");
-                open = true;
-              }
+          auto it = glsl_status.begin();
+          while(it != glsl_status.end()) {
 
-              ImGui::TextWrapped("%s\n%s", it.first.c_str(), it.second.log.c_str());
+            if (!fs::is_regular_file(fs::path(it->first))) {
+              it = glsl_status.erase(it);
+              continue;
+            } else {
+              if (!it->second.valid) {
+                if (!open) {
+                  ImGui::Begin("Shader Compilation Issues");
+                  open = true;
+                }
+
+                ImGui::TextWrapped("%s\n%s", it->first.c_str(), it->second.log.c_str());
+              }
+              it++;
             }
           }
           if (open) {
