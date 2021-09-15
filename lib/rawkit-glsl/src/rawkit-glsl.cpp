@@ -32,9 +32,10 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
   }
 
   int length = static_cast<int>(strlen(src));
-  shader->setStringsWithLengths(
+  shader->setStringsWithLengthsAndNames(
     &src,
     &length,
+    &name,
     1
   );
 
@@ -55,14 +56,11 @@ static bool compile_shader(glslang::TShader* shader, const char *name, const cha
     glslang::EShTargetSpv_1_5
   );
 
+
+
   string preamble =
     "\n#extension GL_GOOGLE_cpp_style_line_directive: enable\n"
-    "#extension GL_GOOGLE_include_directive: enable\n"
-    "#define RESOURCE_NAME \"shader://dumb.comp\"\n";
-
-  // preamble += "#line 1 \"";
-  // preamble += name;
-  // preamble += "\"\n";
+    "#extension GL_GOOGLE_include_directive: enable\n";
 
   shader->setPreamble(preamble.c_str());
 
