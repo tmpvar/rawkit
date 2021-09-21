@@ -21,9 +21,24 @@ VkResult ShaderState::create_pipeline_layout() {
 
       // push constant ranges
       if (entry->entry_type == RAWKIT_GLSL_REFLECTION_ENTRY_PUSH_CONSTANT_BUFFER) {
-        VkPushConstantRange range = {};
+        const auto c = push_constant_ranges.size();
+        if (c == 0) {
+          VkPushConstantRange range = {};
+          range.offset = u32(entry->offset);
+          range.size = entry->block_size;
+          range.stageFlags = stage_flags(entry->stage);
+          push_constant_ranges.push_back(range);
+          continue;
+        }
 
-        range.offset = entry->offset;
+        auto &last = push_constant_ranges[c-1];
+        if (last.offset + last.size == entry->offset) {
+          last.size += entry->block_size;
+          continue;
+        }
+
+        VkPushConstantRange range = {};
+        range.offset = u32(entry->offset);
         range.size = entry->block_size;
         range.stageFlags = stage_flags(entry->stage);
         push_constant_ranges.push_back(range);
