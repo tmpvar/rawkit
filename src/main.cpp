@@ -511,8 +511,7 @@ int main(int argc, char **argv) {
 
     string program_file;
     rawkit_core_init_args(argc, argv, program_file);
-    printf("program_file: %s\n", program_file.c_str());
-    if (!rawkit_arg_pos_count()) {
+    if (program_file == "") {
       printf("usage: rawkit path/to/file.cpp [--rawkit-jit-debug] [--rawkit-vulkan-validation]\n");
       return -1;
     }
@@ -521,7 +520,6 @@ int main(int argc, char **argv) {
     if (!jit) {
       return -1;
     }
-
 
     rawkit_jit_set_global_status_callback(jit_status_callback);
     rawkit_glsl_set_global_status_callback(glsl_status_callback);
