@@ -32,6 +32,7 @@
 #include <hidapi/hidapi.h>
 #include <rawkit/window-internal.h>
 #include <rawkit-glsl-internal.h>
+#include <rawkit-core-internal.h>
 
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
@@ -507,14 +508,16 @@ void glsl_status_callback(rawkit_glsl_compile_status_t status) {
 }
 
 int main(int argc, char **argv) {
-    const flags::args args(argc, argv);
-    auto pargs = args.positional();
-    if (!pargs.size()) {
+
+    string program_file;
+    rawkit_core_init_args(argc, argv, program_file);
+    printf("program_file: %s\n", program_file.c_str());
+    if (!rawkit_arg_pos_count()) {
       printf("usage: rawkit path/to/file.cpp [--rawkit-jit-debug] [--rawkit-vulkan-validation]\n");
       return -1;
     }
 
-    rawkit_jit_t *jit = rawkit_jit_create(pargs[0].data());
+    rawkit_jit_t *jit = rawkit_jit_create(program_file.c_str());
     if (!jit) {
       return -1;
     }
@@ -524,7 +527,7 @@ int main(int argc, char **argv) {
     rawkit_glsl_set_global_status_callback(glsl_status_callback);
 
     rawkit_set_default_jit(jit);
-    rawkit_jit_set_debug(jit, args.get<bool>("rawkit-jit-debug", false));
+    rawkit_jit_set_debug(jit, rawkit_arg_bool("rawkit-jit-debug", false));
 
     #if defined(_WIN32)
       // add guest support for dirent.h
@@ -596,7 +599,7 @@ int main(int argc, char **argv) {
     rawkit_gpu_t *gpu = rawkit_gpu_init(
       extensions,
       extensions_count,
-      args.get<bool>("rawkit-vulkan-validation", false),
+      rawkit_arg_bool("rawkit-vulkan-validation", false),
       #ifdef IMGUI_VULKAN_DEBUG_REPORT
       debug_report
       #else
@@ -606,7 +609,7 @@ int main(int argc, char **argv) {
 
     default_gpu = gpu;
 
-    if (args.get<bool>("headless")) {
+    if (rawkit_arg_bool("headless", false)) {
       {
         VkCommandPoolCreateInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -654,11 +657,11 @@ int main(int argc, char **argv) {
           avg_cycle_time = (diff + avg_cycle_time) * 0.5;
         }
 
-        if (args.get<bool>("once")) {
+        if (rawkit_arg_bool("once", false)) {
           break;
         }
 
-        u32 sleep_time = args.get<u32>("rawkit-loop-sleep-ms", 250);
+        u32 sleep_time = rawkit_arg_u32("rawkit-loop-sleep-ms", 250);
         std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
       }
       fprintf(stderr, "done %fms\n", (rawkit_now() - headless_start) * 1000.0);

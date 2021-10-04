@@ -6,6 +6,7 @@ option(RAWKIT_CORE_TEST_COVERAGE "Add coverage information for tests run against
 
 add_library(${PROJECT_NAME} STATIC
   ${CMAKE_CURRENT_LIST_DIR}/src/rawkit-core.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/src/rawkit-args.cpp
 )
 
 add_library(rawkit::core ALIAS ${PROJECT_NAME})
@@ -18,6 +19,7 @@ target_compile_features(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME}
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/deps/flags/include>
     $<INSTALL_INTERFACE:include>
 )
 

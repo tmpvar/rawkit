@@ -1,4 +1,4 @@
-#include <rawkit/core.h>
+#include <rawkit-core-internal.h>
 
 #include <string>
 using namespace std;

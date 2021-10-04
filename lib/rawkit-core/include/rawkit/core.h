@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <stddef.h>
 
 #define RAWKIT_DEFAULT(_value, _default) (!_value ? _default : _value)
 
@@ -69,6 +70,38 @@ typedef __uint128_t u128;
 
 double rawkit_now();
 float rawkit_randf();
+
+
+// Args
+
+// positional
+size_t rawkit_arg_pos_count();
+bool rawkit_arg_pos_bool(size_t key, bool default_value);
+i8 rawkit_arg_pos_i8(size_t key, i8 default_value);
+u8 rawkit_arg_pos_u8(size_t key, u8 default_value);
+i16 rawkit_arg_pos_i16(size_t key, i16 default_value);
+u16 rawkit_arg_pos_u16(size_t key, u16 default_value);
+i32 rawkit_arg_pos_i32(size_t key, i32 default_value);
+u32 rawkit_arg_pos_u32(size_t key, u32 default_value);
+i64 rawkit_arg_pos_i64(size_t key, i64 default_value);
+u64 rawkit_arg_pos_u64(size_t key, u64 default_value);
+f32 rawkit_arg_pos_f32(size_t key, f32 default_value);
+f64 rawkit_arg_pos_f64(size_t key, f64 default_value);
+u32 rawkit_arg_pos_string(size_t key, char *value, size_t max_len);
+
+// by name (e.g., `--file` is accessed via key `"file"`)
+bool rawkit_arg_bool(const char *key, bool default_value);
+i8 rawkit_arg_i8(const char *key, i8 default_value);
+u8 rawkit_arg_u8(const char *key, u8 default_value);
+i16 rawkit_arg_i16(const char *key, i16 default_value);
+u16 rawkit_arg_u16(const char *key, u16 default_value);
+i32 rawkit_arg_i32(const char *key, i32 default_value);
+u32 rawkit_arg_u32(const char *key, u32 default_value);
+i64 rawkit_arg_i64(const char *key, i64 default_value);
+u64 rawkit_arg_u64(const char *key, u64 default_value);
+f32 rawkit_arg_f32(const char *key, f32 default_value);
+f64 rawkit_arg_f64(const char *key, f64 default_value);
+u32 rawkit_arg_string(const char *key, char *value, size_t max_len);
 
 #ifdef __cplusplus
   }
