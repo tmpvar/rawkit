@@ -415,7 +415,13 @@ void rawkit_shader_instance_param_buffer_ex(
   VkDeviceSize offset,
   VkDeviceSize size
 ) {
-  if (!instance || !instance->_state || !buffer || !buffer->handle || !name) {
+  if (!buffer || !buffer->handle) {
+    printf("WARN: rawkit_shader_instance_param_buffer: invalid buffer\n");
+    printf("      shader(%s)\n", instance ? instance->resource_name : "<invalid>");
+    return;
+  }
+
+  if (!instance || !instance->_state  || !name) {
     printf("WARN: rawkit_shader_instance_param_buffer: invalid instance for args name(%s) buffer(%s)\n", name, buffer ? buffer->resource_name : "<invalid>");
     printf("      shader(%s)\n", instance ? instance->resource_name : "<invalid>");
     return;
