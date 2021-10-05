@@ -272,6 +272,7 @@ rawkit_gpu_t *rawkit_gpu_init(const char** extensions, uint32_t extensions_count
     VkPhysicalDeviceVulkan12Features vk12_features = {};
     vk12_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     vk12_features.timelineSemaphore = true;
+    vk12_features.shaderBufferInt64Atomics = true;
 
 
     VkDeviceCreateInfo create_info = {};
