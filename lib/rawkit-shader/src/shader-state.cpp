@@ -144,6 +144,7 @@ ShaderState::~ShaderState() {
     return;
   }
 
+  vkDeviceWaitIdle(this->gpu->device);
   for (VkDescriptorSetLayout layout : this->descriptor_set_layouts) {
     vkDestroyDescriptorSetLayout(
       this->gpu->device,
