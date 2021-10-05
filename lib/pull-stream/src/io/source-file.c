@@ -131,7 +131,7 @@ ps_t *create_file_source(const char *path, uv_loop_t *loop) {
 
   s->fn = file_source_fn;
   s->loop = loop;
-  s->read_buffer_len = 32768;
+  s->read_buffer_len = (1<<23);
   s->open_req.data = (void *)s;
   s->close_req.data = (void *)s;
   s->read_req.data = (void *)s;
