@@ -1,19 +1,16 @@
 #include <rawkit-core-internal.h>
 
-#include <string>
-using namespace std;
-
 #include "stb_sb.h"
 #include <stdarg.h>
 
+#include <string>
 #include <chrono>
 #include <random>
-using namespace std;
 
-static chrono::high_resolution_clock::time_point program_start_time = chrono::high_resolution_clock::now();
+static auto program_start_time = std::chrono::high_resolution_clock::now();
 double rawkit_now() {
-  auto t = chrono::high_resolution_clock::now();
-  auto d = chrono::duration_cast<chrono::duration<double>>(
+  auto t = std::chrono::high_resolution_clock::now();
+  auto d = std::chrono::duration_cast<std::chrono::duration<double>>(
     t - program_start_time
   );
   return d.count();

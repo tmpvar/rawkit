@@ -12,8 +12,8 @@ add_library(${PROJECT_NAME} STATIC
 add_library(rawkit::core ALIAS ${PROJECT_NAME})
 
 target_compile_features(${PROJECT_NAME}
-  PUBLIC
-    cxx_std_14
+  PRIVATE
+    cxx_std_17
 )
 
 target_include_directories(${PROJECT_NAME}

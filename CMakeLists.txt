@@ -60,6 +60,8 @@ endif()
 # LIB: hidapi
 if (NOT TARGET hidapi::hidapi)
   add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/deps/hidapi)
+  # fix for windows
+  include_directories(${DEPS_DIR}/hidapi/hidapi-8741697)
 endif()
 
 # LIB: pull-stream

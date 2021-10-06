@@ -4,6 +4,11 @@
 #include <vulkan/vulkan.h>
 #include <pull/stream.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 typedef struct rawkit_worker_t {
   RAWKIT_RESOURCE_FIELDS
 
@@ -24,8 +29,8 @@ typedef struct rawkit_worker_queue_status_t {
 } rawkit_worker_queue_status_t;
 
 rawkit_worker_t *rawkit_worker_create_ex(const char *name, const char *file, const char *relative_file, bool jit_debug);
-#define rawkit_worker(file) rawkit_worker_create_ex(file, file, __FILE__, RAWKIT_JIT_DEBUG);
-#define rawkit_worker_named(name, file) rawkit_worker_create_ex(name, file, __FILE__, RAWKIT_JIT_DEBUG);
+#define rawkit_worker(file) rawkit_worker_create_ex(file, file, __FILE__, RAWKIT_JIT_DEBUG)
+#define rawkit_worker_named(name, file) rawkit_worker_create_ex(name, file, __FILE__, RAWKIT_JIT_DEBUG)
 
 #ifndef RAWKIT_WORKER_HOST_ADDRESS
   #define RAWKIT_WORKER_HOST_ADDRESS ((void *)0)
@@ -62,4 +67,8 @@ u64 rawkit_worker_timeline_counter_next(rawkit_worker_t *worker);
   rawkit_gpu_t *rawkit_worker_default_gpu(rawkit_worker_t *worker);
   #define rawkit_default_gpu() rawkit_worker_default_gpu(rawkit_worker_host())
   #define rawkit_default_hot_context() rawkit_worker_hot_context(rawkit_worker_host())
+#endif
+
+#ifdef __cplusplus
+}
 #endif

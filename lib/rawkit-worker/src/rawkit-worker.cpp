@@ -2,9 +2,9 @@
 #include <rawkit-jit-internal.h>
 #include <rawkit-gpu-internal.h>
 #include <rawkit-hot-internal.h>
+#include <inttypes.h>
 
-#define RAWKIT_EXPORT_FILTER_WORKER
-#include <hot/host/hot.h>
+extern void worker_hot_init(rawkit_jit_t *jit);
 
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
@@ -128,12 +128,11 @@ struct WorkerState {
     rawkit_jit_add_export(jit, "rawkit_worker_default_gpu", rawkit_worker_default_gpu);
 
     rawkit_jit_add_define(jit, "-DRAWKIT_WORKER=1");
-
     snprintf(
       worker_host_address_define,
       sizeof(worker_host_address_define) - 1,
-      "-DRAWKIT_WORKER_HOST_ADDRESS=((rawkit_worker_t *)(uintptr_t(%p)))",
-      w
+      "-DRAWKIT_WORKER_HOST_ADDRESS=((rawkit_worker_t *)(uintptr_t(0x%" PRIxPTR ")))",
+      intptr_t(w)
     );
 
     rawkit_jit_add_define(jit, worker_host_address_define);

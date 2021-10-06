@@ -36,10 +36,34 @@ extern "C" {
 #endif
 
 #if !(defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__)))
-// #warn Your platform is currently unsupported
+  #define ANSI_CODE_RESET
+  #define ANSI_CODE_BOLD
+  #define ANSI_CODE_DARK
+  #define ANSI_CODE_UNDERLINE
+  #define ANSI_CODE_BLINK
+  #define ANSI_CODE_REVERSE
+  #define ANSI_CODE_CONCEALED
+  #define ANSI_CODE_GRAY
+  #define ANSI_CODE_GREY
+  #define ANSI_CODE_RED
+  #define ANSI_CODE_GREEN
+  #define ANSI_CODE_YELLOW
+  #define ANSI_CODE_BLUE
+  #define ANSI_CODE_MAGENTA
+  #define ANSI_CODE_CYAN
+  #define ANSI_CODE_WHITE
+  #define ANSI_CODE_BG_GRAY
+  #define ANSI_CODE_BG_GREY
+  #define ANSI_CODE_BG_RED
+  #define ANSI_CODE_BG_GREEN
+  #define ANSI_CODE_BG_YELLOW
+  #define ANSI_CODE_BG_BLUE
+  #define ANSI_CODE_BG_MAGENTA
+  #define ANSI_CODE_BG_CYAN
+  #define ANSI_CODE_BG_WHITE
 #else
 #include <unistd.h>
-#endif
+
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -133,8 +157,8 @@ static void reset_colors(FILE* stream) {
     }
 }
 
+#endif
 #ifdef __cplusplus
 }
 #endif
-
 #endif /* _TERMCOLOR_C_H_ */

@@ -188,6 +188,12 @@ rawkit_shader_instance_t *rawkit_shader_instance_create_ex(
   uint32_t frame_idx
 );
 
+#ifdef RAWKIT_WORKER
+  static inline u32 rawkit_window_frame_index() {
+    return 0;
+  }
+#endif
+
 #define rawkit_shader_instance_create(shader) rawkit_shader_instance_create_ex( \
   rawkit_default_gpu(), \
   shader, \

@@ -81,10 +81,10 @@ static void host_hot_init_state(rawkit_jit_t *jit) {
   }
 #endif
 
-static void worker_hot_init(rawkit_jit_t *jit) {
+void worker_hot_init(rawkit_jit_t *jit) {
 
   host_hot_init_state(jit);
-  // host_rawkit_serial_init(jit);
+  host_rawkit_serial_init(jit);
   host_croaring_init(jit);
   host_init_pull_stream(jit);
 
@@ -104,6 +104,6 @@ static void worker_hot_init(rawkit_jit_t *jit) {
   host_init_rawkit_worker(jit);
 
   host_init_uv(jit);
-  // host_init_lz4(jit);
-  // host_init_hidapi(jit);
+  host_init_lz4(jit);
+  host_init_hidapi(jit);
 }
