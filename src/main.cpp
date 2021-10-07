@@ -680,6 +680,13 @@ int main(int argc, char **argv) {
     uint32_t height = 720;
     GLFWwindow* window = glfwCreateWindow(width, height, title.c_str(), NULL, NULL);
 
+    // FIXME: under x11 this causes large jumps in deltas
+    #ifndef __linux__
+      if (glfwRawMouseMotionSupported()) {
+        glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+      }
+    #endif
+
     rawkit_window_internal_set_glfw_window(window);
 
     // Create Window Surface
