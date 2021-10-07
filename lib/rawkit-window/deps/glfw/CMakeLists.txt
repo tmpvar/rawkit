@@ -10,7 +10,7 @@ else()
 endif()
 
 add_subdirectory(
-  ${CMAKE_CURRENT_LIST_DIR}/glfw-3.3-stable
+  ${CMAKE_CURRENT_LIST_DIR}/glfw-3.3.4
 )
 
 add_library(glfw::glfw ALIAS glfw)

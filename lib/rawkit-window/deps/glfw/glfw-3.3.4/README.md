@@ -101,7 +101,7 @@ located in the `deps/` directory.
    functions
  - [linmath.h](https://github.com/datenwolf/linmath.h) for linear algebra in
    examples
- - [Nuklear](https://github.com/vurtun/nuklear) for test and example UI
+ - [Nuklear](https://github.com/Immediate-Mode-UI/Nuklear) for test and example UI
  - [stb\_image\_write](https://github.com/nothings/stb) for writing images to disk
 
 The documentation is generated with [Doxygen](http://doxygen.org/) if CMake can
@@ -118,26 +118,8 @@ information on what to include when reporting a bug.
 
 ## Changelog
 
- - Bugfix: Some extension loader headers did not prevent default OpenGL header
-   inclusion (#1695)
- - [Win32] Bugfix: Non-BMP Unicode codepoint input was reported as UTF-16
- - [Cocoa] Changed `EGLNativeWindowType` from `NSView` to `CALayer` (#1169)
- - [Cocoa] Bugfix: Non-BMP Unicode codepoint input was reported as UTF-16
-   (#1635)
- - [X11] Bugfix: IME input of CJK was broken for "C" locale (#1587,#1636)
- - [X11] Bugfix: Xlib errors caused by other parts of the application could be
-   reported as GLFW errors
- - [X11] Bugfix: A handle race condition could cause a `BadWindow` error (#1633)
- - [X11] Bugfix: XKB path used keysyms instead of physical locations for
-   non-printable keys (#1598)
- - [X11] Bugfix: Function keys were mapped to `GLFW_KEY_UNKNOWN` for some layout
-   combinaitons (#1598)
- - [X11] Bugfix: Keys pressed simultaneously with others were not always
-   reported (#1112,#1415,#1472,#1616)
- - [Wayland] Bugfix: Repeated keys could be reported with `NULL` window (#1704)
- - [Wayland] Bugfix: Retrieving partial framebuffer size would segfault
- - [Wayland] Bugfix: Scrolling offsets were inverted compared to other platforms
-   (#1463)
+ - [X11] Bugfix: Some window attributes were not applied on leaving fullscreen
+   (#1863)
 
 
 ## Contact
@@ -163,13 +145,16 @@ GLFW exists because people around the world donated their time and lent their
 skills.
 
  - Bobyshev Alexander
+ - Laurent Aphecetche
  - Matt Arsenault
+ - ashishgamedev
  - David Avedissian
  - Keith Bauer
  - John Bartholomew
  - Coşku Baş
  - Niklas Behrens
  - Andrew Belt
+ - Nevyn Bengtsson
  - Niklas Bergström
  - Denis Bernard
  - Doug Binks
@@ -178,6 +163,7 @@ skills.
  - Rok Breulj
  - Kai Burjack
  - Martin Capitanio
+ - Nicolas Caramelli
  - David Carlier
  - Arturo Castro
  - Chi-kwan Chan
@@ -216,6 +202,7 @@ skills.
  - Eloi Marín Gratacós
  - Stefan Gustavson
  - Jonathan Hale
+ - hdf89shfdfs
  - Sylvain Hellegouarch
  - Matthew Henry
  - heromyth
@@ -240,11 +227,13 @@ skills.
  - Konstantin Käfer
  - Eric Larson
  - Francis Lecavalier
+ - Jong Won Lee
  - Robin Leffmann
  - Glenn Lewis
  - Shane Liesegang
  - Anders Lindqvist
  - Leon Linhart
+ - Marco Lizza
  - Eyal Lotem
  - Aaron Loucks
  - Luflosi
@@ -284,6 +273,7 @@ skills.
  - Braden Pellett
  - Christopher Pelloux
  - Arturo J. Pérez
+ - Vladimir Perminov
  - Anthony Pesch
  - Orson Peters
  - Emmanuel Gil Peyrot
@@ -348,6 +338,7 @@ skills.
  - Waris
  - Jay Weisskopf
  - Frank Wille
+ - Richard A. Wilkes
  - Tatsuya Yatagawa
  - Ryogo Yoshimura
  - Lukas Zanner
@@ -356,6 +347,7 @@ skills.
  - Santi Zupancic
  - Jonas Ådahl
  - Lasse Öörni
+ - Leonard König
  - All the unmentioned and anonymous contributors in the GLFW community, for bug
    reports, patches, feedback, testing and encouragement
 
