@@ -9,5 +9,5 @@ add_subdirectory(${HIDAPI_DIR})
 install(
   DIRECTORY
     ${HIDAPI_DIR}/hidapi
-  DESTINATION include/hidapi
+  DESTINATION include
 )
