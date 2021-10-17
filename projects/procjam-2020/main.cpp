@@ -805,9 +805,10 @@ igShowDemoWindow(0);
       rawkit_file("shader/per-pixel-world.vert"),
       rawkit_file("shader/per-pixel-world.frag")
     );
+    rawkit_shader_instance_t *inst = rawkit_shader_instance_create(world_shader);
     // render the world shader
-    rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(world_shader);
     if (inst) {
+      rawkit_shader_instance_begin(inst);
       rawkit_shader_instance_param_ubo(inst, "UBO", &world_ubo);
 
       const rawkit_texture_sampler_t *linear_sampler = rawkit_texture_sampler(
@@ -910,16 +911,12 @@ igShowDemoWindow(0);
       rawkit_shader_t *shader = rawkit_shader(
         rawkit_file("shader/trace-voxel-faces.comp")
       );
-      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin_ex(
-        rawkit_default_gpu(),
-        shader,
-        NULL,
-        0
-      );
 
+      rawkit_shader_instance_t *inst = rawkit_shader_instance_create(shader);
       if (inst) {
         uint32_t visible_count = sb_count(visible_voxels);
 
+        rawkit_shader_instance_begin(inst);
         rawkit_shader_instance_param_ubo(inst, "UBO", &world_ubo);
         rawkit_shader_instance_param_texture(inst, "world_texture", world_texture, nearest_sampler);
         rawkit_shader_instance_param_texture(inst, "world_occlusion_texture", world_occlusion_texture, nearest_sampler);
@@ -951,8 +948,9 @@ igShowDemoWindow(0);
         rawkit_file("shader/per-voxel-world.frag")
       );
       // render the world shader
-      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
+      rawkit_shader_instance_t *inst = rawkit_shader_instance_create(shader);
       if (inst) {
+        rawkit_shader_instance_begin(inst);
         rawkit_shader_instance_param_ubo(inst, "UBO", &world_ubo);
         rawkit_shader_instance_param_ssbo(inst, "VisibleVoxels", pos_ssbo);
         rawkit_shader_instance_param_texture(inst, "world_texture", world_texture, nearest_sampler);
@@ -997,8 +995,9 @@ igShowDemoWindow(0);
         rawkit_file("shader/per-voxel-world.frag")
       );
       // render the world shader
-      rawkit_shader_instance_t *inst = rawkit_shader_instance_begin(shader);
+      rawkit_shader_instance_t *inst = rawkit_shader_instance_create(shader);
       if (inst) {
+        rawkit_shader_instance_begin(inst);
         rawkit_shader_instance_param_ubo(inst, "UBO", &world_ubo);
         rawkit_shader_instance_param_ssbo(inst, "VisibleVoxels", pos_ssbo);
         rawkit_shader_instance_param_texture(inst, "world_texture", world_texture, nearest_sampler);

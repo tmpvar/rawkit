@@ -381,6 +381,8 @@ void main() {
     outFragColor *= (1.0 - dot(normalize(sun.pos - pos), -worldNormal)) * 0.55;
   }
 
+  outFragColor = pow(outFragColor, 2.1);
+
 
   // outFragColor = outColor + lightColor * 0.25;
   // vec4 noise = texture(blue_noise, pos.xz * 100.0);
