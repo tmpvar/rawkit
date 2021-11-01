@@ -35,8 +35,13 @@ message(STATUS "molten include dirs: ${MOLTENVK_PATH}/include")
       find_package(Vulkan)
       target_link_libraries(${PROJECT_NAME}
         INTERFACE
-          ${Vulkan_LIBRARIES}
+          ${Vulkan_LIBRARY}
       )
+
+      if (MSVC)
+        get_filename_component(Vulkan_LIB_DIR ${Vulkan_LIBRARY} DIRECTORY)
+        get_filename_component(Vulkan_INCLUDE_DIRS "${Vulkan_LIB_DIR}/../Include" ABSOLUTE)
+      endif()
 
       target_include_directories(${PROJECT_NAME}
         INTERFACE
