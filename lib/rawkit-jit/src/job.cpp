@@ -13,7 +13,11 @@ std::string GetExecutablePath(const char *Argv0, void *MainAddr) {
   return llvm::sys::fs::getMainExecutable(Argv0, MainAddr);
 }
 
+#include <filesystem>
+
 static ArgStringList FilterArgs(const ArgStringList& input) {
+ 
+
   ArgStringList args(input);
   ArgStringList::iterator it;
   it = std::find(
@@ -69,10 +73,8 @@ JitJob::JitJob() {
   static llvm::InitLLVM *initialize_llvm = nullptr;
   if (!initialize_llvm) {
     int argc = 1;
-    vector<const char *> args = { exe_path.c_str() };
-
-    const char **argv = (const char **)args.data();
-
+    const char *name = "rawkit-jit";
+    const char** argv = (const char**)&argv;
     initialize_llvm = new llvm::InitLLVM(argc, argv);
     llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
     llvm::InitializeNativeTarget();
@@ -163,7 +165,7 @@ JitJob *JitJob::create(int argc, const char **argv) {
   if (fs::path(job->path).extension() == ".cpp") {
     job->addCompilerArg("-x");
     job->addCompilerArg("c++");
-    job->addCompilerArg("-std=c++17");
+    job->addCompilerArg("-std=c++20");
   }
 
   job->addCompilerArg("-DRAWKIT_GUEST");

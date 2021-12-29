@@ -52,16 +52,16 @@ class GLSLIncluder : public glslang::TShader::Includer {
         
         std::ifstream file(p, std::ios_base::binary | std::ios_base::ate);
         if (file) {
-          this->dependencies.push_back(p);
-          directoryStack.push_back(p.remove_filename());
-          return newIncludeResult(p, file, (int)file.tellg());
+          this->dependencies.emplace_back(p.string());
+          directoryStack.emplace_back(p.remove_filename().string());
+          return newIncludeResult(p.string(), file, (int)file.tellg());
         }
       } catch (fs::filesystem_error) {}
 
       // Discard popped include directories, and initialize when at parse-time first level.
       directoryStack.resize(depth + externalLocalDirectoryCount);
       if (depth == 1) {
-        directoryStack.back() = ghc::filesystem::path(includer).remove_filename();
+        directoryStack.back().assign(ghc::filesystem::path(includer).remove_filename().string());
       }
 
       // Find a directory that works, using a reverse search of the include stack.
@@ -72,9 +72,9 @@ class GLSLIncluder : public glslang::TShader::Includer {
 
         std::ifstream file(p, std::ios_base::binary | std::ios_base::ate);
         if (file) {
-          this->dependencies.push_back(p);
-          directoryStack.push_back(p.remove_filename());
-          return newIncludeResult(p, file, (int)file.tellg());
+          this->dependencies.emplace_back(p.string());
+          directoryStack.emplace_back(p.remove_filename().string());
+          return newIncludeResult(p.string(), file, (int)file.tellg());
         }
       }
 

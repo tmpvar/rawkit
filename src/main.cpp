@@ -468,7 +468,7 @@ void rawkit_renderpass_timeline_semaphore(VkSemaphore semaphore, u64 wait, u64 s
   // wd->TimelineSemaphores.push_back(std::move(TimelineSemaphore(semaphore, wait, signal)));
 }
 
-
+/*
 struct ActiveJit {
   ActiveJit(const rawkit_jit_t *jit, rawkit_jit_tick_status status)
     : jit(jit), status(status) {}
@@ -491,6 +491,7 @@ void jit_status_callback(const rawkit_jit_t *jit, rawkit_jit_tick_status status)
      it->second.status = status;
   }
 }
+*/
 
 std::mutex glsl_status_mutex;
 unordered_map<string, rawkit_glsl_compile_status_t> glsl_status;
@@ -507,6 +508,12 @@ void glsl_status_callback(rawkit_glsl_compile_status_t status) {
   }
 }
 
+
+int main(int argc, char **arvg) {
+  return 1;
+}
+
+/*
 int main(int argc, char **argv) {
 
     string program_file;
@@ -993,3 +1000,4 @@ int main(int argc, char **argv) {
     hid_exit();
     return 0;
 }
+*/

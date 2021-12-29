@@ -85,7 +85,7 @@ if (NOT TARGET rawkit::grbl::parser)
 endif()
 
 # LIB: rawkit-jit
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-jit)
+# add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-jit)
 
 # LIB: rawkit-glsl
 if (NOT TARGET rawkit::glsl)
@@ -148,9 +148,9 @@ if (NOT TARGET rawkit::window)
 endif()
 
 # LIB: rawkit-worker
-if (NOT TARGET rawkit::worker)
-  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-worker)
-endif()
+# if (NOT TARGET rawkit::worker)
+#   add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/rawkit-worker)
+# endif()
 
 add_executable(
   rawkit
@@ -235,7 +235,7 @@ target_compile_features(${PROJECT_NAME}
 target_link_libraries(
   rawkit
   rawkit::core
-  rawkit::jit
+  # rawkit::jit
   rawkit::glsl
   rawkit::hash
   rawkit::hot
@@ -255,7 +255,7 @@ target_link_libraries(
   rawkit::window
   rawkit::vulkan
 
-  rawkit::worker
+  # rawkit::worker
 
   rawkit::lz4
   hidapi::hidapi
