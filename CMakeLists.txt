@@ -236,7 +236,7 @@ target_link_libraries(
   rawkit
   rawkit::core
   # rawkit::jit
-  rawkit::glsl
+  # rawkit::glsl
   rawkit::hash
   rawkit::hot
   rawkit::file

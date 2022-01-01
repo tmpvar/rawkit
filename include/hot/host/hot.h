@@ -29,7 +29,7 @@
 // #include <hot/host/rawkit-worker.h>
 
 static void host_hot_init_state(rawkit_jit_t *jit) {
-  rawkit_jit_add_export(jit, "hotState", (void *)&hotState);
+  rawkit_jit_add_export(jit, "hotState", hotState);
 }
 
 #if !defined(RAWKIT_EXPORT_FILTER_WORKER)

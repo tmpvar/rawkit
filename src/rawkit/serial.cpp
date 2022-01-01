@@ -128,10 +128,10 @@ void Serial_Write(SerialID id, const uint8_t *buf, size_t len) {
 
 
 // void host_rawkit_serial_init(rawkit_jit_t *jit) {
-//   rawkit_jit_add_export(jit, "Serial_Open", (void *)&Serial_Open);
-//   rawkit_jit_add_export(jit, "Serial_Valid", (void *)&Serial_Valid);
-//   rawkit_jit_add_export(jit, "Serial_Available", (void *)&Serial_Available);
-//   rawkit_jit_add_export(jit, "Serial_Read", (void *)&Serial_Read);
-//   rawkit_jit_add_export(jit, "Serial_Write", (void *)&Serial_Write);
+//   rawkit_jit_add_export(jit, "Serial_Open", Serial_Open);
+//   rawkit_jit_add_export(jit, "Serial_Valid", Serial_Valid);
+//   rawkit_jit_add_export(jit, "Serial_Available", Serial_Available);
+//   rawkit_jit_add_export(jit, "Serial_Read", Serial_Read);
+//   rawkit_jit_add_export(jit, "Serial_Write", Serial_Write);
 // }
 

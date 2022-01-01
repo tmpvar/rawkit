@@ -3,6 +3,10 @@
 #include <rawkit/jit.h>
 #include <uv.h>
 
+int rawkit_host_uv_tty_set_mode(uv_tty_t* handle, int mode) {
+  return uv_tty_set_mode(handle, static_cast<uv_tty_mode_t>(mode));
+}
+
 static void host_init_uv(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "uv_version", uv_version);
   rawkit_jit_add_export(jit, "uv_version_string", uv_version_string);
@@ -97,7 +101,7 @@ static void host_init_uv(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "uv_udp_get_send_queue_size", uv_udp_get_send_queue_size);
   rawkit_jit_add_export(jit, "uv_udp_get_send_queue_count", uv_udp_get_send_queue_count);
   rawkit_jit_add_export(jit, "uv_tty_init", uv_tty_init);
-  rawkit_jit_add_export(jit, "uv_tty_set_mode", static_cast<int (*)(uv_tty_t*, uv_tty_mode_t mode)>(uv_tty_set_mode));
+  rawkit_jit_add_export(jit, "uv_tty_set_mode", rawkit_host_uv_tty_set_mode);
   rawkit_jit_add_export(jit, "uv_tty_reset_mode", uv_tty_reset_mode);
   rawkit_jit_add_export(jit, "uv_tty_get_winsize", uv_tty_get_winsize);
   rawkit_jit_add_export(jit, "uv_tty_set_vterm_state", uv_tty_set_vterm_state);

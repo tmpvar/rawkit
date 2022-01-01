@@ -19,7 +19,7 @@ const outLines = lines.map(line => {
   }
 
   const name = matches[1]
-  return `rawkit_jit_add_export(jit, "${name}", (void *)&${name});`
+  return `rawkit_jit_add_export(jit, "${name}", ${name});`
 }).filter(Boolean)
 
 

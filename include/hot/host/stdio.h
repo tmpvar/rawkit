@@ -38,11 +38,11 @@ static void host_init_stdio(rawkit_jit_t *jit) {
   rawkit_jit_add_export(jit, "tmpfile", tmpfile);
   rawkit_jit_add_export(jit, "tmpnam", tmpnam);
 
-  #ifdef WIN32
-  rawkit_jit_add_export(jit, "__stdio_common_vfprintf", __stdio_common_vfprintf);
-  rawkit_jit_add_export(jit, "__stdio_common_vsprintf", __stdio_common_vsprintf);
-  rawkit_jit_add_export(jit, "__stdio_common_vsprintf_s", __stdio_common_vsprintf_s);
-  #endif
+  // #ifdef WIN32
+  // rawkit_jit_add_export(jit, "__stdio_common_vfprintf", __stdio_common_vfprintf);
+  // rawkit_jit_add_export(jit, "__stdio_common_vsprintf", __stdio_common_vsprintf);
+  // rawkit_jit_add_export(jit, "__stdio_common_vsprintf_s", __stdio_common_vsprintf_s);
+  // #endif
 
   rawkit_jit_add_export(jit, "fprintf", fprintf);
   rawkit_jit_add_export(jit, "printf", printf);
